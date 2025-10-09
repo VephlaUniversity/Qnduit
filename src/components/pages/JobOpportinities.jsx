@@ -230,7 +230,24 @@ export const JobOpportunities = ({ onViewJob }) => {
             <button onClick={() => onViewJob(job.id)}>
               <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors text-left">
                 {job.title}{" "}
-                {job.verified && <span className="text-[#3B82F6]">✓</span>}
+                {job.verified && (
+                  <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="15"
+                      height="14"
+                      viewBox="0 0 15 14"
+                      fill="none"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M8.40992 0.73096C8.55202 0.77565 8.67617 0.864507 8.76429 0.984609C8.85242 1.10471 8.89993 1.2498 8.89992 1.39876V4.89876H11.6999C11.828 4.8987 11.9536 4.93377 12.0631 5.00014C12.1726 5.06651 12.2618 5.16164 12.321 5.27518C12.3801 5.38872 12.4071 5.51632 12.3988 5.6441C12.3905 5.77187 12.3473 5.89492 12.2739 5.99986L7.37392 12.9999C7.28864 13.122 7.1666 13.2138 7.02556 13.2618C6.88452 13.3099 6.73183 13.3116 6.58971 13.2669C6.44759 13.2222 6.32345 13.1332 6.23537 13.0131C6.14728 12.8929 6.09983 12.7478 6.09992 12.5988V9.09876H3.29992C3.17188 9.09882 3.04627 9.06375 2.93677 8.99738C2.82727 8.93101 2.73808 8.83588 2.67889 8.72234C2.6197 8.6088 2.59279 8.4812 2.60108 8.35342C2.60937 8.22565 2.65255 8.1026 2.72592 7.99766L7.62592 0.99766C7.71133 0.875711 7.83339 0.784169 7.97438 0.736334C8.11537 0.688498 8.26794 0.686861 8.40992 0.73166V0.73096Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </span>
+                )}
               </h3>
             </button>
             <div className="flex items-center gap-4 text-gray-400 text-sm">
@@ -262,7 +279,7 @@ export const JobOpportunities = ({ onViewJob }) => {
         {job.type.map((type, idx) => (
           <span
             key={idx}
-            className="px-3 py-1 bg-[#2A3142] text-white rounded-md text-sm"
+            className="px-3 py-2 bg-[#f1f1f1] text-black rounded-full text-sm"
           >
             {type}
           </span>
