@@ -109,7 +109,7 @@ export const JobOpportunities = ({ onViewJob }) => {
   const [radius, setRadius] = useState(25);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
   const [sortBy, setSortBy] = useState("default");
   const [postedAnytime, setPostedAnytime] = useState("anytime");
   const [seniorityLevel, setSeniorityLevel] = useState("all");
@@ -221,14 +221,17 @@ export const JobOpportunities = ({ onViewJob }) => {
   };
 
   const JobCard = ({ job }) => (
-    <div className="bg-[#1A1F2E] rounded-xl p-6 hover:bg-[#1F2637] transition-colors">
+    <div
+      className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
+      onClick={() => onViewJob(job.id)}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
           <div className="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0" />
           <div className="flex-1">
             <div className="text-[#3B82F6] text-sm mb-1">{job.company}</div>
-            <button onClick={() => onViewJob(job.id)}>
-              <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors text-left">
+            <button>
+              <h3 className="text-white text-lg font-semibold mb-2 transition-colors text-left">
                 {job.title}{" "}
                 {job.verified && (
                   <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2">
@@ -256,7 +259,39 @@ export const JobOpportunities = ({ onViewJob }) => {
                 {job.location}
               </span>
               <span className="flex items-center gap-1">
-                ⏰ {job.postedDate}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="17"
+                  height="16"
+                  viewBox="0 0 17 16"
+                  fill="none"
+                >
+                  <path
+                    d="M13.1667 2.66797H3.83333C3.09695 2.66797 2.5 3.26492 2.5 4.0013V13.3346C2.5 14.071 3.09695 14.668 3.83333 14.668H13.1667C13.903 14.668 14.5 14.071 14.5 13.3346V4.0013C14.5 3.26492 13.903 2.66797 13.1667 2.66797Z"
+                    stroke="#64666C"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M11.167 1.33203V3.9987"
+                    stroke="#64666C"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M5.83301 1.33203V3.9987"
+                    stroke="#64666C"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M2.5 6.66797H14.5"
+                    stroke="#64666C"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                {job.postedDate}
               </span>
             </div>
           </div>
@@ -275,7 +310,7 @@ export const JobOpportunities = ({ onViewJob }) => {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex justify-between flex-wrap gap-2 mb-4">
         {job.type.map((type, idx) => (
           <span
             key={idx}
@@ -284,9 +319,6 @@ export const JobOpportunities = ({ onViewJob }) => {
             {type}
           </span>
         ))}
-      </div>
-
-      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <span
@@ -297,430 +329,438 @@ export const JobOpportunities = ({ onViewJob }) => {
             </span>
           ))}
         </div>
-        <span className="text-gray-400 text-sm">
-          {job.daysLeft} days left to apply
-        </span>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-[#2A3142] flex items-center justify-between">
-        <span className="text-[#3B82F6] font-semibold flex items-center gap-1">
-          <DollarSign className="w-4 h-4" />
-          {job.salary}/{job.salaryPeriod}
+      <div className="mt-4 pt-4  flex items-center justify-between">
+        <span className="text-[#f1f1f1] flex items-center gap-1">
+          <DollarSign className="w-4 h-4 border rounded-full" />
+          {job.salary}{" "}
+          <span className="text-gray-600 text-sm">/{job.salaryPeriod}</span>
         </span>
+        <div className="flex items-center justify-between">
+          <span className="text-gray-400 text-sm">
+            {job.daysLeft} days left to apply
+          </span>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0F1419] text-white">
-      {/* Header */}
-      <div className="border-b border-[#1A1F2E] bg-[#141921] px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm">
-          <Link to="/" className="text-gray-400 hover:text-blue-600">
-            Home
-          </Link>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-[#3B82F6]">Find Jobs</span>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="px-6 py-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative">
-            <div className="bg-white rounded-lg p-2 flex items-center gap-4">
-              <div className="flex-1 flex items-center gap-3">
-                <Search className="w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Job title, key words or company"
-                  className="flex-1 outline-none text-gray-900"
-                  defaultValue={jobTitle}
-                />
-              </div>
-              <div className="h-8 w-px bg-gray-300" />
-              <div className="flex-1 flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-gray-400" />
-                <select className="flex-1 outline-none text-gray-900 bg-transparent">
-                  <option>{location || "All Location"}</option>
-                </select>
-              </div>
-              <div className="h-8 w-px bg-gray-300" />
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2"
-              >
-                <Filter className="w-4 h-4" />
-                Filter More
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              <button className="px-8 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-md transition-colors">
-                Find Jobs
-              </button>
-            </div>
-            <FilterDropdown
-              isOpen={isFilterOpen}
-              onClose={() => setIsFilterOpen(false)}
-            />
+    <>
+      <div className="min-h-screen bg-[#0F1419] text-white">
+        {/* Header */}
+        <div className="border-b border-[#1A1F2E] bg-[#141921] px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm">
+            <Link to="/" className="text-gray-400 hover:text-blue-600">
+              Home
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-[#3B82F6]">Find Jobs</span>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex gap-6">
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#3B82F6] hover:bg-[#3077e8] text-white p-4 rounded-full shadow-lg"
-          >
-            {sidebarOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-
-          {/* Overlay for mobile */}
-          {sidebarOpen && (
-            <div
-              className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-              onClick={() => setSidebarOpen(false)}
-            ></div>
-          )}
-
-          {/* Sidebar */}
-          <div
-            className={`${
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } lg:translate-x-0 lg:block fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
-          >
-            <div className="bg-[#1A1F2E] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
-              <div>
-                <h3 className="text-white font-semibold mb-3">
-                  Search Company
-                </h3>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        {/* Search Bar */}
+        <div className="px-6 py-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="relative">
+              <div className="bg-white rounded-lg p-2 flex items-center gap-4">
+                <div className="flex-1 flex items-center gap-3">
+                  <Search className="w-5 h-5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Job title, key words or company"
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                    className="flex-1 outline-none text-gray-900"
+                    defaultValue={jobTitle}
                   />
                 </div>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">Location</h3>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Location"
-                    value={locationFilter}
-                    onChange={(e) => setLocationFilter(e.target.value)}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">Job Title</h3>
-                <select className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none">
-                  <option>Design & Creative</option>
-                </select>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">
-                  On-Site/Remote
-                </h3>
-                <select
-                  value={workTypeFilter}
-                  onChange={(e) => setWorkTypeFilter(e.target.value)}
-                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                >
-                  <option value="">All Work Types</option>
-                  <option value="on-site">On-site</option>
-                  <option value="remote">Remote</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">Job Types</h3>
-                <select
-                  value={jobTypeFilter}
-                  onChange={(e) => setJobTypeFilter(e.target.value)}
-                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                >
-                  <option value="">All Job Types</option>
-                  <option value="full-time">Full-time</option>
-                  <option value="part-time">Part-time</option>
-                  <option value="contract">Contract</option>
-                  <option value="temporary">Temporary</option>
-                  <option value="freelancer">Freelancer</option>
-                </select>
-              </div>
-
-              <div>
-                <h3 className="text-gray-400 text-sm font-normal mb-3">
-                  Salaries:{" "}
-                  <span className="text-[#3B82F6] font-semibold">
-                    ${salaryRange[0].toLocaleString()} - $
-                    {salaryRange[1].toLocaleString()}
-                  </span>
-                </h3>
-                <Slider.Root
-                  className="relative flex items-center select-none touch-none w-full h-5"
-                  value={salaryRange}
-                  onValueChange={setSalaryRange}
-                  max={240000}
-                  min={0}
-                  step={1000}
-                  minStepsBetweenThumbs={1}
-                >
-                  <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                    <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
-                  </Slider.Track>
-                  <Slider.Thumb
-                    className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
-                    aria-label="Minimum salary"
-                  />
-                  <Slider.Thumb
-                    className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
-                    aria-label="Maximum salary"
-                  />
-                </Slider.Root>
-              </div>
-
-              <div>
-                <h3 className="text-gray-400 text-sm font-normal mb-3">
-                  Radius:{" "}
-                  <span className="text-[#3B82F6] font-semibold">
-                    {radius} Miles
-                  </span>
-                </h3>
-                <Slider.Root
-                  className="relative flex items-center select-none touch-none w-full h-5"
-                  value={[radius]}
-                  onValueChange={(value) => setRadius(value[0])}
-                  max={100}
-                  min={0}
-                  step={1}
-                >
-                  <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                    <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
-                  </Slider.Track>
-                  <Slider.Thumb
-                    className="block w-4 h-4 bg-[#3B82F6] rounded-full shadow-lg hover:bg-[#3077e8] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
-                    aria-label="Radius"
-                  />
-                </Slider.Root>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">
-                  Posted Anytime
-                </h3>
-                <div className="relative">
-                  <select
-                    value={postedAnytime}
-                    onChange={(e) => setPostedAnytime(e.target.value)}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
-                  >
-                    <option value="anytime">Posted Anytime</option>
-                    <option value="today">Today</option>
-                    <option value="week">Past Week</option>
-                    <option value="month">Past Month</option>
+                <div className="h-8 w-px bg-gray-300" />
+                <div className="flex-1 flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-gray-400" />
+                  <select className="flex-1 outline-none text-gray-900 bg-transparent">
+                    <option>{location || "All Location"}</option>
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
+                <div className="h-8 w-px bg-gray-300" />
+                <button
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                >
+                  <Filter className="w-4 h-4" />
+                  Filter More
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                <button className="px-8 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-md transition-colors">
+                  Find Jobs
+                </button>
               </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">
-                  All Seniority Levels
-                </h3>
-                <div className="relative">
-                  <select
-                    value={seniorityLevel}
-                    onChange={(e) => setSeniorityLevel(e.target.value)}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
-                  >
-                    <option value="all">All Seniority Levels</option>
-                    <option value="entry">Entry Level</option>
-                    <option value="mid">Mid Level</option>
-                    <option value="senior">Senior Level</option>
-                    <option value="lead">Lead</option>
-                    <option value="executive">Executive</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold mb-3">Company</h3>
-                <div className="relative">
-                  <select
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
-                  >
-                    <option value="">Company</option>
-                    <option value="rockstar">Rockstar Games New York</option>
-                    <option value="google">Google</option>
-                    <option value="microsoft">Microsoft</option>
-                    <option value="amazon">Amazon</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-
-              <button
-                onClick={handleFindJobs}
-                className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                Find Jobs
-              </button>
+              <FilterDropdown
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
+              />
             </div>
           </div>
+        </div>
 
-          {/* Job Listings */}
-          <div className="flex-1">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-              <div className="flex items-center gap-4">
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex gap-6">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#3B82F6] hover:bg-[#3077e8] text-white p-4 rounded-full shadow-lg"
+            >
+              {sidebarOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+
+            {/* Overlay for mobile */}
+            {sidebarOpen && (
+              <div
+                className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+                onClick={() => setSidebarOpen(false)}
+              ></div>
+            )}
+
+            {/* Sidebar */}
+            <div
+              className={`${
+                sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              } lg:translate-x-0 lg:block fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
+            >
+              <div className="bg-[#191D23] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
+                <div>
+                  <h3 className="text-white font-semibold mb-3">
+                    Search Company
+                  </h3>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Job title, key words or company"
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">Location</h3>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Location"
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">Job Title</h3>
+                  <select className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none">
+                    <option>Design & Creative</option>
+                  </select>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">
+                    On-Site/Remote
+                  </h3>
+                  <select
+                    value={workTypeFilter}
+                    onChange={(e) => setWorkTypeFilter(e.target.value)}
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                  >
+                    <option value="">All Work Types</option>
+                    <option value="on-site">On-site</option>
+                    <option value="remote">Remote</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">Job Types</h3>
+                  <select
+                    value={jobTypeFilter}
+                    onChange={(e) => setJobTypeFilter(e.target.value)}
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                  >
+                    <option value="">All Job Types</option>
+                    <option value="full-time">Full-time</option>
+                    <option value="part-time">Part-time</option>
+                    <option value="contract">Contract</option>
+                    <option value="temporary">Temporary</option>
+                    <option value="freelancer">Freelancer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <h3 className="text-gray-400 text-sm font-normal mb-3">
+                    Salaries:{" "}
+                    <span className="text-[#3B82F6] font-semibold">
+                      ${salaryRange[0].toLocaleString()} - $
+                      {salaryRange[1].toLocaleString()}
+                    </span>
+                  </h3>
+                  <Slider.Root
+                    className="relative flex items-center select-none touch-none w-full h-5"
+                    value={salaryRange}
+                    onValueChange={setSalaryRange}
+                    max={240000}
+                    min={0}
+                    step={1000}
+                    minStepsBetweenThumbs={1}
+                  >
+                    <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
+                      <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
+                    </Slider.Track>
+                    <Slider.Thumb
+                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
+                      aria-label="Minimum salary"
+                    />
+                    <Slider.Thumb
+                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
+                      aria-label="Maximum salary"
+                    />
+                  </Slider.Root>
+                </div>
+
+                <div>
+                  <h3 className="text-gray-400 text-sm font-normal mb-3">
+                    Radius:{" "}
+                    <span className="text-[#3B82F6] font-semibold">
+                      {radius} Miles
+                    </span>
+                  </h3>
+                  <Slider.Root
+                    className="relative flex items-center select-none touch-none w-full h-5"
+                    value={[radius]}
+                    onValueChange={(value) => setRadius(value[0])}
+                    max={100}
+                    min={0}
+                    step={1}
+                  >
+                    <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
+                      <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
+                    </Slider.Track>
+                    <Slider.Thumb
+                      className="block w-4 h-4 bg-[#3B82F6] rounded-full shadow-lg hover:bg-[#3077e8] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#1A1F2E]"
+                      aria-label="Radius"
+                    />
+                  </Slider.Root>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">
+                    Posted Anytime
+                  </h3>
+                  <div className="relative">
+                    <select
+                      value={postedAnytime}
+                      onChange={(e) => setPostedAnytime(e.target.value)}
+                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
+                    >
+                      <option value="anytime">Posted Anytime</option>
+                      <option value="today">Today</option>
+                      <option value="week">Past Week</option>
+                      <option value="month">Past Month</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">
+                    All Seniority Levels
+                  </h3>
+                  <div className="relative">
+                    <select
+                      value={seniorityLevel}
+                      onChange={(e) => setSeniorityLevel(e.target.value)}
+                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
+                    >
+                      <option value="all">All Seniority Levels</option>
+                      <option value="entry">Entry Level</option>
+                      <option value="mid">Mid Level</option>
+                      <option value="senior">Senior Level</option>
+                      <option value="lead">Lead</option>
+                      <option value="executive">Executive</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold mb-3">Company</h3>
+                  <div className="relative">
+                    <select
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none cursor-pointer"
+                    >
+                      <option value="">Company</option>
+                      <option value="rockstar">Rockstar Games New York</option>
+                      <option value="google">Google</option>
+                      <option value="microsoft">Microsoft</option>
+                      <option value="amazon">Amazon</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
                 <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded ${
-                    viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
-                  }`}
+                  onClick={handleFindJobs}
+                  className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
                 >
-                  <List className="w-5 h-5" />
+                  Find Jobs
                 </button>
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded ${
-                    viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
-                  }`}
-                >
-                  <Grid className="w-5 h-5" />
-                </button>
-                <span className="text-gray-400 text-sm">
-                  {filteredJobs.length} job
-                  {filteredJobs.length !== 1 ? "s" : ""} found
-                </span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => handleItemsPerPageChange(e.target.value)}
-                  className="w-full sm:w-auto bg-[#f1f1f1] border border-[#2A3142] rounded-sm px-4 py-2 text-black text-sm"
-                >
-                  <option value="6">6 Per Page</option>
-                  <option value="12">12 Per Page</option>
-                  <option value="24">24 Per Page</option>
-                </select>
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="w-full sm:w-auto bg-[#f1f1f1] border border-[#2A3142] rounded-sm px-4 py-2 text-black text-sm"
-                >
-                  <option value="default">Sort by (Default)</option>
-                  <option value="newest">Newest First</option>
-                  <option value="salary">Highest Salary</option>
-                </select>
               </div>
             </div>
 
-            {paginatedJobs.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="max-w-md mx-auto">
-                  <Search className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-white mb-2">
-                    No Results Found
-                  </h2>
-                  <p className="text-gray-400 mb-6">
-                    We couldn't find any jobs matching your search criteria. Try
-                    adjusting your filters.
-                  </p>
+            {/* Job Listings */}
+            <div className="flex-1">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`p-2 rounded ${
+                      viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
+                    }`}
+                  >
+                    <List className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`p-2 rounded ${
+                      viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
+                    }`}
+                  >
+                    <Grid className="w-5 h-5" />
+                  </button>
+                  <span className="text-gray-400 text-sm">
+                    {filteredJobs.length} job
+                    {filteredJobs.length !== 1 ? "s" : ""} found
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                    className="w-full sm:w-auto bg-[#f1f1f1] border border-[#2A3142] rounded-sm px-4 py-2 text-black text-sm"
+                  >
+                    <option value="6">6 Per Page</option>
+                    <option value="12">12 Per Page</option>
+                    <option value="24">24 Per Page</option>
+                  </select>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                    className="w-full sm:w-auto bg-[#f1f1f1] border border-[#2A3142] rounded-sm px-4 py-2 text-black text-sm"
+                  >
+                    <option value="default">Sort by (Default)</option>
+                    <option value="newest">Newest First</option>
+                    <option value="salary">Highest Salary</option>
+                  </select>
                 </div>
               </div>
-            ) : (
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 lg:grid-cols-2 gap-6"
-                    : "space-y-4"
-                }
-              >
-                {paginatedJobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
-            )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 flex-wrap mt-8">
-                <button
-                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className={`w-10 h-10 flex items-center justify-center rounded border ${
-                    currentPage === 1
-                      ? "bg-[#1A1F2E] border-[#2A3142] text-gray-600 cursor-not-allowed"
-                      : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
-                  }`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
+              {paginatedJobs.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="max-w-md mx-auto">
+                    <Search className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">
+                      No Results Found
+                    </h2>
+                    <p className="text-gray-400 mb-6">
+                      We couldn't find any jobs matching your search criteria.
+                      Try adjusting your filters.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={
+                    viewMode === "grid"
+                      ? "grid grid-cols-1 lg:grid-cols-2 gap-6"
+                      : "space-y-4"
                   }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`w-10 h-10 flex items-center justify-center rounded border ${
-                        currentPage === pageNum
-                          ? "bg-[#3B82F6] border-[#3077e8] text-white"
-                          : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() =>
-                    handlePageChange(Math.min(totalPages, currentPage + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  className={`w-10 h-10 flex items-center justify-center rounded border ${
-                    currentPage === totalPages
-                      ? "bg-[#1A1F2E] border-[#2A3142] text-gray-600 cursor-not-allowed"
-                      : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
-                  }`}
                 >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            )}
+                  {paginatedJobs.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 flex-wrap mt-8">
+                  <button
+                    onClick={() =>
+                      handlePageChange(Math.max(1, currentPage - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className={`w-10 h-10 flex items-center justify-center rounded border ${
+                      currentPage === 1
+                        ? "bg-[#1A1F2E] border-[#2A3142] text-gray-600 cursor-not-allowed"
+                        : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
+                    }`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`w-10 h-10 flex items-center justify-center rounded border ${
+                          currentPage === pageNum
+                            ? "bg-[#3B82F6] border-[#3077e8] text-white"
+                            : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    onClick={() =>
+                      handlePageChange(Math.min(totalPages, currentPage + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className={`w-10 h-10 flex items-center justify-center rounded border ${
+                      currentPage === totalPages
+                        ? "bg-[#1A1F2E] border-[#2A3142] text-gray-600 cursor-not-allowed"
+                        : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
+                    }`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <CTA />
+    </>
   );
 };
