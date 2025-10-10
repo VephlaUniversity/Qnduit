@@ -195,7 +195,7 @@ export const SourceTalentForm = () => {
       {/* Submit Button */}
       <button
         type="submit"
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-4 rounded-xl transition-colors duration-200 shadow-lg shadow-blue-500/30 mb-4"
+        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl transition-colors duration-200 mb-4"
       >
         Source Talents
       </button>

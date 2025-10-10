@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CTA } from "../home/CTA";
+import { AnimatedPage } from "../AnimatedPage";
 
 const jobDetailsData = {
   1: {
@@ -155,7 +156,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
   };
 
   return (
-    <>
+    <AnimatedPage>
       <div className="min-h-screen bg-[#0F1419] text-white">
         {/* Header Banner */}
         <div className="bg-[#262C36] px-6 py-8">
@@ -741,6 +742,6 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         </div>
       </div>
       <CTA />
-    </>
+    </AnimatedPage>
   );
 };

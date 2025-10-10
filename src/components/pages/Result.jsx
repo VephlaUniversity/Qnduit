@@ -15,6 +15,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { CTA } from "../home/CTA";
+import { AnimatedPage } from "../AnimatedPage";
 
 const candidatesData = [
   {
@@ -419,7 +420,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
   );
 
   return (
-    <>
+    <AnimatedPage>
       <div className="min-h-screen text-white p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-sm text-gray-400 mb-6">
@@ -779,6 +780,6 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
         </div>
       </div>
       <CTA />
-    </>
+    </AnimatedPage>
   );
 };

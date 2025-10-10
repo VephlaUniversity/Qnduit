@@ -32,10 +32,10 @@ export const HeroSection = () => {
             ready to hire, turning visibility into opportunity.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-6">
-            <button className="bg-[#3B82F6] text-white px-8 py-3 rounded-full font-semibold hover:bg-[#5F8DD7] transition-colors cursor-pointer">
+            <button className="bg-[#3B82F6] text-white px-8 py-3 rounded-full  hover:bg-[#5F8DD7] transition-colors cursor-pointer">
               Join as Talent
             </button>
-            <button className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors cursor-pointer">
+            <button className="bg-white text-black px-8 py-3 rounded-full  hover:bg-gray-100 transition-colors cursor-pointer">
               Hire Talent
             </button>
           </div>

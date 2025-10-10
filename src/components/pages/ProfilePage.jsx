@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { CTA } from "../home/CTA";
+import { AnimatedPage } from "../AnimatedPage";
 
 export const ProfilePage = ({ candidate, onBack }) => {
   const [activeTab, setActiveTab] = useState("resume");
@@ -28,7 +29,7 @@ export const ProfilePage = ({ candidate, onBack }) => {
   ];
 
   return (
-    <>
+    <AnimatedPage>
       <div className="min-h-screen bg-[#0F1419] text-white p-6">
         <div className="max-w-7xl mx-auto">
           <button
@@ -491,6 +492,6 @@ export const ProfilePage = ({ candidate, onBack }) => {
         </div>
       </div>
       <CTA />
-    </>
+    </AnimatedPage>
   );
 };

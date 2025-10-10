@@ -120,9 +120,8 @@ export const TalentTestimonials = () => {
 
         {/* CTA Button */}
         <div className="flex justify-center">
-          <button className="bg-transparent border border-gray-600 text-white px-8 py-3 rounded-full font-medium hover:bg-white/10 hover:border-white transition-all duration-300 flex items-center gap-2">
-            Read more Customer Reviews
-            <span className="text-xl">→</span>
+          <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
+            Read more Customer Reviews →
           </button>
         </div>
       </div>

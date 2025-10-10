@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { FilterDropdown } from "./JobFilterDropdown";
+import { AnimatedPage } from "../AnimatedPage";
 
 // Mock job data
 const jobsData = [
@@ -347,7 +348,7 @@ export const JobOpportunities = ({ onViewJob }) => {
   );
 
   return (
-    <>
+    <AnimatedPage>
       <div className="min-h-screen bg-[#0F1419] text-white">
         {/* Header */}
         <div className="border-b border-[#1A1F2E] bg-[#141921] px-6 py-4">
@@ -761,6 +762,6 @@ export const JobOpportunities = ({ onViewJob }) => {
         </div>
       </div>
       <CTA />
-    </>
+    </AnimatedPage>
   );
 };

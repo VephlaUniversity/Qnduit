@@ -122,8 +122,8 @@ export const FeaturedTalents = () => {
   };
 
   const TalentCard = ({ talent }) => (
-    <div className="px-3">
-      <div className="rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-[250px] bg-gray-800 hover:scale-105 transform transition-all duration-300 ">
+    <div className="px-2 sm:px-3">
+      <div className="rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-full max-w-[250px] mx-auto bg-gray-800 hover:scale-105 transform transition-all duration-300">
         <img
           src={talent.gradient}
           alt={talent.name}
@@ -186,7 +186,7 @@ export const FeaturedTalents = () => {
           </span>
         </p>
 
-        <button className="px-8 py-4 border-2 border-white text-white rounded-full hover:bg-white hover:text-black transition-all duration-300 text-lg">
+        <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
           Boost profile for $1.99 →
         </button>
       </div>

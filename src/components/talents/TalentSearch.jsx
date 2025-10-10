@@ -14,7 +14,7 @@ export const TalentSearch = () => {
           </span>
         </p>
 
-        <button className="px-8 py-4 border-2 border-white text-white rounded-full hover:bg-white hover:text-black transition-all duration-300 text-lg">
+        <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
           Boost profile for $1.99 →
         </button>
       </div>

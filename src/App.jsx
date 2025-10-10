@@ -11,6 +11,7 @@ import FeaturedSuccessStories from "./components/pages/FeaturedSuccessStories";
 
 import { TalentsSearchManager } from "./components/TalentsSearchManager";
 import { JobManager } from "./components/JobSearchManager";
+import { AnimatePresence } from "framer-motion";
 
 const App = () => {
   const location = useLocation();
@@ -18,15 +19,17 @@ const App = () => {
     <div className="min-h-screen bg-[#0E0E10] text-white">
       <ScrollToTop />
       <Header />
-      <Routes key={location.pathname} location={location}>
-        <Route path="/" element={<QnduitLanding />} />
-        <Route path="/talents" element={<ForTalents />} />
-        <Route path="/employers" element={<ForEmployers />} />
-        <Route path="/pricing" element={<PrincinPage />} />
-        <Route path="/testimonials" element={<FeaturedSuccessStories />} />
-        <Route path="/find-talents" element={<TalentsSearchManager />} />
-        <Route path="/jobs" element={<JobManager />} />
-      </Routes>
+      <AnimatePresence mode="wait">
+        <Routes key={location.pathname} location={location}>
+          <Route path="/" element={<QnduitLanding />} />
+          <Route path="/talents" element={<ForTalents />} />
+          <Route path="/employers" element={<ForEmployers />} />
+          <Route path="/pricing" element={<PrincinPage />} />
+          <Route path="/testimonials" element={<FeaturedSuccessStories />} />
+          <Route path="/find-talents" element={<TalentsSearchManager />} />
+          <Route path="/jobs" element={<JobManager />} />
+        </Routes>
+      </AnimatePresence>
       <Footer />
     </div>
   );
