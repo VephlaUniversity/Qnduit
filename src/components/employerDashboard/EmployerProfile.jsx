@@ -8,7 +8,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
+import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
+import { FaPinterest } from "react-icons/fa";
 export const EmployerProfile = () => {
   const navigate = useNavigate();
 
@@ -114,12 +115,19 @@ export const EmployerProfile = () => {
             <div>
               <p className="text-gray-400 text-sm mb-3">Socials:</p>
               <div className="flex gap-2">
-                {["f", "in", "t", "p", "i", "y"].map((social, i) => (
+                {[
+                  Facebook,
+                  Linkedin,
+                  Twitter,
+                  FaPinterest,
+                  Instagram,
+                  Youtube,
+                ].map((Icon, i) => (
                   <button
                     key={i}
-                    className="w-10 h-10 rounded-full bg-white hover:bg-gray-200 flex items-center justify-center text-gray-800 transition-colors"
+                    className="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center transition-colors"
                   >
-                    {social}
+                    <Icon className="w-5 h-5 text-white" />
                   </button>
                 ))}
               </div>
@@ -158,7 +166,7 @@ export const EmployerProfile = () => {
                   <span className="text-2xl text-white">▶</span>
                 </div>
               </div>
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center items-center gap-4">
                 <button className="p-3 bg-blue-600 hover:bg-blue-700 rounded-full text-white transition-colors">
                   <ChevronLeft className="w-5 h-5" />
                 </button>

@@ -34,9 +34,8 @@ export const TalentProfile = () => {
     jobTitle: "UI UX Designer",
     categories: "Design",
     showProfile: "show",
-    aboutMe:
-      "Are you a User Experience Designer with a track record of delivering intuitive digital experiences that drive results? Are you a strategic storyteller and systems thinker who can concept and craft smart, world-class campaigns across a variety of mediums",
-    facebook: "http://www.facebook.com/avitex",
+    aboutMe: "",
+    facebook: "",
     twitter: "",
     instagram: "",
     linkedin: "",
@@ -44,9 +43,9 @@ export const TalentProfile = () => {
     youtube: "",
     address: "71 St. Takayamio, Tokyo",
     mapLocation: "243- 235 St. Takayamio Tokyo",
-    latitude: "40.6949919806389",
-    longitude: "-73.9295976171989",
-    introVideo: "https://www.youtube.com/watch?v=IzIZLgjk_ba90",
+    latitude: "",
+    longitude: "",
+    introVideo: "",
   });
 
   const [tags, setTags] = useState([
@@ -515,7 +514,7 @@ export const TalentProfile = () => {
                     </div>
                   )}
                   <input
-                    type="text"
+                    type="url"
                     name={social.name}
                     value={formData[social.name]}
                     onChange={handleInputChange}
@@ -597,30 +596,7 @@ export const TalentProfile = () => {
             </div>
 
             {/* Map Placeholder */}
-            <div className="w-full h-64 bg-gray-300 rounded-lg flex items-center justify-center relative overflow-hidden">
-              <MapPin className="w-12 h-12 text-red-500 absolute z-10" />
-              <div className="absolute inset-0 bg-gray-400 opacity-20">
-                {/* Map dots pattern */}
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-8 h-8 border-4 border-gray-600 rounded-full"
-                    style={{
-                      left: `${20 + i * 15}%`,
-                      top: `${30 + (i % 2) * 20}%`,
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-                <button className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center">
-                  <Plus className="w-5 h-5" />
-                </button>
-                <button className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center">
-                  −
-                </button>
-              </div>
-            </div>
+            <div className="w-full h-64 bg-gray-300 rounded-lg flex items-center justify-center relative overflow-hidden"></div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>

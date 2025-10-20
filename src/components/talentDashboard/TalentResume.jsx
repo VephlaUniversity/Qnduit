@@ -9,15 +9,10 @@ export const TalentResumes = () => {
   const cvInputRef = useRef(null);
   const portfolioInputRef = useRef(null);
 
-  const [cvFiles, setCvFiles] = useState([
-    { name: "SAMPLE_CV_JOBITEX", type: "PDF" },
-    { name: "SAMPLE_CV_JOBITEX", type: "Doc" },
-  ]);
+  const [cvFiles, setCvFiles] = useState([]);
 
   const [portfolioImages, setPortfolioImages] = useState([null, null, null]);
-  const [aboutMe, setAboutMe] = useState(
-    "Are you a User Experience Designer with a track record of delivering intuitive digital experiences that drive results? Are you a strategic storyteller and systems thinker who can concept and craft smart, world-class campaigns across a variety of mediums"
-  );
+  const [aboutMe, setAboutMe] = useState("");
 
   const [education, setEducation] = useState([
     {
@@ -26,7 +21,7 @@ export const TalentResumes = () => {
       title: "Design",
       startDate: "2008",
       endDate: "2013",
-      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      description: "",
     },
   ]);
 
@@ -37,7 +32,7 @@ export const TalentResumes = () => {
       title: "UI UX Designer",
       startDate: "2008",
       endDate: "2013",
-      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+      description: "",
     },
   ]);
 
@@ -219,7 +214,7 @@ export const TalentResumes = () => {
           </label>
           <input
             type="text"
-            defaultValue="https://www.youtube.com/watch?v=IzIZLgjk_ba90"
+            defaultValue=""
             className="w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
             placeholder="https://www.youtube.com/watch?v=..."
           />

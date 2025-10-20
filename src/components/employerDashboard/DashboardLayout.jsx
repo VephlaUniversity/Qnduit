@@ -60,6 +60,7 @@ export const DashboardLayout = ({
       label: "Delete Profile",
       path: "/dashboard/delete-profile",
     },
+    { icon: LogOut, label: "Log Out", path: "/signin" },
   ];
 
   const handleLogout = async () => {

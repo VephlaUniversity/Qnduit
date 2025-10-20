@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Image as ImageIcon, X, Plus, ExternalLink } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import TextEditor from "../TextEditor";
+import { Facebook, Linkedin, Youtube, Twitter, Instagram } from "lucide-react";
+import { FaPinterest } from "react-icons/fa";
 
 export const ProfileSettings = () => {
   const { user } = useAuth();
+  const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
     employerName: "Avitex Agency",
-    email: "hi.avitex@gmail.com",
+    email: "employer@gmail.com",
     phone: "123 456 7890",
     website: "avitex.com",
     foundedDate: "2018",
@@ -15,22 +19,21 @@ export const ProfileSettings = () => {
     showProfile: "show",
     categories: ["Developer", "Graphic Designer", "VFX Artist", "3D Modeling"],
     profileURL: "https://www.avitex.vn",
-    aboutCompany:
-      "Are you a User Experience Designer with a track record of delivering intuitive digital experiences that drive results? Are you a strategic storyteller and systems thinker who can concept and craft smart, world-class campaigns across a variety of mediums?",
+    aboutCompany: "",
     socialNetworks: {
-      facebook: "http://www.facebook.com/avitex",
+      facebook: "",
       linkedin: "",
       twitter: "",
       pinterest: "",
       instagram: "",
       youtube: "",
     },
-    introVideo: "https://www.youtube.com/watch?v=4kZLqk9k",
+    introVideo: "",
     address: "71 St. Takayamio, Tokyo)",
     location: "Tokyo",
     mapLocation: "245 - 235 St. Takayamio, Tokyo",
-    lat: "40.69499198068389",
-    lng: "-73.99599761719189",
+    lat: "",
+    lng: "",
   });
 
   // Update form data when user data is available
@@ -55,17 +58,41 @@ export const ProfileSettings = () => {
     setFormData({ ...formData, [field]: value });
   };
 
-  const handleSocialChange = (platform, value) => {
-    setFormData({
-      ...formData,
-      socialNetworks: { ...formData.socialNetworks, [platform]: value },
-    });
-  };
+  // const handleSocialChange = (platform, value) => {
+  //   setFormData({
+  //     ...formData,
+  //     socialNetworks: { ...formData.socialNetworks, [platform]: value },
+  //   });
+  // };
 
   const handleSave = () => {
     console.log("Profile saved:", formData);
     // TODO: Implement actual save logic
   };
+  const socialIcons = [
+    {
+      name: "facebook",
+      icon: Facebook,
+      placeholder: "http://www.facebook.com",
+    },
+    {
+      name: "linkedin",
+      icon: Linkedin,
+      placeholder: "http://www.linkedin.com",
+    },
+    { name: "twitter", icon: Twitter, placeholder: "http://www.x.com" },
+    {
+      name: "pinterest",
+      icon: FaPinterest,
+      placeholder: "http://www.pinterest.com",
+    },
+    {
+      name: "instagram",
+      icon: Instagram,
+      placeholder: "http://www.instagram.com",
+    },
+    { name: "youtube", icon: Youtube, placeholder: "http://www.youtube.com" },
+  ];
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -264,11 +291,6 @@ export const ProfileSettings = () => {
                 + Add Category
               </button>
             </div>
-            <div className="mt-2 bg-[#0E0E10] border border-gray-700 rounded p-2">
-              <p className="text-gray-400 text-sm">3D Modeling</p>
-              <p className="text-gray-400 text-sm">Modeling</p>
-              <p className="text-gray-400 text-sm">UI UX Designer</p>
-            </div>
           </div>
 
           <div className="mt-6">
@@ -294,28 +316,7 @@ export const ProfileSettings = () => {
           <h2 className="text-xl font-semibold text-white mb-6">
             About Company
           </h2>
-          <div className="bg-[#0E0E10] border border-gray-700 rounded-lg">
-            <div className="flex gap-2 p-3 border-b border-gray-700">
-              {["B", "I", "U", "S", "T", "link", "attach", "img", "emoji"].map(
-                (tool, i) => (
-                  <button
-                    key={i}
-                    className="w-8 h-8 hover:bg-white/5 rounded flex items-center justify-center text-gray-400"
-                  >
-                    {tool}
-                  </button>
-                )
-              )}
-            </div>
-            <textarea
-              value={formData.aboutCompany}
-              onChange={(e) =>
-                handleInputChange("aboutCompany", e.target.value)
-              }
-              rows={6}
-              className="w-full bg-transparent text-white p-4 focus:outline-none resize-none"
-            />
-          </div>
+          <TextEditor />
         </div>
 
         {/* Profile Photo */}
@@ -363,36 +364,38 @@ export const ProfileSettings = () => {
             Social Network
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {Object.entries(formData.socialNetworks).map(
-              ([platform, value]) => (
-                <div key={platform} className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                    <span className="text-gray-800 font-bold text-sm">
-                      {platform[0]}
-                    </span>
-                  </div>
-                  <div className="flex-1 relative">
-                    <input
-                      type="url"
-                      value={value}
-                      onChange={(e) =>
-                        handleSocialChange(platform, e.target.value)
+            {socialIcons.map((social) => {
+              const Icon = social.icon;
+              return (
+                <div key={social.name} className="flex gap-3">
+                  {Icon && (
+                    <div className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                  )}
+                  <input
+                    type="url"
+                    name={social.name}
+                    value={formData[social.name]}
+                    onChange={handleInputChange}
+                    placeholder={social.placeholder}
+                    className={`flex-1 px-4 py-3 bg-[#0E0E10] border ${
+                      errors[social.name] ? "border-red-500" : "border-white/10"
+                    } rounded-lg text-white focus:outline-none focus:border-blue-500`}
+                  />
+                  {formData[social.name] && (
+                    <button
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, [social.name]: "" }))
                       }
-                      placeholder="URL"
-                      className="w-full bg-[#0E0E10] border border-gray-700 text-white rounded px-4 py-3 pr-10 focus:border-blue-600 focus:outline-none"
-                    />
-                    {value && (
-                      <button
-                        onClick={() => handleSocialChange(platform, "")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                      className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
 
@@ -439,14 +442,7 @@ export const ProfileSettings = () => {
           </div>
 
           {/* Map Placeholder */}
-          <div className="bg-gray-700 rounded-lg h-80 flex items-center justify-center mb-6">
-            <div className="text-center">
-              <p className="text-white mb-2">Map View</p>
-              <p className="text-gray-400 text-sm">
-                Interactive map would be displayed here
-              </p>
-            </div>
-          </div>
+          <div className="bg-gray-500 rounded-lg h-80 flex items-center justify-center mb-6"></div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <input
