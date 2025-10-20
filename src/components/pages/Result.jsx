@@ -28,8 +28,7 @@ const candidatesData = [
     salary: "$300/day",
     avatar: null,
     verified: false,
-    about:
-      "Are you a User Experience Designer with a track record of delivering intuitive digital experiences that drive results? Are you a strategic storyteller and systems thinker who can concept and craft smart, world-class campaigns across a variety of mediums?",
+    about: "",
     education: [
       {
         school: "FPT University",

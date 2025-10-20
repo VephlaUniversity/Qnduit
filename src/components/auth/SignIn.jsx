@@ -1,20 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthHeader } from "./AuthHeader";
 import { ArrowLeft, LogIn } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { resumePlanSelection } from "../utils/ResumePlanSelection";
 
 export const SignIn = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn, isAuthenticated } = useAuth();
+
+  const message = location.state?.message;
+
+  // If user is already authenticated, redirect them
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Check if there's a pending plan selection to resume
+      const hasPendingSelection = resumePlanSelection(navigate);
+
+      // If no pending selection, redirect based on user type
+      if (!hasPendingSelection) {
+        const storedUser = localStorage.getItem("user");
+        const user = storedUser ? JSON.parse(storedUser) : null;
+        if (user?.userType === "talent") {
+          navigate("/talent-dashboard");
+        } else {
+          navigate("/dashboard");
+        }
+      }
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
   };
-
-  const [errors, setErrors] = useState({});
 
   const validateForm = () => {
     const newErrors = {};
@@ -35,15 +61,38 @@ export const SignIn = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      console.log("Sign in:", formData);
-      navigate("/dashboard");
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      // Call the signIn method from AuthContext
+      const userData = await signIn(formData.email, formData.password);
+
+      // check if there's a pending plan selection after successful sign-in
+      const hasPendingSelection = resumePlanSelection(navigate);
+
+      // If no pending selection, redirect based on user type
+      if (!hasPendingSelection) {
+        if (userData.userType === "talent") {
+          navigate("/talent-dashboard");
+        } else {
+          navigate("/dashboard");
+        }
+      }
+    } catch (err) {
+      setErrors({
+        submit: err.message || "Invalid email or password. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen  bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]">
+    <div className="min-h-screen bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]">
       <AuthHeader />
       <div className="container mx-auto px-4 py-12">
         <button
@@ -62,9 +111,16 @@ export const SignIn = () => {
           <h1 className="text-3xl font-semibold text-white text-center mb-2">
             Welcome Back
           </h1>
-          <p className="text-gray-400 text-center mb-8">
+          <p className="text-gray-400 text-center mb-4">
             Sign in to continue to your account
           </p>
+
+          {/* Show message if redirected from plan selection */}
+          {message && (
+            <div className="mb-6 p-3 bg-blue-600/20 border border-blue-600/50 rounded-lg text-center">
+              <p className="text-blue-400 text-sm">{message}</p>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>
@@ -79,9 +135,10 @@ export const SignIn = () => {
                   handleInputChange("email", e.target.value);
                   if (errors.email) setErrors({ ...errors, email: "" });
                 }}
+                disabled={isLoading}
                 className={`w-full bg-transparent border ${
                   errors.email ? "border-red-500" : "border-gray-700"
-                } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
+                } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none disabled:opacity-50`}
               />
               {errors.email && (
                 <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -100,14 +157,25 @@ export const SignIn = () => {
                   handleInputChange("password", e.target.value);
                   if (errors.password) setErrors({ ...errors, password: "" });
                 }}
+                disabled={isLoading}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSubmit();
+                }}
                 className={`w-full bg-transparent border ${
                   errors.password ? "border-red-500" : "border-gray-700"
-                } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
+                } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none disabled:opacity-50`}
               />
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
               )}
             </div>
+
+            {/* Show submit error if any */}
+            {errors.submit && (
+              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <p className="text-red-400 text-sm">{errors.submit}</p>
+              </div>
+            )}
 
             <div className="flex justify-between items-center">
               <label className="flex items-center gap-2 text-sm text-gray-400">
@@ -124,9 +192,10 @@ export const SignIn = () => {
 
             <button
               onClick={handleSubmit}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {isLoading ? "Signing In..." : "Sign In"}
             </button>
 
             <p className="text-center text-gray-400 text-sm">
@@ -151,3 +220,5 @@ export const SignIn = () => {
     </div>
   );
 };
+
+export default SignIn;

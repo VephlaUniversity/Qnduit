@@ -36,126 +36,38 @@ export const TalentSignup = () => {
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: "" });
-    }
-  };
-
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validatePassword = (password) => {
-    const hasLetters = /[a-zA-Z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const isLongEnough = password.length >= 8;
-    return hasLetters && hasNumbers && isLongEnough;
-  };
-
-  const validateUrl = (url) => {
-    if (!url) return true; // Optional field
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const validateStep = () => {
     const newErrors = {};
 
     if (currentStep === 1) {
-      // Email validation
-      const emailValue = formData.email.trim();
-      if (!emailValue) {
+      if (!formData.email.trim()) {
         newErrors.email = "Email is required";
-      } else if (!validateEmail(emailValue)) {
-        newErrors.email = "Please enter a valid email address";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = "Invalid email format";
       }
 
-      // First name validation
-      const firstNameValue = formData.firstName.trim();
-      if (!firstNameValue) {
+      if (!formData.firstName.trim()) {
         newErrors.firstName = "First name is required";
-      } else if (firstNameValue.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters";
-      } else if (!/^[a-zA-Z\s'-]+$/.test(firstNameValue)) {
-        newErrors.firstName =
-          "First name can only contain letters, spaces, hyphens, and apostrophes";
       }
 
-      // Last name validation
-      const lastNameValue = formData.lastName.trim();
-      if (!lastNameValue) {
+      if (!formData.lastName.trim()) {
         newErrors.lastName = "Last name is required";
-      } else if (lastNameValue.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters";
-      } else if (!/^[a-zA-Z\s'-]+$/.test(lastNameValue)) {
-        newErrors.lastName =
-          "Last name can only contain letters, spaces, hyphens, and apostrophes";
       }
 
-      // Password validation
       if (!formData.password) {
         newErrors.password = "Password is required";
-      } else if (!validatePassword(formData.password)) {
-        if (formData.password.length < 8) {
-          newErrors.password = "Password must be at least 8 characters";
-        } else if (!/[a-zA-Z]/.test(formData.password)) {
-          newErrors.password = "Password must contain at least one letter";
-        } else if (!/\d/.test(formData.password)) {
-          newErrors.password = "Password must contain at least one number";
-        }
+      } else if (formData.password.length < 8) {
+        newErrors.password = "Password must be at least 8 characters";
+      } else if (!/^(?=.*[a-zA-Z])(?=.*\d)/.test(formData.password)) {
+        newErrors.password = "Password must contain letters and numbers";
       }
     }
 
     if (currentStep === 2) {
-      if (formData.verificationCode.length !== 4) {
-        newErrors.verificationCode = "Verification code must be 4 digits";
-      } else if (!/^\d{4}$/.test(formData.verificationCode)) {
-        newErrors.verificationCode =
-          "Verification code must contain only numbers";
-      } else if (formData.verificationCode !== "1111") {
+      if (formData.verificationCode !== "1111") {
         newErrors.verificationCode = "Invalid verification code";
-      }
-    }
-
-    if (currentStep === 3) {
-      if (!formData.role) {
-        newErrors.role = "Please select a role";
-      }
-      if (!formData.experience) {
-        newErrors.experience = "Please select your experience level";
-      }
-      if (!formData.location) {
-        newErrors.location = "Please select your location";
-      }
-    }
-
-    if (currentStep === 4) {
-      // Resume is required
-      if (!formData.resume) {
-        newErrors.resume = "Resume is required";
-      }
-
-      // Bio validation
-      if (formData.bio.trim().length > 0 && formData.bio.trim().length < 10) {
-        newErrors.bio = "Bio must be at least 10 characters if provided";
-      } else if (formData.bio.trim().length > 500) {
-        newErrors.bio = "Bio cannot exceed 500 characters";
-      }
-
-      // LinkedIn URL validation
-      if (formData.linkedin) {
-        const linkedinUrl = formData.linkedin.trim();
-        if (!validateUrl(linkedinUrl)) {
-          newErrors.linkedin = "Please enter a valid LinkedIn URL";
-        } else if (!linkedinUrl.toLowerCase().includes("linkedin")) {
-          newErrors.linkedin = "Please enter a valid LinkedIn profile URL";
-        }
       }
     }
 
@@ -209,28 +121,7 @@ export const TalentSignup = () => {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const validTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-
-      if (!validTypes.includes(file.type)) {
-        setErrors({
-          ...errors,
-          resume: "Please upload a PDF or Word document",
-        });
-        return;
-      }
-
-      if (file.size > maxSize) {
-        setErrors({ ...errors, resume: "File size must be less than 5MB" });
-        return;
-      }
-
       handleInputChange("resume", file);
-      setErrors({ ...errors, resume: "" });
     }
   };
 
@@ -273,7 +164,10 @@ export const TalentSignup = () => {
                   type="email"
                   placeholder="Daniale@qnduit.com"
                   value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  onChange={(e) => {
+                    handleInputChange("email", e.target.value);
+                    if (errors.email) setErrors({ ...errors, email: "" });
+                  }}
                   className={`w-full bg-transparent border ${
                     errors.email ? "border-red-500" : "border-gray-700"
                   } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
@@ -292,9 +186,11 @@ export const TalentSignup = () => {
                     type="text"
                     placeholder="John"
                     value={formData.firstName}
-                    onChange={(e) =>
-                      handleInputChange("firstName", e.target.value)
-                    }
+                    onChange={(e) => {
+                      handleInputChange("firstName", e.target.value);
+                      if (errors.firstName)
+                        setErrors({ ...errors, firstName: "" });
+                    }}
                     className={`w-full bg-transparent border ${
                       errors.firstName ? "border-red-500" : "border-gray-700"
                     } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
@@ -313,9 +209,11 @@ export const TalentSignup = () => {
                     type="text"
                     placeholder="Doe"
                     value={formData.lastName}
-                    onChange={(e) =>
-                      handleInputChange("lastName", e.target.value)
-                    }
+                    onChange={(e) => {
+                      handleInputChange("lastName", e.target.value);
+                      if (errors.lastName)
+                        setErrors({ ...errors, lastName: "" });
+                    }}
                     className={`w-full bg-transparent border ${
                       errors.lastName ? "border-red-500" : "border-gray-700"
                     } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
@@ -337,9 +235,11 @@ export const TalentSignup = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••••••"
                     value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
+                    onChange={(e) => {
+                      handleInputChange("password", e.target.value);
+                      if (errors.password)
+                        setErrors({ ...errors, password: "" });
+                    }}
                     className={`w-full bg-transparent border ${
                       errors.password ? "border-red-500" : "border-gray-700"
                     } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 pr-10 focus:outline-none`}
@@ -407,6 +307,8 @@ export const TalentSignup = () => {
                       const newCode = formData.verificationCode.split("");
                       newCode[index] = value;
                       handleInputChange("verificationCode", newCode.join(""));
+                      if (errors.verificationCode)
+                        setErrors({ ...errors, verificationCode: "" });
 
                       if (value && index < 3) {
                         const nextInput = document.getElementById(
@@ -459,12 +361,10 @@ export const TalentSignup = () => {
                 <select
                   value={formData.role}
                   onChange={(e) => handleInputChange("role", e.target.value)}
-                  className={`w-full bg-transparent border ${
-                    errors.role ? "border-red-500" : "border-gray-700"
-                  } text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600`}
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
                   <option value="" className="bg-[#1a2942]">
-                    Select a role
+                    Product Designer
                   </option>
                   <option value="product-designer" className="bg-[#1a2942]">
                     Product Designer
@@ -479,9 +379,6 @@ export const TalentSignup = () => {
                     Developer
                   </option>
                 </select>
-                {errors.role && (
-                  <p className="text-red-500 text-xs mt-1">{errors.role}</p>
-                )}
               </div>
 
               <div>
@@ -493,12 +390,10 @@ export const TalentSignup = () => {
                   onChange={(e) =>
                     handleInputChange("experience", e.target.value)
                   }
-                  className={`w-full bg-transparent border ${
-                    errors.experience ? "border-red-500" : "border-gray-700"
-                  } text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600`}
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
                   <option value="" className="bg-[#1a2942]">
-                    Select experience level
+                    Beginner (0-1) years
                   </option>
                   <option value="0-1" className="bg-[#1a2942]">
                     Beginner (0-1) years
@@ -510,11 +405,6 @@ export const TalentSignup = () => {
                     Expert (5+) years
                   </option>
                 </select>
-                {errors.experience && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.experience}
-                  </p>
-                )}
               </div>
 
               <div>
@@ -526,12 +416,10 @@ export const TalentSignup = () => {
                   onChange={(e) =>
                     handleInputChange("location", e.target.value)
                   }
-                  className={`w-full bg-transparent border ${
-                    errors.location ? "border-red-500" : "border-gray-700"
-                  } text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600`}
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
                   <option value="" className="bg-[#1a2942]">
-                    Select location
+                    United Kingdom
                   </option>
                   <option value="uk" className="bg-[#1a2942]">
                     United Kingdom
@@ -543,9 +431,6 @@ export const TalentSignup = () => {
                     Canada
                   </option>
                 </select>
-                {errors.location && (
-                  <p className="text-red-500 text-xs mt-1">{errors.location}</p>
-                )}
               </div>
 
               <div>
@@ -603,11 +488,7 @@ export const TalentSignup = () => {
                 <label className="text-sm text-gray-400 block mb-2">
                   Upload Resume
                 </label>
-                <div
-                  className={`border-2 border-dashed ${
-                    errors.resume ? "border-red-500" : "border-blue-600"
-                  } rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors`}
-                >
+                <div className="border-2 border-dashed border-blue-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx"
@@ -637,9 +518,6 @@ export const TalentSignup = () => {
                     )}
                   </label>
                 </div>
-                {errors.resume && (
-                  <p className="text-red-500 text-xs mt-1">{errors.resume}</p>
-                )}
               </div>
 
               <div>
@@ -650,13 +528,8 @@ export const TalentSignup = () => {
                   placeholder="Add a short bio about yourself"
                   value={formData.bio}
                   onChange={(e) => handleInputChange("bio", e.target.value)}
-                  className={`w-full bg-transparent border ${
-                    errors.bio ? "border-red-500" : "border-gray-700"
-                  } text-white placeholder:text-gray-600 focus:border-blue-600 rounded-lg transition-colors min-h-[100px] px-4 py-3 focus:outline-none`}
+                  className="w-full bg-transparent border border-gray-700 text-white placeholder:text-gray-600 focus:border-blue-600 rounded-lg transition-colors min-h-[100px] px-4 py-3 focus:outline-none"
                 />
-                {errors.bio && (
-                  <p className="text-red-500 text-xs mt-1">{errors.bio}</p>
-                )}
               </div>
 
               <div>
@@ -670,13 +543,8 @@ export const TalentSignup = () => {
                   onChange={(e) =>
                     handleInputChange("linkedin", e.target.value)
                   }
-                  className={`w-full bg-transparent border ${
-                    errors.linkedin ? "border-red-500" : "border-gray-700"
-                  } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none`}
+                  className="w-full bg-transparent border border-gray-700 text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none"
                 />
-                {errors.linkedin && (
-                  <p className="text-red-500 text-xs mt-1">{errors.linkedin}</p>
-                )}
               </div>
 
               <button
