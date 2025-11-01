@@ -13,6 +13,8 @@ import {
   Building,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const EmployerSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -40,6 +42,109 @@ export const EmployerSignup = () => {
     setFormData({ ...formData, [field]: value });
   };
 
+  const handleVerifyEmail = async () => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/employers/verify`, {
+        email: formData.email,
+        verificationCode: formData.verificationCode,
+      });
+
+      if (res.data.success) {
+        localStorage.setItem("token", res.data.token);
+        alert("Email verified successfully!");
+        setCurrentStep(3);
+      } else {
+        alert(res.data.message);
+      }
+    } catch (err) {
+      console.error("Verification failed:", err);
+    }
+  };
+
+
+    // const handlePlanSelection = async (planType) => {
+    //   try {
+    //     const token = localStorage.getItem("token");
+
+    //     const res = await axios.post(
+    //       `${API_BASE_URL}/api/employers/plan/${userId}`,
+    //       { selectedPlan: planType },
+    //       { headers: { Authorization: `Bearer ${token}` } }
+    //     );
+
+    //     if (res.data.success) {
+    //       navigate("/payment", {
+    //         state: {
+    //           plan: planType,
+    //           planName: res.data.talent.selectedPlan,
+    //           price:
+    //             planType === "bronze"
+    //               ? 6.99
+    //               : planType === "silver"
+    //               ? 8.99
+    //               : 12.99,
+    //           userType: "employer",
+    //         },
+    //       });
+    //     }
+    //   } catch (err) {
+    //     console.error("Plan selection error:", err);
+    //   }
+    // };
+
+
+    const handleAccountTypeContinue = async () => {
+    const token = localStorage.getItem("token");
+    const employerId = localStorage.getItem("employerId");
+
+    try {
+      const res = await axios.put(
+        `${API_BASE_URL}/api/employers/update/${employerId}`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.success) {
+        alert("Profile updated successfully!");
+
+        
+        if (currentStep === 3) {
+          setCurrentStep(4);
+        } else if (currentStep === 4) {
+          setCurrentStep(5);
+        }
+      }
+    } catch (err) {
+      console.error("Profile update error:", err);
+    }
+  };
+
+
+
+
+  const handleSubmit = async () => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/employers/signup`, {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        password: formData.password,
+      });
+
+      if (res.data.success) {
+        localStorage.setItem("employerId", res.data.employerId); 
+        alert("Verification code sent to your email");
+        setCurrentStep(2);
+      } else {
+        alert(res.data.message);
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+    }
+  };
+
+
+
   const validateStep = () => {
     const newErrors = {};
 
@@ -64,12 +169,6 @@ export const EmployerSignup = () => {
         newErrors.password = "Password must be at least 8 characters";
       } else if (!/^(?=.*[a-zA-Z])(?=.*\d)/.test(formData.password)) {
         newErrors.password = "Password must contain letters and numbers";
-      }
-    }
-
-    if (currentStep === 2) {
-      if (formData.verificationCode !== "1111") {
-        newErrors.verificationCode = "Invalid verification code";
       }
     }
 
@@ -259,7 +358,7 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={nextStep}
+                onClick={handleSubmit}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
               >
                 Create account as Employer
@@ -325,7 +424,7 @@ export const EmployerSignup = () => {
             )}
 
             <button
-              onClick={nextStep}
+              onClick={handleVerifyEmail}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
             >
               Verify email address
@@ -406,7 +505,7 @@ export const EmployerSignup = () => {
             </div>
 
             <button
-              onClick={nextStep}
+              onClick={handleAccountTypeContinue}
               disabled={!formData.accountType}
               className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium disabled:opacity-50 transition-colors"
             >
@@ -538,7 +637,7 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={nextStep}
+                onClick={handleAccountTypeContinue}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
               >
                 Create account as Employer
@@ -622,7 +721,7 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={nextStep}
+                onClick={handleAccountTypeContinue}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
               >
                 Continue as a Individual

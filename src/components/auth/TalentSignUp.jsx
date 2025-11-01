@@ -12,6 +12,8 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const TalentSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -65,42 +67,61 @@ export const TalentSignup = () => {
       }
     }
 
-    if (currentStep === 2) {
-      if (formData.verificationCode !== "1111") {
-        newErrors.verificationCode = "Invalid verification code";
-      }
-    }
+    // if (currentStep === 2) {
+    //   if (formData.verificationCode !== "1111") {
+    //     newErrors.verificationCode = "Invalid verification code";
+    //   }
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlanSelection = (planType) => {
-    const planDetails = {
-      free: { name: "Free Account", price: 0.0 },
-      public: { name: "Public Listing", price: 9.99 },
-    };
-    const plan = planDetails[planType];
-    if (planType === "free") {
-      // Navigate to dashboard for free plan
-      navigate("/dashboard");
-    } else {
-      // Navigate to payment for public listing
-      navigate("/payment", {
-        state: {
-          plan: planType,
-          planName: plan.name,
-          price: plan.price,
-          userType: "talent",
-          userInfo: {
-            email: formData.email,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            role: formData.role,
-            experience: formData.experience,
+  const handlePlanSelection = async (planType) => {
+    const talentId = localStorage.getItem("talentId");
+    if (!talentId) return alert("Missing Talent ID");
+
+    try {
+      await axios.put(`${API_BASE_URL}/api/talents/${talentId}/plan`, { selectedPlan: planType });
+
+      if (planType === "free") {
+        navigate("/dashboard");
+      } else {
+        navigate("/payment", {
+          state: {
+            plan: planType,
+            planName: planType === "free" ? "Free Account" : "Public Listing",
+            price: planType === "free" ? 0.0 : 9.99,
+            userType: "talent",
+            userInfo: formData,
           },
-        },
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to select plan");
+    }
+  };
+
+  const handleRegisterTalent = async () => {
+    if (!validateStep()) return;
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/talents/register`, {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        password: formData.password,
       });
+
+      if (response.data.success) {
+        // store talentId for later steps
+        localStorage.setItem("talentId", response.data.talentId);
+        setCurrentStep(2);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Registration failed");
     }
   };
 
@@ -124,6 +145,57 @@ export const TalentSignup = () => {
       handleInputChange("resume", file);
     }
   };
+
+  const handleVerifyEmail = async () => {
+    if (!validateStep()) return;
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/talents/verify`, {
+        email: formData.email,
+        verificationCode: formData.verificationCode,
+      });
+
+      if (response.data.success) {
+        localStorage.setItem("authToken", response.data.token);
+        setCurrentStep(3);
+      }
+    } catch (error) {
+      console.error(error);
+      setErrors({ verificationCode: "Verification failed" });
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    const talentId = localStorage.getItem("talentId");
+    if (!talentId) return alert("Missing Talent ID");
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append("role", formData.role);
+      formDataToSend.append("experience", formData.experience);
+      formDataToSend.append("location", formData.location);
+      formDataToSend.append("skills", JSON.stringify(formData.skills));
+      formDataToSend.append("bio", formData.bio);
+      formDataToSend.append("linkedin", formData.linkedin);
+      if (formData.resume) {
+        formDataToSend.append("resume", formData.resume);
+      }
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/talents/${talentId}/profile`,
+        formDataToSend,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      if (response.data.success) {
+        setCurrentStep(5);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Profile update failed");
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen  bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10] relative overflow-hidden">
@@ -267,7 +339,7 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={nextStep}
+                onClick={handleRegisterTalent}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
               >
                 Create account as Talent
@@ -333,7 +405,7 @@ export const TalentSignup = () => {
             )}
 
             <button
-              onClick={nextStep}
+              onClick={handleVerifyEmail}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
             >
               Verify email address
@@ -548,7 +620,7 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={nextStep}
+                onClick={handleProfileUpdate}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
               >
                 Create account as Talent

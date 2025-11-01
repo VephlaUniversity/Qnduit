@@ -5,6 +5,8 @@ import {
   MOCK_TALENT_CREDENTIALS,
   MOCK_TALENT_DATA,
 } from "../utils/mockUser";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api"; // Make sure this points to your backend base URL
 
 const AuthContext = createContext(undefined);
 
@@ -29,28 +31,26 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     try {
-      let userData = null;
+      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
+        email,
+        password,
+      });
 
-      if (
-        email === MOCK_EMPLOYER_CREDENTIALS.email &&
-        password === MOCK_EMPLOYER_CREDENTIALS.password
-      ) {
-        userData = { ...MOCK_EMPLOYER_DATA };
-      } else if (
-        email === MOCK_TALENT_CREDENTIALS.email &&
-        password === MOCK_TALENT_CREDENTIALS.password
-      ) {
-        userData = { ...MOCK_TALENT_DATA };
-      } else {
-        throw new Error("Invalid email or password");
-      }
+      const { token, user } = res.data;
 
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
-      return userData; // Return user data to determine redirect
+      // Store user and token
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("token", token);
+
+      // Set state
+      setUser(user);
+
+      return user; 
     } catch (error) {
       console.error("Sign in error:", error);
-      throw error;
+      throw new Error(
+        error.response?.data?.message || "Invalid email or password"
+      );
     }
   };
 
