@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { FilterDropdown } from "./JobFilterDropdown";
 import { AnimatedPage } from "../AnimatedPage";
+import { CTA } from "../home/CTA";
 
 // Mock job data
 const jobsData = [
@@ -118,13 +119,13 @@ export const JobOpportunities = ({ onViewJob }) => {
 
   // Filter states
   const [searchKeyword, setSearchKeyword] = useState(
-    searchParams.get("jobTitle") || ""
+    searchParams.get("jobTitle") || "",
   );
   const [locationFilter, setLocationFilter] = useState(
-    searchParams.get("location") || ""
+    searchParams.get("location") || "",
   );
   const [workTypeFilter, setWorkTypeFilter] = useState(
-    searchParams.get("workType") || ""
+    searchParams.get("workType") || "",
   );
   const [jobTypeFilter, setJobTypeFilter] = useState("");
 
@@ -136,7 +137,7 @@ export const JobOpportunities = ({ onViewJob }) => {
     setFavorites((prev) =>
       prev.includes(jobId)
         ? prev.filter((id) => id !== jobId)
-        : [...prev, jobId]
+        : [...prev, jobId],
     );
   };
 
@@ -161,7 +162,7 @@ export const JobOpportunities = ({ onViewJob }) => {
     // Work type filter
     if (workTypeFilter) {
       const matchesWorkType = job.type.some((type) =>
-        type.toLowerCase().includes(workTypeFilter.toLowerCase())
+        type.toLowerCase().includes(workTypeFilter.toLowerCase()),
       );
       if (!matchesWorkType) return false;
     }
@@ -169,7 +170,7 @@ export const JobOpportunities = ({ onViewJob }) => {
     // Job type filter
     if (jobTypeFilter) {
       const matchesJobType = job.type.some((type) =>
-        type.toLowerCase().includes(jobTypeFilter.toLowerCase())
+        type.toLowerCase().includes(jobTypeFilter.toLowerCase()),
       );
       if (!matchesJobType) return false;
     }

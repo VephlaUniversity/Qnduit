@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 export const HeroSection = () => {
   const popularTitles = [
     "UI/UX Designer",
@@ -15,7 +16,7 @@ export const HeroSection = () => {
           alt=""
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]/95"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[#0E0E10]/90 to-[#0E0E10]/95"></div>
       </div>
 
       {/* Content */}
@@ -33,10 +34,10 @@ export const HeroSection = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-6">
             <button className="bg-[#3B82F6] text-white px-8 py-3 rounded-full  hover:bg-[#5F8DD7] transition-colors cursor-pointer">
-              Join as Talent
+              <Link to="/talent-signup">Join as Talent</Link>
             </button>
             <button className="bg-white text-black px-8 py-3 rounded-full  hover:bg-gray-100 transition-colors cursor-pointer">
-              Hire Talent
+              <Link to="/employer-signup">Hire Talent</Link>
             </button>
           </div>
           <div className="max-w-4xl mx-auto mb-12">

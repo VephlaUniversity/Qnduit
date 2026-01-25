@@ -48,14 +48,14 @@ export const Footer = () => (
           </h4>
           <ul className="space-y-3 text-gray-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link to="/signin" className="hover:text-white transition-colors">
                 Post a Job
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link to="/signin" className="hover:text-white transition-colors">
                 Contact Talent
-              </a>
+              </Link>
             </li>
             <li>
               <Link
@@ -66,7 +66,10 @@ export const Footer = () => (
               </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a
+                href="#faq-section"
+                className="hover:text-white transition-colors"
+              >
                 FAQ
               </a>
             </li>
@@ -78,14 +81,17 @@ export const Footer = () => (
           <h4 className="text-white font-semibold text-lg mb-4">For Talent</h4>
           <ul className="space-y-3 text-gray-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link
+                to="/talent-signup"
+                className="hover:text-white transition-colors"
+              >
                 Create Free Account
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link to="/signin" className="hover:text-white transition-colors">
                 Upgrade Profile
-              </a>
+              </Link>
             </li>
             <li>
               <a href="#" className="hover:text-white transition-colors">
@@ -112,19 +118,12 @@ export const Footer = () => (
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link
+                to="/testimonials"
+                className="hover:text-white transition-colors"
+              >
                 Testimonials
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-white transition-colors">
-                Privacy Policy
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-white transition-colors">
-                Terms of Service
-              </a>
+              </Link>
             </li>
           </ul>
         </div>

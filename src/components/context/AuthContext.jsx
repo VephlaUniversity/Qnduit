@@ -45,11 +45,11 @@ export const AuthProvider = ({ children }) => {
       // Set state
       setUser(user);
 
-      return user; 
+      return user;
     } catch (error) {
       console.error("Sign in error:", error);
       throw new Error(
-        error.response?.data?.message || "Invalid email or password"
+        error.response?.data?.message || "Invalid email or password",
       );
     }
   };

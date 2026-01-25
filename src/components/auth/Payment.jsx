@@ -54,7 +54,10 @@ export const Payment = () => {
           Previous Page
         </button>
 
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center mb-8">
+        <div
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-
+        [#5B5FED] to-[#5865F2] flex items-center justify-center mb-8"
+        >
           <span className="text-white text-2xl font-bold">S</span>
         </div>
 

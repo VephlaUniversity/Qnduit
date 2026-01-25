@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
+import { Link } from "react-router-dom";
 export const WhyDifferent = () => {
   const stats = [
     {
@@ -61,11 +61,11 @@ export const WhyDifferent = () => {
           <br />
           year.
           <span className="text-yellow-400">
-            Boost your profile for just $1.99/month.
+            &nbsp; Boost your profile for just $1.99/month.
           </span>
         </p>
         <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-          Boost profile for $1.99 →
+          <Link to="/pricing">Boost profile for $1.99 →</Link>
         </button>
       </div>
 
@@ -115,7 +115,7 @@ const StatCard = ({ stat }) => {
           setIsVisible(true);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     const currentRef = cardRef.current;

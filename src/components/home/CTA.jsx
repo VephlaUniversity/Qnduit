@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 export const CTA = () => (
   <section className="relative py-20 overflow-hidden">
     {/* Background Image */}
@@ -33,10 +34,10 @@ export const CTA = () => (
 
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <button className="bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors">
-          Join as Talent
+          <Link to="/talent-signup">Join as Talent</Link>
         </button>
         <button className="bg-white text-gray-900 px-8 py-4 rounded-full  hover:bg-gray-100 transition-colors">
-          Hire Talent
+          <Link to="/employer-signup">Hire Talent</Link>
         </button>
       </div>
     </div>

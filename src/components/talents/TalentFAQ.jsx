@@ -43,7 +43,7 @@ export const TalentFAQ = () => {
         {currentFaqData.map((faq, index) => (
           <div
             key={index}
-            className="bg-gray-800 rounded-2xl hover:bg-gray-900"
+            className={`border border-gray-400 rounded-2xl hover:bg-[#1A1A1A] ${expandedFaq === index ? "bg-[#1A1A1A]" : "bg-transparent"}`}
           >
             <button
               onClick={() => setExpandedFaq(expandedFaq === index ? -1 : index)}
@@ -75,16 +75,14 @@ export const TalentFAQ = () => {
         ))}
       </div>
 
-      <div className="mt-12 bg-gray-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="mt-12 bg-transparent border border-gray-400 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h3 className="text-xl font-semibold mb-2">
-            Still have a question in mind?
-          </h3>
+          <h3 className="text-xl mb-2">Still have a question in mind?</h3>
           <p className="text-gray-400">
             Contact us if you have any other questions.
           </p>
         </div>
-        <button className="bg-white text-gray-900 px-6 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors whitespace-nowrap">
+        <button className="bg-white text-gray-900 px-6 py-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap">
           Contact us
         </button>
       </div>

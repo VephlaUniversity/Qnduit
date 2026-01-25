@@ -64,7 +64,7 @@ export const TalentPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         planType="public"
         title="Public Listing"
         description="Your ticket to visibility"
-        price={9.99}
+        price={1.99}
         icon={publicIcon}
         features={[
           "Stay discoverable 24/7",
