@@ -57,7 +57,10 @@ export const JobListings = () => {
   ];
 
   return (
-    <section className="max-w-7xl mx-auto px-6 lg:px-12 py-10 bg-[#0A0F17] rounded-3xl mt-10">
+    <section
+      id="search-jobs"
+      className="max-w-7xl mx-auto px-6 lg:px-12 py-10 bg-[#0A0F17] rounded-3xl mt-10"
+    >
       <h2 className="text-4xl lg:text-5xl  text-center mb-12">
         Latest Jobs of the Week
       </h2>

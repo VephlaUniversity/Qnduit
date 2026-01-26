@@ -10,7 +10,7 @@ export const TalentPricing = () => {
     if (planType === "free") {
       navigate("/signup?plan=free");
     } else {
-      navigate("/payment", { state: { plan: planType, price: 9.99 } });
+      navigate("/payment", { state: { plan: planType, price: 1.99 } });
     }
   };
   return (

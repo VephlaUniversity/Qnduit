@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-
+import { HashLink } from "react-router-hash-link";
 export const Footer = () => (
   <footer className="bg-black py-16">
     <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -66,12 +66,13 @@ export const Footer = () => (
               </Link>
             </li>
             <li>
-              <a
-                href="#faq-section"
+              <HashLink
+                smooth
+                to="/#faq-section"
                 className="hover:text-white transition-colors"
               >
                 FAQ
-              </a>
+              </HashLink>
             </li>
           </ul>
         </div>
@@ -94,9 +95,13 @@ export const Footer = () => (
               </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <HashLink
+                smooth
+                to="/#search-jobs"
+                className="hover:text-white transition-colors"
+              >
                 Search Jobs
-              </a>
+              </HashLink>
             </li>
           </ul>
         </div>

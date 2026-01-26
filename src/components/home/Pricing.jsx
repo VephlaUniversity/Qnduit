@@ -11,7 +11,7 @@ export const PricingSection = () => {
     if (planType === "free") {
       navigate("/signup?plan=free");
     } else if (planType === "public") {
-      navigate("/payment", { state: { plan: planType, price: 9.99 } });
+      navigate("/payment", { state: { plan: planType, price: 1.99 } });
     } else if (planType === "bronze") {
       navigate("/payment", { state: { plan: planType, price: 6.99 } });
     } else if (planType === "silver") {

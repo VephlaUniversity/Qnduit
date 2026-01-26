@@ -82,7 +82,9 @@ export const TalentSignup = () => {
     if (!talentId) return alert("Missing Talent ID");
 
     try {
-      await axios.put(`${API_BASE_URL}/api/talents/${talentId}/plan`, { selectedPlan: planType });
+      await axios.put(`${API_BASE_URL}/api/talents/${talentId}/plan`, {
+        selectedPlan: planType,
+      });
 
       if (planType === "free") {
         navigate("/dashboard");
@@ -91,7 +93,7 @@ export const TalentSignup = () => {
           state: {
             plan: planType,
             planName: planType === "free" ? "Free Account" : "Public Listing",
-            price: planType === "free" ? 0.0 : 9.99,
+            price: planType === "free" ? 0.0 : 1.99,
             userType: "talent",
             userInfo: formData,
           },
@@ -107,12 +109,15 @@ export const TalentSignup = () => {
     if (!validateStep()) return;
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/talents/register`, {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        password: formData.password,
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/api/talents/register`,
+        {
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          password: formData.password,
+        },
+      );
 
       if (response.data.success) {
         // store talentId for later steps
@@ -183,7 +188,7 @@ export const TalentSignup = () => {
       const response = await axios.put(
         `${API_BASE_URL}/api/talents/${talentId}/profile`,
         formDataToSend,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
 
       if (response.data.success) {
@@ -194,8 +199,6 @@ export const TalentSignup = () => {
       alert("Profile update failed");
     }
   };
-
-
 
   return (
     <div className="min-h-screen  bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10] relative overflow-hidden">
@@ -384,7 +387,7 @@ export const TalentSignup = () => {
 
                       if (value && index < 3) {
                         const nextInput = document.getElementById(
-                          `otp-${index + 1}`
+                          `otp-${index + 1}`,
                         );
                         if (nextInput) nextInput.focus();
                       }
