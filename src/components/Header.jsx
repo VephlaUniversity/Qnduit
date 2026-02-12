@@ -55,12 +55,32 @@ export const Header = () => {
             >
               Pricing
             </Link>
+            <Link
+              to="/about-us"
+              className={`transition-colors ${
+                isActive("/about-us")
+                  ? "text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              About Us
+            </Link>
+            <Link
+              to="/blog"
+              className={`transition-colors ${
+                isActive("/blog")
+                  ? "text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Blog
+            </Link>
           </nav>
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             <Link to="/signin">
-              <button className="text-gray-300 hover:text-white  text-gray-300 hover:bg-[#192426] transition-colors bg-[#192436] px-6 py-2 rounded-full  transition-colors cursor-pointer ">
+              <button className="text-gray-300 hover:text-white   hover:bg-[#192426] transition-colors bg-[#192436] px-6 py-2 rounded-full cursor-pointer ">
                 Sign In
               </button>
             </Link>
@@ -146,9 +166,31 @@ export const Header = () => {
               >
                 Pricing
               </Link>
+              <Link
+                to="/about-us"
+                onClick={handleLinkClick}
+                className={`transition-colors ${
+                  isActive("/about-us")
+                    ? "text-blue-400 font-semibold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                About Us
+              </Link>
+              <Link
+                to="/blog"
+                onClick={handleLinkClick}
+                className={`transition-colors ${
+                  isActive("/blog")
+                    ? "text-blue-400 font-semibold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Blog
+              </Link>
               <div className="flex flex-col space-y-3 pt-4 border-t border-gray-700">
                 <Link to="/signin" onClick={handleLinkClick}>
-                  <button className="w-full text-gray-300 hover:bg-[#192426] transition-colors text-center bg-[#192436] px-6 py-2 rounded-full  transition-colors cursor-pointer ">
+                  <button className="w-full text-gray-300 hover:bg-[#192426] transition-colors text-center bg-[#192436] px-6 py-2 rounded-ful cursor-pointer ">
                     Sign In
                   </button>
                 </Link>

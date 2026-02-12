@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AuthHeader } from "./AuthHeader";
-import { ArrowLeft, LogIn } from "lucide-react";
+import { ArrowLeft, LogIn, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { resumePlanSelection } from "../utils/ResumePlanSelection";
@@ -12,7 +12,7 @@ export const SignIn = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, isAuthenticated } = useAuth();
@@ -149,22 +149,36 @@ export const SignIn = () => {
               <label className="text-sm text-gray-400 block mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                placeholder="••••••••••••"
-                value={formData.password}
-                onChange={(e) => {
-                  handleInputChange("password", e.target.value);
-                  if (errors.password) setErrors({ ...errors, password: "" });
-                }}
-                disabled={isLoading}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmit();
-                }}
-                className={`w-full bg-transparent border ${
-                  errors.password ? "border-red-500" : "border-gray-700"
-                } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none disabled:opacity-50`}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••••••"
+                  value={formData.password}
+                  onChange={(e) => {
+                    handleInputChange("password", e.target.value);
+                    if (errors.password) setErrors({ ...errors, password: "" });
+                  }}
+                  disabled={isLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                  }}
+                  className={`w-full bg-transparent border ${
+                    errors.password ? "border-red-500" : "border-gray-700"
+                  } text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 pr-12 focus:outline-none disabled:opacity-50`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
               )}
@@ -190,6 +204,7 @@ export const SignIn = () => {
               </a>
             </div>
 
+            {/* Quick Access Button - Development Only */}
             <button
               onClick={handleSubmit}
               disabled={isLoading}

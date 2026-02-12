@@ -1,425 +1,294 @@
 import React, { useState, useRef } from "react";
-import { FileText, X, Plus, Edit2 } from "lucide-react";
-import { TextEditor } from "../TextEditor";
-import { validateFile } from "../utils/formValidation";
+import { FileText, X, Plus, ChevronDown, ChevronUp, Calendar, Loader2 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
+import { useNavigate } from "react-router-dom";
 
-export const TalentResumes = () => {
+const TalentResumes = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const cvInputRef = useRef(null);
   const portfolioInputRef = useRef(null);
 
+  const [saving, setSaving] = useState(false);
   const [cvFiles, setCvFiles] = useState([]);
-
   const [portfolioImages, setPortfolioImages] = useState([null, null, null]);
   const [aboutMe, setAboutMe] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
 
   const [education, setEducation] = useState([
-    {
-      id: 1,
-      academy: "Fine Arts University",
-      title: "Design",
-      startDate: "2008",
-      endDate: "2013",
-      description: "",
-    },
+    { id: 1, academy: "", title: "", startDate: "", endDate: "", description: "" },
   ]);
 
   const [experience, setExperience] = useState([
-    {
-      id: 1,
-      company: "Avitex Inc",
-      title: "UI UX Designer",
-      startDate: "2008",
-      endDate: "2013",
-      description: "",
-    },
+    { id: 1, company: "", title: "", startDate: "", endDate: "", description: "" },
   ]);
 
   const [skills, setSkills] = useState([
-    { title: "Figma", percent: "80" },
-    { title: "Photoshop", percent: "80" },
-    { title: "PHP", percent: "80" },
-    { title: "HTML/CSS", percent: "80" },
+    { title: "", percent: "" },
+    
   ]);
 
+  const [expandedEducation, setExpandedEducation] = useState(new Set([1]));
+  const [expandedExperience, setExpandedExperience] = useState(new Set([1]));
+
+  const toggleEducation = (id) => {
+    setExpandedEducation(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+  const toggleExperience = (id) => {
+    setExpandedExperience(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
   const handleCVUpload = (e) => {
-    const file = e.target.files[0];
-    const validation = validateFile(file, {
-      maxSize: 10 * 1024 * 1024,
-      allowedTypes: [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ],
-    });
-
-    if (!validation.valid) {
-      toast({
-        title: "Upload Error",
-        description: validation.error,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setCvFiles([
-      ...cvFiles,
-      { name: file.name, type: file.type.includes("pdf") ? "PDF" : "Doc" },
-    ]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxSize = 10 * 1024 * 1024;
+    const allowedTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (file.size > maxSize) { toast({ title: "Upload Error", description: "File exceeds 10MB limit", variant: "destructive" }); return; }
+    if (!allowedTypes.includes(file.type)) { toast({ title: "Upload Error", description: "Only PDF, Doc, Docx allowed", variant: "destructive" }); return; }
+    setCvFiles([...cvFiles, { name: file.name, type: file.type.includes("pdf") ? "PDF" : "Doc" }]);
     toast({ title: "Success", description: "CV uploaded successfully" });
+    if (cvInputRef.current) cvInputRef.current.value = "";
   };
 
   const handlePortfolioUpload = (e) => {
-    const file = e.target.files[0];
-    const validation = validateFile(file, {
-      maxSize: 5 * 1024 * 1024,
-      allowedTypes: ["image/jpeg", "image/png", "image/jpg"],
-    });
-
-    if (!validation.valid) {
-      toast({
-        title: "Upload Error",
-        description: validation.error,
-        variant: "destructive",
-      });
-      return;
-    }
-
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast({ title: "Upload Error", description: "Image exceeds 5MB limit", variant: "destructive" }); return; }
     const reader = new FileReader();
     reader.onload = (event) => {
       const firstEmpty = portfolioImages.findIndex((img) => img === null);
       if (firstEmpty !== -1) {
         const newImages = [...portfolioImages];
-        newImages[firstEmpty] = event.target.result;
+        newImages[firstEmpty] = event.target?.result;
         setPortfolioImages(newImages);
         toast({ title: "Success", description: "Image uploaded successfully" });
       }
     };
     reader.readAsDataURL(file);
+    if (portfolioInputRef.current) portfolioInputRef.current.value = "";
   };
 
+  const addEducation = () => { const id = Date.now(); setEducation([...education, { id, academy: "", title: "", startDate: "", endDate: "", description: "" }]); setExpandedEducation(prev => new Set(prev).add(id)); };
+  const removeEducation = (id) => setEducation(education.filter((e) => e.id !== id));
+  const updateEducation = (id, field, value) => {
+    setEducation(education.map(e => e.id === id ? { ...e, [field]: value } : e));
+  };
+
+  const addExperience = () => { const id = Date.now(); setExperience([...experience, { id, company: "", title: "", startDate: "", endDate: "", description: "" }]); setExpandedExperience(prev => new Set(prev).add(id)); };
+  const removeExperience = (id) => setExperience(experience.filter((e) => e.id !== id));
+  const updateExperience = (id, field, value) => {
+    setExperience(experience.map(e => e.id === id ? { ...e, [field]: value } : e));
+  };
+
+  const removeSkill = (index) => setSkills(skills.filter((_, i) => i !== index));
+  const addSkill = () => setSkills([...skills, { title: "", percent: "0" }]);
+  const updateSkill = (index, field, value) => {
+    setSkills(skills.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const data = { cvFiles, portfolioImages, aboutMe, videoUrl, education, experience, skills };
+    localStorage.setItem("resumeData", JSON.stringify(data));
+    setSaving(false);
+    toast({ title: "Saved!", description: "Your resume has been saved successfully." });
+    navigate("/talent-dashboard/profile");
+  };
+
+  const inputClass = "flex-1 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors";
+
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-white">
-          Resumes
-        </h1>
+        <div className="w-1 h-8 bg-blue-600 rounded-full" />
+        <h1 className="text-2xl md:text-3xl font-semibold text-white">Resumes</h1>
       </div>
 
       <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 md:p-8 max-w-5xl space-y-8">
-        {/* CV File Section */}
-        <div>
+        {/* CV File */}
+        <section>
           <h2 className="text-xl font-semibold text-white mb-4">CV File</h2>
           <div className="flex gap-4 mb-4 flex-wrap">
             {cvFiles.map((file, index) => (
-              <div key={index} className="relative group">
-                <div className="w-32 h-32 bg-[#2A2A2E] rounded-lg border border-white/10 flex flex-col items-center justify-center p-4">
-                  <FileText className="w-12 h-12 text-blue-500 mb-2" />
-                  <p className="text-white text-xs text-center font-medium truncate w-full">
-                    {file.name}
-                  </p>
+              <div key={index} className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10">
+                <div>
+                  <p className="text-white text-sm font-medium">{file.name}</p>
                   <p className="text-gray-400 text-xs">{file.type}</p>
                 </div>
-                <button
-                  onClick={() =>
-                    setCvFiles(cvFiles.filter((_, i) => i !== index))
-                  }
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-4 h-4 text-white" />
+                <FileText className="w-8 h-8 text-blue-500" />
+                <button onClick={() => setCvFiles(cvFiles.filter((_, i) => i !== index))} className="absolute -right-2 -top-1 text-red-500 hover:text-red-400">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             ))}
           </div>
-          <input
-            ref={cvInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx"
-            onChange={handleCVUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => cvInputRef.current?.click()}
-            className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors"
-          >
-            Browse
-          </button>
-          <span className="ml-3 text-gray-400 text-sm">
-            Upload file PDF, Doc, Docx (max 10MB)
-          </span>
-        </div>
+          <input ref={cvInputRef} type="file" accept=".pdf,.doc,.docx" onChange={handleCVUpload} className="hidden" />
+          <button onClick={() => cvInputRef.current?.click()} className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors">Browse</button>
+          <span className="ml-3 text-gray-400 text-sm">Upload file PDF, Doc, Docx</span>
+        </section>
 
-        {/* About Me with Text Editor */}
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">About Me</h2>
-          <TextEditor value={aboutMe} onChange={setAboutMe} />
-        </div>
-
-        {/* Portfolio Section */}
-        <div>
+        {/* Portfolio */}
+        <section>
           <h2 className="text-xl font-semibold text-white mb-4">Portfolio</h2>
           <div className="flex gap-4 mb-4 flex-wrap">
             {portfolioImages.map((img, index) => (
               <div key={index} className="relative group">
-                <div className="w-40 h-40 bg-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={`Portfolio ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="text-gray-400">Image {index + 1}</div>
-                  )}
+                <div className="w-40 h-32 bg-[#2A2A2E] rounded-lg flex items-center justify-center overflow-hidden border border-white/10 border-dashed">
+                  {img ? <img src={img} alt={`Portfolio ${index + 1}`} className="w-full h-full object-cover" /> : <Plus className="w-6 h-6 text-gray-500" />}
                 </div>
                 {img && (
-                  <button
-                    onClick={() => {
-                      const newImages = [...portfolioImages];
-                      newImages[index] = null;
-                      setPortfolioImages(newImages);
-                    }}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-4 h-4 text-white" />
+                  <button onClick={() => { const n = [...portfolioImages]; n[index] = null; setPortfolioImages(n); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="w-3 h-3 text-white" />
                   </button>
                 )}
               </div>
             ))}
           </div>
-          <input
-            ref={portfolioInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePortfolioUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => portfolioInputRef.current?.click()}
-            className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors"
-          >
-            Browse
-          </button>
-          <span className="ml-3 text-gray-400 text-sm">
-            Upload image (max 5MB)
-          </span>
-        </div>
+          <input ref={portfolioInputRef} type="file" accept="image/*" onChange={handlePortfolioUpload} className="hidden" />
+          <button onClick={() => portfolioInputRef.current?.click()} className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors">Browse</button>
+          <span className="ml-3 text-gray-400 text-sm">Upload image</span>
+        </section>
 
         {/* Introduction Video */}
-        <div>
-          <label className="block text-gray-400 text-sm mb-2">
-            Introduction Video
-          </label>
-          <input
-            type="text"
-            defaultValue=""
-            className="w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-            placeholder="https://www.youtube.com/watch?v=..."
-          />
-        </div>
+        <section>
+          <label className="block text-gray-400 text-sm mb-2">Introduction Video</label>
+          <input type="text" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} className="w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors" placeholder="https://www.youtube.com/watch?v=..." />
+        </section>
 
-        {/* Education Section */}
-        <div>
+        {/* Education */}
+        <section>
           <h2 className="text-xl font-semibold text-white mb-4">Education</h2>
           {education.map((edu, index) => (
-            <div
-              key={edu.id}
-              className="mb-4 bg-[#0E0E10] rounded-lg border border-white/10 p-4"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-white font-medium">
-                  Education {index + 1}
-                </span>
-                <div className="flex gap-2">
-                  <button className="text-gray-400 hover:text-white">
-                    <Edit2 className="w-4 h-4" />
+            <div key={edu.id} className="mb-4">
+              <div className="flex items-center justify-between bg-[#0E0E10] rounded-lg px-4 py-3 border border-white/10">
+                <span className="text-white font-medium">Education {index + 1}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleEducation(edu.id)} className="text-gray-400 hover:text-white">
+                    {expandedEducation.has(edu.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
-                  <button className="text-gray-400 hover:text-red-500">
-                    <X className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => removeEducation(edu.id)} className="text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Academy
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={edu.academy}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
+              {expandedEducation.has(edu.id) && (
+                <div className="space-y-4 pl-1 mt-4">
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Academy</label>
+                    <input type="text" value={edu.academy} onChange={e => updateEducation(edu.id, "academy", e.target.value)} className={inputClass} />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Title</label>
+                    <input type="text" value={edu.title} onChange={e => updateEducation(edu.id, "title", e.target.value)} className={inputClass} />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Dates Attended</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg">
+                        <input type="text" value={edu.startDate} onChange={e => updateEducation(edu.id, "startDate", e.target.value)} className="w-12 bg-transparent text-white focus:outline-none" />
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <span className="text-gray-400 text-sm">to</span>
+                      <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg">
+                        <input type="text" value={edu.endDate} onChange={e => updateEducation(edu.id, "endDate", e.target.value)} className="w-12 bg-transparent text-white focus:outline-none" />
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0 pt-2">Description</label>
+                    <textarea rows={3} value={edu.description} onChange={e => updateEducation(edu.id, "description", e.target.value)} className={inputClass} />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={edu.title}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-blue-500 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Dates Attended
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={edu.startDate}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Dates Attended
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={edu.endDate}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    defaultValue={edu.description}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           ))}
-          <button className="w-full py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Another Education
+          <button onClick={addEducation} className="w-full py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2 text-sm font-medium">
+            <Plus className="w-5 h-5" /> Add Another Education
           </button>
-        </div>
+        </section>
 
-        {/* Experience Section */}
-        <div>
+        {/* Experience */}
+        <section>
           <h2 className="text-xl font-semibold text-white mb-4">Experience</h2>
           {experience.map((exp, index) => (
-            <div
-              key={exp.id}
-              className="mb-4 bg-[#0E0E10] rounded-lg border border-white/10 p-4"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-white font-medium">
-                  Experience {index + 1}
-                </span>
-                <div className="flex gap-2">
-                  <button className="text-gray-400 hover:text-white">
-                    <Edit2 className="w-4 h-4" />
+            <div key={exp.id} className="mb-4">
+              <div className="flex items-center justify-between bg-[#0E0E10] rounded-lg px-4 py-3 border border-white/10">
+                <span className="text-white font-medium">Experience {index + 1}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => toggleExperience(exp.id)} className="text-gray-400 hover:text-white">
+                    {expandedExperience.has(exp.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
-                  <button className="text-gray-400 hover:text-red-500">
-                    <X className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => removeExperience(exp.id)} className="text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Company
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={exp.company}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-blue-500 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
+              {expandedExperience.has(exp.id) && (
+                <div className="space-y-4 pl-1 mt-4">
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Company</label>
+                    <input type="text" value={exp.company} onChange={e => updateExperience(exp.id, "company", e.target.value)} className={inputClass} />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Title</label>
+                    <input type="text" value={exp.title} onChange={e => updateExperience(exp.id, "title", e.target.value)} className={inputClass} />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0">Dates</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg">
+                        <input type="text" value={exp.startDate} onChange={e => updateExperience(exp.id, "startDate", e.target.value)} className="w-12 bg-transparent text-white focus:outline-none" />
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <span className="text-gray-400 text-sm">to</span>
+                      <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg">
+                        <input type="text" value={exp.endDate} onChange={e => updateExperience(exp.id, "endDate", e.target.value)} className="w-12 bg-transparent text-white focus:outline-none" />
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <label className="text-gray-400 text-sm w-28 shrink-0 pt-2">Description</label>
+                    <textarea rows={3} value={exp.description} onChange={e => updateExperience(exp.id, "description", e.target.value)} className={inputClass} />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={exp.title}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Dates
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={exp.startDate}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Dates Attended
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={exp.endDate}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    defaultValue={exp.description}
-                    className="w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           ))}
-          <button className="w-full py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Another Experience
+          <button onClick={addExperience} className="w-full py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2 text-sm font-medium">
+            <Plus className="w-5 h-5" /> Add Another Experience
           </button>
-        </div>
+        </section>
 
-        {/* Skills Section */}
-        <div>
+        {/* Skills */}
+        <section>
           <h2 className="text-xl font-semibold text-white mb-4">Skill</h2>
           <div className="space-y-4">
             {skills.map((skill, index) => (
-              <div key={index} className="grid grid-cols-12 gap-4 items-center">
-                <div className="col-span-3">
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Title
-                  </label>
-                  <select className="w-full px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500">
-                    <option>{skill.title}</option>
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-gray-400 text-sm mb-2">
-                    Percent
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={skill.percent}
-                    className="w-full px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="col-span-1 flex items-end pb-2">
+              <div key={index} className="flex items-center gap-4">
+                <label className="text-gray-400 text-sm w-16 shrink-0">Title</label>
+                <input type="text" value={skill.title} onChange={e => updateSkill(index, "title", e.target.value)} className="px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 w-40" />
+                <label className="text-gray-400 text-sm shrink-0">Percent</label>
+                <div className="flex items-center gap-2">
+                  <input type="text" value={skill.percent} onChange={e => updateSkill(index, "percent", e.target.value)} className="w-16 px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500" />
                   <span className="text-gray-400">%</span>
                 </div>
-                <div className="col-span-1 flex items-end pb-2">
-                  <button className="text-gray-400 hover:text-red-500">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+                <button onClick={() => removeSkill(index)} className="text-gray-400 hover:text-red-500"><X className="w-5 h-5" /></button>
               </div>
             ))}
           </div>
-          <button className="w-full mt-4 py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add More Skill
+          <button onClick={addSkill} className="w-full mt-4 py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2 text-sm font-medium">
+            <Plus className="w-5 h-5" /> Add More Skill
+          </button>
+        </section>
+
+        {/* Save Button */}
+        <div className="flex justify-end pt-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-8 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-70 flex items-center gap-2"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>

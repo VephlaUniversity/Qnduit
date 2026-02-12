@@ -1,60 +1,57 @@
-import React, { useState } from "react";
-import { Search, Edit, Lock, X } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Search, Edit, Trash2, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-export const MyJob = () => {
+const MyJob = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("default");
+  const [jobs, setJobs] = useState([]);
 
-  const jobs = [
-    {
-      title: "Junior Marketing",
-      location: "Tokyo, Japan",
-      applicants: 213,
-      created: "Oct 18, 2022",
-      expiry: "Sept 5, 2023",
-      status: "Published",
-      verified: true,
-    },
-    {
-      title: "UI UX Designer",
-      location: "Tokyo, Japan",
-      applicants: 213,
-      created: "Oct 18, 2022",
-      expiry: "Sept 5, 2023",
-      status: "Published",
-      verified: true,
-    },
-    {
-      title: "Intern Digital Marketing",
-      location: "Tokyo, Japan",
-      applicants: 213,
-      created: "Oct 18, 2022",
-      expiry: "Sept 5, 2023",
-      status: "Published",
-      verified: false,
-    },
-    {
-      title: "Content Marketing",
-      location: "Tokyo, Japan",
-      applicants: 213,
-      created: "Oct 18, 2022",
-      expiry: "Sept 5, 2023",
-      status: "Published",
-      verified: true,
-    },
-    {
-      title: "Intern Digital Marketing",
-      location: "Tokyo, Japan",
-      applicants: 213,
-      created: "Oct 18, 2022",
-      expiry: "Sept 5, 2023",
-      status: "Published",
-      verified: true,
-    },
-  ];
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("postedJobs") || "[]");
+    setJobs(stored);
+  }, []);
+
+  const deleteJob = (id) => {
+    const updated = jobs.filter((j) => j.id !== id);
+    setJobs(updated);
+    localStorage.setItem("postedJobs", JSON.stringify(updated));
+  };
+
+  const editJob = (job) => {
+    // Store the job to edit in localStorage
+    localStorage.setItem("jobToEdit", JSON.stringify(job));
+    // Navigate to submit-job page
+    navigate("/dashboard/submit-job");
+  };
+
+  const filteredAndSorted = useMemo(() => {
+    let result = jobs.filter(
+      (job) =>
+        job.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.category.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+
+    switch (sortBy) {
+      case "newest":
+        result = [...result].sort((a, b) => Number(b.id) - Number(a.id));
+        break;
+      case "oldest":
+        result = [...result].sort((a, b) => Number(a.id) - Number(b.id));
+        break;
+      case "applicants":
+        result = [...result].sort((a, b) => b.applicants - a.applicants);
+        break;
+      default:
+        break;
+    }
+    return result;
+  }, [jobs, searchTerm, sortBy]);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
         <h1 className="text-2xl md:text-3xl font-semibold text-white">
@@ -69,17 +66,17 @@ export const MyJob = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Search by title, location, or category..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#0E0E10] border border-gray-700 text-white rounded-lg pl-10 pr-4 py-3 focus:border-blue-600 focus:outline-none"
+              className="w-full bg-[#0E0E10] border border-white/10 text-white rounded-lg pl-10 pr-4 py-3 focus:border-blue-600 focus:outline-none"
             />
           </div>
           <div className="relative">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full md:w-auto bg-[#0E0E10] border border-gray-700 text-white rounded-lg px-4 py-3 pr-10 focus:border-blue-600 focus:outline-none appearance-none cursor-pointer"
+              className="w-full md:w-auto bg-[#0E0E10] border border-white/10 text-white rounded-lg px-4 py-3 pr-10 focus:border-blue-600 focus:outline-none appearance-none cursor-pointer"
             >
               <option value="default">Sort by (Default)</option>
               <option value="newest">Newest First</option>
@@ -129,78 +126,85 @@ export const MyJob = () => {
               </tr>
             </thead>
             <tbody>
-              {jobs.map((job, index) => (
-                <tr
-                  key={index}
-                  className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                >
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-white font-medium">{job.title}</h3>
-                      {job.verified && (
-                        <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs">✓</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                      {job.location}
-                    </p>
+              {filteredAndSorted.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                    {jobs.length === 0 ? (
+                      <div>
+                        <p className="mb-3">No jobs posted yet.</p>
+                        <button
+                          onClick={() => navigate("/dashboard/submit-job")}
+                          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                        >
+                          Submit Your First Job
+                        </button>
+                      </div>
+                    ) : (
+                      "No jobs match your search."
+                    )}
                   </td>
-                  <td className="p-4">
-                    <span className="text-white">
-                      {job.applicants} Applicants
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div>
+                </tr>
+              ) : (
+                filteredAndSorted.map((job) => (
+                  <tr
+                    key={job.id}
+                    className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-white font-medium">
+                          {job.jobTitle}
+                        </h3>
+                        {job.verified && (
+                          <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-xs">✓</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {job.location || job.address || "N/A"}
+                      </p>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-white">
+                        {job.applicants} Applicants
+                      </span>
+                    </td>
+                    <td className="p-4">
                       <p className="text-white text-sm">
                         Created: {job.created}
                       </p>
                       <p className="text-gray-400 text-sm">
-                        Expiry date: {job.expiry}
+                        Expiry: {job.deadlineDate || "N/A"}
                       </p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className="text-green-500 text-sm font-medium">
-                      {job.status}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors">
-                        <Lock className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm font-medium transition-colors">
-                        Cancel
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-4">
+                      <span className="text-green-500 text-sm font-medium">
+                        {job.status}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => editJob(job)}
+                          className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
+                          title="Edit Job"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteJob(job.id)}
+                          className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
+                          title="Delete Job"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

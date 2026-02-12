@@ -1,6 +1,46 @@
+import { useState } from "react";
 import { PlanCard } from "./PlanCards";
 
-export const TalentPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
+export const TalentPlans = () => {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
+  // Read userType and email from wherever your auth lives.
+  // Falls back to URL params so the page works standalone in dev.
+  const existingParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : "",
+  );
+  const userType = existingParams.get("userType") || "talent";
+  const email = existingParams.get("email") || "";
+
+  const planPrices = {
+    free: 0.0,
+    public: 1.99,
+  };
+
+  const handleSelectPlan = (planType) => {
+    setSelectedPlan(planType);
+  };
+
+  const handlePlanAction = (planType) => {
+    const price = planPrices[planType];
+    if (price === undefined) return;
+
+    // Free plan skips payment entirely
+    if (price === 0) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    const params = new URLSearchParams({
+      planName: planType.charAt(0).toUpperCase() + planType.slice(1),
+      price: price.toString(),
+      userType,
+      email,
+    });
+
+    window.location.href = `/payment?${params.toString()}`;
+  };
+
   const freeIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -54,8 +94,8 @@ export const TalentPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         features={["Apply to jobs", "View jobs details", "Build your profile"]}
         ctaText="Create My Free Account →"
         isSelected={selectedPlan === "free"}
-        onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onSelect={handleSelectPlan}
+        onCTAClick={handlePlanAction}
         variant="default"
         disableWhenNotSelected={false}
       />
@@ -73,8 +113,8 @@ export const TalentPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         ]}
         ctaText="List My Profile Here →"
         isSelected={selectedPlan === "public"}
-        onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onSelect={handleSelectPlan}
+        onCTAClick={handlePlanAction}
         variant="highlighted"
         disableWhenNotSelected={false}
       />

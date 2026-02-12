@@ -24,7 +24,7 @@ import ChangePassword from "./components/employerDashboard/ChangePassword";
 import Meeting from "./components/employerDashboard/Meeting";
 import Messages from "./components/employerDashboard/Messages";
 import MyPackages from "./components/employerDashboard/MyPackages";
-import CandidateAlerts from "./components/employerDashboard/CandidateAlerts";
+
 import SavedCandidates from "./components/employerDashboard/SavedCandidates";
 import ApplicantsJobs from "./components/employerDashboard/ApplicantJobs";
 import SubmitJob from "./components/employerDashboard/SubmitJob";
@@ -34,6 +34,8 @@ import EmployerProfile from "./components/employerDashboard/EmployerProfile";
 import Dashboard from "./components/employerDashboard/Dashboard";
 import { AuthProvider } from "./components/context/AuthContext";
 import TalentDashboard from "./components/talentDashboard/TalentDashboard";
+import Contact from "./components/pages/Contact";
+import { Toaster } from "./components/ui/toaster";
 
 const AppContent = () => {
   const location = useLocation();
@@ -59,9 +61,10 @@ const AppContent = () => {
     "/talent-dashboard",
     "/talent-dashboard/profile",
     "/talent-dashboard/resumes",
+    "/talent-dashboard/about",
     "/talent-dashboard/my-applied",
     "/talent-dashboard/saved-jobs",
-    "/talent-dashboard/candidate-alerts",
+
     "/talent-dashboard/messages",
     "/talent-dashboard/following-employers",
     "/talent-dashboard/meeting",
@@ -79,6 +82,7 @@ const AppContent = () => {
           <Route path="/talents" element={<ForTalents />} />
           <Route path="/employers" element={<ForEmployers />} />
           <Route path="/pricing" element={<PrincinPage />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/testimonials" element={<FeaturedSuccessStories />} />
           <Route path="/find-talents" element={<TalentsSearchManager />} />
           <Route path="/jobs" element={<JobManager />} />
@@ -160,16 +164,7 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/dashboard/alerts"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <CandidateAlerts />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
+
           <Route
             path="/dashboard/packages"
             element={
@@ -233,6 +228,7 @@ const AppContent = () => {
         </Routes>
       </AnimatePresence>
       {!isAuthPage && <Footer />}
+      <Toaster />
     </div>
   );
 };

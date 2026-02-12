@@ -46,7 +46,6 @@ export const DashboardLayout = ({
       label: "Saved Candidates",
       path: "/dashboard/saved-candidates",
     },
-    { icon: Bell, label: "Candidate Alerts", path: "/dashboard/alerts" },
     { icon: Package, label: "My Packages", path: "/dashboard/packages" },
     { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
     { icon: Video, label: "Meeting", path: "/dashboard/meeting" },
@@ -134,9 +133,11 @@ export const DashboardLayout = ({
                 </div>
               )}
             </div>
-            <button className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-              Upload Resume
-            </button>
+            {userType === "talent" && (
+              <button className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                Upload Resume
+              </button>
+            )}
           </div>
         </div>
       </header>
