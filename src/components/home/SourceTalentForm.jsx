@@ -199,11 +199,6 @@ export const SourceTalentForm = () => {
       >
         Source Talents
       </button>
-
-      {/* Sign in message */}
-      <p className="text-center text-gray-500 text-sm">
-        You'll need to sign in to proceed from here
-      </p>
     </form>
   );
 };

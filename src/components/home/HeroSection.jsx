@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { HashLink } from "react-router-hash-link";
 export const HeroSection = () => {
   const popularTitles = [
     "UI/UX Designer",
@@ -36,9 +37,13 @@ export const HeroSection = () => {
             <button className="bg-[#3B82F6] text-white px-8 py-3 rounded-full  hover:bg-[#5F8DD7] transition-colors cursor-pointer">
               <Link to="/talent-signup">Join as Talent</Link>
             </button>
-            <button className="bg-white text-black px-8 py-3 rounded-full  hover:bg-gray-100 transition-colors cursor-pointer">
-              <Link to="/employer-signup">Hire Talent</Link>
-            </button>
+            <HashLink
+              smooth
+              to="/#source-talents"
+              className="bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-block"
+            >
+              Hire Talent
+            </HashLink>
           </div>
           <div className="max-w-4xl mx-auto mb-12">
             <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">

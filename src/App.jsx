@@ -36,6 +36,11 @@ import { AuthProvider } from "./components/context/AuthContext";
 import TalentDashboard from "./components/talentDashboard/TalentDashboard";
 import Contact from "./components/pages/Contact";
 import { Toaster } from "./components/ui/toaster";
+import About from "./components/pages/About";
+import TermsOfService from "./components/pages/TermsOfService";
+import PrivacyPolicy from "./components/pages/PrivacyPolicy";
+import Blog from "./components/pages/Blog";
+import BlogDetail from "./components/BlogDetails";
 
 const AppContent = () => {
   const location = useLocation();
@@ -83,6 +88,11 @@ const AppContent = () => {
           <Route path="/employers" element={<ForEmployers />} />
           <Route path="/pricing" element={<PrincinPage />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/about-us" element={<About />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:id" element={<BlogDetail />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/testimonials" element={<FeaturedSuccessStories />} />
           <Route path="/find-talents" element={<TalentsSearchManager />} />
           <Route path="/jobs" element={<JobManager />} />

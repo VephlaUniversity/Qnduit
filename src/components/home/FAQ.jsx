@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 export const FAQSection = () => {
   const [faqToggle, setFaqToggle] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(0);
@@ -137,7 +138,7 @@ export const FAQSection = () => {
           </p>
         </div>
         <button className="bg-white cursor-pointer text-gray-900 px-6 py-3 rounded-full hover:bg-gray-100 transition-colors whitespace-nowrap">
-          Contact us
+          <Link to="/contact">Contact us</Link>
         </button>
       </div>
     </section>

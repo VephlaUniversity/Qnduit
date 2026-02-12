@@ -90,7 +90,10 @@ export const Footer = () => (
               </Link>
             </li>
             <li>
-              <Link to="/signin" className="hover:text-white transition-colors">
+              <Link
+                to="/pricing"
+                className="hover:text-white transition-colors"
+              >
                 Upgrade Profile
               </Link>
             </li>
@@ -113,14 +116,20 @@ export const Footer = () => (
           </h4>
           <ul className="space-y-3 text-gray-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link
+                to="/about-us"
+                className="hover:text-white transition-colors"
+              >
                 About Us
-              </a>
+              </Link>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link
+                to="/how-it-works"
+                className="hover:text-white transition-colors"
+              >
                 How It Works
-              </a>
+              </Link>
             </li>
             <li>
               <Link
@@ -143,14 +152,17 @@ export const Footer = () => (
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a
+                href="https://www.vncx.net"
+                className="hover:text-white transition-colors"
+              >
                 Join Community
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <Link to="/blog" className="hover:text-white transition-colors">
                 Blog
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
@@ -160,12 +172,18 @@ export const Footer = () => (
       <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
         <div className="text-gray-400 mb-4 md:mb-0">© 2025 Qnduit</div>
         <div className="flex space-x-8 text-gray-400">
-          <a href="#" className="hover:text-white transition-colors">
+          <Link
+            to="/terms-of-service"
+            className="hover:text-white transition-colors"
+          >
             Terms & Service
-          </a>
-          <a href="#" className="hover:text-white transition-colors">
+          </Link>
+          <Link
+            to="privacy-policy"
+            className="hover:text-white transition-colors"
+          >
             Privacy Policy
-          </a>
+          </Link>
         </div>
       </div>
 
