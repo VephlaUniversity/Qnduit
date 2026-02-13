@@ -204,7 +204,7 @@ const ProfileSettings = () => {
       try {
         const result = event.target?.result;
         setLogoPreview(result);
-        setFormData((prev) => ({ ...prev, logo: result }));
+        setFormData((prev) => ({ ...prev, logo: file }));
       } catch (error) {
         console.error("Error processing logo:", error);
         toast({
@@ -267,44 +267,18 @@ const ProfileSettings = () => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const newItem = {
-            url: event.target?.result,
-            type: isVideo ? "video" : "image",
-          };
+      const newItems = fileArray.map((file) => ({
+        url: URL.createObjectURL(file),
+        type: file.type.startsWith("video/") ? "video" : "image",
+      }));
 
-          newItems.push(newItem);
-          processedCount++;
+      setGalleryItems((prev) => [...prev, ...newItems]);
 
-          // Once all files are processed, update state once
-          if (processedCount === fileArray.length) {
-            updateGalleryState(newItems);
-          }
-        } catch (error) {
-          console.error("Error processing file:", error);
-          toast({
-            title: "Error",
-            description: "Failed to process image. Try a smaller file.",
-            variant: "destructive",
-          });
-        }
-      };
+      setFormData((prev) => ({
+        ...prev,
+        gallery: [...prev.gallery, ...fileArray], // 🔥 RAW FILES ONLY CHANGE
+      }));
 
-      reader.onerror = () => {
-        processedCount++;
-        toast({
-          title: "Error",
-          description: `Failed to read ${file.name}`,
-          variant: "destructive",
-        });
-        if (processedCount === fileArray.length && newItems.length > 0) {
-          updateGalleryState(newItems);
-        }
-      };
-
-      reader.readAsDataURL(file);
     });
   };
 
@@ -380,38 +354,73 @@ const ProfileSettings = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      // Try to save to localStorage
-      try {
-        localStorage.setItem("employerProfile", JSON.stringify(formData));
-      } catch (storageError) {
-        // Handle quota exceeded error
+    try {
+      const employerId = localStorage.getItem("employerId");
+      const token = localStorage.getItem("token");
+
+      const data = new FormData();
+
+      Object.keys(formData).forEach((key) => {
         if (
-          storageError.name === "QuotaExceededError" ||
-          storageError.code === 22 ||
-          storageError.code === 1014
+          key !== "logo" &&
+          key !== "gallery" &&
+          key !== "socialNetworks"
         ) {
-          throw new Error(
-            "Storage quota exceeded. Please remove some gallery items and try again.",
-          );
+          data.append(key, formData[key]);
         }
-        throw storageError;
+      });
+
+      data.append(
+        "socialNetworks",
+        JSON.stringify(formData.socialNetworks)
+      );
+
+      if (formData.logo) {
+        data.append("logo", formData.logo);
+      }
+
+      if (formData.gallery?.length) {
+        formData.gallery.forEach((file) => {
+          data.append("gallery", file);
+        });
+      }
+
+      const response = await fetch(
+        `http://localhost:5000/api/employer/profile/update/${employerId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: data,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Update failed");
       }
 
       toast({
         title: "Success!",
-        description: isUpdating ? "Profile updated!" : "Profile saved!",
+        description: isUpdating
+          ? "Profile updated successfully!"
+          : "Profile saved successfully!",
       });
+
       navigate("/dashboard/profile");
+
     } catch (error) {
       console.error("Save error:", error);
+
       toast({
         title: "Error",
-        description: error.message || "Failed to save. Please try again.",
+        description: error.message || "Failed to save profile. Please try again later.",
         variant: "destructive",
       });
+
     } finally {
       setIsSaving(false);
     }
