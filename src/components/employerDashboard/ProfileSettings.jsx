@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import TextEditor from "../TextEditor";
 import { useToast } from "../hooks/useToast";
+import { API_BASE_URL } from "../utils/api";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -387,7 +388,7 @@ const ProfileSettings = () => {
       }
 
       const response = await fetch(
-        `http://localhost:5000/api/employer/profile/update/${employerId}`,
+        `${API_BASE_URL}/api/employer/profile/update/${employerId}`,
         {
           method: "PUT",
           headers: {
