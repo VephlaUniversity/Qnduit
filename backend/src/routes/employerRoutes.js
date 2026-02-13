@@ -17,7 +17,7 @@ router.post("/verify", verifyEmployerEmail);
 
 // profile
 router.put(
-  "/profile/update/:id",
+  "/update/:id",
   upload.fields([
     { name: "logo", maxCount: 1 },
     { name: "gallery", maxCount: 10 },

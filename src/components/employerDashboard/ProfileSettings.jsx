@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import TextEditor from "../TextEditor";
 import { useToast } from "../hooks/useToast";
+import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
 // Fix leaflet default icon issue
@@ -357,8 +358,11 @@ const ProfileSettings = () => {
     setIsSaving(true);
 
     try {
-      const employerId = localStorage.getItem("employerId");
+      const user = JSON.parse(localStorage.getItem("user"));
+      const employerId = user?.id;
       const token = localStorage.getItem("token");
+
+      if (!employerId) throw new Error("An error occured. Please try again.");
 
       const data = new FormData();
 
@@ -387,22 +391,19 @@ const ProfileSettings = () => {
         });
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/employer/profile/update/${employerId}`,
+      const response = await axios.put(
+        `${API_BASE_URL}/api/employers/update/${employerId}`,
+        data,
         {
-          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
           },
-          body: data,
         }
       );
 
-      const result = await response.json();
+      const result = response.data;
 
-      if (!response.ok) {
-        throw new Error(result.message || "Update failed");
-      }
 
       toast({
         title: "Success!",
