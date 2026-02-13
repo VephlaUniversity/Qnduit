@@ -3,7 +3,6 @@ import {
   registerEmployer,
   verifyEmployerEmail,
   updateEmployerProfile,
-  selectEmployerPlan,
   getEmployerDashboard,
   upload,
 } from "../controllers/employerController.js";
@@ -26,7 +25,7 @@ router.put(
 );
 
 // plans
-router.post("/plan/:id", selectEmployerPlan);
+router.post("/plan/:id");
 
 // dashboard
 router.get("/dashboard/:id", getEmployerDashboard);
