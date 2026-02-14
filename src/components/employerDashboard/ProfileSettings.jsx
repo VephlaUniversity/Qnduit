@@ -62,7 +62,7 @@ const ProfileSettings = () => {
     companyName: "",
     companyEmail: "",
     phone: "",
-    website: "",
+    companyWebsite: "",
     industry: "",
     foundedDate: "2023",
     companySize: "50-120",
@@ -588,8 +588,8 @@ const ProfileSettings = () => {
                 <label className="text-white text-sm mb-2 block">Website</label>
                 <input
                   type="url"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange("website", e.target.value)}
+                  value={formData.companyWebsite}
+                  onChange={(e) => handleInputChange("companyWebsite", e.target.value)}
                   className={inputClass}
                 />
               </div>
