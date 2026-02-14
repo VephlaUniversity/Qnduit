@@ -59,13 +59,13 @@ const ProfileSettings = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const [formData, setFormData] = useState({
-    employerName: "",
-    email: "",
+    companyName: "",
+    companyEmail: "",
     phone: "",
     website: "",
     industry: "",
     foundedDate: "2023",
-    companySize: "50 - 120",
+    companySize: "50-120",
     showProfile: "show",
     categories: [],
     profileURL: "",
@@ -553,23 +553,23 @@ const ProfileSettings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-white text-sm mb-2 block">
-                  Employer Name
+                  Company Name
                 </label>
                 <input
                   type="text"
-                  value={formData.employerName}
+                  value={formData.companyName}
                   onChange={(e) =>
-                    handleInputChange("employerName", e.target.value)
+                    handleInputChange("companyName", e.target.value)
                   }
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">Email</label>
+                <label className="text-white text-sm mb-2 block">Company Email</label>
                 <input
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  value={formData.companyEmail}
+                  onChange={(e) => handleInputChange("companyEmail", e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -633,7 +633,7 @@ const ProfileSettings = () => {
                 >
                   <option value="1-10">1-10</option>
                   <option value="11-50">11-50</option>
-                  <option value="50 - 120">50 - 120</option>
+                  <option value="50-120">50 - 120</option>
                   <option value="121-200">121-200</option>
                   <option value="200+">200+</option>
                 </select>
