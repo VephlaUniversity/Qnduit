@@ -88,31 +88,24 @@ export const verifyEmployerEmail = async (req, res, next) => {
 
 export const updateEmployerProfile = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = req.user._id;
 
     let updates = { ...req.body };
 
     delete updates.password;
+    delete updates.email;      
+    delete updates.isVerified; 
+    delete updates.selectedPlan;
+
 
     if (updates.categories && typeof updates.categories === "string") {
       updates.categories = updates.categories.split(",");
     }
 
-    updates.socialNetworks = {
-      facebook: updates.facebook || "",
-      linkedin: updates.linkedin || "",
-      twitter: updates.twitter || "",
-      pinterest: updates.pinterest || "",
-      instagram: updates.instagram || "",
-      youtube: updates.youtube || "",
-    };
+    if (updates.socialNetworks) {
+      updates.socialNetworks = JSON.parse(updates.socialNetworks);
+    }
 
-    delete updates.facebook;
-    delete updates.linkedin;
-    delete updates.twitter;
-    delete updates.pinterest;
-    delete updates.instagram;
-    delete updates.youtube;
 
     if (updates.lat && updates.lng) {
       updates.geoLocation = {
@@ -142,6 +135,14 @@ export const updateEmployerProfile = async (req, res, next) => {
 
     const existingEmployer = await Employer.findById(id);
 
+    if (!existingEmployer) {
+      return res.status(404).json({
+        success:false,
+        message:"Employer not found"
+      });
+    }
+
+
     if (
       (updates.companyName || existingEmployer.companyName) &&
       (updates.aboutCompany || existingEmployer.aboutCompany) &&
@@ -153,10 +154,18 @@ export const updateEmployerProfile = async (req, res, next) => {
 
     updates.profileUpdatedAt = new Date();
 
-    const employer = await Employer.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    }).select("-password -verificationCode");
+    const employer = await Employer.findByIdAndUpdate(
+      id,
+      updates,
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
+        omitUndefined: true
+      }
+    ).select("-password -verificationCode");
+
+
 
     if (!employer)
       return res.status(404).json({ message: "Employer not found" });
@@ -172,14 +181,47 @@ export const updateEmployerProfile = async (req, res, next) => {
 };
 
 
-export const getEmployerDashboard = async (req, res, next) => {
+export const getEmployerProfile = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const employer = await Employer.findById(id).select("-password -verificationCode");
-    if (!employer) return res.status(404).json({ message: "Employer not found" });
+    const id = req.user._id;
 
-    res.json({ success: true, employer });
+    const employer = await Employer.findById(id)
+      .select("-password -verificationCode");
+
+    if (!employer)
+      return res.status(404).json({ message: "Employer not found" });
+
+    const profile = {
+      ...employer._doc,
+
+      logo: employer.logo?.url || "",
+
+      gallery:
+        employer.gallery?.map(item => ({
+          url: item.url,
+          type: item.type
+        })) || [],
+
+      lat: employer.geoLocation?.coordinates?.[1] || "",
+      lng: employer.geoLocation?.coordinates?.[0] || "",
+
+      socialNetworks: employer.socialNetworks || {
+        facebook: "",
+        linkedin: "",
+        twitter: "",
+        pinterest: "",
+        instagram: "",
+        youtube: "",
+      },
+    };
+
+    res.json({
+      success: true,
+      profile,
+    });
+
   } catch (error) {
     next(error);
   }
 };
+

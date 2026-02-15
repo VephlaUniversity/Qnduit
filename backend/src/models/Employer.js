@@ -24,7 +24,7 @@ const employerSchema = new mongoose.Schema(
       type: String,
       required: true,
       minlength: 8,
-      select: false,
+      // select: false,
     },
     accountType: {
       type: String,
@@ -81,7 +81,11 @@ const employerSchema = new mongoose.Schema(
     foundedYear: {
       type: Number,
     },
-
+    companyEmail: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
     companySize: {
       type: String,
       enum: ["1-10", "11-50", "50-120", "121-200", "200+"],

@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const SubmitJob = () => {
   const { toast } = useToast();
@@ -33,7 +35,7 @@ const SubmitJob = () => {
   const [photos, setPhotos] = useState([]);
 
   // Load job data if editing
-  useEffect(() => {
+  /*useEffect(() => {
     const jobToEdit = localStorage.getItem("jobToEdit");
     if (jobToEdit) {
       const job = JSON.parse(jobToEdit);
@@ -69,7 +71,7 @@ const SubmitJob = () => {
       // Clear the jobToEdit from localStorage
       localStorage.removeItem("jobToEdit");
     }
-  }, []);
+  }, []);*/
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -77,41 +79,28 @@ const SubmitJob = () => {
   };
 
   const handleFeaturedImage = (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "Upload Error",
-        description: "File exceeds 5MB limit",
-        variant: "destructive",
-      });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFeaturedImage(event.target?.result);
-    };
-    reader.readAsDataURL(file);
+
+    setFeaturedImage(file);
   };
 
+
   const handlePhotosUpload = (e) => {
-    const files = e.target.files;
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPhotos((prev) => [...prev, event.target?.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    setPhotos(files);
   };
+
+
 
   const removePhoto = (index) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
+
     if (!formData.jobTitle.trim()) {
       toast({
         title: "Error",
@@ -120,57 +109,60 @@ const SubmitJob = () => {
       });
       return;
     }
-    setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const existing = JSON.parse(localStorage.getItem("postedJobs") || "[]");
+    const form = new FormData();
 
-    if (isEditing) {
-      // Update existing job
-      const updatedJobs = existing.map((job) => {
-        if (job.id === editingJobId) {
-          return {
-            ...job,
-            featuredImage,
-            ...formData,
-            photos,
-          };
+    Object.keys(formData).forEach(key => {
+      form.append(key, formData[key]);
+    });
+
+    if(featuredImage){
+      form.append("featuredImage", featuredImage);
+    }
+
+    photos.forEach(photo => {
+      form.append("photos", photo);
+    });
+
+    try {
+
+      setSaving(true);
+
+      const url = isEditing
+        ? `${API_BASE_URL}/api/job/update/${editingJobId}`
+        : `${API_BASE_URL}/api/job/create`;
+
+      const token = localStorage.getItem("token");
+
+      const { data } = await axios({
+        method: isEditing ? "put" : "post",
+        url: url,
+        data: form,
+        headers: {
+          Authorization: `Bearer ${token}`,
         }
-        return job;
       });
-      localStorage.setItem("postedJobs", JSON.stringify(updatedJobs));
 
-      // Trigger custom event for real-time sync
-      window.dispatchEvent(new Event("postedJobsUpdated"));
+      toast({
+        title:"Success",
+        description:isEditing
+          ? "Job updated successfully"
+          : "Job created successfully"
+      });
 
-      toast({ title: "Success!", description: "Job updated successfully." });
-    } else {
-      // Create new job
-      const job = {
-        id: Date.now().toString(),
-        featuredImage,
-        ...formData,
-        photos,
-        status: "Published",
-        applicants: 0,
-        created: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-        verified: true,
-      };
-      existing.push(job);
-      localStorage.setItem("postedJobs", JSON.stringify(existing));
+      navigate("/dashboard/my-job");
 
-      // Trigger custom event for real-time sync
-      window.dispatchEvent(new Event("postedJobsUpdated"));
+    } catch (err) {
 
-      toast({ title: "Success!", description: "Job posted successfully." });
+      toast({
+        title:"Error",
+        description:err.response?.data?.message || err.message,
+        variant:"destructive"
+      });
+
     }
 
     setSaving(false);
-    navigate("/dashboard/my-job");
   };
 
   const inputClass =
@@ -199,6 +191,7 @@ const SubmitJob = () => {
               type="file"
               accept="image/*"
               onChange={handleFeaturedImage}
+              name="featuredImage"
               className="hidden"
             />
             <button
@@ -214,8 +207,8 @@ const SubmitJob = () => {
           {featuredImage && (
             <div className="mt-3 relative w-32 h-20">
               <img
-                src={featuredImage}
-                alt="Featured"
+                src={URL.createObjectURL(featuredImage)}
+                alt="preview"
                 className="w-full h-full object-cover rounded-lg border border-white/10"
               />
               <button
@@ -443,8 +436,8 @@ const SubmitJob = () => {
               {photos.map((photo, index) => (
                 <div key={index} className="relative w-44 h-28">
                   <img
-                    src={photo}
-                    alt={`Photo ${index + 1}`}
+                    src={URL.createObjectURL(photo)}
+                    alt="preview"
                     className="w-full h-full object-cover rounded-lg border border-white/10"
                   />
                   <button
@@ -461,6 +454,7 @@ const SubmitJob = () => {
             <input
               ref={photosRef}
               type="file"
+              name="photos"
               accept="image/*,video/*"
               multiple
               onChange={handlePhotosUpload}

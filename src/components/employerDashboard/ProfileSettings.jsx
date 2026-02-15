@@ -63,8 +63,8 @@ const ProfileSettings = () => {
     companyEmail: "",
     phone: "",
     companyWebsite: "",
-    industry: "",
-    foundedDate: "2023",
+    companyIndustry: "",
+    foundedYear: "",
     companySize: "50-120",
     showProfile: "show",
     categories: [],
@@ -88,67 +88,69 @@ const ProfileSettings = () => {
     gallery: [],
   });
 
-  // Load saved profile data
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("employerProfile");
-      if (saved) {
-        const parsed = JSON.parse(saved);
+    // Load saved profile data
+    useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
 
-        // Ensure gallery is always an array
-        if (!Array.isArray(parsed.gallery)) {
-          parsed.gallery = [];
-        }
+        if (!user?.id) return;
 
-        // Ensure socialNetworks exists
-        if (
-          !parsed.socialNetworks ||
-          typeof parsed.socialNetworks !== "object"
-        ) {
-          parsed.socialNetworks = {
-            facebook: "",
-            linkedin: "",
-            twitter: "",
-            pinterest: "",
-            instagram: "",
-            youtube: "",
-          };
-        }
-
-        // Ensure categories is an array
-        if (!Array.isArray(parsed.categories)) {
-          parsed.categories = [];
-        }
-
-        setFormData(parsed);
-        setIsUpdating(true);
-        if (parsed.logo) setLogoPreview(parsed.logo);
-        if (
-          parsed.gallery &&
-          Array.isArray(parsed.gallery) &&
-          parsed.gallery.length > 0
-        ) {
-          setGalleryItems(parsed.gallery);
-        }
-        if (parsed.lat && parsed.lng) {
-          const lat = parseFloat(parsed.lat);
-          const lng = parseFloat(parsed.lng);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            setMapPosition([lat, lng]);
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/employers/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
+        );
+
+        const profile = data.profile;
+
+        if (!profile) return;
+
+        setIsUpdating(true);
+
+        setFormData((prev) => ({
+          ...prev,
+          ...profile,
+          socialNetworks: profile.socialNetworks || prev.socialNetworks,
+          categories: profile.categories || [],
+          gallery: [], 
+        }));
+
+        // Set logo preview
+        if (profile.logo) {
+          setLogoPreview(`${API_BASE_URL}${profile.logo}`);
         }
+
+        // Set gallery preview
+        if (profile.gallery && Array.isArray(profile.gallery)) {
+          setGalleryItems(
+            profile.gallery.map((item) => ({
+              url: `${API_BASE_URL}${item.url}`,
+              type: item.type,
+            }))
+          );
+        }
+
+        // Set map position
+        if (profile.lat && profile.lng) {
+          setMapPosition([
+            parseFloat(profile.lat),
+            parseFloat(profile.lng),
+          ]);
+        }
+
+      } catch (error) {
+        console.error("Error loading profile:", error);
       }
-    } catch (error) {
-      console.error("Error loading profile:", error);
-      // Clear corrupted data and start fresh
-      localStorage.removeItem("employerProfile");
-      toast({
-        title: "Error",
-        description: "Failed to load profile data. Starting fresh.",
-        variant: "destructive",
-      });
-    }
+    };
+
+    fetchProfile();
   }, []);
+
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -278,7 +280,7 @@ const ProfileSettings = () => {
 
       setFormData((prev) => ({
         ...prev,
-        gallery: [...prev.gallery, ...fileArray], // 🔥 RAW FILES ONLY CHANGE
+        gallery: [...prev.gallery, ...fileArray], 
       }));
 
     });
@@ -392,7 +394,7 @@ const ProfileSettings = () => {
       }
 
       const response = await axios.put(
-        `${API_BASE_URL}/api/employers/update/${employerId}`,
+        `${API_BASE_URL}/api/employers/update`,
         data,
         {
           headers: {
@@ -599,9 +601,9 @@ const ProfileSettings = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.industry}
+                  value={formData.companyIndustry}
                   onChange={(e) =>
-                    handleInputChange("industry", e.target.value)
+                    handleInputChange("companyIndustry", e.target.value)
                   }
                   className={inputClass}
                 />
@@ -612,9 +614,9 @@ const ProfileSettings = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.foundedDate}
+                  value={formData.foundedYear}
                   onChange={(e) =>
-                    handleInputChange("foundedDate", e.target.value)
+                    handleInputChange("foundedYear", e.target.value)
                   }
                   placeholder="e.g. 2020"
                   className={inputClass}

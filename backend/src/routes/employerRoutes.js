@@ -1,10 +1,11 @@
 import express from "express";
+import { protect, authorize } from "../middleware/authMiddleware.js";
 import {
   registerEmployer,
   verifyEmployerEmail,
   updateEmployerProfile,
-  selectEmployerPlan,
-  getEmployerDashboard,
+  // selectEmployerPlan,
+  getEmployerProfile,
   upload,
 } from "../controllers/employerController.js";
 
@@ -17,7 +18,9 @@ router.post("/verify", verifyEmployerEmail);
 
 // profile
 router.put(
-  "/update/:id",
+  "/update",
+  protect,
+  authorize("employer"),
   upload.fields([
     { name: "logo", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
@@ -26,9 +29,14 @@ router.put(
 );
 
 // plans
-router.post("/plan/:id", selectEmployerPlan);
+//router.post("/plan/:id", selectEmployerPlan);
 
 // dashboard
-router.get("/dashboard/:id", getEmployerDashboard);
+router.get(
+  "/profile", 
+  protect,
+  authorize("employer"),
+  getEmployerProfile
+);
 
 export default router;
