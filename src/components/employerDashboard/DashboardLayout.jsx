@@ -134,7 +134,10 @@ export const DashboardLayout = ({
               )}
             </div>
             {userType === "talent" && (
-              <button className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+              <button
+                className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                onClick={() => navigate("/talent-dashboard/resumes")}
+              >
                 Upload Resume
               </button>
             )}
