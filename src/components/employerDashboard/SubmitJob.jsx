@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { useParams } from "react-router-dom";
 
 const SubmitJob = () => {
   const { toast } = useToast();
@@ -33,45 +34,74 @@ const SubmitJob = () => {
 
   const [featuredImage, setFeaturedImage] = useState(null);
   const [photos, setPhotos] = useState([]);
+  const { id } = useParams();
 
-  // Load job data if editing
-  /*useEffect(() => {
-    const jobToEdit = localStorage.getItem("jobToEdit");
-    if (jobToEdit) {
-      const job = JSON.parse(jobToEdit);
-      setIsEditing(true);
-      setEditingJobId(job.id);
+  useEffect(() => {
 
-      // Populate form data
-      setFormData({
-        jobTitle: job.jobTitle || "",
-        jobDescription: job.jobDescription || "",
-        category: job.category || "",
-        jobCategory: job.jobCategory || "",
-        jobApplyType: job.jobApplyType || "",
-        salaryType: job.salaryType || "",
-        minSalary: job.minSalary || "",
-        maxSalary: job.maxSalary || "",
-        experience: job.experience || "",
-        careerLevel: job.careerLevel || "",
-        qualification: job.qualification || "",
-        deadlineDate: job.deadlineDate || "",
-        address: job.address || "",
-        location: job.location || "",
-      });
+    if (!id) return;
 
-      // Set images
-      if (job.featuredImage) {
-        setFeaturedImage(job.featuredImage);
+    const fetchJob = async () => {
+      try {
+
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/job/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        const job = data.job;
+
+        // activate edit mode using your frontend setup
+        setIsEditing(true);
+        setEditingJobId(job._id);
+
+        // map DB structure → your form structure
+        setFormData({
+          jobTitle: job.jobTitle || "",
+          jobDescription: job.jobDescription || "",
+          category: job.category || "",
+          jobCategory: job.jobCategory || "",
+          jobApplyType: job.jobApplyType || "",
+          salaryType: job.salary?.type || "",
+          minSalary: job.salary?.min || "",
+          maxSalary: job.salary?.max || "",
+          experience: job.experience || "",
+          careerLevel: job.careerLevel || "",
+          qualification: job.qualification || "",
+          deadlineDate: job.deadlineDate
+            ? job.deadlineDate.split("T")[0]
+            : "",
+          address: job.address || "",
+          location: job.location || "",
+        });
+
+        // Featured Image Preview (important for your UI)
+        if (job.featuredImage?.url) {
+          setFeaturedImage({
+            preview: `${API_BASE_URL}${job.featuredImage.url}`
+          });
+        }
+
+        // Gallery Preview
+        if (job.gallery?.length > 0) {
+          setPhotos(
+            job.gallery.map(item => ({
+              preview: `${API_BASE_URL}${item.url}`
+            }))
+          );
+        }
+
+      } catch (error) {
+        console.log(error);
       }
-      if (job.photos && job.photos.length > 0) {
-        setPhotos(job.photos);
-      }
+    };
 
-      // Clear the jobToEdit from localStorage
-      localStorage.removeItem("jobToEdit");
-    }
-  }, []);*/
+    fetchJob();
+
+  }, [id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -116,12 +146,14 @@ const SubmitJob = () => {
       form.append(key, formData[key]);
     });
 
-    if(featuredImage){
+    if(featuredImage instanceof File){
       form.append("featuredImage", featuredImage);
     }
 
     photos.forEach(photo => {
-      form.append("photos", photo);
+      if(photo instanceof File){
+        form.append("photos", photo);
+      }
     });
 
     try {
@@ -207,7 +239,11 @@ const SubmitJob = () => {
           {featuredImage && (
             <div className="mt-3 relative w-32 h-20">
               <img
-                src={URL.createObjectURL(featuredImage)}
+                src={
+                  featuredImage instanceof File
+                    ? URL.createObjectURL(featuredImage)
+                    : featuredImage.preview
+                }
                 alt="preview"
                 className="w-full h-full object-cover rounded-lg border border-white/10"
               />

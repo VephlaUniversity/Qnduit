@@ -152,6 +152,22 @@ export const getEmployerJobs = async (req, res, next) => {
   }
 };
 
+export const getSingleJob = async (req, res, next) => {
+  try {
+
+    const job = await Job.findById(req.params.id);
+
+    res.json({
+      success: true,
+      job
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 export const deleteJob = async (req, res, next) => {
   try {
 

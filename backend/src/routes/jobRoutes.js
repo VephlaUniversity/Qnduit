@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
-import { createJob, updateJob, jobUpload, getEmployerJobs, deleteJob } from "../controllers/jobController.js";
+import { createJob, updateJob, jobUpload, getEmployerJobs, getSingleJob, deleteJob } from "../controllers/jobController.js";
 
 const router = express.Router();
 
@@ -31,6 +31,13 @@ router.delete(
   protect,
   authorize("employer"),
   deleteJob
+);
+
+router.get(
+  "/:id",
+  protect,
+  authorize("employer"),
+  getSingleJob
 );
 
 export default router;
