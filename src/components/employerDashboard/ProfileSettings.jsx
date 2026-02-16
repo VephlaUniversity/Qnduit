@@ -8,6 +8,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import TextEditor from "../TextEditor";
 import { useToast } from "../hooks/useToast";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -57,13 +59,13 @@ const ProfileSettings = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const [formData, setFormData] = useState({
-    employerName: "",
-    email: "",
+    companyName: "",
+    companyEmail: "",
     phone: "",
-    website: "",
-    industry: "",
-    foundedDate: "2023",
-    companySize: "50 - 120",
+    companyWebsite: "",
+    companyIndustry: "",
+    foundedYear: "",
+    companySize: "50-120",
     showProfile: "show",
     categories: [],
     profileURL: "",
@@ -86,67 +88,69 @@ const ProfileSettings = () => {
     gallery: [],
   });
 
-  // Load saved profile data
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("employerProfile");
-      if (saved) {
-        const parsed = JSON.parse(saved);
+    // Load saved profile data
+    useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
 
-        // Ensure gallery is always an array
-        if (!Array.isArray(parsed.gallery)) {
-          parsed.gallery = [];
-        }
+        if (!user?.id) return;
 
-        // Ensure socialNetworks exists
-        if (
-          !parsed.socialNetworks ||
-          typeof parsed.socialNetworks !== "object"
-        ) {
-          parsed.socialNetworks = {
-            facebook: "",
-            linkedin: "",
-            twitter: "",
-            pinterest: "",
-            instagram: "",
-            youtube: "",
-          };
-        }
-
-        // Ensure categories is an array
-        if (!Array.isArray(parsed.categories)) {
-          parsed.categories = [];
-        }
-
-        setFormData(parsed);
-        setIsUpdating(true);
-        if (parsed.logo) setLogoPreview(parsed.logo);
-        if (
-          parsed.gallery &&
-          Array.isArray(parsed.gallery) &&
-          parsed.gallery.length > 0
-        ) {
-          setGalleryItems(parsed.gallery);
-        }
-        if (parsed.lat && parsed.lng) {
-          const lat = parseFloat(parsed.lat);
-          const lng = parseFloat(parsed.lng);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            setMapPosition([lat, lng]);
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/employers/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
+        );
+
+        const profile = data.profile;
+
+        if (!profile) return;
+
+        setIsUpdating(true);
+
+        setFormData((prev) => ({
+          ...prev,
+          ...profile,
+          socialNetworks: profile.socialNetworks || prev.socialNetworks,
+          categories: profile.categories || [],
+          gallery: [], 
+        }));
+
+        // Set logo preview
+        if (profile.logo) {
+          setLogoPreview(`${API_BASE_URL}${profile.logo}`);
         }
+
+        // Set gallery preview
+        if (profile.gallery && Array.isArray(profile.gallery)) {
+          setGalleryItems(
+            profile.gallery.map((item) => ({
+              url: `${API_BASE_URL}${item.url}`,
+              type: item.type,
+            }))
+          );
+        }
+
+        // Set map position
+        if (profile.lat && profile.lng) {
+          setMapPosition([
+            parseFloat(profile.lat),
+            parseFloat(profile.lng),
+          ]);
+        }
+
+      } catch (error) {
+        console.error("Error loading profile:", error);
       }
-    } catch (error) {
-      console.error("Error loading profile:", error);
-      // Clear corrupted data and start fresh
-      localStorage.removeItem("employerProfile");
-      toast({
-        title: "Error",
-        description: "Failed to load profile data. Starting fresh.",
-        variant: "destructive",
-      });
-    }
+    };
+
+    fetchProfile();
   }, []);
+
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -204,7 +208,7 @@ const ProfileSettings = () => {
       try {
         const result = event.target?.result;
         setLogoPreview(result);
-        setFormData((prev) => ({ ...prev, logo: result }));
+        setFormData((prev) => ({ ...prev, logo: file }));
       } catch (error) {
         console.error("Error processing logo:", error);
         toast({
@@ -267,44 +271,18 @@ const ProfileSettings = () => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const newItem = {
-            url: event.target?.result,
-            type: isVideo ? "video" : "image",
-          };
+      const newItems = fileArray.map((file) => ({
+        url: URL.createObjectURL(file),
+        type: file.type.startsWith("video/") ? "video" : "image",
+      }));
 
-          newItems.push(newItem);
-          processedCount++;
+      setGalleryItems((prev) => [...prev, ...newItems]);
 
-          // Once all files are processed, update state once
-          if (processedCount === fileArray.length) {
-            updateGalleryState(newItems);
-          }
-        } catch (error) {
-          console.error("Error processing file:", error);
-          toast({
-            title: "Error",
-            description: "Failed to process image. Try a smaller file.",
-            variant: "destructive",
-          });
-        }
-      };
+      setFormData((prev) => ({
+        ...prev,
+        gallery: [...prev.gallery, ...fileArray], 
+      }));
 
-      reader.onerror = () => {
-        processedCount++;
-        toast({
-          title: "Error",
-          description: `Failed to read ${file.name}`,
-          variant: "destructive",
-        });
-        if (processedCount === fileArray.length && newItems.length > 0) {
-          updateGalleryState(newItems);
-        }
-      };
-
-      reader.readAsDataURL(file);
     });
   };
 
@@ -380,38 +358,73 @@ const ProfileSettings = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
 
-      // Try to save to localStorage
-      try {
-        localStorage.setItem("employerProfile", JSON.stringify(formData));
-      } catch (storageError) {
-        // Handle quota exceeded error
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const employerId = user?.id;
+      const token = localStorage.getItem("token");
+
+      if (!employerId) throw new Error("An error occured. Please try again.");
+
+      const data = new FormData();
+
+      Object.keys(formData).forEach((key) => {
         if (
-          storageError.name === "QuotaExceededError" ||
-          storageError.code === 22 ||
-          storageError.code === 1014
+          key !== "logo" &&
+          key !== "gallery" &&
+          key !== "socialNetworks"
         ) {
-          throw new Error(
-            "Storage quota exceeded. Please remove some gallery items and try again.",
-          );
+          data.append(key, formData[key]);
         }
-        throw storageError;
+      });
+
+      data.append(
+        "socialNetworks",
+        JSON.stringify(formData.socialNetworks)
+      );
+
+      if (formData.logo) {
+        data.append("logo", formData.logo);
       }
+
+      if (formData.gallery?.length) {
+        formData.gallery.forEach((file) => {
+          data.append("gallery", file);
+        });
+      }
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/employers/update`,
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const result = response.data;
+
 
       toast({
         title: "Success!",
-        description: isUpdating ? "Profile updated!" : "Profile saved!",
+        description: isUpdating
+          ? "Profile updated successfully!"
+          : "Profile saved successfully!",
       });
+
       navigate("/dashboard/profile");
+
     } catch (error) {
       console.error("Save error:", error);
+
       toast({
         title: "Error",
-        description: error.message || "Failed to save. Please try again.",
+        description: error.message || "Failed to save profile. Please try again later.",
         variant: "destructive",
       });
+
     } finally {
       setIsSaving(false);
     }
@@ -542,23 +555,23 @@ const ProfileSettings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-white text-sm mb-2 block">
-                  Employer Name
+                  Company Name
                 </label>
                 <input
                   type="text"
-                  value={formData.employerName}
+                  value={formData.companyName}
                   onChange={(e) =>
-                    handleInputChange("employerName", e.target.value)
+                    handleInputChange("companyName", e.target.value)
                   }
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">Email</label>
+                <label className="text-white text-sm mb-2 block">Company Email</label>
                 <input
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  value={formData.companyEmail}
+                  onChange={(e) => handleInputChange("companyEmail", e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -577,8 +590,8 @@ const ProfileSettings = () => {
                 <label className="text-white text-sm mb-2 block">Website</label>
                 <input
                   type="url"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange("website", e.target.value)}
+                  value={formData.companyWebsite}
+                  onChange={(e) => handleInputChange("companyWebsite", e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -588,9 +601,9 @@ const ProfileSettings = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.industry}
+                  value={formData.companyIndustry}
                   onChange={(e) =>
-                    handleInputChange("industry", e.target.value)
+                    handleInputChange("companyIndustry", e.target.value)
                   }
                   className={inputClass}
                 />
@@ -601,9 +614,9 @@ const ProfileSettings = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.foundedDate}
+                  value={formData.foundedYear}
                   onChange={(e) =>
-                    handleInputChange("foundedDate", e.target.value)
+                    handleInputChange("foundedYear", e.target.value)
                   }
                   placeholder="e.g. 2020"
                   className={inputClass}
@@ -622,7 +635,7 @@ const ProfileSettings = () => {
                 >
                   <option value="1-10">1-10</option>
                   <option value="11-50">11-50</option>
-                  <option value="50 - 120">50 - 120</option>
+                  <option value="50-120">50 - 120</option>
                   <option value="121-200">121-200</option>
                   <option value="200+">200+</option>
                 </select>

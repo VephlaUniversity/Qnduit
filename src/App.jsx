@@ -155,6 +155,16 @@ const AppContent = () => {
             }
           />
           <Route
+            path="/dashboard/submit-job/:id"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <SubmitJob />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/applicants"
             element={
               <ProtectedRoute>

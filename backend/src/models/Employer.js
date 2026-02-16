@@ -24,6 +24,7 @@ const employerSchema = new mongoose.Schema(
       type: String,
       required: true,
       minlength: 8,
+      // select: false,
     },
     accountType: {
       type: String,
@@ -73,9 +74,85 @@ const employerSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    phone: {
+      type: String,
+      trim: true,
+    },
+    foundedYear: {
+      type: Number,
+    },
+    companyEmail: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    companySize: {
+      type: String,
+      enum: ["1-10", "11-50", "50-120", "121-200", "200+"],
+    },
+
+    profileURL: {
+      type: String,
+      trim: true,
+    },
+
+    showProfile: {
+      type: String,
+      enum: ["show", "hidden"],
+      default: "show",
+    },
+    categories: [
+      {
+        type: String,
+        trim: true,
+      }
+    ],
+    socialNetworks: {
+      facebook: String,
+      linkedin: String,
+      twitter: String,
+      pinterest: String,
+      instagram: String,
+      youtube: String,
+    },
+    introVideo: String,
+    address: String,
+    mapLocation: String,
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], 
+      },
+    },
+    logo: {
+      url: String,
+      public_id: String,
+    },
+    gallery: [
+      {
+        url: String,
+        type: {
+          type: String,
+          enum: ["image", "video"],
+        },
+        public_id: String,
+      }
+    ],
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    profileUpdatedAt: Date,
   },
   { timestamps: true }
 );
+
+employerSchema.index({ geoLocation: "2dsphere" });
 
 employerSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

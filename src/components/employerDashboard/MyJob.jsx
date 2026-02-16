@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Search, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const MyJob = () => {
   const navigate = useNavigate();
@@ -9,21 +11,57 @@ const MyJob = () => {
   const [jobs, setJobs] = useState([]);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("postedJobs") || "[]");
-    setJobs(stored);
+
+    const fetchJobs = async () => {
+      try {
+
+        const res = await fetch(
+          `${API_BASE_URL}/api/job/my-jobs`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        const data = await res.json();
+
+        if (data.success) {
+          setJobs(data.jobs);
+        }
+
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchJobs();
+
   }, []);
 
-  const deleteJob = (id) => {
-    const updated = jobs.filter((j) => j.id !== id);
-    setJobs(updated);
-    localStorage.setItem("postedJobs", JSON.stringify(updated));
+
+  const deleteJob = async (id) => {
+    try {
+
+      await axios.delete(
+        `${API_BASE_URL}/api/job/delete/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      setJobs(prev => prev.filter(job => job._id !== id));
+
+    } catch (error) {
+      console.log(error);
+    }
   };
 
+
   const editJob = (job) => {
-    // Store the job to edit in localStorage
-    localStorage.setItem("jobToEdit", JSON.stringify(job));
-    // Navigate to submit-job page
-    navigate("/dashboard/submit-job");
+    navigate(`/dashboard/submit-job/${job._id}`);
   };
 
   const filteredAndSorted = useMemo(() => {
@@ -36,10 +74,15 @@ const MyJob = () => {
 
     switch (sortBy) {
       case "newest":
-        result = [...result].sort((a, b) => Number(b.id) - Number(a.id));
+        result = [...result].sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
         break;
+
       case "oldest":
-        result = [...result].sort((a, b) => Number(a.id) - Number(b.id));
+        result = [...result].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
         break;
       case "applicants":
         result = [...result].sort((a, b) => b.applicants - a.applicants);
@@ -147,7 +190,7 @@ const MyJob = () => {
               ) : (
                 filteredAndSorted.map((job) => (
                   <tr
-                    key={job.id}
+                    key={job._id}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
                   >
                     <td className="p-4">
@@ -173,7 +216,7 @@ const MyJob = () => {
                     </td>
                     <td className="p-4">
                       <p className="text-white text-sm">
-                        Created: {job.created}
+                        Created: {new Date(job.createdAt).toLocaleDateString()}
                       </p>
                       <p className="text-gray-400 text-sm">
                         Expiry: {job.deadlineDate || "N/A"}
@@ -194,7 +237,7 @@ const MyJob = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteJob(job.id)}
+                          onClick={() => deleteJob(job._id)}
                           className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                           title="Delete Job"
                         >

@@ -8,6 +8,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import talentRoutes from "./routes/talentRoutes.js";
 import employerRoutes from "./routes/employerRoutes.js";
+import jobRoutes from "./routes/jobRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/talents", talentRoutes);
 app.use("/api/employers", employerRoutes);
+app.use("/api/job", jobRoutes);
 
 // Error Handler
 app.use(errorHandler);

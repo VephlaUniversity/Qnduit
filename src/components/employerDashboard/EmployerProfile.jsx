@@ -13,6 +13,8 @@ import { FaPinterest } from "react-icons/fa";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -37,12 +39,33 @@ export const EmployerProfile = () => {
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("employerProfile");
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
-    }
-    const savedJobs = JSON.parse(localStorage.getItem("postedJobs") || "[]");
-    setAvailableJobs(savedJobs);
+
+    const fetchProfile = async () => {
+      try {
+
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
+
+        if (!user?.id) return;
+
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/employers/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setProfile(data.profile);
+
+      } catch (error) {
+        console.log("Profile fetch error:", error);
+      }
+    };
+
+    fetchProfile();
+
   }, []);
 
   const socialIconMap = {
@@ -95,7 +118,7 @@ export const EmployerProfile = () => {
             <div className="w-20 h-20 rounded-lg bg-gray-600 flex-shrink-0 overflow-hidden">
               {profile?.logo ? (
                 <img
-                  src={profile.logo}
+                  src={`${API_BASE_URL}${profile.logo}`}
                   alt="Logo"
                   className="w-full h-full object-cover"
                 />
@@ -106,7 +129,7 @@ export const EmployerProfile = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold text-white">
-                  {profile?.employerName || "Company Name"}
+                  {profile?.companyName || "Company Name"}
                 </h2>
                 <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
@@ -172,7 +195,7 @@ export const EmployerProfile = () => {
                   href={`https://${profile?.website}`}
                   className="text-blue-500 hover:underline"
                 >
-                  {profile?.website || "N/A"}
+                  {profile?.companyWebsite || "N/A"}
                 </a>
               </div>
               <div className="flex justify-between">
@@ -202,7 +225,7 @@ export const EmployerProfile = () => {
               <div className="flex justify-between">
                 <span className="text-gray-400">Founded</span>
                 <span className="text-white">
-                  {profile?.foundedDate || "N/A"}
+                  {profile?.foundedYear || "N/A"}
                 </span>
               </div>
             </div>
@@ -264,8 +287,8 @@ export const EmployerProfile = () => {
                   // Show gallery items
                   galleryItems[currentGalleryIndex].type === "video" ? (
                     <video
-                      key={currentGalleryIndex}
-                      src={galleryItems[currentGalleryIndex].url}
+                      key={galleryItems[currentGalleryIndex].url}
+                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
                       className="w-full h-full object-cover"
                       controls
                       autoPlay
@@ -274,8 +297,8 @@ export const EmployerProfile = () => {
                     />
                   ) : (
                     <img
-                      key={currentGalleryIndex}
-                      src={galleryItems[currentGalleryIndex].url}
+                      key={galleryItems[currentGalleryIndex].url}
+                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
                       alt={`Gallery ${currentGalleryIndex + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -326,13 +349,14 @@ export const EmployerProfile = () => {
                       >
                         {item.type === "video" ? (
                           <video
-                            src={item.url}
+                            src={`${API_BASE_URL}${item.url}`}
                             className="w-full h-full object-cover"
                             muted
                           />
+
                         ) : (
                           <img
-                            src={item.url}
+                            src={`${API_BASE_URL}${item.url}`}
                             alt={`Thumbnail ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -379,7 +403,7 @@ export const EmployerProfile = () => {
                           <div className="w-16 h-16 rounded bg-gray-600 flex-shrink-0 overflow-hidden">
                             {profile?.logo ? (
                               <img
-                                src={profile.logo}
+                                src={`${API_BASE_URL}${profile.logo}`}
                                 alt="Company"
                                 className="w-full h-full object-cover"
                               />
@@ -389,7 +413,7 @@ export const EmployerProfile = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-blue-500 text-sm mb-1">
-                              {profile?.employerName || "Company"}
+                              {profile?.companyName || "Company"}
                             </p>
                             <div className="flex items-center gap-2 mb-2">
                               <h4 className="text-white font-semibold text-lg">
