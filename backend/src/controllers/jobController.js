@@ -133,3 +133,50 @@ export const updateJob = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getEmployerJobs = async (req, res, next) => {
+  try {
+
+    const employerId = req.user._id;
+
+    const jobs = await Job.find({ employer: employerId })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      jobs
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteJob = async (req, res, next) => {
+  try {
+
+    const { id } = req.params;
+    const employerId = req.user._id;
+
+    const job = await Job.findOneAndDelete({
+      _id: id,
+      employer: employerId
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Job deleted successfully"
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
