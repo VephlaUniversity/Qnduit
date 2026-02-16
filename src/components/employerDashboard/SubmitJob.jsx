@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import { useParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 const SubmitJob = () => {
   const { toast } = useToast();
@@ -34,7 +34,8 @@ const SubmitJob = () => {
 
   const [featuredImage, setFeaturedImage] = useState(null);
   const [photos, setPhotos] = useState([]);
-  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get("edit");
 
   useEffect(() => {
 
@@ -44,7 +45,7 @@ const SubmitJob = () => {
       try {
 
         const { data } = await axios.get(
-          `${API_BASE_URL}/api/job/${id}`,
+          `${API_BASE_URL}/api/jobs/${id}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -161,8 +162,8 @@ const SubmitJob = () => {
       setSaving(true);
 
       const url = isEditing
-        ? `${API_BASE_URL}/api/job/update/${editingJobId}`
-        : `${API_BASE_URL}/api/job/create`;
+        ? `${API_BASE_URL}/api/jobs/update/${editingJobId}`
+        : `${API_BASE_URL}/api/jobs/create`;
 
       const token = localStorage.getItem("token");
 

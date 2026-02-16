@@ -16,7 +16,7 @@ const MyJob = () => {
       try {
 
         const res = await fetch(
-          `${API_BASE_URL}/api/job/my-jobs`,
+          `${API_BASE_URL}/api/jobs/my-jobs`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -44,7 +44,7 @@ const MyJob = () => {
     try {
 
       await axios.delete(
-        `${API_BASE_URL}/api/job/delete/${id}`,
+        `${API_BASE_URL}/api/jobs/delete/${id}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -61,7 +61,7 @@ const MyJob = () => {
 
 
   const editJob = (job) => {
-    navigate(`/dashboard/submit-job/${job._id}`);
+    navigate(`/dashboard/submit-job?edit=${job._id}`);
   };
 
   const filteredAndSorted = useMemo(() => {

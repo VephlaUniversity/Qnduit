@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar as CalendarIcon,
@@ -14,72 +14,8 @@ import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { format } from "date-fns";
 import { useToast } from "../hooks/useToast";
-
-const INITIAL_MEETINGS = [
-  {
-    id: 1,
-    date: "06",
-    month: "DEC",
-    title: "Marketer",
-    attendee: "Tony Nguyen",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 2,
-    date: "07",
-    month: "DEC",
-    title: "Junior Graphic Designer",
-    attendee: "Daniel Dovin",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 3,
-    date: "08",
-    month: "DEC",
-    title: "Digital Marketing",
-    attendee: "Danimla",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 4,
-    date: "09",
-    month: "DEC",
-    title: "Project Manager",
-    attendee: "Danimla",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 5,
-    date: "11",
-    month: "DEC",
-    title: "Director",
-    attendee: "Danimla",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 6,
-    date: "13",
-    month: "DEC",
-    title: "UI UX Designer",
-    attendee: "Danimla",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-  {
-    id: 7,
-    date: "14",
-    month: "DEC",
-    title: "Digital Marketing",
-    attendee: "Danimla",
-    time: "3:00 pm",
-    duration: "30m",
-  },
-];
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 // Full 24-hour clock in 30-minute intervals → 48 slots: 12:00 am … 11:30 pm
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
@@ -137,8 +73,9 @@ const ConfirmDialog = ({ open, onConfirm, onCancel, meetingTitle }) => {
 export const Meeting = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
 
-  const [meetings, setMeetings] = useState(INITIAL_MEETINGS);
+  const [meetings, setMeetings] = useState([]);
 
   // Modal visibility
   const [showZoomModal, setShowZoomModal] = useState(false);
@@ -161,6 +98,31 @@ export const Meeting = () => {
   const [newDuration, setNewDuration] = useState("30m");
   const [createErrors, setCreateErrors] = useState({});
 
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+
+        const { data } = await axios.get(`${API_BASE_URL}/api/meetings/my-meetings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setMeetings(data.meetings);
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: "Error fetching meetings",
+          description: err.response?.data?.message || err.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMeetings();
+  }, []);
+
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleMessage = (meeting) => {
@@ -177,16 +139,29 @@ export const Meeting = () => {
     setConfirmDelete(meeting);
   };
 
-  const handleDeleteConfirm = () => {
-    const title = confirmDelete.title;
-    setMeetings((prev) => prev.filter((m) => m.id !== confirmDelete.id));
-    setConfirmDelete(null);
-    toast({
-      title: "Meeting Deleted",
-      description: `"${title}" has been removed.`,
-      variant: "destructive",
-    });
+  const handleDeleteConfirm = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_BASE_URL}/api/meetings/delete/${confirmDelete._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMeetings((prev) => prev.filter((m) => m._id !== confirmDelete._id));
+      setConfirmDelete(null);
+      toast({
+        title: "Meeting Deleted",
+        description: `"${confirmDelete.title}" removed successfully.`,
+        variant: "destructive",
+      });
+    } catch (err) {
+      toast({
+        title: "Error deleting meeting",
+        description: err.response?.data?.message || err.message,
+        variant: "destructive",
+      });
+    }
   };
+
+
 
   const handleReschedule = (meeting) => {
     setSelectedMeeting(meeting);
@@ -197,58 +172,80 @@ export const Meeting = () => {
     setShowRescheduleModal(true);
   };
 
-  const handleSubmitReschedule = () => {
-    const d = format(rescheduleDate, "dd");
-    const mon = format(rescheduleDate, "MMM").toUpperCase();
-    setMeetings((prev) =>
-      prev.map((m) =>
-        m.id === selectedMeeting.id
-          ? {
-              ...m,
-              date: d,
-              month: mon,
-              time: rescheduleTime,
-              duration: rescheduleDuration,
-            }
-          : m,
-      ),
-    );
-    setShowRescheduleModal(false);
-    toast({
-      title: "Meeting Rescheduled",
-      description: `"${selectedMeeting.title}" moved to ${format(rescheduleDate, "MMM dd, yyyy")} at ${rescheduleTime}.`,
-    });
+  const handleSubmitReschedule = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const { data } = await axios.put(
+        `${API_BASE_URL}/api/meetings/update/${selectedMeeting._id}`,
+        {
+          date: rescheduleDate,
+          time: rescheduleTime,
+          duration: rescheduleDuration,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setMeetings((prev) =>
+        prev.map((m) => (m.id === selectedMeeting.id ? data.meeting : m))
+      );
+      setShowRescheduleModal(false);
+      toast({
+        title: "Meeting Rescheduled",
+        description: `"${data.meeting.title}" moved successfully.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error rescheduling meeting",
+        description: err.response?.data?.message || err.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleCreateMeeting = () => {
+
+  const handleCreateMeeting = async () => {
     const errors = {};
     if (!newTitle.trim()) errors.title = "Meeting title is required.";
     if (!newAttendee.trim()) errors.attendee = "Attendee name is required.";
     setCreateErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    const newMeeting = {
-      id: Date.now(),
-      date: format(newDate, "dd"),
-      month: format(newDate, "MMM").toUpperCase(),
-      title: newTitle.trim(),
-      attendee: newAttendee.trim(),
-      time: newTime,
-      duration: newDuration,
-    };
+    try {
+      const token = localStorage.getItem("token");
+      const meetingData = {
+        title: newTitle.trim(),
+        attendee: newAttendee.trim(),
+        date: newDate,
+        time: newTime,
+        duration: newDuration,
+      };
 
-    setMeetings((prev) => [...prev, newMeeting]);
-    setNewTitle("");
-    setNewAttendee("");
-    setNewDate(new Date());
-    setNewTime("10:00 am");
-    setNewDuration("30m");
-    setCreateErrors({});
-    setShowCreateModal(false);
-    toast({
-      title: "Meeting Created",
-      description: `"${newMeeting.title}" scheduled for ${format(newDate, "MMM dd, yyyy")} at ${newTime}.`,
-    });
+      const response = await axios.post(`${API_BASE_URL}/api/meetings/create`, meetingData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setMeetings((prev) => [...prev, response.data.meeting]);
+      setNewTitle("");
+      setNewAttendee("");
+      setNewDate(new Date());
+      setNewTime("10:00 am");
+      setNewDuration("30m");
+      setCreateErrors({});
+      setShowCreateModal(false);
+      toast({
+        title: "Meeting Created",
+        description: `"${response.data.meeting.title}" scheduled successfully.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error creating meeting",
+        description: err.response?.data?.message || err.message,
+        variant: "destructive",
+      });
+    }
   };
 
   // ── Render ────────────────────────────────────────────────────────────────

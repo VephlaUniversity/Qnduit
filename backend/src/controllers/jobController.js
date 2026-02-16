@@ -157,6 +157,21 @@ export const getSingleJob = async (req, res, next) => {
 
     const job = await Job.findById(req.params.id);
 
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found"
+      });
+    }
+
+    if (job.employer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized to view this job"
+      });
+    }
+
+
     res.json({
       success: true,
       job
