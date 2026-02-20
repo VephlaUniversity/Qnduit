@@ -5,24 +5,34 @@ import {
   updateTalentProfile,
   selectTalentPlan,
   getTalentDashboard,
+  getTalentProfile,
   upload,
+  talentUpload,
 } from "../controllers/talentController.js";
+import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// 1. Register new talent
 router.post("/register", registerTalent);
 
-// 2. Verify email with code
 router.post("/verify", verifyTalentEmail);
 
-// 3. Update talent profile (with optional resume upload)
 router.put("/:id/profile", upload.single("resume"), updateTalentProfile);
 
-// 4. Select subscription plan
 router.put("/:id/plan", selectTalentPlan);
 
-// 5. Get dashboard data
+router.put(
+  "/update",
+  protect,
+  talentUpload.fields([
+    { name: "avatar", maxCount: 1 },
+    { name: "introVideo", maxCount: 1 }
+  ]),
+  updateTalentProfile
+);
+
+router.get("/profile", protect, getTalentProfile);
+
 router.get("/:id/dashboard", getTalentDashboard);
 
 export default router;

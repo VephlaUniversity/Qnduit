@@ -2,72 +2,106 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 const talentSchema = new mongoose.Schema(
-  {
-    email: {
+{
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+
+  firstName: String,
+  lastName: String,
+
+  password: {
+    type: String,
+    required: true,
+    minlength: 8,
+  },
+
+  verificationCode: String,
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+
+  // ================= PROFILE =================
+  fullName: String,
+  dateOfBirth: String,
+  phone: String,
+  gender: String,
+  age: String,
+  jobTitle: String,
+  qualification: String,
+  experienceTime: String,
+  language: String,
+  location: String,
+  address: String,
+  aboutMe: String,
+  showProfile: {
+    type: String,
+    enum: ["show", "hidden"],
+    default: "show"
+  },
+
+  offeredSalary: String,
+  salaryType: String,
+
+  categories: [String],
+  tags: [String],
+
+  socialNetworks: {
+    facebook: String,
+    twitter: String,
+    instagram: String,
+    linkedin: String,
+    pinterest: String,
+    youtube: String,
+  },
+
+  avatar: {
+    url: String,
+    public_id: String,
+  },
+
+  introVideo: {
+    url: String,
+    public_id: String,
+  },
+
+  resume: {
+    url: String,
+    public_id: String,
+  },
+
+  geoLocation: {
+    type: {
       type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
+      enum: ["Point"],
+      default: "Point",
     },
-    firstName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    lastName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      minlength: 8,
-    },
-    verificationCode: {
-      type: String,
-      default: null,
-    },
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
-    role: {
-      type: String,
-      default: "",
-    },
-    experience: {
-      type: String,
-      default: "",
-    },
-    location: {
-      type: String,
-      default: "",
-    },
-    skills: {
-      type: [String],
-      default: [],
-    },
-    resume: {
-      type: String, // will store the file URL/path
-      default: "",
-    },
-    bio: {
-      type: String,
-      default: "",
-    },
-    linkedin: {
-      type: String,
-      default: "",
-    },
-    selectedPlan: {
-      type: String,
-      enum: ["free", "public", ""],
-      default: "",
+    coordinates: {
+      type: [Number],
+      default: [0,0],
     },
   },
-  { timestamps: true }
+
+  profileCompleted: {
+    type: Boolean,
+    default: false,
+  },
+
+  profileUpdatedAt: Date,
+
+  selectedPlan: {
+    type: String,
+    enum: ["free", "public", ""],
+    default: "",
+  },
+
+},
+{ timestamps: true }
 );
 
 talentSchema.pre("save", async function (next) {
@@ -80,5 +114,7 @@ talentSchema.pre("save", async function (next) {
 talentSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+talentSchema.index({ geoLocation: "2dsphere" });
 
 export default mongoose.model("Talent", talentSchema);

@@ -1,17 +1,24 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import TextEditor from "../TextEditor";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const TalentAbout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const avatarInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatar, setAvatar] = useState(null);
   const [tagInput, setTagInput] = useState("");
+  const [skills, setSkills] = useState([]);
+  const [latValue, setLatValue] = useState("");
+  const [lngValue, setLngValue] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -27,17 +34,20 @@ const TalentAbout = () => {
     location: "",
     language: "",
     jobTitle: "",
-    categories: "",
-    showProfile: "",
+    categories: [],
+    showProfile: "show",
     aboutMe: "",
-    facebook: "",
-    twitter: "",
-    instagram: "",
-    linkedin: "",
-    pinterest: "",
-    youtube: "",
+    socialNetworks: {
+      facebook: "",
+      twitter: "",
+      instagram: "",
+      linkedin: "",
+      pinterest: "",
+      youtube: "",
+    },
     address: "",
     introVideo: "",
+    avatar: null,
   });
 
   const [tags, setTags] = useState([]);
@@ -54,21 +64,82 @@ const TalentAbout = () => {
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
+
+    const MAX_FILE_SIZE = 2 * 1024 * 1024;
+
+    if (file.size > MAX_FILE_SIZE) {
       toast({
         title: "Upload Error",
-        description: "File exceeds 5MB limit",
+        description: "Avatar must be less than 2MB",
         variant: "destructive",
       });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setAvatar(event.target?.result);
-      toast({ title: "Success", description: "Avatar uploaded successfully" });
-    };
-    reader.readAsDataURL(file);
+
+    setAvatarPreview(URL.createObjectURL(file));
+
+    setFormData((prev) => ({
+      ...prev,
+      avatar: file,
+    }));
   };
+
+  const handleSocialChange = (platform, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      socialNetworks: {
+        ...prev.socialNetworks,
+        [platform]: value,
+      },
+    }));
+  };
+
+  useEffect(() => {
+    const fetchTalentProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/talents/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const profile = data.profile;
+
+        if (!profile) return;
+
+        setIsUpdating(true);
+
+        setFormData((prev) => ({
+          ...prev,
+          ...profile,
+          categories: profile.categories || [],
+          socialNetworks:
+            profile.socialNetworks || prev.socialNetworks,
+        }));
+
+        setTags(profile.tags || []);
+        setSkills(profile.skills || []);
+        setLatValue(profile.lat || "");
+        setLngValue(profile.lng || "");
+
+
+        if (profile.avatar) {
+          setAvatarPreview(`${API_BASE_URL}${profile.avatar}`);
+        }
+
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchTalentProfile();
+  }, []);
+
 
   const handleRemoveTag = (tagToRemove) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
@@ -86,13 +157,70 @@ const TalentAbout = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const data = { ...formData, avatar, tags };
-    localStorage.setItem("aboutData", JSON.stringify(data));
-    setSaving(false);
-    toast({ title: "Saved!", description: "Profile saved successfully." });
-    navigate("/talent-dashboard/profile");
+
+    try {
+      const token = localStorage.getItem("token");
+      const data = new FormData();
+
+      Object.keys(formData).forEach((key) => {
+        if (
+          key !== "avatar" &&
+          key !== "socialNetworks"
+        ) {
+          data.append(key, formData[key]);
+        }
+      });
+
+      data.append("socialNetworks", JSON.stringify(formData.socialNetworks));
+      data.append("categories", JSON.stringify(formData.categories));
+      data.append("tags", JSON.stringify(tags));
+      data.append("skills", JSON.stringify(skills));
+      
+      if (
+        latValue !== "" &&
+        lngValue !== "" &&
+        !isNaN(Number(latValue)) &&
+        !isNaN(Number(lngValue))
+      ) {
+        data.append("lat", Number(latValue));
+        data.append("lng", Number(lngValue));
+      }
+
+
+      if (formData.avatar instanceof File) {
+        data.append("avatar", formData.avatar);
+      }
+
+      await axios.put(
+        `${API_BASE_URL}/api/talents/update`,
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      toast({
+        title: "Success!",
+        description: "Profile updated successfully!",
+      });
+
+      navigate("/talent-dashboard/profile");
+
+    } catch (error) {
+      console.error("UPDATE ERROR:", error.response?.data);
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to save profile",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   const inputClass =
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
@@ -132,12 +260,13 @@ const TalentAbout = () => {
         {/* Avatar Upload */}
         <div className="flex items-start gap-6 mb-8">
           <div className="relative w-32 h-32 bg-[#2A2A2E] rounded-lg flex items-center justify-center border border-white/10">
-            {avatar ? (
+            {avatarPreview ? (
               <img
-                src={avatar}
+                src={avatarPreview}
                 alt="Avatar"
                 className="w-full h-full object-cover rounded-lg"
               />
+
             ) : (
               <Camera className="w-12 h-12 text-gray-500" />
             )}
@@ -224,6 +353,7 @@ const TalentAbout = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 className={inputClass}
+                disabled
               />
             </div>
             <div>
@@ -357,9 +487,13 @@ const TalentAbout = () => {
               </label>
               <input
                 type="text"
-                name="categories"
-                value={formData.categories}
-                onChange={handleInputChange}
+                value={formData.categories.join(", ")}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    categories: e.target.value.split(",").map(c => c.trim())
+                  }))
+                }
                 className={inputClass}
               />
             </div>
@@ -441,36 +575,35 @@ const TalentAbout = () => {
           <h2 className="text-xl font-semibold text-white mb-4">
             Social Network
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {socialIcons.map((social) => {
-              const Icon = social.icon;
-              return (
-                <div key={social.name} className="flex gap-3">
-                  <div className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 shrink-0">
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="url"
-                    name={social.name}
-                    value={formData[social.name]}
-                    onChange={handleInputChange}
-                    placeholder={social.placeholder}
-                    className="flex-1 px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                  {formData[social.name] && (
-                    <button
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, [social.name]: "" }))
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {socialIcons.map((social) => {
+                const Icon = social.icon;
+                return (
+                  <div key={social.name} className="flex gap-3">
+                    <div className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 shrink-0">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <input
+                      type="url"
+                      value={formData.socialNetworks[social.name] || ""}
+                      onChange={(e) =>
+                        handleSocialChange(social.name, e.target.value)
                       }
-                      className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white shrink-0"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                      placeholder={social.placeholder}
+                      className={`flex-1 ${inputClass}`}
+                    />
+                    {formData.socialNetworks[social.name] && (
+                      <button
+                        onClick={() => handleSocialChange(social.name, "")}
+                        className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white shrink-0"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
         </div>
 
         {/* Contact Information */}
@@ -491,6 +624,40 @@ const TalentAbout = () => {
                 className={inputClass}
               />
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Latitude</label>
+                <input
+                  type="text"
+                  name="lat"
+                  value={latValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLatValue(val);
+                    setFormData((prev) => ({ ...prev, lat: val }));
+                  }}
+                  placeholder="Enter Latitude"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Longitude</label>
+                <input
+                  type="text"
+                  name="lng"
+                  value={lngValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLngValue(val);
+                    setFormData((prev) => ({ ...prev, lng: val }));
+                  }}
+                  placeholder="Enter Longitude"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-gray-400 text-sm mb-2">
                 Introduction Video
