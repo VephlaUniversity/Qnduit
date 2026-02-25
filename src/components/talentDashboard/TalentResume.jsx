@@ -1,7 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FileText, X, Plus, ChevronDown, ChevronUp, Calendar, Loader2 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const TalentResumes = () => {
   const { toast } = useToast();
@@ -31,6 +33,43 @@ const TalentResumes = () => {
   const [expandedEducation, setExpandedEducation] = useState(new Set([1]));
   const [expandedExperience, setExpandedExperience] = useState(new Set([1]));
 
+  useEffect(() => {
+    const fetchResume = async () => {
+      try {
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/resume`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        const resume = data.resume;
+
+        setAboutMe(resume.aboutMe || "");
+        setVideoUrl(resume.introVideo?.url || "");
+        setEducation(
+          resume.education?.map((edu) => ({
+            ...edu,
+            id: Date.now() + Math.random(),
+          })) || []
+        );
+        setExperience(
+          resume.experience?.map((exp) => ({
+            ...exp,
+            id: Date.now() + Math.random(),
+          })) || []
+        );
+        setSkills(resume.skills || []);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    fetchResume();
+  }, []);
+
   const toggleEducation = (id) => {
     setExpandedEducation(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
@@ -45,7 +84,7 @@ const TalentResumes = () => {
     const allowedTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
     if (file.size > maxSize) { toast({ title: "Upload Error", description: "File exceeds 10MB limit", variant: "destructive" }); return; }
     if (!allowedTypes.includes(file.type)) { toast({ title: "Upload Error", description: "Only PDF, Doc, Docx allowed", variant: "destructive" }); return; }
-    setCvFiles([...cvFiles, { name: file.name, type: file.type.includes("pdf") ? "PDF" : "Doc" }]);
+    setCvFiles([...cvFiles, file]);
     toast({ title: "Success", description: "CV uploaded successfully" });
     if (cvInputRef.current) cvInputRef.current.value = "";
   };
@@ -53,18 +92,20 @@ const TalentResumes = () => {
   const handlePortfolioUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast({ title: "Upload Error", description: "Image exceeds 5MB limit", variant: "destructive" }); return; }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const firstEmpty = portfolioImages.findIndex((img) => img === null);
-      if (firstEmpty !== -1) {
-        const newImages = [...portfolioImages];
-        newImages[firstEmpty] = event.target?.result;
-        setPortfolioImages(newImages);
-        toast({ title: "Success", description: "Image uploaded successfully" });
-      }
-    };
-    reader.readAsDataURL(file);
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Upload Error", description: "Image exceeds 5MB limit", variant: "destructive" });
+      return;
+    }
+
+    const firstEmpty = portfolioImages.findIndex((img) => img === null);
+
+    if (firstEmpty !== -1) {
+      const newImages = [...portfolioImages];
+      newImages[firstEmpty] = file;
+      setPortfolioImages(newImages);
+    }
+
     if (portfolioInputRef.current) portfolioInputRef.current.value = "";
   };
 
@@ -87,13 +128,52 @@ const TalentResumes = () => {
   };
 
   const handleSave = async () => {
-    setSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const data = { cvFiles, portfolioImages, aboutMe, videoUrl, education, experience, skills };
-    localStorage.setItem("resumeData", JSON.stringify(data));
-    setSaving(false);
-    toast({ title: "Saved!", description: "Your resume has been saved successfully." });
-    navigate("/talent-dashboard/profile");
+    try {
+      setSaving(true);
+
+      const formData = new FormData();
+
+      cvFiles.forEach((file) => {
+        formData.append("cvFiles", file);
+      });
+
+      portfolioImages.forEach((file) => {
+        if (file) formData.append("portfolioImages", file);
+      });
+
+      formData.append("aboutMe", aboutMe);
+      formData.append("videoUrl", videoUrl);
+      formData.append("education", JSON.stringify(education));
+      formData.append("experience", JSON.stringify(experience));
+      formData.append("skills", JSON.stringify(skills));
+
+      await axios.put(
+        `${API_BASE_URL}/api/resume`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      toast({
+        title: "Saved!",
+        description: "Your resume has been saved successfully.",
+      });
+
+      navigate("/talent-dashboard/profile");
+
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message || error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass = "flex-1 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors";
@@ -135,7 +215,15 @@ const TalentResumes = () => {
             {portfolioImages.map((img, index) => (
               <div key={index} className="relative group">
                 <div className="w-40 h-32 bg-[#2A2A2E] rounded-lg flex items-center justify-center overflow-hidden border border-white/10 border-dashed">
-                  {img ? <img src={img} alt={`Portfolio ${index + 1}`} className="w-full h-full object-cover" /> : <Plus className="w-6 h-6 text-gray-500" />}
+                  {img ? (
+                    <img
+                      src={URL.createObjectURL(img)}
+                      alt={`Portfolio ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Plus className="w-6 h-6 text-gray-500" />
+                  )}
                 </div>
                 {img && (
                   <button onClick={() => { const n = [...portfolioImages]; n[index] = null; setPortfolioImages(n); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
