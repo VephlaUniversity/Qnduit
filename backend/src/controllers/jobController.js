@@ -211,3 +211,119 @@ export const deleteJob = async (req, res, next) => {
   }
 };
 
+export const searchJobs = async (req, res, next) => {
+  try {
+    const { jobTitle, location, workType } = req.query;
+
+    let matchStage = {
+      status: "published",
+      isDeleted: false
+    };
+
+    if (jobTitle) {
+      matchStage.jobTitle = {
+        $regex: jobTitle,
+        $options: "i"
+      };
+    }
+
+    if (location) {
+      matchStage.location = {
+        $regex: location,
+        $options: "i"
+      };
+    }
+
+    if (workType) {
+      matchStage.jobApplyType = {
+        $regex: workType,
+        $options: "i"
+      };
+    }
+
+    const jobs = await Job.aggregate([
+      {
+        $match: matchStage
+      },
+
+      // JOIN employer collection
+      {
+        $lookup: {
+          from: "employers",
+          localField: "employer",
+          foreignField: "_id",
+          as: "employer"
+        }
+      },
+
+      {
+        $unwind: "$employer"
+      },
+
+      // PLAN PRIORITY 
+      {
+        $addFields: {
+          planPriority: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ["$employer.selectedPlan", "platinum"] },
+                  then: 1
+                },
+                {
+                  case: { $eq: ["$employer.selectedPlan", "silver"] },
+                  then: 2
+                },
+                {
+                  case: { $eq: ["$employer.selectedPlan", "bronze"] },
+                  then: 3
+                }
+              ],
+              default: 4
+            }
+          }
+        }
+      },
+
+      // SORT 
+      {
+        $sort: {
+          planPriority: 1,
+          createdAt: -1
+        }
+      },
+
+      {
+        $project: {
+          _id: 1,
+          jobTitle: 1,
+          jobDescription: 1,
+          location: 1,
+          jobCategory: 1,
+          jobApplyType: 1,
+          experience: 1,
+          careerLevel: 1,
+          qualification: 1,
+          deadlineDate: 1,
+          salary: 1,
+          featuredImage: 1,
+          gallery: 1,
+          createdAt: 1,
+          "employer.companyName": 1,
+          "employer.selectedPlan": 1,
+          planPriority: 1
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      count: jobs.length,
+      jobs
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+

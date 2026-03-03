@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
 import {
@@ -18,92 +18,13 @@ import {
 import { FilterDropdown } from "./JobFilterDropdown";
 import { AnimatedPage } from "../AnimatedPage";
 import { CTA } from "../home/CTA";
-
-// Mock job data
-const jobsData = [
-  {
-    id: 1,
-    company: "Google",
-    title: "Software Developer",
-    location: "USA",
-    salary: "$0 - $240,000",
-    salaryPeriod: "year",
-    type: ["On-site"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-    description: "Full job description goes here...",
-  },
-  {
-    id: 2,
-    company: "Rockstar Games New York",
-    title: "Senior DevOps Engineer",
-    location: "Las Vegas, NV 89107, USA",
-    salary: "$83,000 - $110,000",
-    salaryPeriod: "year",
-    type: ["Contract", "On-site"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-  },
-  {
-    id: 3,
-    company: "Rockstar Games New York",
-    title: "Senior UI/UX Designer",
-    location: "Las Vegas, NV 89107, USA",
-    salary: "$83,000 - $110,000",
-    salaryPeriod: "year",
-    type: ["Full-time", "Remote"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-  },
-  {
-    id: 4,
-    company: "Rockstar Games New York",
-    title: "Social Media Marketing",
-    location: "Las Vegas, NV 89107, USA",
-    salary: "$83,000 - $110,000",
-    salaryPeriod: "year",
-    type: ["Freelancer", "Remote"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-  },
-  {
-    id: 5,
-    company: "Rockstar Games New York",
-    title: "Full Stack Development",
-    location: "Las Vegas, NV 89107, USA",
-    salary: "$83,000 - $110,000",
-    salaryPeriod: "year",
-    type: ["Part-time", "Remote"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-  },
-  {
-    id: 6,
-    company: "Rockstar Games New York",
-    title: "Project Manager",
-    location: "Las Vegas, NV 89107, USA",
-    salary: "$83,000 - $110,000",
-    salaryPeriod: "year",
-    type: ["Full-time", "Remote"],
-    rating: 4,
-    verified: true,
-    postedDate: "2 days ago",
-    daysLeft: 22,
-  },
-];
+import axios from "axios";
 
 export const JobOpportunities = ({ onViewJob }) => {
   const [searchParams] = useSearchParams();
+  const jobTitle = searchParams.get("jobTitle") || "";
+  const location = searchParams.get("location") || "";
+  const workType = searchParams.get("workType") || "";
   const [viewMode, setViewMode] = useState("grid");
   const [favorites, setFavorites] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -116,6 +37,28 @@ export const JobOpportunities = ({ onViewJob }) => {
   const [postedAnytime, setPostedAnytime] = useState("anytime");
   const [seniorityLevel, setSeniorityLevel] = useState("all");
   const [company, setCompany] = useState("");
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+
+        const res = await axios.get(
+          `/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`
+        );
+
+        setJobs(res.data);
+      } catch (err) {
+        console.log("Search failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, [jobTitle, location, workType]);
 
   // Filter states
   const [searchKeyword, setSearchKeyword] = useState(
@@ -129,10 +72,6 @@ export const JobOpportunities = ({ onViewJob }) => {
   );
   const [jobTypeFilter, setJobTypeFilter] = useState("");
 
-  const jobTitle = searchParams.get("jobTitle") || "";
-  const location = searchParams.get("location") || "";
-  const workType = searchParams.get("workType") || "";
-
   const toggleFavorite = (jobId) => {
     setFavorites((prev) =>
       prev.includes(jobId)
@@ -142,57 +81,17 @@ export const JobOpportunities = ({ onViewJob }) => {
   };
 
   // Filter jobs based on search criteria
-  const filteredJobs = jobsData.filter((job) => {
-    // Keyword search
-    if (searchKeyword) {
-      const keyword = searchKeyword.toLowerCase();
-      const matchesKeyword =
-        job.company.toLowerCase().includes(keyword) ||
-        job.title.toLowerCase().includes(keyword);
-      if (!matchesKeyword) return false;
-    }
+  const filteredJobs = jobs;
 
-    // Location filter
-    if (locationFilter) {
-      if (!job.location.toLowerCase().includes(locationFilter.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // Work type filter
-    if (workTypeFilter) {
-      const matchesWorkType = job.type.some((type) =>
-        type.toLowerCase().includes(workTypeFilter.toLowerCase()),
-      );
-      if (!matchesWorkType) return false;
-    }
-
-    // Job type filter
-    if (jobTypeFilter) {
-      const matchesJobType = job.type.some((type) =>
-        type.toLowerCase().includes(jobTypeFilter.toLowerCase()),
-      );
-      if (!matchesJobType) return false;
-    }
-
-    // Salary range filter
-    const salary = parseInt(job.salary.replace(/[^0-9]/g, ""));
-    if (salary < salaryRange[0] || salary > salaryRange[1]) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Sort jobs
   const sortedJobs = [...filteredJobs].sort((a, b) => {
     if (sortBy === "newest") {
-      return b.id - a.id;
-    } else if (sortBy === "salary") {
-      const salaryA = parseInt(a.salary.replace(/[^0-9]/g, ""));
-      const salaryB = parseInt(b.salary.replace(/[^0-9]/g, ""));
-      return salaryB - salaryA;
+      return new Date(b.createdAt) - new Date(a.createdAt);
     }
+
+    if (sortBy === "salary") {
+      return Number(b.salary) - Number(a.salary);
+    }
+
     return 0;
   });
 
@@ -225,7 +124,7 @@ export const JobOpportunities = ({ onViewJob }) => {
   const JobCard = ({ job }) => (
     <div
       className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
-      onClick={() => onViewJob(job.id)}
+      onClick={() => onViewJob(job._id)}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
@@ -299,12 +198,15 @@ export const JobOpportunities = ({ onViewJob }) => {
           </div>
         </div>
         <button
-          onClick={() => toggleFavorite(job.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(job._id);
+          }}
           className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors"
         >
           <Heart
             className={`w-5 h-5 ${
-              favorites.includes(job.id)
+              favorites.includes(job._id)
                 ? "fill-red-500 text-red-500"
                 : "text-gray-400"
             }`}
@@ -695,7 +597,7 @@ export const JobOpportunities = ({ onViewJob }) => {
                   }
                 >
                   {paginatedJobs.map((job) => (
-                    <JobCard key={job.id} job={job} />
+                    <JobCard key={job._id} job={job} />
                   ))}
                 </div>
               )}
