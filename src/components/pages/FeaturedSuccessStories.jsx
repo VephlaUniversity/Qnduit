@@ -1,8 +1,20 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { CTA } from "../home/CTA";
 
-const TestimonialCard = ({ text, name, title, rating, isEmployer, image }) => (
-  <div
+const TestimonialCard = ({
+  text,
+  name,
+  title,
+  rating,
+  isEmployer,
+  image,
+  index,
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 24 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, ease: "easeOut", delay: index * 0.06 }}
     className={`${
       isEmployer
         ? "bg-[radial-gradient(ellipse_50.33%_65.73%_at_11.51%_2.24%,#00368C_0%,#00112D_100%)]"
@@ -35,7 +47,7 @@ const TestimonialCard = ({ text, name, title, rating, isEmployer, image }) => (
         </div>
       )}
     </div>
-  </div>
+  </motion.div>
 );
 
 const FeaturedSuccessStories = () => {
@@ -133,84 +145,72 @@ const FeaturedSuccessStories = () => {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
     {
       text: "I landed my first big agency project within a week of joining Qnduit, the visibility is unmatched. One other thing is also profile boost, it helped!",
       name: "Amake J.",
       title: "Brand Designer",
-
       image: "/images/avatar1.png",
     },
   ];
@@ -219,30 +219,37 @@ const FeaturedSuccessStories = () => {
 
   return (
     <>
+      {/* Hero */}
       <section className="relative min-h-[40vh] flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]/95"></div>
-
-        {/* Content */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]/95" />
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-20">
-          <div className="text-center mb-12">
+          <motion.div
+            className="text-center mb-12"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             <h1 className="text-4xl lg:text-6xl xl:text-7xl mb-6 leading-tight">
               Featured Success
               <br />
               <span className="text-[#F5C518]">Stories</span>
             </h1>
-          </div>
+          </motion.div>
         </div>
       </section>
+
       <div>
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-16">
-            {/* Toggle Switch */}
+          {/* Toggle */}
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+          >
             <div className="flex items-center justify-center mb-12">
               <span
-                className={`text-lg mr-4 ${
-                  !showTalents ? "text-white" : "text-gray-300"
-                }`}
+                className={`text-lg mr-4 ${!showTalents ? "text-white" : "text-gray-300"}`}
               >
                 For Employers
               </span>
@@ -255,34 +262,43 @@ const FeaturedSuccessStories = () => {
                   className={`absolute top-1 w-8 h-8 bg-white rounded-full shadow-lg transition-all duration-300 ${
                     showTalents ? "left-11" : "left-1"
                   }`}
-                ></div>
+                />
               </button>
               <span
-                className={`text-lg ml-4 ${
-                  showTalents ? "text-white" : "text-gray-300"
-                }`}
+                className={`text-lg ml-4 ${showTalents ? "text-white" : "text-gray-300"}`}
               >
                 For Talents
               </span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Testimonials Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 mb-8 p-8 lg:p-0">
-            {testimonials.map((testimonial, index) => (
-              <TestimonialCard
-                key={index}
-                text={testimonial.text}
-                name={testimonial.name}
-                title={testimonial.title}
-                rating={testimonial.rating}
-                image={testimonial.image}
-                isEmployer={!showTalents}
-              />
-            ))}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={showTalents ? "talents" : "employers"}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 mb-8 p-8 lg:p-0"
+            >
+              {testimonials.map((testimonial, index) => (
+                <TestimonialCard
+                  key={index}
+                  index={index}
+                  text={testimonial.text}
+                  name={testimonial.name}
+                  title={testimonial.title}
+                  rating={testimonial.rating}
+                  image={testimonial.image}
+                  isEmployer={!showTalents}
+                />
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
+
       <CTA />
     </>
   );

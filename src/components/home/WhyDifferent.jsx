@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  animate: {
+    transition: { staggerChildren: 0.12 },
+  },
+};
+
 export const WhyDifferent = () => {
   const stats = [
     {
@@ -55,32 +68,64 @@ export const WhyDifferent = () => {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-      <div className="text-center mb-16">
-        <p className="text-lg text-gray-300 mb-8">
+      {/* Top CTA */}
+      <motion.div
+        className="text-center mb-16"
+        variants={staggerContainer}
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.3 }}
+      >
+        <motion.p
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-lg text-gray-300 mb-8"
+        >
           The most affordable career move you'll make all
           <br />
           year.
           <span className="text-yellow-400">
             &nbsp; Boost your profile for just $1.99/month.
           </span>
-        </p>
-        <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-          <Link to="/pricing">Boost profile for $1.99 →</Link>
-        </button>
-      </div>
+        </motion.p>
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
+            <Link to="/pricing">Boost profile for $1.99 →</Link>
+          </button>
+        </motion.div>
+      </motion.div>
 
-      <h2 className="text-4xl lg:text-5xl text-center mb-16">
+      {/* Section Heading */}
+      <motion.h2
+        className="text-4xl lg:text-5xl text-center mb-16"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      >
         Why Qnduit is Different
-      </h2>
+      </motion.h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+      {/* Feature Cards */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20"
+        variants={staggerContainer}
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.2 }}
+      >
         {features.map((feature, index) => (
-          <div
+          <motion.div
             key={index}
+            variants={fadeUp}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="bg-gray-800 rounded-2xl p-8 w-[300px] sm:w-[410px] mx-auto md:w-full"
           >
             <div className="mb-6">
-              <div className="w- full h-full rounded-2xl mb-4 overflow-hidden">
+              <div className="w-full h-full rounded-2xl mb-4 overflow-hidden">
                 <img
                   src={feature.image}
                   alt={feature.title}
@@ -90,15 +135,22 @@ export const WhyDifferent = () => {
             </div>
             <h3 className="text-2xl font-semibold mb-4">{feature.title}</h3>
             <p className="text-gray-400">{feature.description}</p>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      {/* Stat Cards */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.2 }}
+      >
         {stats.map((stat, index) => (
-          <StatCard key={index} stat={stat} index={index} />
+          <StatCard key={index} stat={stat} />
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 };
@@ -111,34 +163,24 @@ const StatCard = ({ stat }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setIsVisible(true);
-        }
+        if (entries[0].isIntersecting) setIsVisible(true);
       },
       { threshold: 0.1 },
     );
-
     const currentRef = cardRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-
+    if (currentRef) observer.observe(currentRef);
     return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
+      if (currentRef) observer.unobserve(currentRef);
     };
   }, []);
 
   useEffect(() => {
     if (!isVisible) return;
-
-    const duration = 2000; // 2 seconds
+    const duration = 2000;
     const steps = 60;
     const increment = stat.number / steps;
     const stepDuration = duration / steps;
     let currentStep = 0;
-
     const timer = setInterval(() => {
       currentStep++;
       if (currentStep <= steps) {
@@ -148,7 +190,6 @@ const StatCard = ({ stat }) => {
         clearInterval(timer);
       }
     }, stepDuration);
-
     return () => clearInterval(timer);
   }, [isVisible, stat.number]);
 
@@ -156,22 +197,26 @@ const StatCard = ({ stat }) => {
     if (num >= 1000) {
       const thousands = Math.floor(num / 1000);
       const remainder = num % 1000;
-      if (remainder === 0) {
-        return thousands + ",000";
-      }
-      return thousands + "," + remainder.toString().padStart(3, "0");
+      return remainder === 0
+        ? thousands + ",000"
+        : thousands + "," + remainder.toString().padStart(3, "0");
     }
     return num.toString();
   };
 
   return (
-    <div ref={cardRef} className="text-center">
+    <motion.div
+      ref={cardRef}
+      variants={fadeUp}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="text-center"
+    >
       <div className="text-4xl lg:text-5xl font-bold text-yellow-400 mb-2">
         {formatNumber(count)}
         {stat.suffix}
       </div>
       <div className="text-xl font-semibold mb-2">{stat.label}</div>
       <p className="text-gray-400 text-sm">{stat.description}</p>
-    </div>
+    </motion.div>
   );
 };

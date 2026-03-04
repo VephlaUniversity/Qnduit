@@ -1,9 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { blogPosts } from "../data/blogPosts";
 import { CTA } from "../home/CTA";
 
 const POSTS_PER_PAGE = 6;
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.1 } },
+};
 
 const Blog = () => {
   const navigate = useNavigate();
@@ -18,21 +29,37 @@ const Blog = () => {
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
         {/* Hero Header */}
-        <div className="text-center mb-12 md:mb-16">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl text-white mb-4">
+        <motion.div
+          className="text-center mb-12 md:mb-16"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+        >
+          <motion.h1
+            variants={fadeUp}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="text-4xl md:text-5xl lg:text-6xl text-white mb-4"
+          >
             Insights for Job Seekers and <br />
-            <span className="text-[#E5A50A] ">Employers</span>
-          </h1>
-          <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto">
+            <span className="text-[#E5A50A]">Employers</span>
+          </motion.h1>
+          <motion.p
+            variants={fadeUp}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="text-gray-400 text-sm md:text-base max-w-lg mx-auto"
+          >
             Tips, trends, and stories to help you navigate your career, hiring,
             and the evolving job market.
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
 
         {/* Featured Post */}
-        <div
+        <motion.div
           onClick={() => navigate(`/blog/${featuredPost.id}`)}
           className="relative rounded-xl overflow-hidden mb-12 md:mb-16 cursor-pointer group"
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
         >
           <img
             src={featuredPost.image}
@@ -59,14 +86,31 @@ const Blog = () => {
               <span className="text-white/50 text-sm">{featuredPost.date}</span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Latest Posts */}
-        <h2 className="text-xl font-bold text-white mb-6">Latest Post</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        <motion.h2
+          className="text-xl font-bold text-white mb-6"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          Latest Post
+        </motion.h2>
+
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10"
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, amount: 0.1 }}
+        >
           {visiblePosts.map((post) => (
-            <div
+            <motion.div
               key={post.id}
+              variants={fadeUp}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               onClick={() => navigate(`/blog/${post.id}`)}
               className="bg-[#1A1A1E] border border-white/5 rounded-xl overflow-hidden cursor-pointer group hover:border-blue-500/40 transition-colors"
             >
@@ -94,20 +138,26 @@ const Blog = () => {
                   <span className="text-gray-500 text-xs">{post.date}</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Load More */}
         {hasMore && (
-          <div className="flex justify-center">
+          <motion.div
+            className="flex justify-center"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
             <button
               onClick={() => setVisibleCount((c) => c + POSTS_PER_PAGE)}
               className="px-8 py-3 border border-white text-white rounded-full hover:bg-[#1A1A1E] transition-colors text-sm font-medium"
             >
               Load more
             </button>
-          </div>
+          </motion.div>
         )}
       </div>
       <CTA />

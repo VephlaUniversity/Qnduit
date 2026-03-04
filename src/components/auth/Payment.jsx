@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, Check, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 export const Payment = () => {
-  // FIX 1: Start on "checkout", not "authorization"
   const [currentPage, setCurrentPage] = useState("checkout");
   const [countdown, setCountdown] = useState(5);
 
-  // FIX 5: Guard window.location.search in a memo so it's safe in SSR/tests
   const { planName, price, userType, email } = useMemo(() => {
     const params =
       typeof window !== "undefined"
@@ -20,7 +19,6 @@ export const Payment = () => {
     };
   }, []);
 
-  // FIX 8: Memoize derived totals
   const { subtotal, tax, total } = useMemo(() => {
     const subtotal = price;
     const tax = parseFloat((subtotal * 0.0975).toFixed(2));
@@ -28,7 +26,6 @@ export const Payment = () => {
     return { subtotal, tax, total };
   }, [price]);
 
-  // Form state for validation
   const [form, setForm] = useState({
     email: email,
     cardNumber: "",
@@ -40,9 +37,6 @@ export const Payment = () => {
   });
   const [errors, setErrors] = useState({});
 
-  // FIX 3: Only run the countdown when currentPage is exactly "authorization"
-  // and countdown is actively counting (> 0). Using a ref-guarded effect prevents
-  // the race condition where navigating back still triggers the redirect.
   useEffect(() => {
     if (currentPage !== "authorization") return;
     if (countdown <= 0) {
@@ -54,7 +48,6 @@ export const Payment = () => {
     return () => clearTimeout(timer);
   }, [countdown, currentPage]);
 
-  // FIX 7: Basic form validation before proceeding to authorization
   const validate = () => {
     const newErrors = {};
     if (!form.email || !/\S+@\S+\.\S+/.test(form.email))
@@ -79,18 +72,16 @@ export const Payment = () => {
       return;
     }
     setErrors({});
-    // FIX 2: Always reset countdown to 5 before entering authorization
+
     setCountdown(5);
     setCurrentPage("authorization");
   };
 
   const handleRetry = () => {
-    // FIX 2: Reset countdown so the next attempt works correctly
     setCountdown(5);
     setCurrentPage("checkout");
   };
 
-  // FIX 6: Use proper navigation instead of alert()
   const handleProceedDashboard = () => {
     window.location.href = "/dashboard";
   };
@@ -100,7 +91,6 @@ export const Payment = () => {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  // Card number formatter: inserts spaces every 4 digits
   const handleCardNumberChange = (e) => {
     const raw = e.target.value.replace(/\D/g, "").slice(0, 16);
     const formatted = raw.match(/.{1,4}/g)?.join(" ") || raw;
@@ -109,7 +99,6 @@ export const Payment = () => {
       setErrors((prev) => ({ ...prev, cardNumber: undefined }));
   };
 
-  // Expiry formatter: auto-inserts slash
   const handleExpiryChange = (e) => {
     let raw = e.target.value.replace(/\D/g, "").slice(0, 4);
     if (raw.length >= 3) raw = raw.slice(0, 2) + "/" + raw.slice(2);
@@ -121,34 +110,61 @@ export const Payment = () => {
   if (currentPage === "authorization") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0a0e27] to-[#1a1f3a] flex flex-col items-center justify-center p-4">
-        <button
+        {/* Back Button */}
+        <motion.button
           onClick={() => {
-            // FIX 3: Cancel the flow cleanly — reset countdown before navigating
             setCountdown(5);
             setCurrentPage("checkout");
           }}
           className="absolute top-8 left-8 flex items-center gap-2 text-white hover:text-gray-300 transition"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <ChevronLeft className="w-5 h-5" />
           Previous Page
-        </button>
+        </motion.button>
 
-        {/* FIX 4: Removed newline inside Tailwind class */}
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#5B5FED] to-[#5865F2] flex items-center justify-center mb-8">
+        {/* Icon */}
+        <motion.div
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-[#5B5FED] to-[#5865F2] flex items-center justify-center mb-8"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
           <span className="text-white text-2xl font-bold">S</span>
-        </div>
+        </motion.div>
 
-        <h1 className="text-4xl font-bold text-white mb-4 text-center">
+        {/* Heading */}
+        <motion.h1
+          className="text-4xl font-bold text-white mb-4 text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+        >
           Stripe Authorization
-        </h1>
-        <p className="text-gray-400 text-center max-w-md mb-4">
+        </motion.h1>
+
+        {/* Subtext */}
+        <motion.p
+          className="text-gray-400 text-center max-w-md mb-4"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+        >
           You are being redirected to your bank to protect your card against
           unauthorized use.
-        </p>
+        </motion.p>
 
-        <p className="text-yellow-400 font-semibold text-lg">
+        {/* Countdown */}
+        <motion.p
+          className="text-yellow-400 font-semibold text-lg"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+        >
           Redirection in {countdown.toString().padStart(2, "0")}
-        </p>
+        </motion.p>
       </div>
     );
   }
@@ -158,17 +174,31 @@ export const Payment = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0d0d0d] to-[#1a1a1a] flex items-center justify-center p-4">
         <div className="w-full max-w-4xl">
-          <button
+          {/* Back Button */}
+          <motion.button
             onClick={() => window.history.back()}
             className="flex items-center gap-2 text-white mb-8 hover:text-gray-300 transition"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <ChevronLeft className="w-5 h-5" />
             Previous Page
-          </button>
+          </motion.button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white rounded-3xl overflow-hidden">
+          <motion.div
+            className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white rounded-3xl overflow-hidden"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+          >
             {/* Order Summary */}
-            <div className="bg-gray-50 p-8">
+            <motion.div
+              className="bg-gray-50 p-8"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+            >
               <h2 className="text-2xl font-bold text-gray-900 mb-8">
                 Order Summary
               </h2>
@@ -208,13 +238,22 @@ export const Payment = () => {
                   Account Type: <span className="capitalize">{userType}</span>
                 </p>
               </div>
-            </div>
+            </motion.div>
 
             {/* Payment Form */}
-            <div className="p-8">
+            <motion.div
+              className="p-8"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+            >
               <div className="space-y-6">
                 {/* Email */}
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.3 }}
+                >
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email
                   </label>
@@ -230,10 +269,14 @@ export const Payment = () => {
                   {errors.email && (
                     <p className="text-red-500 text-xs mt-1">{errors.email}</p>
                   )}
-                </div>
+                </motion.div>
 
                 {/* Card Information */}
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.35 }}
+                >
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Card Information
                   </label>
@@ -289,10 +332,14 @@ export const Payment = () => {
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Cardholder Name */}
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.4 }}
+                >
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cardholder name
                   </label>
@@ -310,10 +357,14 @@ export const Payment = () => {
                       {errors.cardName}
                     </p>
                   )}
-                </div>
+                </motion.div>
 
                 {/* Country */}
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.45 }}
+                >
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Country or region
                   </label>
@@ -323,13 +374,17 @@ export const Payment = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option>United States</option>
-                    <option>Canada</option>
+                    <option>Nigeria</option>
                     <option>United Kingdom</option>
                   </select>
-                </div>
+                </motion.div>
 
                 {/* ZIP */}
-                <div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.5 }}
+                >
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ZIP
                   </label>
@@ -347,32 +402,43 @@ export const Payment = () => {
                   {errors.zip && (
                     <p className="text-red-500 text-xs mt-1">{errors.zip}</p>
                   )}
-                </div>
+                </motion.div>
 
-                <button
+                {/* Pay Button */}
+                <motion.button
                   onClick={handlePayment}
                   className="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition mt-8"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.55 }}
                 >
                   Pay ${total.toFixed(2)}
-                </button>
+                </motion.button>
 
-                <p className="text-xs text-gray-500 text-center">
-                  Powered by <span className="font-semibold">stripe</span>
-                </p>
-                <div className="flex gap-4 justify-center text-xs text-gray-500">
-                  <a href="#" className="hover:text-gray-700">
-                    Legal
-                  </a>
-                  <a href="#" className="hover:text-gray-700">
-                    Returns
-                  </a>
-                  <a href="#" className="hover:text-gray-700">
-                    Contact
-                  </a>
-                </div>
+                {/* Footer */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.6 }}
+                >
+                  <p className="text-xs text-gray-500 text-center">
+                    Powered by <span className="font-semibold">stripe</span>
+                  </p>
+                  <div className="flex gap-4 justify-center text-xs text-gray-500 mt-2">
+                    <a href="#" className="hover:text-gray-700">
+                      Legal
+                    </a>
+                    <a href="#" className="hover:text-gray-700">
+                      Returns
+                    </a>
+                    <a href="#" className="hover:text-gray-700">
+                      Contact
+                    </a>
+                  </div>
+                </motion.div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     );
@@ -382,31 +448,65 @@ export const Payment = () => {
   if (currentPage === "success") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0a0e27] to-[#1a1f3a] flex flex-col items-center justify-center p-4">
-        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-8">
+        {/* Icon */}
+        <motion.div
+          className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-8"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
           <Check className="w-10 h-10 text-green-500" />
-        </div>
+        </motion.div>
 
-        <h1 className="text-4xl font-bold text-green-400 mb-2 text-center">
+        {/* Heading */}
+        <motion.h1
+          className="text-4xl font-bold text-green-400 mb-2 text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+        >
           Payment Confirmed
-        </h1>
-        <h2 className="text-3xl font-bold text-green-400 mb-6 text-center">
-          Welcome Aboard!
-        </h2>
+        </motion.h1>
 
-        <p className="text-gray-300 text-center max-w-md mb-2">
+        <motion.h2
+          className="text-3xl font-bold text-green-400 mb-6 text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+        >
+          Welcome Aboard!
+        </motion.h2>
+
+        {/* Subtext */}
+        <motion.p
+          className="text-gray-300 text-center max-w-md mb-2"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+        >
           Your subscription is confirmed and your account is all set to begin.
-        </p>
-        <p className="text-gray-400 text-center max-w-md mb-8 text-sm">
+        </motion.p>
+
+        <motion.p
+          className="text-gray-400 text-center max-w-md mb-8 text-sm"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
+        >
           Plan: <span className="text-white font-semibold">{planName}</span> - $
           {total.toFixed(2)}/month
-        </p>
+        </motion.p>
 
-        <button
+        {/* CTA Button */}
+        <motion.button
           onClick={handleProceedDashboard}
           className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
         >
           Proceed to Dashboard
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -415,28 +515,56 @@ export const Payment = () => {
   if (currentPage === "failure") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0a0e27] to-[#1a1f3a] flex flex-col items-center justify-center p-4">
-        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-8">
+        {/* Icon */}
+        <motion.div
+          className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-8"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
           <X className="w-10 h-10 text-red-500" />
-        </div>
+        </motion.div>
 
-        <h1 className="text-4xl font-bold text-red-500 mb-2 text-center">
+        {/* Heading */}
+        <motion.h1
+          className="text-4xl font-bold text-red-500 mb-2 text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+        >
           Payment Subscription
-        </h1>
-        <h2 className="text-3xl font-bold text-red-500 mb-6 text-center">
-          Unsuccessful
-        </h2>
+        </motion.h1>
 
-        <p className="text-gray-300 text-center max-w-md mb-8">
+        <motion.h2
+          className="text-3xl font-bold text-red-500 mb-6 text-center"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+        >
+          Unsuccessful
+        </motion.h2>
+
+        {/* Subtext */}
+        <motion.p
+          className="text-gray-300 text-center max-w-md mb-8"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+        >
           Your subscription payment was unsuccessful, and your account access is
           paused.
-        </p>
+        </motion.p>
 
-        <button
+        {/* CTA Button */}
+        <motion.button
           onClick={handleRetry}
           className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
         >
           Retry Payment
-        </button>
+        </motion.button>
       </div>
     );
   }

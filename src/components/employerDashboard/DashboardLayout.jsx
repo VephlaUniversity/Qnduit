@@ -64,7 +64,6 @@ export const DashboardLayout = ({
 
   const handleLogout = async () => {
     await signOut();
-    navigate("/");
   };
 
   const toggleSidebar = () => {

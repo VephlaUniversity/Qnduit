@@ -11,8 +11,6 @@ import {
   X,
 } from "lucide-react";
 import RecentApplication from "./RecentApplication";
-import axios from "axios";
-import { API_BASE_URL } from "../utils/api";
 
 const TalentProfileOverview = () => {
   const navigate = useNavigate();
@@ -21,29 +19,10 @@ const TalentProfileOverview = () => {
   const [showEditPopup, setShowEditPopup] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const { data } = await axios.get(
-          `${API_BASE_URL}/api/talents/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (data.profile) {
-          setAboutData(data.profile);
-        }
-
-      } catch (error) {
-        console.error("PROFILE FETCH ERROR:", error);
-      }
-    };
-
-    fetchProfile();
+    const storedResume = localStorage.getItem("resumeData");
+    const storedAbout = localStorage.getItem("aboutData");
+    if (storedResume) setResumeData(JSON.parse(storedResume));
+    if (storedAbout) setAboutData(JSON.parse(storedAbout));
   }, []);
 
   const displayName = aboutData?.fullName || "";
@@ -68,11 +47,11 @@ const TalentProfileOverview = () => {
     .toUpperCase();
 
   const socialLinks = [
-    { name: "facebook", icon: Facebook, url: aboutData?.socialNetworks?.facebook },
-    { name: "linkedin", icon: Linkedin, url: aboutData?.socialNetworks?.linkedin },
-    { name: "twitter", icon: Twitter, url: aboutData?.socialNetworks?.twitter },
-    { name: "instagram", icon: Instagram, url: aboutData?.socialNetworks?.instagram },
-    { name: "youtube", icon: Youtube, url: aboutData?.socialNetworks?.youtube },
+    { name: "facebook", icon: Facebook, url: aboutData?.facebook },
+    { name: "linkedin", icon: Linkedin, url: aboutData?.linkedin },
+    { name: "twitter", icon: Twitter, url: aboutData?.twitter },
+    { name: "instagram", icon: Instagram, url: aboutData?.instagram },
+    { name: "youtube", icon: Youtube, url: aboutData?.youtube },
   ];
 
   return (
@@ -92,7 +71,7 @@ const TalentProfileOverview = () => {
             <div className="w-20 h-20 bg-[#2A2A2E] rounded-lg flex items-center justify-center text-gray-400 text-2xl font-bold border border-white/10">
               {aboutData?.avatar ? (
                 <img
-                  src={`${API_BASE_URL}${aboutData.avatar}`}
+                  src={aboutData.avatar}
                   alt="Avatar"
                   className="w-full h-full object-cover rounded-lg"
                 />

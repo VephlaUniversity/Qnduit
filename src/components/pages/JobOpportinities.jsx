@@ -46,7 +46,7 @@ export const JobOpportunities = ({ onViewJob }) => {
         setLoading(true);
 
         const res = await axios.get(
-          `/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`
+          `/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`,
         );
 
         setJobs(res.data);

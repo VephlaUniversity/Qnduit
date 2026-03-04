@@ -1,5 +1,17 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.1 } },
+};
+
 export const Testimonials = () => {
   useEffect(() => {
     const style = document.createElement("style");
@@ -8,16 +20,13 @@ export const Testimonials = () => {
         0% { transform: translateX(0); }
         100% { transform: translateX(-50%); }
       }
-      
       .animate-testimonial-slide {
         animation: slideTestimonials 30s linear infinite;
       }
     `;
     document.head.appendChild(style);
     return () => {
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
-      }
+      if (document.head.contains(style)) document.head.removeChild(style);
     };
   }, []);
 
@@ -74,16 +83,31 @@ export const Testimonials = () => {
   return (
     <section className="py-20 bg-[#0E0E10]">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <h2 className="text-4xl lg:text-5xl text-center mb-16">
+        {/* Heading */}
+        <motion.h2
+          className="text-4xl lg:text-5xl text-center mb-16"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
           What Our Creatives
           <br />& Clients Say
-        </h2>
+        </motion.h2>
 
-        {/* Top Row - Static */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+        {/* Top Row */}
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8"
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, amount: 0.2 }}
+        >
           {topTestimonials.map((testimonial, index) => (
-            <div
+            <motion.div
               key={index}
+              variants={fadeUp}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className={`rounded-3xl p-8 ${
                 testimonial.featured
                   ? "bg-[radial-gradient(ellipse_50.33%_65.73%_at_11.51%_2.24%,#00368C_0%,#00112D_100%)] border border-gray-700"
@@ -93,10 +117,9 @@ export const Testimonials = () => {
               <p className="text-gray-100 mb-8 text-lg leading-relaxed">
                 {testimonial.text}
               </p>
-
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full  mr-3 overflow-hidden">
+                  <div className="w-12 h-12 rounded-full mr-3 overflow-hidden">
                     <img
                       src={testimonial.avatar}
                       alt={testimonial.name}
@@ -110,7 +133,6 @@ export const Testimonials = () => {
                     </div>
                   </div>
                 </div>
-
                 {testimonial.rating && (
                   <div className="flex flex-col items-end">
                     <div className="flex mb-1">
@@ -128,18 +150,20 @@ export const Testimonials = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* Bottom Row - Sliding with Fade Effect */}
-        <div className="relative mb-12">
-          {/* Left Fade */}
-          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0E0E10] to-transparent z-10 pointer-events-none"></div>
-
-          {/* Right Fade */}
-          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0E0E10] to-transparent z-10 pointer-events-none"></div>
-
+        {/* Bottom Row - Sliding */}
+        <motion.div
+          className="relative mb-12"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+        >
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0E0E10] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0E0E10] to-transparent z-10 pointer-events-none" />
           <div className="overflow-hidden">
             <div className="flex animate-testimonial-slide">
               {[...projectTestimonials, ...projectTestimonials].map(
@@ -169,20 +193,26 @@ export const Testimonials = () => {
                       {testimonial.text}
                     </p>
                   </div>
-                )
+                ),
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Read More Button */}
-        <div className="text-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <Link to="/testimonials">
             <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
               Read more Customer Reviews →
             </button>
           </Link>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

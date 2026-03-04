@@ -15,7 +15,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { CTA } from "../home/CTA";
-import { AnimatedPage } from "../AnimatedPage";
+import { AnimatePresence, motion } from "framer-motion";
 
 const candidatesData = [
   {
@@ -282,7 +282,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
             .toLowerCase()
             .includes(searchParams.jobTitle.toLowerCase()) ||
           candidate.skills.some((skill) =>
-            skill.toLowerCase().includes(searchParams.jobTitle.toLowerCase())
+            skill.toLowerCase().includes(searchParams.jobTitle.toLowerCase()),
           );
         if (!titleMatch) return false;
       }
@@ -419,10 +419,16 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
   );
 
   return (
-    <AnimatedPage>
+    <>
       <div className="min-h-screen text-white p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="text-sm text-gray-400 mb-6">
+          {/* Breadcrumb */}
+          <motion.div
+            className="text-sm text-gray-400 mb-6"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
             <Link
               to="/"
               className="hover:underline hover:text-[#3B82F6] cursor-pointer"
@@ -431,7 +437,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
             </Link>
             <span className="mx-2">›</span>
             <span className="text-[#3B82F6]">Find Talents</span>
-          </div>
+          </motion.div>
 
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Mobile Menu Button */}
@@ -446,19 +452,28 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
               )}
             </button>
 
-            {/* Overlay for mobile */}
-            {sidebarOpen && (
-              <div
-                className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-                onClick={() => setSidebarOpen(false)}
-              ></div>
-            )}
+            {/* Overlay */}
+            <AnimatePresence>
+              {sidebarOpen && (
+                <motion.div
+                  className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+                  onClick={() => setSidebarOpen(false)}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Sidebar */}
-            <div
+            <motion.div
               className={`${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
               } lg:translate-x-0 lg:block fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
             >
               <div className="bg-[#191D23] rounded-2xl p-6 space-y-6 lg:sticky lg:top-6">
                 <div>
@@ -619,7 +634,6 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                       className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3B82F6]"
                     />
                   </div>
-
                   <div>
                     <label className="block text-white font-semibold mb-2">
                       Email Frequency
@@ -633,31 +647,37 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
                   <button className="w-full bg-[#3B82F6] hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors">
                     Save Job Alert
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Main Content */}
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <motion.div
+              className="flex-1"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+            >
+              {/* Controls Bar */}
+              <motion.div
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+              >
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-2 rounded ${
-                      viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
-                    }`}
+                    className={`p-2 rounded ${viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded ${
-                      viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"
-                    }`}
+                    className={`p-2 rounded ${viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>
@@ -666,7 +686,6 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                     {filteredCandidates.length !== 1 ? "s" : ""} found
                   </span>
                 </div>
-
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
                   <select
                     value={itemsPerPage}
@@ -687,11 +706,16 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                     <option value="salary">Highest Salary</option>
                   </select>
                 </div>
-              </div>
+              </motion.div>
 
-              {/* No Results Message */}
+              {/* No Results */}
               {filteredCandidates.length === 0 ? (
-                <div className="p-12 text-center">
+                <motion.div
+                  className="p-12 text-center"
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                >
                   <div className="max-w-md mx-auto">
                     <Search className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-white mb-2">
@@ -708,25 +732,52 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                       Go Back Home
                     </button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
                 <>
                   {/* Candidates Grid/List */}
-                  <div
-                    className={
-                      viewMode === "grid"
-                        ? "grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6"
-                        : "space-y-4 mb-6"
-                    }
-                  >
-                    {paginatedCandidates.map((candidate) => (
-                      <CandidateCard key={candidate.id} candidate={candidate} />
-                    ))}
-                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`${viewMode}-${currentPage}`}
+                      className={
+                        viewMode === "grid"
+                          ? "grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6"
+                          : "space-y-4 mb-6"
+                      }
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      {paginatedCandidates.map((candidate, index) => (
+                        <motion.div
+                          key={candidate.id}
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            ease: "easeOut",
+                            delay: index * 0.06,
+                          }}
+                        >
+                          <CandidateCard candidate={candidate} />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <motion.div
+                      className="flex items-center justify-center gap-2 flex-wrap"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                        delay: 0.2,
+                      }}
+                    >
                       <button
                         onClick={() =>
                           handlePageChange(Math.max(1, currentPage - 1))
@@ -740,7 +791,6 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                       >
                         <ChevronLeft className="w-5 h-5" />
                       </button>
-
                       {getPageNumbers().map((page) => (
                         <button
                           key={page}
@@ -754,11 +804,10 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                           {page}
                         </button>
                       ))}
-
                       <button
                         onClick={() =>
                           handlePageChange(
-                            Math.min(totalPages, currentPage + 1)
+                            Math.min(totalPages, currentPage + 1),
                           )
                         }
                         disabled={currentPage === totalPages}
@@ -770,15 +819,15 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                       >
                         <ChevronRight className="w-5 h-5" />
                       </button>
-                    </div>
+                    </motion.div>
                   )}
                 </>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
       <CTA />
-    </AnimatedPage>
+    </>
   );
 };

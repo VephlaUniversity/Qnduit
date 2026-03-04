@@ -4,6 +4,7 @@ import { ArrowLeft, LogIn, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { resumePlanSelection } from "../utils/ResumePlanSelection";
+import { motion } from "framer-motion";
 
 export const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -95,35 +96,73 @@ export const SignIn = () => {
     <div className="min-h-screen bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10]">
       <AuthHeader />
       <div className="container mx-auto px-4 py-12">
-        <button
-          onClick={() => navigate(-1)}
+        {/* Back Button */}
+        <motion.button
+          onClick={() => navigate("/")}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-8"
+          initial={{ opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <ArrowLeft className="w-5 h-5" />
-        </button>
+        </motion.button>
 
-        <div className="w-full max-w-md mx-auto">
-          <div className="flex justify-center mb-8">
+        <motion.div
+          className="w-full max-w-md mx-auto"
+          initial="initial"
+          animate="animate"
+        >
+          {/* Icon */}
+          <motion.div
+            className="flex justify-center mb-8"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
             <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
               <LogIn className="w-8 h-8 text-blue-500" />
             </div>
-          </div>
-          <h1 className="text-3xl font-semibold text-white text-center mb-2">
-            Welcome Back
-          </h1>
-          <p className="text-gray-400 text-center mb-4">
-            Sign in to continue to your account
-          </p>
+          </motion.div>
 
-          {/* Show message if redirected from plan selection */}
+          {/* Heading */}
+          <motion.h1
+            className="text-3xl font-semibold text-white text-center mb-2"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+          >
+            Welcome Back
+          </motion.h1>
+
+          <motion.p
+            className="text-gray-400 text-center mb-4"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
+          >
+            Sign in to continue to your account
+          </motion.p>
+
+          {/* Redirect message */}
           {message && (
-            <div className="mb-6 p-3 bg-blue-600/20 border border-blue-600/50 rounded-lg text-center">
+            <motion.div
+              className="mb-6 p-3 bg-blue-600/20 border border-blue-600/50 rounded-lg text-center"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+            >
               <p className="text-blue-400 text-sm">{message}</p>
-            </div>
+            </motion.div>
           )}
 
+          {/* Form Fields */}
           <div className="space-y-4">
-            <div>
+            {/* Email */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+            >
               <label className="text-sm text-gray-400 block mb-2">
                 Email address
               </label>
@@ -143,9 +182,14 @@ export const SignIn = () => {
               {errors.email && (
                 <p className="text-red-500 text-xs mt-1">{errors.email}</p>
               )}
-            </div>
+            </motion.div>
 
-            <div>
+            {/* Password */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
+            >
               <label className="text-sm text-gray-400 block mb-2">
                 Password
               </label>
@@ -182,16 +226,27 @@ export const SignIn = () => {
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
               )}
-            </div>
+            </motion.div>
 
-            {/* Show submit error if any */}
+            {/* Submit error */}
             {errors.submit && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <motion.div
+                className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              >
                 <p className="text-red-400 text-sm">{errors.submit}</p>
-              </div>
+              </motion.div>
             )}
 
-            <div className="flex justify-between items-center">
+            {/* Remember me & Forgot password */}
+            <motion.div
+              className="flex justify-between items-center"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+            >
               <label className="flex items-center gap-2 text-sm text-gray-400">
                 <input type="checkbox" className="rounded" />
                 Remember me
@@ -202,18 +257,27 @@ export const SignIn = () => {
               >
                 Forgot password?
               </a>
-            </div>
+            </motion.div>
 
-            {/* Quick Access Button - Development Only */}
-            <button
+            {/* Submit Button */}
+            <motion.button
               onClick={handleSubmit}
               disabled={isLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.35 }}
             >
               {isLoading ? "Signing In..." : "Sign In"}
-            </button>
+            </motion.button>
 
-            <p className="text-center text-gray-400 text-sm">
+            {/* Sign up links */}
+            <motion.p
+              className="text-center text-gray-400 text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut", delay: 0.4 }}
+            >
               Don't have an account?{" "}
               <a
                 href="/talent-signup"
@@ -228,9 +292,9 @@ export const SignIn = () => {
               >
                 Employer
               </a>
-            </p>
+            </motion.p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

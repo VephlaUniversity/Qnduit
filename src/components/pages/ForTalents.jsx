@@ -1,4 +1,3 @@
-import { AnimatedPage } from "../AnimatedPage";
 import { CTA } from "../home/CTA";
 import { JobListings } from "../home/JobListings";
 import { TalentFAQ } from "../talents/TalentFAQ";
@@ -9,7 +8,7 @@ import { TalentTestimonials } from "../talents/TalentTestimonials";
 
 export const ForTalents = () => {
   return (
-    <AnimatedPage>
+    <>
       <TalentHero />
       <TalentSearch />
       <JobListings />
@@ -17,6 +16,6 @@ export const ForTalents = () => {
       <TalentPricing />
       <TalentFAQ />
       <CTA />
-    </AnimatedPage>
+    </>
   );
 };

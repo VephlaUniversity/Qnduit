@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { User, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 export const ForgotPassword = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -116,224 +117,343 @@ export const ForgotPassword = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900/20 via-blue-400/20 to-slate-900">
       <div className="container mx-auto px-4 py-12 flex items-center justify-center min-h-screen">
-        {currentStep === 1 && (
-          <div className="w-full max-w-md">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-                <User className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-normal text-white text-center mb-2">
-              Reset password
-            </h1>
-            <p className="text-gray-400 text-center mb-10">
-              Forgot your password? No worries
-            </p>
-
-            {errors.submit && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-red-400 text-sm">{errors.submit}</p>
-              </div>
-            )}
-
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">
-                  Enter Work Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="daniel@example.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className={`w-full bg-transparent border rounded-lg h-12 px-4 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
-                    errors.email
-                      ? "border-red-500 focus:border-red-400"
-                      : "border-blue-600 focus:border-blue-500"
-                  }`}
-                />
-                {errors.email && (
-                  <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={handleSendInstructions}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+        <AnimatePresence mode="wait">
+          {/* Step 1 */}
+          {currentStep === 1 && (
+            <motion.div
+              key="step-1"
+              className="w-full max-w-md"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <motion.div
+                className="flex justify-center mb-6"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
               >
-                {loading ? "Sending..." : "Send Reset Instructions"}
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                  <User className="w-8 h-8 text-blue-600" />
+                </div>
+              </motion.div>
 
-        {currentStep === 2 && (
-          <div className="w-full max-w-md">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-                <User className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
-            <h1 className="text-3xl font-normal text-white text-center mb-2">
-              Reset password
-            </h1>
-            <p className="text-gray-400 text-center mb-4">
-              Enter your new password
-            </p>
-            <p className="text-gray-500 text-xs text-center mb-10 px-4">
-              {formData.email}
-            </p>
+              <motion.h1
+                className="text-3xl font-normal text-white text-center mb-2"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
+              >
+                Reset password
+              </motion.h1>
 
-            {errors.submit && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex gap-2">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-red-400 text-sm">{errors.submit}</p>
-              </div>
-            )}
+              <motion.p
+                className="text-gray-400 text-center mb-10"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+              >
+                Forgot your password? No worries
+              </motion.p>
 
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">
-                  New Password
-                </label>
-                <div className="relative">
+              {errors.submit && (
+                <motion.div
+                  className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex gap-2"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                >
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-400 text-sm">{errors.submit}</p>
+                </motion.div>
+              )}
+
+              <div className="space-y-5">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.25 }}
+                >
+                  <label className="text-sm text-gray-400 block mb-2">
+                    Enter Work Email
+                  </label>
                   <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••••••"
-                    value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
-                    className={`w-full bg-transparent border rounded-lg h-12 px-4 pr-10 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
-                      errors.password
+                    type="email"
+                    placeholder="daniel@example.com"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className={`w-full bg-transparent border rounded-lg h-12 px-4 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
+                      errors.email
                         ? "border-red-500 focus:border-red-400"
-                        : "border-gray-700 focus:border-blue-600"
+                        : "border-blue-600 focus:border-blue-500"
                     }`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
+                  {errors.email && (
+                    <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.email}
+                    </p>
+                  )}
+                </motion.div>
+
+                <motion.button
+                  onClick={handleSendInstructions}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.3 }}
+                >
+                  {loading ? "Sending..." : "Send Reset Instructions"}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 2 */}
+          {currentStep === 2 && (
+            <motion.div
+              key="step-2"
+              className="w-full max-w-md"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <motion.div
+                className="flex justify-center mb-6"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+              >
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                  <User className="w-8 h-8 text-blue-600" />
                 </div>
-                {errors.password && typeof errors.password === "object" ? (
-                  <div className="mt-2 space-y-1">
-                    {errors.password.map((err, idx) => (
-                      <p
-                        key={idx}
-                        className="text-red-400 text-xs flex items-center gap-1.5"
-                      >
-                        <AlertCircle className="w-3 h-3" />
-                        {err}
-                      </p>
-                    ))}
+              </motion.div>
+
+              <motion.h1
+                className="text-3xl font-normal text-white text-center mb-2"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
+              >
+                Reset password
+              </motion.h1>
+
+              <motion.p
+                className="text-gray-400 text-center mb-4"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+              >
+                Enter your new password
+              </motion.p>
+
+              <motion.p
+                className="text-gray-500 text-xs text-center mb-10 px-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.22 }}
+              >
+                {formData.email}
+              </motion.p>
+
+              {errors.submit && (
+                <motion.div
+                  className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex gap-2"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                >
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-400 text-sm">{errors.submit}</p>
+                </motion.div>
+              )}
+
+              <div className="space-y-5">
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.25 }}
+                >
+                  <label className="text-sm text-gray-400 block mb-2">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••••••"
+                      value={formData.password}
+                      onChange={(e) =>
+                        handleInputChange("password", e.target.value)
+                      }
+                      className={`w-full bg-transparent border rounded-lg h-12 px-4 pr-10 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
+                        errors.password
+                          ? "border-red-500 focus:border-red-400"
+                          : "border-gray-700 focus:border-blue-600"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
-                ) : errors.password ? (
-                  <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.password}
-                  </p>
-                ) : null}
-              </div>
+                  {errors.password && typeof errors.password === "object" ? (
+                    <div className="mt-2 space-y-1">
+                      {errors.password.map((err, idx) => (
+                        <p
+                          key={idx}
+                          className="text-red-400 text-xs flex items-center gap-1.5"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          {err}
+                        </p>
+                      ))}
+                    </div>
+                  ) : errors.password ? (
+                    <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.password}
+                    </p>
+                  ) : null}
+                </motion.div>
 
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••••••"
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      handleInputChange("confirmPassword", e.target.value)
-                    }
-                    className={`w-full bg-transparent border rounded-lg h-12 px-4 pr-10 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
-                      errors.confirmPassword
-                        ? "border-red-500 focus:border-red-400"
-                        : "border-gray-700 focus:border-blue-600"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-                {errors.confirmPassword && (
-                  <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.3 }}
+                >
+                  <label className="text-sm text-gray-400 block mb-2">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••••••"
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        handleInputChange("confirmPassword", e.target.value)
+                      }
+                      className={`w-full bg-transparent border rounded-lg h-12 px-4 pr-10 text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
+                        errors.confirmPassword
+                          ? "border-red-500 focus:border-red-400"
+                          : "border-gray-700 focus:border-blue-600"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.confirmPassword}
+                    </p>
+                  )}
+                </motion.div>
 
-              <button
-                onClick={handleResetPassword}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                <motion.button
+                  onClick={handleResetPassword}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.35 }}
+                >
+                  {loading ? "Resetting..." : "Reset Password"}
+                </motion.button>
+
+                <motion.button
+                  onClick={() => {
+                    setCurrentStep(1);
+                    setErrors({});
+                  }}
+                  className="w-full bg-transparent border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: 0.4 }}
+                >
+                  Back
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 3 */}
+          {currentStep === 3 && (
+            <motion.div
+              key="step-3"
+              className="w-full max-w-md text-center"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <motion.div
+                className="flex justify-center mb-6"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
               >
-                {loading ? "Resetting..." : "Reset Password"}
-              </button>
+                <div className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                </div>
+              </motion.div>
 
-              <button
+              <motion.h1
+                className="text-4xl font-normal text-white text-center mb-4"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
+              >
+                Password Reset
+              </motion.h1>
+
+              <motion.p
+                className="text-gray-400 text-center mb-10"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+              >
+                Your password has been successfully reset.
+                <br />
+                You can now sign in with your new password
+              </motion.p>
+
+              <motion.button
                 onClick={() => {
                   setCurrentStep(1);
+                  setFormData({ email: "", password: "", confirmPassword: "" });
                   setErrors({});
                 }}
-                className="w-full bg-transparent border border-gray-600 hover:border-gray-400 text-gray-400 hover:text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut", delay: 0.25 }}
               >
-                Back
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div className="w-full max-w-md text-center">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </div>
-            <h1 className="text-4xl font-normal text-white text-center mb-4">
-              Password Reset
-            </h1>
-            <p className="text-gray-400 text-center mb-10">
-              Your password has been successfully reset.
-              <br />
-              You can now sign in with your new password
-            </p>
-
-            <button
-              onClick={() => {
-                setCurrentStep(1);
-                setFormData({ email: "", password: "", confirmPassword: "" });
-                setErrors({});
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
-            >
-              Sign In now
-            </button>
-          </div>
-        )}
+                Sign In now
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

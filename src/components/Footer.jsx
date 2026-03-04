@@ -1,11 +1,34 @@
 import { Link } from "react-router-dom";
 import { HashLink } from "react-router-hash-link";
+import { motion } from "framer-motion";
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+};
+
+const staggerContainer = {
+  initial: {},
+  animate: { transition: { staggerChildren: 0.1 } },
+};
+
 export const Footer = () => (
   <footer className="bg-black py-16">
     <div className="max-w-7xl mx-auto px-6 lg:px-8">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-12">
+      {/* Main Grid */}
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-12"
+        variants={staggerContainer}
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.1 }}
+      >
         {/* Company Info */}
-        <div className="lg:col-span-1">
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="lg:col-span-1"
+        >
           <Link to="/">
             <div className="flex items-center space-x-2 mb-4">
               <div className="w-8 h-8 flex items-center justify-center">
@@ -39,10 +62,13 @@ export const Footer = () => (
               </svg>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* For Employers */}
-        <div>
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <h4 className="text-white font-semibold text-lg mb-4">
             For Employers
           </h4>
@@ -75,10 +101,13 @@ export const Footer = () => (
               </HashLink>
             </li>
           </ul>
-        </div>
+        </motion.div>
 
         {/* For Talent */}
-        <div>
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <h4 className="text-white font-semibold text-lg mb-4">For Talent</h4>
           <ul className="space-y-3 text-gray-400">
             <li>
@@ -107,10 +136,13 @@ export const Footer = () => (
               </HashLink>
             </li>
           </ul>
-        </div>
+        </motion.div>
 
         {/* About Qnduit */}
-        <div>
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <h4 className="text-white font-semibold text-lg mb-4">
             About Qnduit
           </h4>
@@ -140,14 +172,20 @@ export const Footer = () => (
               </Link>
             </li>
           </ul>
-        </div>
+        </motion.div>
 
         {/* Community */}
-        <div>
+        <motion.div
+          variants={fadeUp}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
           <h4 className="text-white font-semibold text-lg mb-4">Community</h4>
           <ul className="space-y-3 text-gray-400">
             <li>
-              <a href="#" className="hover:text-white transition-colors">
+              <a
+                href="https://vephlauni.com/"
+                className="hover:text-white transition-colors"
+              >
                 Learn Tech
               </a>
             </li>
@@ -165,11 +203,17 @@ export const Footer = () => (
               </Link>
             </li>
           </ul>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Footer Bottom */}
-      <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+      <motion.div
+        className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      >
         <div className="text-gray-400 mb-4 md:mb-0">© 2025 Qnduit</div>
         <div className="flex space-x-8 text-gray-400">
           <Link
@@ -185,17 +229,20 @@ export const Footer = () => (
             Privacy Policy
           </Link>
         </div>
-      </div>
+      </motion.div>
 
       {/* Large QNDUIT text */}
-      <div className="mt-16 overflow-hidde hidden md:block">
+      <motion.div
+        className="mt-16 overflow-hidden hidden md:block"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div
           className="flex items-center justify-center"
-          style={{
-            clipPath: "inset(0 0 10% 0)",
-          }}
+          style={{ clipPath: "inset(0 0 10% 0)" }}
         >
-          {/* Logo Image */}
           <div className="relative flex-shrink-0">
             <img
               src="/images/logo.png"
@@ -203,19 +250,14 @@ export const Footer = () => (
               className="object-contain w-[120px]"
             />
           </div>
-
-          {/* Text */}
           <h1
             className="font-black text-[#C3CBD9] leading-none text-[7.5rem] tracking-tight pl-[20px]"
-            style={{
-              position: "relative",
-              top: "10px",
-            }}
+            style={{ position: "relative", top: "10px" }}
           >
             QNDUIT
           </h1>
         </div>
-      </div>
+      </motion.div>
     </div>
   </footer>
 );
