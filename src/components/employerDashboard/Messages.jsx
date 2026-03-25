@@ -1,99 +1,98 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const Messages = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedChat, setSelectedChat] = useState(1);
+  const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
+  const [chats, setChats] = useState([]);
+  const [messages, setMessages] = useState([]);
 
-  // Use user messages or fallback to default
-  const chats =
-    user?.messages?.length > 0
-      ? user.messages.map((msg, idx) => ({
-          id: msg.id || idx + 1,
-          name: msg.name,
-          avatar: msg.name.charAt(0),
-          lastMessage: msg.lastMessage,
-          time: msg.time,
-          unread: msg.unread || 0,
-          online: msg.online || false,
-          color:
-            idx % 3 === 0
-              ? "bg-blue-500"
-              : idx % 3 === 1
-              ? "bg-green-500"
-              : "bg-orange-500",
-        }))
-      : [
-          {
-            id: 1,
-            name: "Initech",
-            avatar: "I",
-            lastMessage: "Hey! there I'm available",
-            time: "05 min",
-            unread: 0,
-            online: true,
-            color: "bg-green-500",
-          },
-          {
-            id: 2,
-            name: "Avitex Agency",
-            avatar: "A",
-            lastMessage: "Hey! there I'm available",
-            time: "07 min",
-            unread: 0,
-            online: true,
-            color: "bg-blue-500",
-          },
-          {
-            id: 3,
-            name: "Plexzap",
-            avatar: "P",
-            lastMessage: "Hey! there I'm available",
-            time: "08 min",
-            unread: 0,
-            online: true,
-            color: "bg-orange-500",
-          },
-        ];
+  // Fetch chats (previous chats or search results)
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
 
-  const messages = [
-    { id: 1, sender: "them", text: "How are you?", time: "Today, 5:02 Am" },
-    { id: 2, sender: "me", text: "Hello", time: "Today, 5:02 Am" },
-    {
-      id: 3,
-      sender: "me",
-      text: "I'm good and you?",
-      time: "Today, 5:02 Am",
-      date: "August 22",
-    },
-    {
-      id: 4,
-      sender: "them",
-      text: "Tell me about yourself",
-      time: "Today, 1:02 Pm",
-    },
-    {
-      id: 5,
-      sender: "them",
-      text: "What are your strengths?",
-      time: "Today, 1:30 Pm",
-    },
-    {
-      id: 6,
-      sender: "me",
-      text: "I'm a punctual person. I always arrive early and complete my work on time. My previous job had a lot of deadlines, and when you must finish something by and I made sure that I was organized and adhered to (respected) all my jobs",
-      time: "Today, 5:02 Am",
-    },
-  ];
+        let res;
+        if (!searchQuery) {
+          // Only previous chats
+          res = await axios.get(`${API_BASE_URL}/api/messages/chats`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } else {
+          // Search users
+          res = await axios.get(`${API_BASE_URL}/api/messages/search`, {
+            params: { query: searchQuery },
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
 
-  const handleSendMessage = (e) => {
+        setChats(res.data.results || []);
+      } catch (err) {
+        console.error("Fetch chats error:", err);
+      }
+    };
+
+    fetchChats();
+  }, [searchQuery]);
+
+  // Fetch messages when a chat is selected
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const fetchMessages = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await axios.get(`${API_BASE_URL}/api/messages`, {
+          params: { withUserId: selectedChat._id },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setMessages(res.data.messages);
+      } catch (err) {
+        console.error("Fetch messages error:", err);
+      }
+    };
+
+    fetchMessages();
+  }, [selectedChat]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (messageInput.trim()) {
-      console.log("Sending message:", messageInput);
+    if (!messageInput.trim() || !selectedChat) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      await axios.post(
+        `${API_BASE_URL}/api/messages/send`,
+        {
+          recipientId: selectedChat._id,
+          recipientModel: selectedChat.role,
+          text: messageInput,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Refetch messages to update chat window
+      const res = await axios.get(`${API_BASE_URL}/api/messages`, {
+        params: { withUserId: selectedChat._id },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setMessages(res.data.messages);
       setMessageInput("");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -124,18 +123,20 @@ export const Messages = () => {
           <div className="flex-1 overflow-y-auto">
             {chats.map((chat) => (
               <button
-                key={chat.id}
-                onClick={() => setSelectedChat(chat.id)}
+                key={chat._id}
+                onClick={() => setSelectedChat(chat)}
                 className={`w-full p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
-                  selectedChat === chat.id ? "bg-[#2A2A2E]" : ""
+                  selectedChat?._id === chat._id ? "bg-[#2A2A2E]" : ""
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative flex-shrink-0">
                     <div
-                      className={`w-12 h-12 rounded-full ${chat.color} flex items-center justify-center text-white font-semibold`}
+                      className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`}
                     >
-                      {chat.avatar}
+                      {typeof chat.avatar === "string" && chat.avatar
+                        ? chat.avatar
+                        : chat.name ? chat.name.charAt(0) : "?"}
                     </div>
                     {chat.online && (
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
@@ -144,12 +145,12 @@ export const Messages = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-white font-medium truncate">
-                        {chat.name}
+                        {chat.name || "Unknown"}
                       </p>
                       <span className="text-xs text-gray-500">{chat.time}</span>
                     </div>
                     <p className="text-sm text-gray-400 truncate">
-                      {chat.lastMessage}
+                      {chat.lastMessage || "No message"}
                     </p>
                   </div>
                   {chat.unread > 0 && (
@@ -173,9 +174,11 @@ export const Messages = () => {
                 <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
               </div>
               <div>
-                <p className="text-white font-medium">Avitex Agency</p>
+                <p className="text-white font-medium">
+                  {selectedChat ? selectedChat.name : "Select a chat"}
+                </p>
                 <p className="text-sm text-gray-400">
-                  Las Vegas, NV 89107, USA
+                  {selectedChat ? selectedChat.location || "No location" : ""}
                 </p>
               </div>
             </div>

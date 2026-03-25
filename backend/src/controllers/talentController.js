@@ -328,3 +328,27 @@ export const getTalentDashboard = async (req, res, next) => {
     next(error);
   }
 };
+
+export const searchTalentByEmail = async (req, res, next) => {
+  try {
+    const { email } = req.query;
+
+    const talent = await Talent.findOne({ email }).select(
+      "_id firstName lastName email"
+    );
+
+    if (!talent) {
+      return res.status(404).json({
+        success: false,
+        message: "Talent not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      talent,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

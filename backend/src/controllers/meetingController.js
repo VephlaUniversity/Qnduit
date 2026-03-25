@@ -3,12 +3,13 @@ import Meeting from "../models/Meeting.js";
 export const createMeeting = async (req, res, next) => {
   try {
     const employerId = req.user._id;
-    const { title, attendee, date, time, duration, message, zoomLink } = req.body;
+    const { title, attendee, attendeeId, date, time, duration, message, zoomLink } = req.body;
 
     const meeting = new Meeting({
       employer: employerId,
       title,
       attendee,
+      attendeeId,
       date,
       time,
       duration,
@@ -83,6 +84,54 @@ export const deleteMeeting = async (req, res, next) => {
     await meeting.save();
 
     res.json({ success: true, message: "Meeting deleted" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTalentMeetings = async (req, res, next) => {
+  try {
+    const talentId = req.user._id;
+
+    const meetings = await Meeting.find({
+      attendeeId: talentId,
+      isDeleted: false,
+    })
+      .populate("employer", "firstName lastName") 
+      .sort({ date: 1, time: 1 });
+
+    res.json({
+      success: true,
+      meetings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelTalentMeeting = async (req, res, next) => {
+  try {
+    const talentId = req.user._id;
+
+    const meeting = await Meeting.findOne({
+      _id: req.params.id,
+      attendeeId: talentId,
+      isDeleted: false,
+    });
+
+    if (!meeting)
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found",
+      });
+
+    meeting.isDeleted = true;
+    await meeting.save();
+
+    res.json({
+      success: true,
+      message: "Meeting cancelled",
+    });
   } catch (error) {
     next(error);
   }

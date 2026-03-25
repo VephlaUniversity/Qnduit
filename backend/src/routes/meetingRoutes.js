@@ -6,6 +6,8 @@ import {
   getEmployerMeetings,
   getSingleMeeting,
   deleteMeeting,
+  getTalentMeetings,
+  cancelTalentMeeting
 } from "../controllers/meetingController.js";
 
 const router = express.Router();
@@ -28,9 +30,24 @@ router.put(
 
 router.get(
   "/my-meetings", 
-  protect, authorize("employer"), 
+  protect, 
+  authorize("employer"), 
   getEmployerMeetings
 
+);
+
+router.get(
+  "/talent-meetings", 
+  protect, 
+  authorize("talent"),
+  getTalentMeetings
+);
+
+router.delete(
+  "/cancel/:id",
+  protect,
+  authorize("talent"),
+  cancelTalentMeeting
 );
 
 router.get(

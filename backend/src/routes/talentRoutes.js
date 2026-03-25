@@ -8,6 +8,7 @@ import {
   getTalentProfile,
   upload,
   talentUpload,
+  searchTalentByEmail
 } from "../controllers/talentController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -34,5 +35,12 @@ router.put(
 router.get("/profile", protect, getTalentProfile);
 
 router.get("/:id/dashboard", getTalentDashboard);
+
+router.get(
+  "/search-by-email",
+  protect,
+  authorize("employer"),
+  searchTalentByEmail
+);
 
 export default router;

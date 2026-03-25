@@ -41,8 +41,7 @@ import TermsOfService from "./components/pages/TermsOfService";
 import PrivacyPolicy from "./components/pages/PrivacyPolicy";
 import Blog from "./components/pages/Blog";
 import BlogDetail from "./components/BlogDetails";
-import { HowItWorksSection } from "./components/pages/HowItWorks";
-import { AllJobsPage } from "./components/pages/AllJobs";
+import JobDetails from "./components/pages/JobDetails";
 
 const AppContent = () => {
   const location = useLocation();
@@ -98,14 +97,13 @@ const AppContent = () => {
           <Route path="/testimonials" element={<FeaturedSuccessStories />} />
           <Route path="/find-talents" element={<TalentsSearchManager />} />
           <Route path="/jobs" element={<JobManager />} />
+          <Route path="/jobs/:id" element={<JobDetails />} />
           {/* SignIn/SignUp */}
           <Route path="/talent-signup" element={<TalentSignup />} />
           <Route path="/employer-signup" element={<EmployerSignup />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/payment" element={<Payment />} />
-          <Route path="//how-it-works" element={<HowItWorksSection />} />
-          <Route path="/all-jobs" element={<AllJobsPage />} />
 
           {/* Protected routes */}
           <Route

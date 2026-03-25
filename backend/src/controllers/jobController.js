@@ -235,8 +235,10 @@ export const searchJobs = async (req, res, next) => {
     }
 
     if (workType) {
+      const normalizedWorkType = workType.replace("-", " ");
+
       matchStage.jobApplyType = {
-        $regex: workType,
+        $regex: normalizedWorkType,
         $options: "i"
       };
     }
@@ -327,3 +329,95 @@ export const searchJobs = async (req, res, next) => {
   }
 };
 
+export const getPublicJobDetails = async (req, res, next) => {
+  try {
+    const job = await Job.findOne({
+      _id: req.params.id,
+      status: "published",
+      isDeleted: false,
+    }).populate("employer", "companyName selectedPlan companyWebsite companyEmail companyIndustry companySize location foundedYear socialNetworks");
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
+    }
+
+    const jobData = {
+      ...job.toObject(),
+      jobApplyType: job.jobApplyType
+        ? Array.isArray(job.jobApplyType)
+          ? job.jobApplyType
+          : [job.jobApplyType]
+        : [],
+      requirements: job.requirements
+        ? Array.isArray(job.requirements)
+          ? job.requirements
+          : [job.requirements]
+        : [],
+      qualifications: job.qualification
+        ? Array.isArray(job.qualification)
+          ? job.qualification
+          : [job.qualification]
+        : [],
+    };
+
+    res.json({
+      success: true,
+      job: jobData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRelatedJobs = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
+    }
+
+    const keyword = job.jobTitle?.split(" ")[0] || "";
+
+    const relatedJobs = await Job.find({
+      _id: { $ne: job._id }, // exclude current job
+      status: "published",
+      isDeleted: false,
+      $or: [
+        { location: job.location },
+        { jobApplyType: job.jobApplyType },
+        ...(keyword
+          ? [{ jobTitle: { $regex: keyword, $options: "i" } }]
+          : []),
+      ],
+    })
+      .limit(5)
+      .populate("employer", "companyName");
+
+    const normalizedJobs = relatedJobs.map((j) => ({
+      ...j.toObject(),
+      jobApplyType: j.jobApplyType
+        ? Array.isArray(j.jobApplyType)
+          ? j.jobApplyType
+          : [j.jobApplyType]
+        : [],
+    }));
+
+    res.json({
+      success: true,
+      jobs: normalizedJobs,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

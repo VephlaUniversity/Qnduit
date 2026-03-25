@@ -97,6 +97,9 @@ export const Meeting = () => {
   const [newTime, setNewTime] = useState("10:00 am");
   const [newDuration, setNewDuration] = useState("30m");
   const [createErrors, setCreateErrors] = useState({});
+  const [attendeeEmail, setAttendeeEmail] = useState("");
+  const [newAttendeeId, setNewAttendeeId] = useState("");
+  const [searchingTalent, setSearchingTalent] = useState(false);
 
   useEffect(() => {
     const fetchMeetings = async () => {
@@ -189,7 +192,7 @@ export const Meeting = () => {
       );
 
       setMeetings((prev) =>
-        prev.map((m) => (m.id === selectedMeeting.id ? data.meeting : m))
+        prev.map((m) => (m.id === selectedMeeting._id ? data.meeting : m))
       );
       setShowRescheduleModal(false);
       toast({
@@ -205,11 +208,47 @@ export const Meeting = () => {
     }
   };
 
+  const handleSearchAttendee = async () => {
+    if (!attendeeEmail) return;
+
+    try {
+      setSearchingTalent(true);
+      const token = localStorage.getItem("token");
+
+      const { data } = await axios.get(
+        `${API_BASE_URL}/api/talents/search-by-email?email=${attendeeEmail}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const talent = data.talent;
+
+      const fullName = `${talent.firstName} ${talent.lastName}`;
+
+      setNewAttendee(fullName);
+      setNewAttendeeId(talent._id);
+
+      toast({
+        title: "Talent Found",
+        description: `${fullName} added as attendee`,
+      });
+    } catch (err) {
+      toast({
+        title: "Talent not found",
+        description: err.response?.data?.message || "No user with that email",
+        variant: "destructive",
+      });
+    } finally {
+      setSearchingTalent(false);
+    }
+  };
+
 
   const handleCreateMeeting = async () => {
     const errors = {};
     if (!newTitle.trim()) errors.title = "Meeting title is required.";
-    if (!newAttendee.trim()) errors.attendee = "Attendee name is required.";
+    if (!newAttendeeId) errors.attendee = "Search and select a valid attendee.";
     setCreateErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -218,6 +257,7 @@ export const Meeting = () => {
       const meetingData = {
         title: newTitle.trim(),
         attendee: newAttendee.trim(),
+        attendeeId: newAttendeeId,
         date: newDate,
         time: newTime,
         duration: newDuration,
@@ -306,7 +346,7 @@ export const Meeting = () => {
       <div className="space-y-4">
         {meetings.map((meeting) => (
           <div
-            key={meeting.id}
+            key={meeting._id}
             className="bg-[#1A1A1E] rounded-xl border border-white/5 p-4 md:p-6 hover:border-white/10 transition-all"
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -420,21 +460,32 @@ export const Meeting = () => {
             {/* Attendee */}
             <div>
               <label className="text-sm text-gray-400 mb-1.5 block">
-                Attendee Name <span className="text-red-400">*</span>
+                Attendee Email <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
-                value={newAttendee}
-                onChange={(e) => {
-                  setNewAttendee(e.target.value);
-                  if (createErrors.attendee)
-                    setCreateErrors((p) => ({ ...p, attendee: undefined }));
-                }}
-                placeholder="e.g. Tony Nguyen"
-                className={`w-full px-4 py-2.5 bg-[#0E0E10] border rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors ${
-                  createErrors.attendee ? "border-red-500" : "border-white/10"
-                }`}
-              />
+
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={attendeeEmail}
+                  onChange={(e) => setAttendeeEmail(e.target.value)}
+                  placeholder="Enter talent email"
+                  className="flex-1 px-4 py-2.5 bg-[#0E0E10] border border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleSearchAttendee}
+                  className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  Search
+                </button>
+              </div>
+
+              {newAttendee && (
+                <p className="text-sm text-green-400 mt-2">
+                  Selected: {newAttendee}
+                </p>
+              )}
               {createErrors.attendee && (
                 <p className="text-red-400 text-xs mt-1">
                   {createErrors.attendee}

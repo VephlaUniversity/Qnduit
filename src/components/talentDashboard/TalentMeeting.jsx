@@ -1,81 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare, Hourglass, Clock } from "lucide-react";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const Meeting = () => {
   const navigate = useNavigate();
-  const [meetings, setMeetings] = useState([
-    {
-      id: 1,
-      date: "06",
-      month: "DEC",
-      title: "Marketer",
-      attendee: "Tony Nguyen",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 2,
-      date: "07",
-      month: "DEC",
-      title: "Junior Graphic Designer",
-      attendee: "Daniel Dovin",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 3,
-      date: "08",
-      month: "DEC",
-      title: "Digital Marketing",
-      attendee: "Danimla",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 4,
-      date: "09",
-      month: "DEC",
-      title: "Project Manager",
-      attendee: "Danimla",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 5,
-      date: "11",
-      month: "DEC",
-      title: "Director",
-      attendee: "Danimla",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 6,
-      date: "13",
-      month: "DEC",
-      title: "UI UX Designer",
-      attendee: "Danimla",
-      time: "3h: 00",
-      duration: "30m",
-    },
-    {
-      id: 7,
-      date: "14",
-      month: "DEC",
-      title: "Digital Marketing",
-      attendee: "Danimla",
-      time: "3h: 00",
-      duration: "30m",
-    },
-  ]);
+  const [meetings, setMeetings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleCancel = (id) => {
-    setMeetings(meetings.filter((meeting) => meeting.id !== id));
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/meetings/talent-meetings`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setMeetings(data.meetings);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMeetings();
+  }, []);
+
+  const formatMeetingDate = (date) => {
+    const d = new Date(date);
+
+    return {
+      day: d.getDate(),
+      month: d.toLocaleString("default", { month: "short" }).toUpperCase(),
+    };
   };
 
-  const handleMessage = () => {
-    navigate("/talent-dashboard/messages");
+  const handleCancel = async (id) => {
+    const token = localStorage.getItem("token");
+
+    await axios.delete(`${API_BASE_URL}/api/meetings/cancel/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setMeetings((prev) => prev.filter((m) => m._id !== id));
+  };
+
+  const handleMessage = (meeting) => {
+    navigate(
+      `/talent-dashboard/messages?attendee=${encodeURIComponent(
+        meeting.attendee
+      )}`
+    );
   };
 
   return (
@@ -91,9 +75,12 @@ export const Meeting = () => {
 
       {/* Meetings List */}
       <div className="space-y-4">
-        {meetings.map((meeting) => (
-          <div
-            key={meeting.id}
+        {meetings.map((meeting) => {
+          const { day, month } = formatMeetingDate(meeting.date);
+
+          return (
+            <div
+            key={meeting._id}
             className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 hover:bg-white/5 transition-colors"
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -101,10 +88,10 @@ export const Meeting = () => {
                 {/* Date Badge */}
                 <div className="bg-white rounded-lg text-center p-3 min-w-[60px] flex-shrink-0">
                   <div className="text-blue-600 text-xs font-medium uppercase">
-                    {meeting.month}
+                    {month}
                   </div>
                   <div className="text-gray-900 text-2xl font-bold">
-                    {meeting.date}
+                    {day}
                   </div>
                 </div>
 
@@ -115,7 +102,9 @@ export const Meeting = () => {
                   </h3>
                   <p className="text-sm text-gray-400 mb-2">
                     Meeting with:{" "}
-                    <span className="text-blue-400">{meeting.attendee}</span>
+                    <span className="text-blue-400">
+                      {meeting.employer?.firstName} {meeting.employer?.lastName}
+                    </span>
                   </p>
                   <div className="flex items-center gap-4 text-sm text-gray-400">
                     <span className="flex items-center gap-1">
@@ -131,14 +120,14 @@ export const Meeting = () => {
               {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={handleMessage}
+                  onClick={() => handleMessage(meeting)}
                   className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                 >
                   <MessageSquare className="w-4 h-4" />
                 </button>
 
                 <button
-                  onClick={() => handleCancel(meeting.id)}
+                  onClick={() => handleCancel(meeting._id)}
                   className="px-4 py-2 bg-transparent border border-white/20 hover:bg-white/5 rounded text-white text-sm transition-colors"
                 >
                   Cancel
@@ -146,7 +135,7 @@ export const Meeting = () => {
               </div>
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );

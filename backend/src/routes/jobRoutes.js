@@ -1,9 +1,10 @@
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
-import { createJob, updateJob, jobUpload, getEmployerJobs, getSingleJob, deleteJob, searchJobs } from "../controllers/jobController.js";
+import { createJob, updateJob, jobUpload, getEmployerJobs, getSingleJob, deleteJob, searchJobs, getPublicJobDetails, getRelatedJobs } from "../controllers/jobController.js";
 
 const router = express.Router();
 
+// AUTH ROUTES
 router.post(
   "/create",
   protect,
@@ -27,10 +28,11 @@ router.get(
   getEmployerJobs
 );
 
+
 router.get(
   "/search",
   searchJobs
-);
+); // no auth
 
 router.get(
   "/:id",
@@ -45,4 +47,8 @@ router.delete(
   authorize("employer"),
   deleteJob
 );
+
+router.get("/public/:id", getPublicJobDetails); // no auth
+router.get("/related/:id", getRelatedJobs); // no auth
+
 export default router;

@@ -22,6 +22,12 @@ const MeetingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    attendeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Talent",
+      index: true,
+    },
+
     date: {
       type: Date,
       required: true,

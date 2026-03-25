@@ -19,6 +19,8 @@ import { FilterDropdown } from "./JobFilterDropdown";
 import { AnimatedPage } from "../AnimatedPage";
 import { CTA } from "../home/CTA";
 import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
+import { useNavigate } from "react-router-dom";
 
 export const JobOpportunities = ({ onViewJob }) => {
   const [searchParams] = useSearchParams();
@@ -39,6 +41,7 @@ export const JobOpportunities = ({ onViewJob }) => {
   const [company, setCompany] = useState("");
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -46,10 +49,10 @@ export const JobOpportunities = ({ onViewJob }) => {
         setLoading(true);
 
         const res = await axios.get(
-          `/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`,
+          `${API_BASE_URL}/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`
         );
 
-        setJobs(res.data);
+        setJobs(res.data.jobs);
       } catch (err) {
         console.log("Search failed", err);
       } finally {
@@ -81,15 +84,15 @@ export const JobOpportunities = ({ onViewJob }) => {
   };
 
   // Filter jobs based on search criteria
-  const filteredJobs = jobs;
+  const filteredJobs = Array.isArray(jobs) ? jobs : [];
 
-  const sortedJobs = [...filteredJobs].sort((a, b) => {
+  const sortedJobs = filteredJobs.slice().sort((a, b) => {
     if (sortBy === "newest") {
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
 
     if (sortBy === "salary") {
-      return Number(b.salary) - Number(a.salary);
+      return Number(b.salary || 0) - Number(a.salary || 0);
     }
 
     return 0;
@@ -124,16 +127,16 @@ export const JobOpportunities = ({ onViewJob }) => {
   const JobCard = ({ job }) => (
     <div
       className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
-      onClick={() => onViewJob(job._id)}
+      onClick={() => navigate(`/jobs/${job._id}`)}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
           <div className="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0" />
           <div className="flex-1">
-            <div className="text-[#3B82F6] text-sm mb-1">{job.company}</div>
+            <div className="text-[#3B82F6] text-sm mb-1">{job.employer?.companyName}</div>
             <button>
               <h3 className="text-white text-lg font-semibold mb-2 transition-colors text-left">
-                {job.title}{" "}
+                {job.jobTitle}{" "}
                 {job.verified && (
                   <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2">
                     <svg
@@ -144,8 +147,8 @@ export const JobOpportunities = ({ onViewJob }) => {
                       fill="none"
                     >
                       <path
-                        fill-rule="evenodd"
-                        clip-rule="evenodd"
+                        fillRule="evenodd"
+                        clipRule="evenodd"
                         d="M8.40992 0.73096C8.55202 0.77565 8.67617 0.864507 8.76429 0.984609C8.85242 1.10471 8.89993 1.2498 8.89992 1.39876V4.89876H11.6999C11.828 4.8987 11.9536 4.93377 12.0631 5.00014C12.1726 5.06651 12.2618 5.16164 12.321 5.27518C12.3801 5.38872 12.4071 5.51632 12.3988 5.6441C12.3905 5.77187 12.3473 5.89492 12.2739 5.99986L7.37392 12.9999C7.28864 13.122 7.1666 13.2138 7.02556 13.2618C6.88452 13.3099 6.73183 13.3116 6.58971 13.2669C6.44759 13.2222 6.32345 13.1332 6.23537 13.0131C6.14728 12.8929 6.09983 12.7478 6.09992 12.5988V9.09876H3.29992C3.17188 9.09882 3.04627 9.06375 2.93677 8.99738C2.82727 8.93101 2.73808 8.83588 2.67889 8.72234C2.6197 8.6088 2.59279 8.4812 2.60108 8.35342C2.60937 8.22565 2.65255 8.1026 2.72592 7.99766L7.62592 0.99766C7.71133 0.875711 7.83339 0.784169 7.97438 0.736334C8.11537 0.688498 8.26794 0.686861 8.40992 0.73166V0.73096Z"
                         fill="white"
                       />
@@ -170,29 +173,29 @@ export const JobOpportunities = ({ onViewJob }) => {
                   <path
                     d="M13.1667 2.66797H3.83333C3.09695 2.66797 2.5 3.26492 2.5 4.0013V13.3346C2.5 14.071 3.09695 14.668 3.83333 14.668H13.1667C13.903 14.668 14.5 14.071 14.5 13.3346V4.0013C14.5 3.26492 13.903 2.66797 13.1667 2.66797Z"
                     stroke="#64666C"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M11.167 1.33203V3.9987"
                     stroke="#64666C"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M5.83301 1.33203V3.9987"
                     stroke="#64666C"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M2.5 6.66797H14.5"
                     stroke="#64666C"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
-                {job.postedDate}
+                {new Date(job.createdAt).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -215,14 +218,12 @@ export const JobOpportunities = ({ onViewJob }) => {
       </div>
 
       <div className="flex justify-between flex-wrap gap-2 mb-4">
-        {job.type.map((type, idx) => (
-          <span
-            key={idx}
-            className="px-3 py-2 bg-[#f1f1f1] text-black rounded-full text-sm"
-          >
-            {type}
-          </span>
-        ))}
+        {Array.isArray(job.jobApplyType) &&
+          job.jobApplyType.map((type, idx) => (
+            <span key={idx} className="px-3 py-2 bg-[#f1f1f1] text-black rounded-full text-sm">
+              {type}
+            </span>
+          ))}
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (
             <span
@@ -238,7 +239,9 @@ export const JobOpportunities = ({ onViewJob }) => {
       <div className="mt-4 pt-4  flex items-center justify-between">
         <span className="text-[#f1f1f1] flex items-center gap-1">
           <DollarSign className="w-4 h-4 border rounded-full" />
-          {job.salary}{" "}
+          {typeof job.salary === "object"
+            ? `$${job.salary.min} - $${job.salary.max}`
+            : job.salary}{" "}
           <span className="text-gray-600 text-sm">/{job.salaryPeriod}</span>
         </span>
         <div className="flex items-center justify-between">

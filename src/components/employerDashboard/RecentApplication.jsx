@@ -1,55 +1,57 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 import { Plus, Check, X, Download, Trash2, Search } from "lucide-react";
 import { useToast } from "../hooks/useToast";
+import { useParams } from "react-router-dom";
 
-const initialApplicants = [
-  {
-    id: 1,
-    name: "Arlene McCoy",
-    role: "Computational Wizard",
-    availability: "Available now",
-    location: "Tokyo, Japan",
-    status: "Pending",
-    date: "December 18, 2023",
-    cvUrl: "/placeholder.svg",
-  },
-  {
-    id: 2,
-    name: "Mrs Dianne Russell",
-    role: "Computational Wizard",
-    availability: "Available now",
-    location: "Tokyo, Japan",
-    status: "Pending",
-    date: "December 18, 2023",
-    cvUrl: "/placeholder.svg",
-  },
-  {
-    id: 3,
-    name: "Mr Guy Hawkins",
-    role: "Computational Wizard",
-    availability: "Available now",
-    location: "Tokyo, Japan",
-    status: "Pending",
-    date: "December 18, 2023",
-    cvUrl: "/placeholder.svg",
-  },
-  {
-    id: 4,
-    name: "Lady Darlene Robertson",
-    role: "Computational Wizard",
-    availability: "Available now",
-    location: "Tokyo, Japan",
-    status: "Pending",
-    date: "December 18, 2023",
-    cvUrl: "/placeholder.svg",
-  },
-];
+
 
 const RecentApplication = () => {
+  const { jobId } = useParams();
+  const [applicants, setApplicants] = useState([]);
   const { toast } = useToast();
-  const [applicants, setApplicants] = useState(initialApplicants);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
+
+        if (!user?.id) return;
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/applications/${jobId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const formatted = res.data.applications.map((app) => ({
+          id: app._id,
+          name: app.applicantId?.name,
+          role: "Applicant",
+          availability: "Available",
+          location: "N/A",
+          status: "Pending",
+          date: new Date(app.createdAt).toLocaleDateString(),
+          cvUrl: "/placeholder.svg",
+        }));
+
+        setApplicants(formatted);
+
+      } catch (error) {
+        console.error("Failed to fetch applications", error);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   const addToSavedCandidates = (applicant) => {
     // Get existing saved candidates from localStorage
