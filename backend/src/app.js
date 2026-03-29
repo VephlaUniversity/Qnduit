@@ -13,6 +13,7 @@ import meetingRoutes from "./routes/meetingRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import jobApplicationRoutes from "./routes/jobApplicationRoutes.js";
+import savedJobRoutes from "./routes/savedJobRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use("/api/meetings", meetingRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", jobApplicationRoutes);
+app.use("/api/saved-jobs", savedJobRoutes);
 
 // Error Handler
 app.use(errorHandler);

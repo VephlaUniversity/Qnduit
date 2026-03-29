@@ -146,6 +146,12 @@ const employerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    savedCandidates: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Talent",
+      }
+    ],
 
     profileUpdatedAt: Date,
   },

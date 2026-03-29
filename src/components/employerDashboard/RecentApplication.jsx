@@ -13,6 +13,7 @@ const RecentApplication = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [savingId, setSavingId] = useState(null);
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -24,7 +25,7 @@ const RecentApplication = () => {
         if (!user?.id) return;
 
         const res = await axios.get(
-          `${API_BASE_URL}/api/applications/${jobId}`,
+          `${API_BASE_URL}/api/applications/employer`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -33,14 +34,13 @@ const RecentApplication = () => {
         );
 
         const formatted = res.data.applications.map((app) => ({
-          id: app._id,
-          name: app.applicantId?.name,
-          role: "Applicant",
+          id: app.applicant?.id,
+          name: app.applicant?.name || "Unknown",
+          role: app.job?.title || "Applicant",
           availability: "Available",
-          location: "N/A",
-          status: "Pending",
-          date: new Date(app.createdAt).toLocaleDateString(),
-          cvUrl: "/placeholder.svg",
+          location: app.applicant?.location || "N/A",
+          status: app.status || "Pending",
+          date: new Date(app.applicant.createdAt).toLocaleDateString(),
         }));
 
         setApplicants(formatted);
@@ -53,44 +53,36 @@ const RecentApplication = () => {
     fetchApplications();
   }, []);
 
-  const addToSavedCandidates = (applicant) => {
-    // Get existing saved candidates from localStorage
-    const savedCandidates = JSON.parse(
-      localStorage.getItem("savedCandidates") || "[]",
-    );
+  const addToSavedCandidates = async (applicant) => {
+    try {
+      setSavingId(applicant.id);
 
-    // Check if candidate is already saved
-    const isAlreadySaved = savedCandidates.some((c) => c.id === applicant.id);
+      const token = localStorage.getItem("token");
 
-    if (isAlreadySaved) {
+      await axios.post(
+        `${API_BASE_URL}/api/employers/saved-candidates/${applicant.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
       toast({
-        title: "Already Saved",
-        description: `${applicant.name} is already in your saved candidates`,
+        title: "Success!",
+        description: `${applicant.name} saved successfully`,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setSavingId(null);
     }
-
-    // Add new candidate to saved list
-    const newCandidate = {
-      id: applicant.id,
-      name: applicant.name,
-      role: applicant.role,
-      location: applicant.location,
-      salary: "$8000/month",
-      salaryValue: 8000,
-    };
-
-    savedCandidates.push(newCandidate);
-    localStorage.setItem("savedCandidates", JSON.stringify(savedCandidates));
-
-    // Trigger custom event for real-time sync across components
-    window.dispatchEvent(new Event("savedCandidatesUpdated"));
-
-    toast({
-      title: "Success!",
-      description: `${applicant.name} has been added to Saved Candidates!`,
-    });
   };
 
   const updateStatus = (id, status) => {
@@ -232,6 +224,7 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <button
+                        disabled={savingId === applicant.id}
                         onClick={() => addToSavedCandidates(applicant)}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                         title="Add to Saved Candidates"

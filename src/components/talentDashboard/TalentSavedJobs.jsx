@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, MapPin, Calendar, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
@@ -6,50 +6,49 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-
-const mockSavedJobs = [
-  {
-    id: 1,
-    title: "UI UX Designer",
-    company: "Diamond Trading Estates",
-    daysAgo: "2 days ago",
-    category: "Part-time",
-    categoryColor: "text-blue-500",
-    datePost: "December 18, 2023",
-  },
-  {
-    id: 2,
-    title: "Human Resource",
-    company: "SunWest Condominiums",
-    daysAgo: "2 days ago",
-    category: "Full-Time",
-    categoryColor: "text-blue-500",
-    datePost: "December 18, 2023",
-  },
-  {
-    id: 3,
-    title: "Python Developer",
-    company: "Eclipse Estates",
-    daysAgo: "2 days ago",
-    category: "Contract",
-    categoryColor: "text-red-500",
-    datePost: "December 18, 2023",
-  },
-  {
-    id: 4,
-    title: "PHP Developer",
-    company: "Southeastern Properties",
-    daysAgo: "2 days ago",
-    category: "On site",
-    categoryColor: "text-yellow-500",
-    datePost: "December 18, 2023",
-  },
-];
+import axios from "axios"; 
+import dayjs from "dayjs"; 
+import { API_BASE_URL } from "../utils/api";
 
 export const TalentSavedJobs = () => {
-  const [savedJobs, setSavedJobs] = useState(mockSavedJobs);
+  const [savedJobs, setSavedJobs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("(Default)");
+
+  useEffect(() => {
+    const fetchSavedJobs = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/saved-jobs`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (res.data.success) {
+          const jobs = res.data.jobs.map((job) => ({
+            id: job._id,
+            title: job.title,
+            company: job.company,
+            category: job.category,
+            categoryColor:
+              job.category === "Full Time"
+                ? "text-blue-500"
+                : job.category === "Part-time"
+                ? "text-green-500"
+                : job.category === "Contract"
+                ? "text-red-500"
+                : "text-yellow-500",
+            datePost: dayjs(job.datePost).format("MMMM D, YYYY"),
+          }));
+          setSavedJobs(jobs);
+        }
+      } catch (err) {
+        console.error("Failed to fetch saved jobs:", err);
+      }
+    };
+
+    fetchSavedJobs();
+  }, []);
 
   // Filter jobs based on search query
   const filteredJobs = savedJobs.filter((job) => {
@@ -76,8 +75,21 @@ export const TalentSavedJobs = () => {
   });
 
   // Handle remove job
-  const handleRemoveJob = (id) => {
-    setSavedJobs(savedJobs.filter((job) => job.id !== id));
+  const handleRemoveJob = async (id) => {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/saved-jobs/remove-job`,
+        { jobId: id },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      setSavedJobs((prev) => prev.filter((job) => job.id !== id));
+    } catch (err) {
+      console.error("Failed to remove job:", err);
+    }
   };
 
   return (

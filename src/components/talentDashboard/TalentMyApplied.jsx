@@ -6,6 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useEffect } from "react";
+import { API_BASE_URL } from "../utils/api";
+import axios from "axios";
 
 const mockApplications = [
   {
@@ -65,9 +68,66 @@ const mockApplications = [
 ];
 
 export const TalentMyApplied = () => {
-  const [applications, setApplications] = useState(mockApplications);
+  const [applications, setApplications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("(Default)");
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/applications/my-applications`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const formatted = res.data.applications.map((app) => ({
+          id: app._id,
+          title: app.jobId?.jobTitle || "Unknown Role",
+          location: app.jobId?.location || "N/A",
+          category: app.jobId?.category || "General",
+          status: mapStatus(app.status),
+          statusColor: getStatusColor(mapStatus(app.status)),
+          dateApplied: new Date(app.createdAt).toLocaleDateString(),
+        }));
+
+        setApplications(formatted);
+      } catch (error) {
+        console.error("Failed to fetch applications", error);
+      }
+    };
+
+    fetchApplications();
+  }, []);
+
+  const mapStatus = (status) => {
+    switch (status) {
+      case "reviewed":
+      case "shortlisted":
+      case "hired":
+        return "Responded";
+      case "rejected":
+        return "Rejected";
+      default:
+        return "Pending";
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Responded":
+        return "text-blue-500";
+      case "Rejected":
+        return "text-red-500";
+      default:
+        return "text-yellow-500";
+    }
+  };
 
   // Filter applications based on search query
   const filteredApplications = applications.filter((app) => {

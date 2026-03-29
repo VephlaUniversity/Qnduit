@@ -1,50 +1,71 @@
-import React from "react";
-import {MapPin, Clock} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { MapPin, Clock } from "lucide-react";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
- const applications = [
-    {
-      company: "Diamond Trading Estates",
-      position: "UI UX Designer",
-      timeAgo: "2 days ago",
-      appliedDate: "December 18, 2023",
-      status: "Seen",
-    },
-    {
-      company: "Sun West Condominiums",
-      position: "Human Resource",
-      timeAgo: "2 days ago",
-      appliedDate: "December 18, 2023",
-      status: "Responded",
-    },
-    {
-      company: "Eclipse Estates",
-      position: "Python Developer",
-      timeAgo: "2 days ago",
-      appliedDate: "December 18, 2023",
-      status: "Pending",
-    },
-    {
-      company: "Southeastern Properties",
-      position: "PHP Developer",
-      timeAgo: "2 days ago",
-      appliedDate: "December 18, 2023",
-      status: "Responded",
-    },
-  ];
+const RecentApplication = () => {
+  const [applications, setApplications] = useState([]);
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/applications/my-applications`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const formatted = res.data.applications.map((app) => ({
+          id: app._id,
+          title: app.jobId?.jobTitle || "Unknown Role",
+          location: app.jobId?.location || "N/A",
+          category: app.jobId?.category || "General",
+          status: mapStatus(app.status),
+          statusColor: getStatusColor(mapStatus(app.status)),
+          dateApplied: new Date(app.createdAt).toLocaleDateString(),
+        }));
+
+        setApplications(formatted);
+      } catch (error) {
+        console.error("Failed to fetch applications", error);
+      }
+    };
+
+    fetchApplications();
+  }, []);
+
+  const mapStatus = (status) => {
+    switch (status) {
+      case "reviewed":
+      case "shortlisted":
+      case "hired":
+        return "Responded";
+      case "rejected":
+        return "Rejected";
+      default:
+        return "Pending";
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "Responded":
         return "bg-green-600/20 text-green-400";
-      case "Seen":
-        return "bg-blue-600/20 text-blue-400";
       case "Pending":
         return "bg-yellow-600/20 text-yellow-400";
+      case "Rejected":
+        return "bg-red-600/20 text-red-400";
       default:
         return "bg-gray-600/20 text-gray-400";
     }
   };
-const RecentApplication = () => {
-    return (
+
+  return (
        <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
         <h2 className="text-xl font-semibold text-white mb-6">
           Job Applied Recently
@@ -75,7 +96,7 @@ const RecentApplication = () => {
                       <div className="w-16 h-16 rounded-lg bg-gray-600 flex-shrink-0"></div>
                       <div>
                         <p className="text-white font-semibold text-base mb-1">
-                          {app.position}
+                          {application.title}
                         </p>
                         <div className="flex items-center gap-3 text-sm text-gray-400">
                           <span className="flex items-center gap-1">
@@ -93,14 +114,14 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <span
                       className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
-                        app.status
+                        application.status
                       )}`}
                     >
-                      {app.status}
+                      {application.status}
                     </span>
                   </td>
                   <td className="py-4 px-4 text-gray-300 text-base">
-                    {app.appliedDate}
+                    {application.dateApplied}
                   </td>
                 </tr>
               ))}
@@ -109,6 +130,6 @@ const RecentApplication = () => {
         </div>
       </div>
     )
-}
+};
 
 export default RecentApplication;

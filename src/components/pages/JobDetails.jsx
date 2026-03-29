@@ -51,6 +51,24 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     fetchRelatedJobs();
   }, [id]);
 
+  // **** new route needed ****
+  /*useEffect(() => {
+    const checkFavorite = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/saved-jobs/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setIsFavorite(res.data.isFavorite);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    checkFavorite();
+  }, [id]);*/
+
   // Filter similar jobs dynamically based on job type and location
   const similarJobs = relatedJobs;
 
@@ -62,14 +80,15 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
   const handleApply = async () => {
     try {
-
-      const user = JSON.parse(localStorage.getItem("user"));
       const token = localStorage.getItem("token");
 
-      if (!user?.id) return;
+      if (!token) {
+        toast.error("Please login to apply");
+        return;
+      }
 
       await axios.post(
-        `${API_BASE_URL}/api/applications/apply`,
+        `${API_BASE_URL}/api/applications/apply`, 
         { jobId: id },
         {
           headers: {
@@ -81,9 +100,53 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
       toast.success("Application submitted successfully!");
 
     } catch (error) {
+
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again");
+        return;
+      }
+
       toast.error(
         error.response?.data?.message || "Failed to apply for job"
       );
+    }
+  };
+
+  const handleFavorite = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      toast.error("Please login to save this job");
+      return;
+    }
+
+    try {
+      if (!isFavorite) {
+        await axios.post(
+          `${API_BASE_URL}/api/saved-jobs`,
+          { jobId: id },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        toast.success("Job added to favorites!");
+      } else {
+        await axios.delete(`${API_BASE_URL}/api/saved-jobs`, 
+        { jobId: id },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        toast.success("Job removed from favorites!");
+      }
+
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to update favorites");
     }
   };
 
@@ -167,13 +230,11 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                     <Share2 className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite(!isFavorite)}
+                    onClick={handleFavorite}
                     className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors"
                   >
                     <Heart
-                      className={`w-5 h-5 ${
-                        isFavorite ? "fill-red-500 text-red-500" : "text-white"
-                      }`}
+                      className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-white"}`}
                     />
                   </button>
 

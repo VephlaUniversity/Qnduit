@@ -7,6 +7,9 @@ import {
   // selectEmployerPlan,
   getEmployerProfile,
   upload,
+  addSavedCandidate,
+  getSavedCandidates,
+  removeSavedCandidate,
 } from "../controllers/employerController.js";
 
 const router = express.Router();
@@ -38,5 +41,9 @@ router.get(
   authorize("employer"),
   getEmployerProfile
 );
+
+router.post("/saved-candidates/:id", protect, authorize("employer"), addSavedCandidate);
+router.get("/saved-candidates", protect, authorize("employer"), getSavedCandidates);
+router.delete("/saved-candidates/:id", protect, authorize("employer"), removeSavedCandidate);
 
 export default router;

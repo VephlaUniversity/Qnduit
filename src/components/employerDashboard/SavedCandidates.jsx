@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Search, Eye, MessageSquare, Trash2 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const SavedCandidates = () => {
   const { toast } = useToast();
@@ -10,27 +12,32 @@ export const SavedCandidates = () => {
 
   // Load saved candidates from localStorage on mount
   useEffect(() => {
-    const loadSavedCandidates = () => {
-      const saved = JSON.parse(localStorage.getItem("savedCandidates") || "[]");
-      setCandidates(saved);
+    const fetchSavedCandidates = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(
+          `${API_BASE_URL}/api/employers/saved-candidates`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const formatted = res.data.savedCandidates.map((c) => ({
+          id: c._id,
+          name: `${c.firstName} ${c.lastName}`,
+          role: c.jobTitle,
+          location: c.location || "N/A",
+          avatar: c.avatar?.url,
+          cvUrl: c.resume?.url,
+          salary: "$8000/month",
+          salaryValue: 8000, // optional: you can fetch actual salary if stored
+        }));
+
+        setCandidates(formatted);
+      } catch (error) {
+        console.error(error);
+      }
     };
 
-    loadSavedCandidates();
-
-    // Listen for storage changes (when RecentApplication adds a candidate)
-    const handleStorageChange = () => {
-      loadSavedCandidates();
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-
-    // Custom event for same-tab updates
-    window.addEventListener("savedCandidatesUpdated", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("savedCandidatesUpdated", handleStorageChange);
-    };
+    fetchSavedCandidates();
   }, []);
 
   const handleViewProfile = (candidate) => {
@@ -47,22 +54,28 @@ export const SavedCandidates = () => {
     });
   };
 
-  const handleRemove = (id, name) => {
-    const updatedCandidates = candidates.filter((c) => c.id !== id);
-    setCandidates(updatedCandidates);
+  const handleRemove = async (id, name) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_BASE_URL}/api/employers/saved-candidates/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    // Update localStorage
-    localStorage.setItem("savedCandidates", JSON.stringify(updatedCandidates));
+      setCandidates((prev) => prev.filter((c) => c.id !== id));
 
-    // Trigger custom event for real-time sync
-    window.dispatchEvent(new Event("savedCandidatesUpdated"));
-
-    toast({
-      title: "Success!",
-      description: `${name} removed from saved candidates`,
-    });
+      toast({
+        title: "Success!",
+        description: `${name} removed from saved candidates`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove candidate",
+        variant: "destructive",
+      });
+    }
   };
-
+  
   // Filter by search query
   const filteredCandidates = candidates.filter((candidate) => {
     const matchesSearch =

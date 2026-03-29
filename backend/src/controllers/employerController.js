@@ -1,4 +1,5 @@
 import Employer from "../models/Employer.js";
+import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
@@ -116,6 +117,7 @@ export const updateEmployerProfile = async (req, res, next) => {
 
     delete updates.lat;
     delete updates.lng;
+    delete updates.savedCandidates;
 
     if (req.files?.logo) {
       const logoFile = req.files.logo[0];
@@ -220,6 +222,66 @@ export const getEmployerProfile = async (req, res, next) => {
       profile,
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addSavedCandidate = async (req, res, next) => {
+  try {
+    const employerId = req.user._id;
+    const candidateId = req.params.id;
+
+    const employer = await Employer.findById(employerId);
+
+    if (!employer) return res.status(404).json({ message: "Employer not found" });
+
+    if (employer.savedCandidates.includes(candidateId)) {
+      return res.status(400).json({ message: "Candidate already saved" });
+    }
+
+    employer.savedCandidates.push(candidateId);
+    await employer.save();
+
+    res.status(200).json({ success: true, message: "Candidate saved successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSavedCandidates = async (req, res, next) => {
+  try {
+    const employerId = req.user._id;
+
+    const employer = await Employer.findById(employerId).populate({
+      path: "savedCandidates",
+      select: "firstName lastName location jobTitle avatar resume"
+    });
+
+    res.status(200).json({ savedCandidates: employer.savedCandidates });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeSavedCandidate = async (req, res, next) => {
+  try {
+    const employerId = req.user._id;
+    const candidateId = req.params.id;
+
+    const employer = await Employer.findById(employerId);
+
+    if (!employer) {
+      return res.status(404).json({ success: false, message: "Employer not found" });
+    }
+
+    employer.savedCandidates = employer.savedCandidates.filter(
+      (candidate) => candidate._id.toString() !== candidateId
+    );
+
+    await employer.save();
+
+    res.status(200).json({ success: true, message: "Candidate removed successfully" });
   } catch (error) {
     next(error);
   }

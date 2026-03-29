@@ -10,13 +10,13 @@ const jobApplicationSchema = new mongoose.Schema(
 
     applicantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Talent",
       required: true,
     },
 
     employerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Employer",
       required: true,
     },
 

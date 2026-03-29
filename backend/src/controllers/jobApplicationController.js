@@ -34,7 +34,7 @@ export const applyForJob = async (req, res, next) => {
     const application = await JobApplication.create({
       jobId,
       applicantId,
-      employerId: job.employerId,
+      employerId: job.employer,
     });
 
     res.status(201).json({
@@ -89,6 +89,53 @@ export const getJobApplications = async (req, res, next) => {
     res.status(200).json({
       success: true,
       applications,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getEmployerApplications = async (req, res, next) => {
+  try {
+    const employerId = req.user._id;
+
+    const applications = await JobApplication.find({ employerId })
+      .populate({
+        path: "applicantId",
+        select: `
+          firstName lastName email phone location jobTitle experienceTime avatar resume
+        `
+      })
+      .populate("jobId", "jobTitle")
+      .sort({ createdAt: -1 });
+
+    const formatted = applications.map(app => ({
+      id: app._id,
+      status: app.status || "Pending",
+      date: app.createdAt,
+
+      applicant: {
+        id: app.applicantId?._id,
+        name: `${app.applicantId?.firstName || ""} ${app.applicantId?.lastName || ""}`,
+        email: app.applicantId?.email,
+        phone: app.applicantId?.phone,
+        location: app.applicantId?.location,
+        jobTitle: app.applicantId?.jobTitle,
+        experience: app.applicantId?.experienceTime,
+        avatar: app.applicantId?.avatar?.url,
+        resume: app.applicantId?.resume?.url,
+      },
+
+      job: {
+        id: app.jobId?._id,
+        title: app.jobId?.jobTitle,
+      }
+    }));
+
+    res.status(200).json({
+      success: true,
+      applications: formatted,
     });
 
   } catch (error) {
