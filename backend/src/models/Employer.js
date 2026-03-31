@@ -153,6 +153,23 @@ const employerSchema = new mongoose.Schema(
       }
     ],
 
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed", "free"],
+      default: "pending",
+    },
+
+    planExpiresAt: Date,
+
+    paystackReference: String,
+
+    isTrial: {
+      type: Boolean,
+      default: true, 
+    },
+
+    trialEndsAt: Date,
+
     profileUpdatedAt: Date,
   },
   { timestamps: true }

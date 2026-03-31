@@ -17,6 +17,7 @@ import { EmployerSignup } from "./components/auth/EmployerSignUp";
 import { SignIn } from "./components/auth/SignIn";
 import { ForgotPassword } from "./components/auth/ForgotPassword";
 import { Payment } from "./components/auth/Payment";
+import { PaymentSuccess } from "./components/auth/PaymentSuccess";
 import DashboardLayout from "./components/employerDashboard/DashboardLayout";
 import DeleteProfile from "./components/employerDashboard/DeleteProfile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -104,6 +105,7 @@ const AppContent = () => {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/payment" element={<Payment />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
 
           {/* Protected routes */}
           <Route

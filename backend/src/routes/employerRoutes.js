@@ -10,7 +10,10 @@ import {
   addSavedCandidate,
   getSavedCandidates,
   removeSavedCandidate,
+  verifyPayment,
+  selectPlanWithoutPayment
 } from "../controllers/employerController.js";
+import { initializePayment } from "../controllers/paymentController.js";
 
 const router = express.Router();
 // signup
@@ -40,6 +43,22 @@ router.get(
   protect,
   authorize("employer"),
   getEmployerProfile
+);
+
+router.post(
+  "/pay",
+  protect,
+  authorize("employer"),
+  initializePayment
+);
+
+router.get("/verify-payment", verifyPayment);
+
+router.post(
+  "/select-plan",
+  protect,
+  authorize("employer"),
+  selectPlanWithoutPayment
 );
 
 router.post("/saved-candidates/:id", protect, authorize("employer"), addSavedCandidate);

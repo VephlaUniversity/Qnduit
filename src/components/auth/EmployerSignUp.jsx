@@ -18,6 +18,7 @@ import { API_BASE_URL } from "../utils/api";
 
 export const EmployerSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -61,35 +62,64 @@ export const EmployerSignup = () => {
     }
   };
 
-  // const handlePlanSelection = async (planType) => {
-  //   try {
-  //     const token = localStorage.getItem("token");
+  const handlePlanSelection = async (planType, actionType) => {
+    const token = localStorage.getItem("token");
 
-  //     const res = await axios.post(
-  //       `${API_BASE_URL}/api/employers/plan/${userId}`,
-  //       { selectedPlan: planType },
-  //       { headers: { Authorization: `Bearer ${token}` } }
-  //     );
+    if (!planType) {
+      alert("Please select a plan first");
+      return;
+    }
 
-  //     if (res.data.success) {
-  //       navigate("/payment", {
-  //         state: {
-  //           plan: planType,
-  //           planName: res.data.talent.selectedPlan,
-  //           price:
-  //             planType === "bronze"
-  //               ? 6.99
-  //               : planType === "silver"
-  //               ? 8.99
-  //               : 12.99,
-  //           userType: "employer",
-  //         },
-  //       });
-  //     }
-  //   } catch (err) {
-  //     console.error("Plan selection error:", err);
-  //   }
-  // };
+    handleInputChange("selectedPlan", planType);
+
+    try {
+      setLoading(true);
+
+      if (actionType === "payNow") {
+        const res = await axios.post(
+          `${API_BASE_URL}/api/employers/pay`,
+          { plan: planType },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (res.data?.authorization_url) {
+          window.location.href = res.data.authorization_url;
+        } else {
+          throw new Error("Payment link not received");
+        }
+      }
+
+      else if (actionType === "payLater") {
+        await axios.post(
+          `${API_BASE_URL}/api/employers/select-plan`,
+          { plan: planType },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        alert("You're now on trial mode");
+        navigate("/employer/dashboard");
+      }
+
+    } catch (err) {
+      console.error("Plan action error:", err);
+
+      alert(
+        err?.response?.data?.message ||
+        err.message ||
+        "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAccountTypeContinue = async () => {
     const token = localStorage.getItem("token");
@@ -180,31 +210,6 @@ export const EmployerSignup = () => {
     } else {
       navigate(-1);
     }
-  };
-
-  const handlePlanSelection = (planType) => {
-    const planDetails = {
-      bronze: { name: "Bronze", price: 6.99 },
-      silver: { name: "Silver", price: 8.99 },
-      platinum: { name: "Platinum", price: 12.99 },
-    };
-
-    const plan = planDetails[planType];
-
-    navigate("/payment", {
-      state: {
-        plan: planType,
-        planName: plan.name,
-        price: plan.price,
-        userType: "employer",
-        userInfo: {
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          accountType: formData.accountType,
-        },
-      },
-    });
   };
 
   return (

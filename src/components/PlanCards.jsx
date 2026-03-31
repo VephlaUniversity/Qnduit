@@ -68,11 +68,6 @@ export const PlanCard = ({
     if (onSelect) onSelect(planType);
   };
 
-  const handleButtonClick = (e) => {
-    e.stopPropagation();
-    if (onCTAClick) onCTAClick(planType);
-  };
-
   return (
     <motion.div
       onClick={handleCardClick}
@@ -184,24 +179,44 @@ export const PlanCard = ({
         ))}
       </div>
 
-      {/* CTA Button */}
-      <motion.button
-        initial={{ opacity: 0, y: 12 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{
-          duration: 0.5,
-          ease: smoothEase,
-          delay: 0.35 + features.length * 0.06,
-        }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={handleButtonClick}
-        disabled={disableWhenNotSelected && !isSelected}
-        className={getButtonClasses()}
-      >
-        {ctaText}
-      </motion.button>
+      {/* CTA Buttons */}
+      <div className="space-y-3">
+        {/* PAY NOW */}
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{
+            duration: 0.5,
+            ease: smoothEase,
+            delay: 0.35 + features.length * 0.06,
+          }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCTAClick?.(planType, "payNow");
+          }}
+          disabled={disableWhenNotSelected && !isSelected}
+          className={getButtonClasses()}
+        >
+          Subscribe Now →
+        </motion.button>
+
+        {/* PAY LATER */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCTAClick?.(planType, "payLater");
+          }}
+          disabled={disableWhenNotSelected && !isSelected}
+          className="w-full py-4 rounded-full font-semibold border border-gray-500 text-gray-300 hover:bg-gray-700 transition-all duration-300"
+        >
+          Subscribe Later
+        </motion.button>
+      </div>
     </motion.div>
   );
 };

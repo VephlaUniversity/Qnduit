@@ -3,6 +3,7 @@ import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
+import { sendEmployerVerificationEmail } from "../utils/sendEmail.js";
 
 
 const storage = multer.diskStorage({
@@ -47,13 +48,17 @@ export const registerEmployer = async (req, res, next) => {
       verificationCode,
     });
 
-    // ********Send this via email service (SendGrid, Nodemailer, etc.)********
-    console.log(`📩 Employer verification code for ${email}: ${verificationCode}`);
+    // console.log(`📩 Employer verification code for ${email}: ${verificationCode}`);
+    await sendEmployerVerificationEmail(
+      email,
+      firstName,
+      verificationCode
+    );
 
     res.status(201).json({
       success: true,
       message: "Employer registered successfully. Verification code sent.",
-      employerId: employer._id, // frontend will use this
+      employerId: employer._id, // frontend uses this
     });
   } catch (error) {
     next(error);
@@ -80,6 +85,27 @@ export const verifyEmployerEmail = async (req, res, next) => {
       success: true,
       message: "Email verified successfully.",
       token: generateToken(employer._id),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const selectEmployerPlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { selectedPlan } = req.body;
+
+    const employer = await Employer.findById(id);
+    if (!employer) return res.status(404).json({ message: "Employer not found" });
+
+    employer.selectedPlan = selectedPlan;
+    await employer.save();
+
+    res.json({
+      success: true,
+      message: `Plan '${selectedPlan}' selected successfully`,
+      employer,
     });
   } catch (error) {
     next(error);
