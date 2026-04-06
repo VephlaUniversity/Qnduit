@@ -14,7 +14,6 @@ import {
   Share2,
 } from "lucide-react";
 import { useState } from "react";
-import { CTA } from "../home/CTA";
 import { AnimatePresence, motion } from "framer-motion";
 
 // Skill progress
@@ -23,7 +22,7 @@ const getSkillProgress = (candidateId, index) => {
   return 60 + seed;
 };
 
-export const ProfilePage = ({ candidate, onBack }) => {
+const ProfilePage = ({ candidate, onBack }) => {
   const [activeTab, setActiveTab] = useState("resume");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
 
@@ -34,7 +33,6 @@ export const ProfilePage = ({ candidate, onBack }) => {
     { type: "image" },
   ];
 
-  // Split skills
   const half = Math.ceil(candidate.skills.length / 2);
   const skillGroupA = candidate.skills.slice(0, half);
   const skillGroupB = candidate.skills.slice(half);
@@ -530,7 +528,8 @@ export const ProfilePage = ({ candidate, onBack }) => {
           </div>
         </div>
       </div>
-      <CTA />
     </>
   );
 };
+
+export default ProfilePage;

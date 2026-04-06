@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
-const PaymentSuccess = () => {
+export const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState("verifying");
@@ -19,7 +19,7 @@ const PaymentSuccess = () => {
 
       try {
         await axios.get(
-          `${API_BASE_URL}/api/employers/verify-payment?reference=${reference}`
+          `${API_BASE_URL}/api/employers/verify-payment?reference=${reference}`,
         );
 
         setStatus("success");
@@ -28,7 +28,6 @@ const PaymentSuccess = () => {
         setTimeout(() => {
           navigate("/employer/dashboard");
         }, 2000);
-
       } catch (err) {
         console.error("Verification failed:", err);
         setStatus("error");

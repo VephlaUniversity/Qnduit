@@ -14,12 +14,11 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { CTA } from "../home/CTA";
 import { AnimatePresence, motion } from "framer-motion";
-
-//  Import shared data
+//Import shared data
 import { candidatesData } from "../../data/talentsData";
 
+// useCandidate
 const useCandidates = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +41,7 @@ const useCandidates = () => {
   return { data, loading, error };
 };
 
-export const ResultsPage = ({ searchParams, onViewProfile }) => {
-  const navigate = useNavigate();
+const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
   const { data: allCandidates, loading, error } = useCandidates();
 
   const [viewMode, setViewMode] = useState("grid");
@@ -202,7 +200,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
     </div>
   );
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -214,7 +212,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
@@ -237,26 +235,6 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
     <>
       <div className="min-h-screen text-white p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Breadcrumb */}
-          <motion.div
-            className="text-sm text-gray-400 mb-6"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Link to="/" className="hover:underline hover:text-[#3B82F6]">
-              Home
-            </Link>
-            <span className="mx-2">›</span>
-            <span className="text-[#3B82F6]">Find Talents</span>
-            {searchParams?.jobTitle && (
-              <>
-                <span className="mx-2">›</span>
-                <span className="text-gray-300">"{searchParams.jobTitle}"</span>
-              </>
-            )}
-          </motion.div>
-
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Mobile filter button */}
             <button
@@ -313,7 +291,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                   </div>
                 </div>
 
-                {/* Location — dynamically built from data */}
+                {/* Location */}
                 <div>
                   <h3 className="text-white font-semibold mb-4">Location</h3>
                   <div className="relative">
@@ -594,7 +572,8 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
           </div>
         </div>
       </div>
-      <CTA />
     </>
   );
 };
+
+export default TalentsResultsPage;

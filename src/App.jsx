@@ -43,41 +43,50 @@ import PrivacyPolicy from "./components/pages/PrivacyPolicy";
 import Blog from "./components/pages/Blog";
 import BlogDetail from "./components/BlogDetails";
 import JobDetails from "./components/pages/JobDetails";
+import { TalentResultsWrapper } from "./components/employerDashboard/TalentResultWarapper";
 
 const AppContent = () => {
   const location = useLocation();
-  const isAuthPage = [
-    "/talent-signup",
-    "/employer-signup",
-    "/signin",
-    "/forgot-password",
-    "/payment",
-    "/dashboard",
-    "/dashboard/profile",
-    "/dashboard/profile-settings",
-    "/dashboard/my-job",
-    "/dashboard/submit-job",
-    "/dashboard/applicants",
-    "/dashboard/saved-candidates",
-    "/dashboard/alerts",
-    "/dashboard/packages",
-    "/dashboard/messages",
-    "/dashboard/meeting",
-    "/dashboard/change-password",
-    "/dashboard/delete-profile",
-    "/talent-dashboard",
-    "/talent-dashboard/profile",
-    "/talent-dashboard/resumes",
-    "/talent-dashboard/about",
-    "/talent-dashboard/my-applied",
-    "/talent-dashboard/saved-jobs",
-
-    "/talent-dashboard/messages",
-    "/talent-dashboard/following-employers",
-    "/talent-dashboard/meeting",
-    "/talent-dashboard/change-passwords",
-    "/talent-dashboard/delete-profile",
-  ].includes(location.pathname);
+  const isAuthPage =
+    [
+      "/talent-signup",
+      "/employer-signup",
+      "/signin",
+      "/forgot-password",
+      "/payment",
+      // employer dashboard
+      "/dashboard",
+      "/dashboard/profile",
+      "/dashboard/profile-settings",
+      "/dashboard/my-job",
+      "/dashboard/submit-job",
+      "/dashboard/applicants",
+      "/dashboard/saved-candidates",
+      "/dashboard/alerts",
+      "/dashboard/packages",
+      "/dashboard/messages",
+      "/dashboard/talent-results",
+      "/dashboard/talent-results/profile",
+      "/dashboard/meeting",
+      "/dashboard/change-password",
+      "/dashboard/delete-profile",
+      // talent dashboard
+      "/talent-dashboard",
+      "/talent-dashboard/profile",
+      "/talent-dashboard/resumes",
+      "/talent-dashboard/about",
+      "/talent-dashboard/my-applied",
+      "/talent-dashboard/saved-jobs",
+      "/talent-dashboard/messages",
+      "/talent-dashboard/following-employers",
+      "/talent-dashboard/meeting",
+      "/talent-dashboard/change-passwords",
+      "/talent-dashboard/delete-profile",
+      "/talent-dashboard/job-results/details/:id",
+      "/talent-dashboard/job-results",
+    ].includes(location.pathname) ||
+    location.pathname.startsWith("/talent-dashboard/") ||
+    location.pathname.startsWith("/dashboard/");
 
   return (
     <div className="min-h-screen bg-[#0E0E10] text-white">
@@ -225,6 +234,26 @@ const AppContent = () => {
               <ProtectedRoute>
                 <DashboardLayout>
                   <DeleteProfile />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/talent-results"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TalentResultsWrapper />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/talent-results/profile"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TalentResultsWrapper />
                 </DashboardLayout>
               </ProtectedRoute>
             }

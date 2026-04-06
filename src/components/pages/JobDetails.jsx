@@ -88,27 +88,23 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
       }
 
       await axios.post(
-        `${API_BASE_URL}/api/applications/apply`, 
+        `${API_BASE_URL}/api/applications/apply`,
         { jobId: id },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       toast.success("Application submitted successfully!");
-
     } catch (error) {
-
       if (error.response?.status === 401) {
         toast.error("Session expired. Please login again");
         return;
       }
 
-      toast.error(
-        error.response?.data?.message || "Failed to apply for job"
-      );
+      toast.error(error.response?.data?.message || "Failed to apply for job");
     }
   };
 
@@ -129,36 +125,40 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         toast.success("Job added to favorites!");
       } else {
-        await axios.delete(`${API_BASE_URL}/api/saved-jobs`, 
-        { jobId: id },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        await axios.delete(
+          `${API_BASE_URL}/api/saved-jobs`,
+          { jobId: id },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         toast.success("Job removed from favorites!");
       }
 
       setIsFavorite(!isFavorite);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || "Failed to update favorites");
+      toast.error(
+        error.response?.data?.message || "Failed to update favorites",
+      );
     }
   };
 
   const nextPortfolio = () => {
     setCurrentPortfolioIndex((prev) =>
-      prev === portfolioItems.length - 1 ? 0 : prev + 1
+      prev === portfolioItems.length - 1 ? 0 : prev + 1,
     );
   };
 
   const prevPortfolio = () => {
     setCurrentPortfolioIndex((prev) =>
-      prev === 0 ? portfolioItems.length - 1 : prev - 1
+      prev === 0 ? portfolioItems.length - 1 : prev - 1,
     );
   };
 
@@ -402,7 +402,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                             >
                               <Icon className="w-5 h-5 text-gray-800" />
                             </button>
-                          )
+                          ),
                         )}
                       </div>
                     </div>
@@ -495,14 +495,16 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                                     <span>⏰ {relatedJob.postedDate}</span>
                                   </div>
                                   <div className="flex gap-2">
-                                    {relatedJob.jobApplyType?.map((type, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="px-3 py-1 bg-[#2A3142] text-white rounded-md text-sm"
-                                      >
-                                        {type}
-                                      </span>
-                                    ))}
+                                    {relatedJob.jobApplyType?.map(
+                                      (type, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-3 py-1 bg-[#2A3142] text-white rounded-md text-sm"
+                                        >
+                                          {type}
+                                        </span>
+                                      ),
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -534,7 +536,8 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                             <div className="mt-4">
                               <span className="text-[#3B82F6] font-semibold flex items-center gap-1">
                                 <DollarSign className="w-4 h-4" />
-                                {relatedJob.salary?.min && relatedJob.salary?.max
+                                {relatedJob.salary?.min &&
+                                relatedJob.salary?.max
                                   ? `$${relatedJob.salary.min} - $${relatedJob.salary.max}`
                                   : "Salary not specified"}
                               </span>
@@ -676,35 +679,45 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                   <h3 className="text-muted-foreground text-sm mb-1 text-[#64666C]">
                     Email
                   </h3>
-                  <div className="text-white text-sm">{job.employer.companyEmail}</div>
+                  <div className="text-white text-sm">
+                    {job.employer.companyEmail}
+                  </div>
                 </div>
                 <hr className="text-[#64666C]" />
                 <div className="flex justify-between">
                   <h3 className="text-muted-foreground text-sm mb-1 text-[#64666C]">
                     Industry
                   </h3>
-                  <div className="text-white text-sm">{job.employer.companyIndustry}</div>
+                  <div className="text-white text-sm">
+                    {job.employer.companyIndustry}
+                  </div>
                 </div>
                 <hr className="text-[#64666C]" />
                 <div className="flex justify-between">
                   <h3 className="text-muted-foreground text-sm mb-1 text-[#64666C]">
                     Company size
                   </h3>
-                  <div className="text-white text-sm">{job.employer.companySize}</div>
+                  <div className="text-white text-sm">
+                    {job.employer.companySize}
+                  </div>
                 </div>
                 <hr className="text-[#64666C]" />
                 <div className="flex justify-between">
                   <h3 className="text-muted-foreground text-sm mb-1 text-[#64666C]">
                     Headquarters
                   </h3>
-                  <div className="text-white text-sm">{job.employer.location}</div>
+                  <div className="text-white text-sm">
+                    {job.employer.location}
+                  </div>
                 </div>
                 <hr className="text-[#64666C]" />
                 <div className="flex justify-between">
                   <h3 className="text-muted-foreground text-sm mb-1 text-[#64666C]">
                     Founded
                   </h3>
-                  <div className="text-white text-sm">{job.employer.foundedYear}</div>
+                  <div className="text-white text-sm">
+                    {job.employer.foundedYear}
+                  </div>
                 </div>
                 <hr className="text-[#64666C]" />
                 <div className="flex justify-between">
@@ -720,7 +733,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                         >
                           <Icon className="w-4 h-4 text-white" />
                         </button>
-                      )
+                      ),
                     )}
                   </div>
                 </div>

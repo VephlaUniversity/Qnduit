@@ -27,6 +27,8 @@ import TalentFollowingEmployers from "./FollowingEmployers";
 import Messages from "../employerDashboard/Messages";
 import TalentMyApplied from "./TalentMyApplied";
 import TalentDashboardOverview from "./TalentDashboardOverview";
+import { TalentJobs } from "./TalentJobs";
+import { TalentJobDetails } from "./TalentJobDetails";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
@@ -81,6 +83,8 @@ export const TalentDashboard = () => {
         <Route path="meeting" element={<Meeting />} />
         <Route path="change-passwords" element={<ChangePassword />} />
         <Route path="delete-profile" element={<DeleteProfile />} />
+        <Route path="job-results" element={<TalentJobs />} />
+        <Route path="job-results/details/:id" element={<TalentJobDetails />} />
       </Routes>
     </DashboardLayout>
   );
