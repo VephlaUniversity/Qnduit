@@ -96,7 +96,7 @@ const RecentApplication = () => {
                       <div className="w-16 h-16 rounded-lg bg-gray-600 flex-shrink-0"></div>
                       <div>
                         <p className="text-white font-semibold text-base mb-1">
-                          {application.title}
+                          {app.title}
                         </p>
                         <div className="flex items-center gap-3 text-sm text-gray-400">
                           <span className="flex items-center gap-1">
@@ -114,14 +114,14 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <span
                       className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
-                        application.status
+                        app.status
                       )}`}
                     >
-                      {application.status}
+                      {app.status}
                     </span>
                   </td>
                   <td className="py-4 px-4 text-gray-300 text-base">
-                    {application.dateApplied}
+                    {app.dateApplied}
                   </td>
                 </tr>
               ))}
