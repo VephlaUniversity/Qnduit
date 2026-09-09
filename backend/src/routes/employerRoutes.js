@@ -4,16 +4,14 @@ import {
   registerEmployer,
   verifyEmployerEmail,
   updateEmployerProfile,
-  // selectEmployerPlan,
+  selectEmployerPlan,
   getEmployerProfile,
   upload,
   addSavedCandidate,
   getSavedCandidates,
-  removeSavedCandidate,
-  verifyPayment,
-  selectPlanWithoutPayment
+  removeSavedCandidate
 } from "../controllers/employerController.js";
-import { initializePayment } from "../controllers/paymentController.js";
+import { initializePayment, verifyPayment, selectPlanWithoutPayment } from "../controllers/paymentController.js";
 
 const router = express.Router();
 // signup
