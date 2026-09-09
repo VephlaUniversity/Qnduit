@@ -2,6 +2,7 @@ import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
+import cloudinary from "../utils/cloudinary.js";
 
 
 const storage = multer.diskStorage({
@@ -342,36 +343,6 @@ export const getTalentProfile = async (req, res, next) => {
     next(error);
   }
 };
-
-export const uploadResume = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No resume uploaded",
-      });
-    }
-
-    const talent = await Talent.findById(req.user._id);
-
-    talent.resume = {
-      url: `/uploads/resumes/${req.file.filename}`,
-      public_id: req.file.filename,
-    };
-
-    await talent.save();
-
-    res.json({
-      success: true,
-      message: "Resume uploaded successfully",
-      resume: talent.resume,
-    });
-
-  } catch (error) {
-    next(error);
-  }
-};
-
 
 
  
