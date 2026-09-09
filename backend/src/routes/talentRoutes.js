@@ -8,7 +8,8 @@ import {
   getTalentProfile,
   upload,
   talentUpload,
-  searchTalentByEmail
+  searchTalentByEmail,
+  uploadResume
 } from "../controllers/talentController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -18,7 +19,17 @@ router.post("/register", registerTalent);
 
 router.post("/verify", verifyTalentEmail);
 
-router.put("/:id/profile", upload.single("resume"), updateTalentProfile);
+router.post(
+  "/resume",
+  protect,
+  upload.single("resume"),
+  uploadResume
+);
+
+router.put(
+  "/:id/profile",
+  updateTalentProfile
+);
 
 router.put("/:id/plan", selectTalentPlan);
 

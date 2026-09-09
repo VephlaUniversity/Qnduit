@@ -13,13 +13,17 @@ const storage = multer.diskStorage({
   },
 });
 
+const resumeStorage = multer.memoryStorage();
+
 export const upload = multer({
-  storage,
+  storage: resumeStorage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
+
     if (![".pdf", ".doc", ".docx"].includes(ext)) {
       return cb(new Error("Only .pdf, .doc, and .docx files are allowed"));
     }
+
     cb(null, true);
   },
 });
@@ -110,7 +114,7 @@ export const verifyTalentEmail = async (req, res, next) => {
  
 export const updateTalentProfile = async (req, res, next) => {
   try {
-    const id = req.user._id;
+    const id = req.params.id;
     const updates = { ...req.body };
 
     delete updates.password;
@@ -215,6 +219,60 @@ export const updateTalentProfile = async (req, res, next) => {
       success: true,
       message: "Profile updated successfully",
       talent,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadResume = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No resume uploaded",
+      });
+    }
+
+    const talent = await Talent.findById(req.user._id);
+
+    if (!talent) {
+      return res.status(404).json({
+        success: false,
+        message: "Talent not found",
+      });
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "qnduit/talent-resumes",
+          resource_type: "raw",
+          public_id: `${talent._id}-${Date.now()}`,
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
+
+    talent.resume = {
+      url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+    };
+
+    await talent.save();
+
+    res.json({
+      success: true,
+      message: "Resume uploaded successfully",
+      resume: talent.resume,
     });
   } catch (error) {
     next(error);
