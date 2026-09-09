@@ -15,14 +15,27 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAuth = async () => {
-    setIsLoading(true);
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+  setIsLoading(true);
+
+  try {
+    const storedUser = localStorage.getItem("user");
+
+      if (!storedUser || storedUser === "undefined" || storedUser === "null") {
+        setUser(null);
+        return;
+      }
+
+      const parsedUser = JSON.parse(storedUser);
+
+      if (parsedUser && parsedUser.userType) {
+        setUser(parsedUser);
+      } else {
+        localStorage.removeItem("user");
+        setUser(null);
       }
     } catch (error) {
       console.error("Auth check error:", error);
+      localStorage.removeItem("user");
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -38,14 +51,17 @@ export const AuthProvider = ({ children }) => {
 
       const { token, user } = res.data;
 
-      // Store user and token
+      if (!user || !user.userType) {
+        throw new Error("Invalid user data returned from server");
+      }
+
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("token", token);
 
-      // Set state
       setUser(user);
 
       return user;
+      
     } catch (error) {
       console.error("Sign in error:", error);
       throw new Error(
