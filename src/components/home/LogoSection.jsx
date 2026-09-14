@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { JobSearchForm } from "./JobsSearchForm";
+import { motion } from "framer-motion";
 
 export const LogoSection = () => {
   const scrollContainerRef = useRef(null);
@@ -101,6 +102,35 @@ export const LogoSection = () => {
           ))}
         </div>
       </div>
+
+        {/* Section Heading */}
+      <div className="flex flex-col items-center">
+      {/* Members online badge */}
+      <motion.div
+        className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-white/5 border border-white/10"
+        initial={{ opacity: 0, y: -10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+        </span>
+        <span className="text-sm text-white/80">458 members online</span>
+      </motion.div>
+ 
+      {/* Heading */}
+      <motion.h2
+        className="text-4xl lg:text-5xl text-center mb-16"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.5 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      >
+        Find Your Next Big <br /> Career Move
+      </motion.h2>
+    </div>
 
       <JobSearchForm />
 

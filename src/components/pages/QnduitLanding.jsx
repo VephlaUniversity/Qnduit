@@ -16,7 +16,6 @@ export const QnduitLanding = () => {
       <LogoSection />
       <WhyDifferent />
       <FeaturedTalents />
-      <SourceTalent />
       <JobListings />
       <Testimonials />
       <PricingSection />
