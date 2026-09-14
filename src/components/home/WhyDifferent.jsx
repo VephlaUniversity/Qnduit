@@ -68,36 +68,6 @@ export const WhyDifferent = () => {
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-      {/* Top CTA */}
-      <motion.div
-        className="text-center mb-16"
-        variants={staggerContainer}
-        initial="initial"
-        whileInView="animate"
-        viewport={{ once: true, amount: 0.3 }}
-      >
-        <motion.p
-          variants={fadeUp}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-lg text-gray-300 mb-8"
-        >
-          The most affordable career move you'll make all
-          <br />
-          year.
-          <span className="text-yellow-400">
-            &nbsp; Boost your profile for just $1.99/month.
-          </span>
-        </motion.p>
-        <motion.div
-          variants={fadeUp}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-            <Link to="/pricing">Boost profile for $1.99 →</Link>
-          </button>
-        </motion.div>
-      </motion.div>
-
       {/* Section Heading */}
       <motion.h2
         className="text-4xl lg:text-5xl text-center mb-16"
