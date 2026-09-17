@@ -28,6 +28,7 @@ router.post(
 
 router.put(
   "/:id/profile",
+  protect,
   updateTalentProfile
 );
 

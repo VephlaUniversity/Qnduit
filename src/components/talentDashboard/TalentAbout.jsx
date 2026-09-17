@@ -94,6 +94,50 @@ const TalentAbout = () => {
     }));
   };
 
+  const normalizeArray = (value) => {
+    if (!Array.isArray(value)) return [];
+
+    const result = [];
+
+    const processItem = (item) => {
+      if (Array.isArray(item)) {
+        item.forEach(processItem);
+        return;
+      }
+
+      if (typeof item !== "string") return;
+
+      const trimmed = item.trim();
+
+      if (!trimmed) return;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+
+        if (Array.isArray(parsed)) {
+          parsed.forEach(processItem);
+          return;
+        }
+      } catch {}
+
+      if (trimmed.includes(",")) {
+        trimmed
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .forEach(processItem);
+
+        return;
+      }
+
+      result.push(trimmed);
+    };
+
+    value.forEach(processItem);
+
+    return [...new Set(result)];
+  };
+
   useEffect(() => {
     const fetchTalentProfile = async () => {
       try {
@@ -117,19 +161,19 @@ const TalentAbout = () => {
         setFormData((prev) => ({
           ...prev,
           ...profile,
-          categories: profile.categories || [],
+          categories: normalizeArray(profile.categories),
           socialNetworks:
             profile.socialNetworks || prev.socialNetworks,
         }));
 
-        setTags(profile.tags || []);
-        setSkills(profile.skills || []);
+        setTags(normalizeArray(profile.tags));
+        setSkills(normalizeArray(profile.skills));
         setLatValue(profile.lat || "");
         setLngValue(profile.lng || "");
 
 
         if (profile.avatar) {
-          setAvatarPreview(`${API_BASE_URL}${profile.avatar}`);
+          setAvatarPreview(profile.avatar);
         }
 
       } catch (error) {
@@ -165,7 +209,10 @@ const TalentAbout = () => {
       Object.keys(formData).forEach((key) => {
         if (
           key !== "avatar" &&
-          key !== "socialNetworks"
+          key !== "socialNetworks" &&
+          key !== "categories" &&
+          key !== "skills" &&
+          key !== "resume"
         ) {
           data.append(key, formData[key]);
         }

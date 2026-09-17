@@ -70,15 +70,15 @@ export const EmployerSignup = () => {
       return;
     }
 
-    handleInputChange("selectedPlan", planType);
-
     try {
       setLoading(true);
 
       if (actionType === "payNow") {
         const res = await axios.post(
-          `${API_BASE_URL}/api/employers/pay`,
-          { plan: planType },
+          `${API_BASE_URL}/api/employer/payments/create-checkout`,
+          {
+            plan: planType,
+          },
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -86,17 +86,25 @@ export const EmployerSignup = () => {
           }
         );
 
-        if (res.data?.authorization_url) {
-          window.location.href = res.data.authorization_url;
-        } else {
-          throw new Error("Payment link not received");
+        if (res.data?.free) {
+          navigate("/employer/dashboard");
+          return;
         }
+
+        if (res.data?.checkoutUrl) {
+          window.location.href = res.data.checkoutUrl;
+          return;
+        }
+
+        throw new Error("Stripe checkout link not received");
       }
 
-      else if (actionType === "payLater") {
-        await axios.post(
-          `${API_BASE_URL}/api/employers/select-plan`,
-          { plan: planType },
+      if (actionType === "free") {
+        const res = await axios.post(
+          `${API_BASE_URL}/api/employer/payments/create-checkout`,
+          {
+            plan: "free",
+          },
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -104,8 +112,10 @@ export const EmployerSignup = () => {
           }
         );
 
-        alert("You're now on trial mode");
-        navigate("/employer/dashboard");
+        if (res.data?.free) {
+          navigate("/employer/dashboard");
+          return;
+        }
       }
 
     } catch (err) {
@@ -113,8 +123,8 @@ export const EmployerSignup = () => {
 
       alert(
         err?.response?.data?.message ||
-        err.message ||
-        "Something went wrong. Please try again."
+          err.message ||
+          "Something went wrong. Please try again."
       );
     } finally {
       setLoading(false);
@@ -127,9 +137,14 @@ export const EmployerSignup = () => {
 
     try {
       const res = await axios.put(
-        `${API_BASE_URL}/api/employers/update/${employerId}`,
+        `${API_BASE_URL}/api/employers/update`,
         formData,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
       if (res.data.success) {

@@ -92,10 +92,10 @@ const TalentProfileOverview = () => {
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 bg-[#2A2A2E] rounded-lg flex items-center justify-center text-gray-400 text-2xl font-bold border border-white/10">
               {aboutData?.avatar ? (
-                <img
-                  src={`${API_BASE_URL}${aboutData.avatar}`}
-                  alt="Avatar"
-                  className="w-full h-full object-cover rounded-lg"
+                <img 
+                  src={aboutData.avatar} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover rounded-lg" 
                 />
               ) : (
                 initials

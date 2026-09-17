@@ -171,32 +171,60 @@ export const TalentSignup = () => {
 
   const handleProfileUpdate = async () => {
     const talentId = localStorage.getItem("talentId");
+    const authToken = localStorage.getItem("authToken");
+
     if (!talentId) return alert("Missing Talent ID");
+    if (!authToken) return alert("Missing authentication token");
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("role", formData.role);
-      formDataToSend.append("experience", formData.experience);
-      formDataToSend.append("location", formData.location);
-      formDataToSend.append("skills", JSON.stringify(formData.skills));
-      formDataToSend.append("bio", formData.bio);
-      formDataToSend.append("linkedin", formData.linkedin);
+      // Upload resume first
       if (formData.resume) {
-        formDataToSend.append("resume", formData.resume);
+        const resumeData = new FormData();
+        resumeData.append("resume", formData.resume);
+
+        await axios.post(
+          `${API_BASE_URL}/api/talents/resume`,
+          resumeData,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
       }
+
+      // Update the rest of the profile
+      const profileData = {
+        jobTitle: formData.role,
+        experienceTime: formData.experience,
+        location: formData.location,
+        aboutMe: formData.bio,
+        socialNetworks: {
+          linkedin: formData.linkedin,
+        },
+      };
 
       const response = await axios.put(
         `${API_BASE_URL}/api/talents/${talentId}/profile`,
-        formDataToSend,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        profileData,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
       );
 
       if (response.data.success) {
         setCurrentStep(5);
       }
     } catch (error) {
-      console.error(error);
-      alert("Profile update failed");
+      console.error("Profile update error:", error);
+      console.error("Response:", error.response?.data);
+
+      alert(
+        error.response?.data?.message ||
+          "Profile update failed"
+      );
     }
   };
 

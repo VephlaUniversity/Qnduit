@@ -79,11 +79,9 @@ const talentSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["Point"],
-      default: "Point",
     },
     coordinates: {
       type: [Number],
-      default: [0,0],
     },
   },
 
@@ -98,6 +96,26 @@ const talentSchema = new mongoose.Schema(
     type: String,
     enum: ["free", "public", ""],
     default: "",
+  },
+
+  paymentStatus: {
+    type: String,
+    enum: [
+      "none",
+      "pending",
+      "active",
+      "past_due",
+      "cancelled",
+      "expired",
+      "failed",
+    ],
+    default: "none",
+  },
+
+  stripeCustomerId: {
+    type: String,
+    index: true,
+    sparse: true,
   },
 
 },

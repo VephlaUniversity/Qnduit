@@ -59,10 +59,6 @@ const employerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    selectedPlan: {
-      type: String,
-      trim: true,
-    },
     verificationCode: { 
       type: String 
     },
@@ -122,10 +118,9 @@ const employerSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ["Point"],
-        default: "Point",
       },
       coordinates: {
-        type: [Number], 
+        type: [Number],
       },
     },
     logo: {
@@ -153,12 +148,6 @@ const employerSchema = new mongoose.Schema(
       }
     ],
 
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "paid", "failed", "free"],
-      default: "pending",
-    },
-
     planExpiresAt: Date,
 
     paystackReference: String,
@@ -171,6 +160,30 @@ const employerSchema = new mongoose.Schema(
     trialEndsAt: Date,
 
     profileUpdatedAt: Date,
+
+    selectedPlan: {
+      type: String,
+      trim: true,
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: [
+        "none",
+        "pending",
+        "active",
+        "past_due",
+        "cancelled",
+        "expired",
+        "failed",
+      ],
+      default: "none",
+    },
+
+    stripeCustomerId: {
+      type: String,
+      index: true,
+    },
   },
   { timestamps: true }
 );

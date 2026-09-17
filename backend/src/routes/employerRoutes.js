@@ -11,7 +11,12 @@ import {
   getSavedCandidates,
   removeSavedCandidate
 } from "../controllers/employerController.js";
-import { initializePayment, verifyPayment, selectPlanWithoutPayment } from "../controllers/paymentController.js";
+import {
+  createEmployerCheckoutSession,
+  getEmployerSubscription,
+  cancelEmployerSubscription,
+  resumeEmployerSubscription
+} from "../controllers/paymentController.js";
 
 const router = express.Router();
 // signup
@@ -47,16 +52,28 @@ router.post(
   "/pay",
   protect,
   authorize("employer"),
-  initializePayment
+  createEmployerCheckoutSession
 );
 
-router.get("/verify-payment", verifyPayment);
-
-router.post(
-  "/select-plan",
+router.get(
+  "/subscription",
   protect,
   authorize("employer"),
-  selectPlanWithoutPayment
+  getEmployerSubscription
+);
+
+router.post(
+  "/subscription/cancel",
+  protect,
+  authorize("employer"),
+  cancelEmployerSubscription
+);
+
+router.post(
+  "/subscription/resume",
+  protect,
+  authorize("employer"),
+  resumeEmployerSubscription
 );
 
 router.post("/saved-candidates/:id", protect, authorize("employer"), addSavedCandidate);
