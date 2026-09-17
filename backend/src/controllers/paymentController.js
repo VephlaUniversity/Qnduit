@@ -553,3 +553,49 @@ export const resumeEmployerSubscription = async (
     next(error);
   }
 };
+
+// EMPLOYER PAY LATER
+
+export const employerPayLater = async (req, res, next) => {
+  try {
+    const employerId = req.user._id;
+    const { plan } = req.body;
+
+    if (!plan || !["bronze", "silver", "platinum"].includes(plan)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid employer plan",
+      });
+    }
+
+    const employer = await Employer.findById(employerId);
+
+    if (!employer) {
+      return res.status(404).json({
+        success: false,
+        message: "Employer not found",
+      });
+    }
+
+    if (!employer.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email first",
+      });
+    }
+
+    employer.selectedPlan = plan;
+    employer.paymentStatus = "pending";
+
+    await employer.save();
+
+    return res.json({
+      success: true,
+      message: "Plan selected. Payment can be completed later.",
+      plan,
+      redirectUrl: `${process.env.FRONTEND_URL}/employer-dashboard`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

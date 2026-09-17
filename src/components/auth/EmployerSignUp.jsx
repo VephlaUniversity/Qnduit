@@ -75,7 +75,7 @@ export const EmployerSignup = () => {
 
       if (actionType === "payNow") {
         const res = await axios.post(
-          `${API_BASE_URL}/api/employer/payments/create-checkout`,
+          `${API_BASE_URL}/api/payments/employer/create-checkout`,
           {
             plan: planType,
           },
@@ -99,11 +99,11 @@ export const EmployerSignup = () => {
         throw new Error("Stripe checkout link not received");
       }
 
-      if (actionType === "free") {
+      if (actionType === "payLater") {
         const res = await axios.post(
-          `${API_BASE_URL}/api/employer/payments/create-checkout`,
+          `${API_BASE_URL}/api/payments/employer/pay-later`,
           {
-            plan: "free",
+            plan: planType,
           },
           {
             headers: {
@@ -112,10 +112,15 @@ export const EmployerSignup = () => {
           }
         );
 
-        if (res.data?.free) {
+        if (res.data?.success) {
+          alert("Your plan has been saved. You can complete payment later.");
           navigate("/employer/dashboard");
           return;
         }
+
+        throw new Error(
+          res.data?.message || "Unable to save your plan"
+        );
       }
 
     } catch (err) {

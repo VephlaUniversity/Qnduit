@@ -8,7 +8,8 @@ import {
   createEmployerCheckoutSession,
   getEmployerSubscription,
   cancelEmployerSubscription,
-  resumeEmployerSubscription
+  resumeEmployerSubscription,
+  employerPayLater
 } from "../controllers/paymentController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -64,6 +65,12 @@ router.post(
   "/employer/subscription/resume",
   protect,
   resumeEmployerSubscription
+);
+
+router.post(
+  "/employer/pay-later",
+  protect,
+  employerPayLater
 );
 
 export default router;
