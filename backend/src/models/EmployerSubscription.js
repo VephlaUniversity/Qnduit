@@ -12,22 +12,9 @@ const employerSubscriptionSchema = new mongoose.Schema(
 
     provider: {
       type: String,
-      enum: ["stripe"],
-      default: "stripe",
+      enum: ["flutterwave"],
+      default: "flutterwave",
       required: true,
-    },
-
-    stripeCustomerId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-
-    stripeSubscriptionId: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
     },
 
     plan: {
@@ -39,15 +26,13 @@ const employerSubscriptionSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
-        "incomplete",
-        "trialing",
+        "pending",
         "active",
         "past_due",
         "canceled",
-        "unpaid",
-        "paused",
+        "expired",
       ],
-      default: "incomplete",
+      default: "pending",
     },
 
     currentPeriodStart: {
@@ -69,6 +54,18 @@ const employerSubscriptionSchema = new mongoose.Schema(
 
     endedAt: {
       type: Date,
+    },
+
+    lastTransactionId: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+
+    lastTxRef: {
+      type: String,
+      index: true,
+      sparse: true,
     },
   },
   {

@@ -11,30 +11,25 @@ const paymentSchema = new mongoose.Schema(
 
     provider: {
       type: String,
-      enum: ["stripe"],
-      default: "stripe",
+      enum: ["flutterwave"],
+      default: "flutterwave",
       required: true,
     },
 
-    stripePaymentIntentId: {
+    txRef: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    transactionId: {
       type: String,
       index: true,
       sparse: true,
     },
 
-    stripeInvoiceId: {
-      type: String,
-      index: true,
-      sparse: true,
-    },
-
-    stripeCheckoutSessionId: {
-      type: String,
-      index: true,
-      sparse: true,
-    },
-
-    stripeSubscriptionId: {
+    flwRef: {
       type: String,
       index: true,
       sparse: true,
@@ -47,8 +42,8 @@ const paymentSchema = new mongoose.Schema(
 
     currency: {
       type: String,
-      default: "usd",
-      lowercase: true,
+      default: "USD",
+      uppercase: true,
     },
 
     plan: {
@@ -95,4 +90,7 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("TalentPayment", paymentSchema);
+export default mongoose.model(
+  "TalentPayment",
+  paymentSchema
+);

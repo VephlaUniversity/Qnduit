@@ -14,8 +14,6 @@ import {
 import {
   createEmployerCheckoutSession,
   getEmployerSubscription,
-  cancelEmployerSubscription,
-  resumeEmployerSubscription
 } from "../controllers/paymentController.js";
 
 const router = express.Router();
@@ -60,20 +58,6 @@ router.get(
   protect,
   authorize("employer"),
   getEmployerSubscription
-);
-
-router.post(
-  "/subscription/cancel",
-  protect,
-  authorize("employer"),
-  cancelEmployerSubscription
-);
-
-router.post(
-  "/subscription/resume",
-  protect,
-  authorize("employer"),
-  resumeEmployerSubscription
 );
 
 router.post("/saved-candidates/:id", protect, authorize("employer"), addSavedCandidate);

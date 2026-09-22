@@ -111,13 +111,6 @@ const talentSchema = new mongoose.Schema(
     ],
     default: "none",
   },
-
-  stripeCustomerId: {
-    type: String,
-    index: true,
-    sparse: true,
-  },
-
 },
 { timestamps: true }
 );

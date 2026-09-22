@@ -15,27 +15,15 @@ import messageRoutes from "./routes/messageRoutes.js";
 import jobApplicationRoutes from "./routes/jobApplicationRoutes.js";
 import savedJobRoutes from "./routes/savedJobRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import { handleStripeWebhook } from "./controllers/talentStripeWebhookController.js";
-import { handleEmployerStripeWebhook } from "./controllers/employerStripeWebhookController.js"
 import errorHandler from "./middleware/errorHandler.js";
+import {
+  handleFlutterwaveWebhook,
+} from "./controllers/flutterwaveWebhookController.js";
 
 dotenv.config();
 connectDB();
 
 const app = express();
-
-// Webhook Routes
-app.post(
-  "/api/payments/webhook",
-  express.raw({ type: "application/json" }),
-  handleStripeWebhook
-);
-
-app.post(
-  "/api/payments/employer/webhook",
-  express.raw({ type: "application/json" }),
-  handleEmployerStripeWebhook
-);
 
 // Middlewares
 app.use(express.json());
@@ -55,6 +43,12 @@ app.use(
 
 app.use(helmet());
 app.use(morgan("dev"));
+
+// Flutter webhook
+app.post(
+  "/api/payments/flutterwave/webhook",
+  handleFlutterwaveWebhook
+);
 
 // API Routes
 app.use("/api/auth", authRoutes);

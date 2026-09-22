@@ -12,22 +12,22 @@ const subscriptionSchema = new mongoose.Schema(
 
     provider: {
       type: String,
-      enum: ["stripe"],
-      default: "stripe",
+      enum: ["flutterwave"],
+      default: "flutterwave",
       required: true,
     },
 
-    stripeCustomerId: {
+    flutterwavePlanId: {
       type: String,
       required: true,
       index: true,
     },
 
-    stripeSubscriptionId: {
+    flutterwaveCustomerEmail: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      lowercase: true,
+      trim: true,
     },
 
     plan: {
@@ -39,15 +39,13 @@ const subscriptionSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
-        "incomplete",
-        "trialing",
+        "pending",
         "active",
         "past_due",
         "canceled",
-        "unpaid",
-        "paused",
+        "expired",
       ],
-      default: "incomplete",
+      default: "pending",
     },
 
     currentPeriodStart: {
@@ -70,10 +68,30 @@ const subscriptionSchema = new mongoose.Schema(
     endedAt: {
       type: Date,
     },
+
+    lastTransactionId: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+
+    lastTxRef: {
+      type: String,
+      index: true,
+      sparse: true,
+    },
+
+    paymentPlanId: {
+      type: Number,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model("TalentSubscription", subscriptionSchema);
+export default mongoose.model(
+  "TalentSubscription",
+  subscriptionSchema
+);

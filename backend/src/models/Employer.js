@@ -179,11 +179,6 @@ const employerSchema = new mongoose.Schema(
       ],
       default: "none",
     },
-
-    stripeCustomerId: {
-      type: String,
-      index: true,
-    },
   },
   { timestamps: true }
 );

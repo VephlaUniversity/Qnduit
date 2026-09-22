@@ -3,12 +3,11 @@ import express from "express";
 import {
   createCheckoutSession,
   getMySubscription,
-  cancelSubscription,
-  resumeSubscription,
+  talentFlutterwaveCallback,
+
   createEmployerCheckoutSession,
+  employerFlutterwaveCallback,
   getEmployerSubscription,
-  cancelEmployerSubscription,
-  resumeEmployerSubscription,
   employerPayLater
 } from "../controllers/paymentController.js";
 
@@ -29,16 +28,9 @@ router.get(
   getMySubscription
 );
 
-router.post(
-  "/subscription/cancel",
-  protect,
-  cancelSubscription
-);
-
-router.post(
-  "/subscription/resume",
-  protect,
-  resumeSubscription
+router.get(
+  "/callback",
+  talentFlutterwaveCallback
 );
 
 // Employers Routes
@@ -50,21 +42,14 @@ router.post(
 );
 
 router.get(
+  "/employer/payment/callback",
+  employerFlutterwaveCallback
+);
+
+router.get(
   "/employer/subscription",
   protect,
   getEmployerSubscription
-);
-
-router.post(
-  "/employer/subscription/cancel",
-  protect,
-  cancelEmployerSubscription
-);
-
-router.post(
-  "/employer/subscription/resume",
-  protect,
-  resumeEmployerSubscription
 );
 
 router.post(

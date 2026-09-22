@@ -114,7 +114,7 @@ export const EmployerSignup = () => {
 
         if (res.data?.success) {
           alert("Your plan has been saved. You can complete payment later.");
-          navigate("/employer/dashboard");
+          navigate("/dashboard");
           return;
         }
 
