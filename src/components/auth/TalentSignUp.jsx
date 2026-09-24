@@ -78,30 +78,67 @@ export const TalentSignup = () => {
   };
 
   const handlePlanSelection = async (planType) => {
-    const talentId = localStorage.getItem("talentId");
-    if (!talentId) return alert("Missing Talent ID");
+    const authToken = localStorage.getItem("authToken");
+
+    if (!authToken) {
+      return alert("Missing authentication token");
+    }
 
     try {
-      await axios.put(`${API_BASE_URL}/api/talents/${talentId}/plan`, {
-        selectedPlan: planType,
-      });
-
+      // FREE PLAN
       if (planType === "free") {
-        navigate("/dashboard");
-      } else {
-        navigate("/payment", {
-          state: {
-            plan: planType,
-            planName: planType === "free" ? "Free Account" : "Public Listing",
-            price: planType === "free" ? 0.0 : 1.99,
-            userType: "talent",
-            userInfo: formData,
+        const response = await axios.post(
+          `${API_BASE_URL}/api/payments/create-checkout`,
+          {
+            plan: "free",
           },
-        });
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (response.data?.free) {
+          navigate("/dashboard");
+          return;
+        }
+
+        throw new Error(
+          response.data?.message || "Unable to select free plan"
+        );
       }
+
+      // PAID PLAN
+      const response = await axios.post(
+        `${API_BASE_URL}/api/payments/create-checkout`,
+        {
+          plan: planType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      if (response.data?.checkoutUrl) {
+        window.location.href = response.data.checkoutUrl;
+        return;
+      }
+
+      throw new Error(
+        response.data?.message ||
+          "Flutterwave checkout link not received"
+      );
     } catch (error) {
-      console.error(error);
-      alert("Failed to select plan");
+      console.error("Talent payment error:", error);
+
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to process payment"
+      );
     }
   };
 

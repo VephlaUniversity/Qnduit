@@ -185,7 +185,7 @@ export const createCheckoutSession = async (
 
         redirect_url:
           `${process.env.BACKEND_URL}` +
-          `/api/payments/payment/callback`,
+          `/api/payments/callback`,
 
         customer: {
           email: talent.email,
@@ -478,6 +478,13 @@ export const createEmployerCheckoutSession = async (
         success: false,
         message: "Invalid employer payment plan",
       });
+    } 
+
+    if (!selectedPlan.paymentPlanId) {
+      return res.status(500).json({
+        success: false,
+        message: `Flutterwave ${plan} payment plan is not configured`,
+      });
     }
 
     const employer = await Employer.findById(employerId);
@@ -542,6 +549,8 @@ export const createEmployerCheckoutSession = async (
       amount: selectedPlan.amount,
 
       currency: selectedPlan.currency,
+
+      payment_plan: selectedPlan.paymentPlanId,
 
       redirect_url:
         `${process.env.BACKEND_URL}` +
