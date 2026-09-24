@@ -112,18 +112,30 @@ export const JobOpportunities = () => {
 
     // Work type (sidebar)
     if (workTypeFilter) {
-      if (
-        !job.workType?.toLowerCase().includes(workTypeFilter.toLowerCase())
-      ) {
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
+      const selectedWorkType = workTypeFilter
+        .toLowerCase()
+        .replace(/-/g, " ");
+
+      if (!jobApplyType?.includes(selectedWorkType)) {
         return false;
       }
     }
 
     // Job type (sidebar)
     if (jobTypeFilter) {
-      if (
-        !job.jobApplyType?.toLowerCase().includes(jobTypeFilter.toLowerCase())
-      ) {
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
+      const selectedJobType = jobTypeFilter
+        .toLowerCase()
+        .replace(/-/g, " ");
+
+      if (!jobApplyType?.includes(selectedJobType)) {
         return false;
       }
     }
@@ -149,7 +161,7 @@ export const JobOpportunities = () => {
     // Work location from dropdown
     if (dropdownFilters.workLocation !== "Remote") {
       if (
-        !job.workType?.toLowerCase().includes(
+        !job.jobApplyType?.toLowerCase().includes(
           dropdownFilters.workLocation.toLowerCase()
         )
       ) {
@@ -160,11 +172,16 @@ export const JobOpportunities = () => {
     // Job types from dropdown
     const selectedJobTypes = Object.entries(dropdownFilters.jobTypes)
       .filter(([key, val]) => val && key !== "All Job Types")
-      .map(([key]) => key.toLowerCase());
+      .map(([key]) => key.toLowerCase().replace(/-/g, " "));
+
     if (selectedJobTypes.length > 0) {
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
       if (
         !selectedJobTypes.some((type) =>
-          job.jobApplyType?.toLowerCase().includes(type)
+          jobApplyType?.includes(type)
         )
       ) {
         return false;

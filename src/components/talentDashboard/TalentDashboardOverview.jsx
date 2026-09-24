@@ -19,17 +19,22 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import RecentApplication from "./RecentApplication"
+import RecentApplication from "./RecentApplication";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const TalentDashboard = () => {
   const { user } = useAuth();
   const [chartPeriod, setChartPeriod] = useState("month");
+  const [applications, setApplications] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [meetings, setMeetings] = useState([]);
 
   const stats = [
     {
       icon: FileText,
       label: "Applications Sent",
-      value: "24",
+      value: applications.length,
       color: "bg-blue-600",
     },
     {
@@ -38,9 +43,60 @@ export const TalentDashboard = () => {
       value: "1,248",
       color: "bg-green-600",
     },
-    { icon: Heart, label: "Saved Jobs", value: "12", color: "bg-red-500" },
-    { icon: Briefcase, label: "Interview Invites", value: "5", color: "bg-yellow-500" },
+    {
+      icon: Heart,
+      label: "Saved Jobs",
+      value: savedJobs.length,
+      color: "bg-red-500",
+    },
+    {
+      icon: Briefcase,
+      label: "Interview Invites",
+      value: meetings.length,
+      color: "bg-yellow-500",
+    },
   ];
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        if (!token) return;
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+        };
+
+        const [applicationsRes, savedJobsRes, meetingsRes] =
+          await Promise.all([
+            axios.get(
+              `${API_BASE_URL}/api/applications/my-applications`,
+              { headers }
+            ),
+
+            axios.get(
+              `${API_BASE_URL}/api/saved-jobs`,
+              { headers }
+            ),
+
+            axios.get(
+              `${API_BASE_URL}/api/meetings/talent-meetings`,
+              { headers }
+            ),
+          ]);
+
+        setApplications(applicationsRes.data.applications || []);
+        setSavedJobs(savedJobsRes.data.jobs || []);
+        setMeetings(meetingsRes.data.meetings || []);
+
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   // Chart data based on period
   const getChartData = () => {
