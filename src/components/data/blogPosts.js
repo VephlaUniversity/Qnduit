@@ -15,7 +15,7 @@ const travelContent = [
   { type: "heading", text: "Plan Your Itinerary" },
   {
     type: "paragraph",
-    text: "While it's essential to leave room for spontaneity and unexpected adventures, having a rough itinerary can help you make the most of your time and budget. Identify the must-see sights and experiences and prioritize them according to your interests and preferences.",
+    text: "While it's essential to leave room for spontaneity and unexpected adventures, having a rough itinerary can help you make the most of your time and budget. Identify the must-see sights and experiences and prioritize them according to your interests and preferences. This will help you avoid overscheduling and ensure that you have time to relax and enjoy your journey.",
   },
   {
     type: "quote",
@@ -24,7 +24,22 @@ const travelContent = [
   { type: "heading", text: "Pack Lightly and Smartly" },
   {
     type: "paragraph",
-    text: "Packing can be a daunting task, but with some careful planning and smart choices, you can pack light and efficiently. Start by making a packing list and sticking to it, focusing on versatile and comfortable clothing that can be mixed and matched.",
+    text: "Traveling can expose you to new environments and potential health risks, so it's crucial to take precautions to stay safe and healthy. This includes researching any required vaccinations or medications, staying hydrated, washing your hands frequently, and using sunscreen and insect repellent. It's also essential to keep your valuables safe and secure and to be aware of your surroundings at all times.",
+  },
+  { type: "heading", text: "Stay Safe and Healthy" },
+  {
+    type: "paragraph",
+    text: "Traveling can expose you to new environments and potential health risks, so it's crucial to take precautions to stay safe and healthy. This includes researching any required vaccinations or medications, staying hydrated, washing your hands frequently, and using sunscreen and insect repellent. It's also essential to keep your valuables safe and secure and to be aware of your surroundings at all times.",
+  },
+  { type: "heading", text: "Immerse Yourself in the Local Culture" },
+  {
+    type: "paragraph",
+    text: "One of the most rewarding aspects of traveling is immersing yourself in the local culture and customs. This includes trying local cuisine, attending cultural events and festivals, and interacting with locals. Learning a few phrases in the local language can also go a long way in making connections and showing respect.",
+  },
+  { type: "heading", text: "Capture Memories" },
+  {
+    type: "paragraph",
+    text: "Finally, don't forget to capture memories of your journey. Whether it's through photographs, journaling, or souvenirs, preserving the moments and experiences of your travels can bring joy and nostalgia for years to come. However, it's also essential to be present in the moment and not let technology distract you from the beauty of your surroundings.",
   },
   { type: "heading", text: "Conclusion" },
   {
@@ -323,7 +338,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=1",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80",
+      "/images/1-.jpg",
     excerpt:
       "Technology has fundamentally transformed the modern workplace, reshaping how we communicate and collaborate...",
     content: techWorkplaceContent,
@@ -336,7 +351,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=2",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
+      "/images/2-.jpg",
     excerpt:
       "Traveling is an enriching experience that opens up new horizons and creates memories that last a lifetime...",
     content: travelContent,
@@ -350,7 +365,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=3",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?w=800&q=80",
+      "/images/3-.jpg",
     excerpt:
       "Maintaining physical and mental health has become more important than ever in today's fast-paced world...",
     content: healthWellnessContent,
@@ -364,7 +379,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=4",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80",
+      "/images/4-.jpg",
     excerpt:
       "The landscape of education is undergoing a dramatic transformation with innovative digital learning platforms...",
     content: educationContent,
@@ -378,7 +393,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=5",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+      "/images/5-.jpg",
     excerpt:
       "Climate change is one of the most pressing challenges of our time, and sustainable living is now a global imperative...",
     content: sustainabilityContent,
@@ -391,7 +406,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=6",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80",
+      "/images/6-.jpg",
     excerpt:
       "Financial literacy is a critical life skill that can make the difference between financial stress and freedom...",
     content: financeContent,
@@ -404,7 +419,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=7",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&q=80",
+      "/images/7-.jpg",
     excerpt:
       "Great design is invisible—it solves problems so elegantly that users don't even notice it...",
     content: designContent,
@@ -418,7 +433,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=8",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80",
+      "/images/8.jpg",
     excerpt:
       "Starting a business is one of the most challenging and rewarding endeavors a person can undertake...",
     content: entrepreneurshipContent,
@@ -432,7 +447,7 @@ export const blogPosts = [
     authorAvatar: "https://i.pravatar.cc/40?img=9",
     date: "August 20, 2022",
     image:
-      "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=800&q=80",
+      "/images/9.jpg",
     excerpt:
       "In an age of constant distractions, mastering productivity is a superpower that separates top performers...",
     content: productivityContent,

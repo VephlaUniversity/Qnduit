@@ -89,7 +89,6 @@ export const MOCK_TALENT_CREDENTIALS = {
   email: "talent@gmail.com",
   password: "password123",
 };
-
 export const MOCK_TALENT_DATA = {
   id: "660e8400-e29b-41d4-a716-446655440111",
   email: "talent@gmail.com",
@@ -144,3 +143,21 @@ export const MOCK_TALENT_DATA = {
 
 export const MOCK_USER_CREDENTIALS = MOCK_EMPLOYER_CREDENTIALS;
 export const MOCK_USER_DATA = MOCK_EMPLOYER_DATA;
+
+export const MOCK_ADMIN_CREDENTIALS = {
+  email: "admin@qnduit.com",
+  password: "admin123",
+};
+
+export const MOCK_ADMIN_DATA = {
+  id: "770e8400-e29b-41d4-a716-446655440222",
+  email: "admin@qnduit.com",
+  name: "Qnduit Admin",
+  phone: "",
+  address: "",
+  avatar: null,
+  userType: "admin",
+  createdAt: "2024-01-01T00:00:00Z",
+  notifications: [],
+  messages: [],
+};

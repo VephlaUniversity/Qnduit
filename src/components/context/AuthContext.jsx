@@ -4,6 +4,8 @@ import {
   MOCK_EMPLOYER_DATA,
   MOCK_TALENT_CREDENTIALS,
   MOCK_TALENT_DATA,
+  MOCK_ADMIN_CREDENTIALS,
+  MOCK_ADMIN_DATA,
 } from "../utils/mockUser";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api"; // Make sure this points to your backend base URL
@@ -13,12 +15,14 @@ const AuthContext = createContext(undefined);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminUser, setAdminUser] = useState(null);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
 
   const checkAuth = async () => {
-  setIsLoading(true);
+    setIsLoading(true);
 
-  try {
-    const storedUser = localStorage.getItem("user");
+    try {
+      const storedUser = localStorage.getItem("user");
 
       if (!storedUser || storedUser === "undefined" || storedUser === "null") {
         setUser(null);
@@ -42,6 +46,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const checkAdminAuth = async () => {
+    setIsAdminLoading(true);
+
+    try {
+      const storedAdmin = localStorage.getItem("adminUser");
+
+      if (
+        !storedAdmin ||
+        storedAdmin === "undefined" ||
+        storedAdmin === "null"
+      ) {
+        setAdminUser(null);
+        return;
+      }
+
+      const parsedAdmin = JSON.parse(storedAdmin);
+
+      if (parsedAdmin && parsedAdmin.userType === "admin") {
+        setAdminUser(parsedAdmin);
+      } else {
+        localStorage.removeItem("adminUser");
+        setAdminUser(null);
+      }
+    } catch (error) {
+      console.error("Admin auth check error:", error);
+      localStorage.removeItem("adminUser");
+      setAdminUser(null);
+    } finally {
+      setIsAdminLoading(false);
+    }
+  };
+
   const signIn = async (email, password) => {
     try {
       const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
@@ -61,12 +97,36 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       return user;
-      
     } catch (error) {
       console.error("Sign in error:", error);
       throw new Error(
         error.response?.data?.message || "Invalid email or password",
       );
+    }
+  };
+
+  const adminSignIn = async (email, password) => {
+    if (email?.trim().toLowerCase() !== MOCK_ADMIN_CREDENTIALS.email) {
+      throw new Error("Invalid email or password");
+    }
+    if (password !== MOCK_ADMIN_CREDENTIALS.password) {
+      throw new Error("Invalid email or password");
+    }
+
+    localStorage.setItem("adminUser", JSON.stringify(MOCK_ADMIN_DATA));
+    localStorage.setItem("adminToken", "local-admin-session");
+    setAdminUser(MOCK_ADMIN_DATA);
+    return MOCK_ADMIN_DATA;
+  };
+
+  const adminSignOut = async () => {
+    try {
+      setAdminUser(null);
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("adminToken");
+    } catch (error) {
+      console.error("Admin sign out error:", error);
+      throw error;
     }
   };
 
@@ -103,6 +163,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkAuth();
+    checkAdminAuth();
   }, []);
 
   const value = {
@@ -113,6 +174,12 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signOut,
     checkAuth,
+    adminUser,
+    isAdminAuthenticated: !!adminUser,
+    isAdminLoading,
+    adminSignIn,
+    adminSignOut,
+    checkAdminAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

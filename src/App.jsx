@@ -44,6 +44,17 @@ import Blog from "./components/pages/Blog";
 import BlogDetail from "./components/BlogDetails";
 import JobDetails from "./components/pages/JobDetails";
 import { TalentResultsWrapper } from "./components/employerDashboard/TalentResultWarapper";
+import AdminDashboardLayout from "./components/adminDashboard/AdminDashboardLayout";
+import AdminProtectedRoute from "./components/adminDashboard/AdminProtectedRoute";
+import AdminSignIn from "./components/adminDashboard/AdminSignIn";
+import AdminOverview from "./components/adminDashboard/AdminOverview";
+import ManageCandidates from "./components/adminDashboard/ManageCandidates";
+import ManageEmployers from "./components/adminDashboard/ManageEmployers";
+import ManageJobs from "./components/adminDashboard/ManageJobs";
+import SubscriptionPlans from "./components/adminDashboard/SubscriptionPlans";
+import SubscribedEmployers from "./components/adminDashboard/SubscribedEmployers";
+import SubscribedCandidates from "./components/adminDashboard/SubscribedCandidates";
+import SupportCenter from "./components/adminDashboard/SupportCenter";
 
 const AppContent = () => {
   const location = useLocation();
@@ -84,9 +95,20 @@ const AppContent = () => {
       "/talent-dashboard/delete-profile",
       "/talent-dashboard/job-results/details/:id",
       "/talent-dashboard/job-results",
+      // admin dashboard
+      "/admin-signin",
+      "/admin-dashboard",
+      "/admin-dashboard/candidates",
+      "/admin-dashboard/employers",
+      "/admin-dashboard/jobs",
+      "/admin-dashboard/subscription",
+      "/admin-dashboard/subscription/employers",
+      "/admin-dashboard/subscription/candidates",
+      "/admin-dashboard/support",
     ].includes(location.pathname) ||
     location.pathname.startsWith("/talent-dashboard/") ||
-    location.pathname.startsWith("/dashboard/");
+    location.pathname.startsWith("/dashboard/") ||
+    location.pathname.startsWith("/admin-dashboard/");
 
   return (
     <div className="min-h-screen bg-[#0E0E10] text-white">
@@ -256,6 +278,89 @@ const AppContent = () => {
                   <TalentResultsWrapper />
                 </DashboardLayout>
               </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Dashboard Routes */}
+          <Route path="/admin-signin" element={<AdminSignIn />} />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <AdminOverview />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/candidates"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <ManageCandidates />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/employers"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <ManageEmployers />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/jobs"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <ManageJobs />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/subscription"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <SubscriptionPlans />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/subscription/employers"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <SubscribedEmployers />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/subscription/candidates"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <SubscribedCandidates />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard/support"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <SupportCenter />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
             }
           />
 
