@@ -80,6 +80,8 @@ const sortOptions = [
   { value: "name-desc", label: "Name (Z-A)" },
 ];
 
+const PAGE_SIZE = 5;
+
 const RowMenu = ({ row }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -172,6 +174,13 @@ export const SubscribedCandidates = () => {
     return rows;
   }, [search, sort]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
@@ -209,12 +218,15 @@ export const SubscribedCandidates = () => {
             <tbody className="divide-y divide-white/5">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500 text-sm">
+                  <td
+                    colSpan={6}
+                    className="py-10 text-center text-gray-500 text-sm"
+                  >
                     No subscribed candidates match "{search}"
                   </td>
                 </tr>
               )}
-              {filtered.map((row, i) => (
+              {paginated.map((row, i) => (
                 <tr key={i} className="text-sm">
                   <td className="py-4 pr-4 text-white font-medium whitespace-nowrap">
                     {row.name}
@@ -250,7 +262,11 @@ export const SubscribedCandidates = () => {
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={currentPage}
+          totalPages={totalPages}
+          onChange={setPage}
+        />
       </div>
 
       <SubscriptionDetailModal

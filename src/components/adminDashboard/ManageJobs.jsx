@@ -90,6 +90,8 @@ const sortOptions = [
   { value: "title-asc", label: "Title (A-Z)" },
 ];
 
+const PAGE_SIZE = 4;
+
 export const ManageJobs = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
@@ -138,6 +140,13 @@ export const ManageJobs = () => {
     return rows;
   }, [jobs, search, sort]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
@@ -182,7 +191,7 @@ export const ManageJobs = () => {
                   </td>
                 </tr>
               )}
-              {filtered.map((job) => (
+              {paginated.map((job) => (
                 <tr key={job.id}>
                   <td className="py-5 pr-4">
                     <div className="flex items-center gap-2">
@@ -257,7 +266,11 @@ export const ManageJobs = () => {
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={currentPage}
+          totalPages={totalPages}
+          onChange={setPage}
+        />
       </div>
 
       <Modal
