@@ -77,6 +77,8 @@ const sortOptions = [
   { value: "name-desc", label: "Name (Z-A)" },
 ];
 
+const PAGE_SIZE = 4;
+
 export const ManageCandidates = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
@@ -113,6 +115,13 @@ export const ManageCandidates = () => {
     });
     return rows;
   }, [candidates, search, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -157,7 +166,7 @@ export const ManageCandidates = () => {
                   </td>
                 </tr>
               )}
-              {filtered.map((c) => (
+              {paginated.map((c) => (
                 <tr key={c.id}>
                   <td className="py-5 pr-4">
                     <div className="flex items-center gap-3">
@@ -226,7 +235,11 @@ export const ManageCandidates = () => {
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={currentPage}
+          totalPages={totalPages}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

@@ -136,7 +136,13 @@ const statusStyle = {
   Closed: "text-red-500",
 };
 
-const statusFilters = ["All Requests", "Open", "In Progress", "Resolved", "Closed"];
+const statusFilters = [
+  "All Requests",
+  "Open",
+  "In Progress",
+  "Resolved",
+  "Closed",
+];
 const pageSizeOptions = [8, 15, 25, 50];
 
 const RowActions = ({ onSetStatus }) => {
@@ -342,7 +348,12 @@ export const SupportCenter = () => {
     });
   }, [tickets, search, statusFilter]);
 
-  const visible = filtered.slice(0, pageSize);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visible = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -356,7 +367,8 @@ export const SupportCenter = () => {
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <h2 className="text-lg font-semibold text-white">
-            Support Tickets <span className="text-gray-500">({filtered.length})</span>
+            Support Tickets{" "}
+            <span className="text-gray-500">({filtered.length})</span>
           </h2>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-2.5 w-full sm:w-64 focus-within:border-white/25 transition-colors">
@@ -460,7 +472,10 @@ export const SupportCenter = () => {
             <tbody className="divide-y divide-white/5">
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500 text-sm">
+                  <td
+                    colSpan={6}
+                    className="py-10 text-center text-gray-500 text-sm"
+                  >
                     No tickets match your filters
                   </td>
                 </tr>
@@ -506,7 +521,11 @@ export const SupportCenter = () => {
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={currentPage}
+          totalPages={totalPages}
+          onChange={setPage}
+        />
       </div>
 
       <TicketModal
