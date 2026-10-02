@@ -17,6 +17,8 @@ import savedJobRoutes from "./routes/savedJobRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 import genRoutes from "./routes/genRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
@@ -63,6 +65,8 @@ app.use("/api/applications", jobApplicationRoutes);
 app.use("/api/saved-jobs", savedJobRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/gen", genRoutes);
+app.use("/api/admin/auth", adminAuthRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Error Handler
 app.use(errorHandler);

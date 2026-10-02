@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   MoreHorizontal,
   MapPin,
@@ -9,51 +9,9 @@ import {
 import { toast } from "sonner";
 import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
-const seedEmployers = [
-  {
-    id: 0,
-    name: "Avitex Agency",
-    address: "Las Vegas, NV 89107, USA",
-    date: "2023-12-18",
-    status: "Verified",
-  },
-  {
-    id: 1,
-    name: "Cybrary",
-    address: "Reston, VA 20190, USA",
-    date: "2023-12-14",
-    status: "Unverified",
-  },
-  {
-    id: 2,
-    name: "Coana",
-    address: "Austin, TX 78701, USA",
-    date: "2023-12-10",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    name: "Azure Talent",
-    address: "Seattle, WA 98101, USA",
-    date: "2023-12-07",
-    status: "Pending",
-  },
-  {
-    id: 4,
-    name: "Skate Recruiting",
-    address: "Denver, CO 80202, USA",
-    date: "2023-12-03",
-    status: "Pending",
-  },
-  {
-    id: 5,
-    name: "Northwind Group",
-    address: "Chicago, IL 60601, USA",
-    date: "2023-11-29",
-    status: "Verified",
-  },
-];
 
 const statusStyle = {
   Verified: "bg-emerald-600/15 text-emerald-500",
@@ -137,46 +95,133 @@ export const ManageEmployers = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
-  const [employers, setEmployers] = useState(seedEmployers);
+  // const [employers, setEmployers] = useState(seedEmployers);
+  const [employers, setEmployers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const setStatus = (id, status) => {
-    setEmployers((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status } : e)),
-    );
-    toast.success(`Employer marked as ${status}`);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+
+  // const setStatus = (id, status) => {
+  //   setEmployers((prev) =>
+  //     prev.map((e) => (e.id === id ? { ...e, status } : e)),
+  //   );
+  //   toast.success(`Employer marked as ${status}`);
+  // };
+
+  // const resetPassword = (e) =>
+  //   toast.success(`Password reset link sent to ${e.name}`);
+
+  // const deleteEmployer = (e) => {
+  //   setEmployers((prev) => prev.filter((row) => row.id !== e.id));
+  //   toast.success(`${e.name} deleted`);
+  // };
+
+  const fetchEmployers = async () => {
+    try {
+      setLoading(true);
+
+      const token = localStorage.getItem("adminToken");
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "10",
+        search,
+        sort:
+          sort === "oldest"
+            ? "createdAt"
+            : sort === "name-asc"
+            ? "companyName"
+            : sort === "name-desc"
+            ? "-companyName"
+            : "-createdAt",
+      });
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/admin/employers?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setEmployers(res.data.data || []);
+      setPagination(res.data.pagination);
+    } catch (error) {
+      console.error("Fetch employers error:", error);
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to load employers"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resetPassword = (e) =>
-    toast.success(`Password reset link sent to ${e.name}`);
+  useEffect(() => {
+    fetchEmployers();
+  }, [page, sort, search]);
 
-  const deleteEmployer = (e) => {
-    setEmployers((prev) => prev.filter((row) => row.id !== e.id));
-    toast.success(`${e.name} deleted`);
+  const setVerification = async (id, verified) => {
+    try {
+      const token = localStorage.getItem("adminToken");
+
+      await axios.patch(
+        `${API_BASE_URL}/api/admin/employers/${id}/verification`,
+        { verified },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success(
+        verified
+          ? "Employer verified"
+          : "Employer unverified"
+      );
+
+      fetchEmployers();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to update employer"
+      );
+    }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let rows = employers.filter(
-      (e) =>
-        !q ||
-        e.name.toLowerCase().includes(q) ||
-        e.address.toLowerCase().includes(q),
-    );
-    rows = [...rows].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return new Date(a.date) - new Date(b.date);
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "newest":
-        default:
-          return new Date(b.date) - new Date(a.date);
-      }
-    });
-    return rows;
-  }, [employers, search, sort]);
+  const deleteEmployer = async (id) => {
+    try {
+      const token = localStorage.getItem("adminToken");
+
+      await axios.delete(
+        `${API_BASE_URL}/api/admin/employers/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success("Employer deleted successfully");
+
+      fetchEmployers();
+    } catch (error) {
+      console.error("Delete employer error:", error);
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to delete employer"
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -211,57 +256,99 @@ export const ManageEmployers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filtered.length === 0 && (
+              {employers.length === 0 && (
                 <tr>
                   <td
                     colSpan={4}
                     className="py-10 text-center text-gray-500 text-sm"
                   >
-                    No employers match "{search}"
+                    {loading
+                      ? "Loading employers..."
+                      : `No employers match "${search}"`}
                   </td>
                 </tr>
               )}
-              {filtered.map((employer) => (
-                <tr key={employer.id}>
-                  <td className="py-5 pr-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-lg bg-gray-600 flex-shrink-0" />
-                      <div>
-                        <div className="text-white font-semibold">
-                          {employer.name}
+
+              {employers.map((employer) => {
+                const employerName =
+                  employer.companyName ||
+                  employer.displayName ||
+                  `${employer.firstName || ""} ${
+                    employer.lastName || ""
+                  }`.trim() ||
+                  "Unnamed Employer";
+
+                const employerStatus = employer.isVerified
+                  ? "Verified"
+                  : employer.paymentStatus === "pending"
+                  ? "Pending"
+                  : "Unverified";
+
+                return (
+                  <tr key={employer._id}>
+                    <td className="py-5 pr-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-lg bg-gray-600 flex-shrink-0 overflow-hidden">
+                          {employer.logo?.url ? (
+                            <img
+                              src={employer.logo.url}
+                              alt={employerName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-1 text-gray-500 text-sm">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {employer.address}
+
+                        <div>
+                          <div className="text-white font-semibold">
+                            {employerName}
+                          </div>
+
+                          <div className="flex items-center gap-1 text-gray-500 text-sm">
+                            <MapPin className="w-3.5 h-3.5" />
+
+                            {employer.location ||
+                              employer.address ||
+                              "Location not specified"}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-5 pr-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle[employer.status]}`}
-                    >
-                      {employer.status}
-                    </span>
-                  </td>
-                  <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
-                    {formatDate(employer.date)}
-                  </td>
-                  <td className="py-5 text-right">
-                    <RowMenu
-                      onVerify={() => setStatus(employer.id, "Verified")}
-                      onUnverify={() => setStatus(employer.id, "Unverified")}
-                      onResetPassword={() => resetPassword(employer)}
-                      onDelete={() => deleteEmployer(employer)}
-                    />
-                  </td>
-                </tr>
-              ))}
+                    </td>
+
+                    <td className="py-5 pr-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle[employerStatus]}`}
+                      >
+                        {employerStatus}
+                      </span>
+                    </td>
+
+                    <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
+                      {formatDate(employer.createdAt)}
+                    </td>
+
+                    <td className="py-5 text-right">
+                      <RowMenu
+                        onVerify={() =>
+                          setVerification(employer._id, true)
+                        }
+                        onUnverify={() =>
+                          setVerification(employer._id, false)
+                        }
+                        onDelete={() => deleteEmployer(employer._id)}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

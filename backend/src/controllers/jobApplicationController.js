@@ -95,7 +95,7 @@ export const getJobApplications = async (req, res, next) => {
     next(error);
   }
 };
-
+// Employer Applications
 export const getEmployerApplications = async (req, res, next) => {
   try {
     const employerId = req.user._id;

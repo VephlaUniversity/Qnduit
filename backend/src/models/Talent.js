@@ -26,6 +26,13 @@ const talentSchema = new mongoose.Schema(
     default: false,
   },
 
+  accountStatus: {
+    type: String,
+    enum: ["active", "suspended"],
+    default: "active",
+    index: true,
+  },
+
   // ================= PROFILE =================
   fullName: String,
   dateOfBirth: String,

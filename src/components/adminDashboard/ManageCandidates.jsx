@@ -1,62 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
 import { FaXmark } from "react-icons/fa6";
 import { RxReload } from "react-icons/rx";
-
-const seedCandidates = [
-  {
-    id: 1,
-    role: "Computational Wizard",
-    name: "Arlene McCoy",
-    date: "2023-12-18",
-    status: "Active",
-  },
-  {
-    id: 2,
-    role: "Computational Wizard",
-    name: "Mrs Dianne Russell",
-    date: "2023-12-14",
-    status: "Suspended",
-  },
-  {
-    id: 3,
-    role: "Computational Wizard",
-    name: "Mr Guy Hawkins",
-    date: "2023-12-10",
-    status: "Active",
-  },
-  {
-    id: 4,
-    role: "Computational Wizard",
-    name: "Lady Darlene Robertson",
-    date: "2023-12-08",
-    status: "Active",
-  },
-  {
-    id: 5,
-    role: "Computational Wizard",
-    name: "Esther Howard",
-    date: "2023-12-05",
-    status: "Active",
-  },
-  {
-    id: 6,
-    role: "Computational Wizard",
-    name: "Jenny Wilson",
-    date: "2023-12-02",
-    status: "Suspended",
-  },
-  {
-    id: 7,
-    role: "Computational Wizard",
-    name: "Cody Fisher",
-    date: "2023-11-28",
-    status: "Active",
-  },
-];
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const statusStyle = {
   Active: "bg-emerald-600/15 text-emerald-500",
@@ -81,38 +31,100 @@ export const ManageCandidates = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
-  const [candidates, setCandidates] = useState(seedCandidates);
+  // const [candidates, setCandidates] = useState(seedCandidates);
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const setStatus = (id, status) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c)),
-    );
-    toast.success(`Candidate marked as ${status}`);
+  const fetchCandidates = async () => {
+    try {
+      setLoading(true);
+
+      const token = localStorage.getItem("adminToken");
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "10",
+        search,
+        sort:
+          sort === "oldest"
+            ? "createdAt"
+            : sort === "name-asc"
+            ? "firstName"
+            : sort === "name-desc"
+            ? "-firstName"
+            : "-createdAt",
+      });
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/admin/talents?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setCandidates(res.data.data || []);
+      setPagination(res.data.pagination);
+    } catch (error) {
+      console.error("Fetch candidates error:", error);
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to load candidates"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let rows = candidates.filter(
-      (c) =>
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.role.toLowerCase().includes(q),
-    );
-    rows = [...rows].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return new Date(a.date) - new Date(b.date);
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "newest":
-        default:
-          return new Date(b.date) - new Date(a.date);
-      }
-    });
-    return rows;
-  }, [candidates, search, sort]);
+  // const setStatus = (id, status) => {
+  //   setCandidates((prev) =>
+  //     prev.map((c) => (c.id === id ? { ...c, status } : c)),
+  //   );
+  //   toast.success(`Candidate marked as ${status}`);
+  // };
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [page, sort, search]);
+
+  const setStatus = async (id, status) => {
+    try {
+      const token = localStorage.getItem("adminToken");
+
+      await axios.patch(
+        `${API_BASE_URL}/api/admin/talents/${id}/status`,
+        {
+          status,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success(
+        status === "suspended"
+          ? "Candidate suspended"
+          : "Candidate reactivated"
+      );
+
+      fetchCandidates();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to update candidate"
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -147,86 +159,129 @@ export const ManageCandidates = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filtered.length === 0 && (
+              {candidates.length === 0 && (
                 <tr>
                   <td
                     colSpan={4}
                     className="py-10 text-center text-gray-500 text-sm"
                   >
-                    No candidates match "{search}"
+                    {loading
+                      ? "Loading candidates..."
+                      : `No candidates match "${search}"`}
                   </td>
                 </tr>
               )}
-              {filtered.map((c) => (
-                <tr key={c.id}>
-                  <td className="py-5 pr-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-full bg-gray-600 flex-shrink-0" />
-                      <div>
-                        <div className="text-blue-400 text-sm">{c.role}</div>
-                        <div className="text-white font-semibold">{c.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-600/15 text-emerald-500 text-xs">
-                            Available now
-                          </span>
-                          <span className="flex items-center gap-1 text-gray-500 text-xs">
-                            <MapPin className="w-3 h-3" />
-                            Tokyo, Japan
-                          </span>
+
+              {candidates.map((c) => {
+                const candidateName =
+                  c.fullName ||
+                  `${c.firstName || ""} ${c.lastName || ""}`.trim() ||
+                  "Unnamed Candidate";
+
+                const candidateStatus =
+                  c.accountStatus === "suspended"
+                    ? "Suspended"
+                    : "Active";
+
+                return (
+                  <tr key={c._id}>
+                    <td className="py-5 pr-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-gray-600 flex-shrink-0 overflow-hidden">
+                          {c.avatar?.url ? (
+                            <img
+                              src={c.avatar.url}
+                              alt={candidateName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+
+                        <div>
+                          <div className="text-blue-400 text-sm">
+                            {c.jobTitle || "No job title"}
+                          </div>
+
+                          <div className="text-white font-semibold">
+                            {candidateName}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-600/15 text-emerald-500 text-xs">
+                              Available now
+                            </span>
+
+                            <span className="flex items-center gap-1 text-gray-500 text-xs">
+                              <MapPin className="w-3 h-3" />
+                              {c.location || "Location not specified"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-5 pr-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle[c.status]}`}
-                    >
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
-                    {formatDate(c.date)}
-                  </td>
-                  <td className="py-5">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        title="View Profile"
-                        onClick={() =>
-                          toast.info(`Viewing profile for ${c.name}`)
-                        }
-                        className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
+                    </td>
+
+                    <td className="py-5 pr-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle[candidateStatus]}`}
                       >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        title={
-                          c.status === "Active"
-                            ? "Suspend User"
-                            : "Reactivate User"
-                        }
-                        onClick={() =>
-                          setStatus(
-                            c.id,
-                            c.status === "Active" ? "Suspended" : "Active",
-                          )
-                        }
-                        className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
-                      >
-                        {c.status === "Active" ? (
-                          <FaXmark className="w-4 h-4" />
-                        ) : (
-                          <RxReload className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {candidateStatus}
+                      </span>
+                    </td>
+
+                    <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
+                      {formatDate(c.createdAt)}
+                    </td>
+
+                    <td className="py-5">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          title="View Profile"
+                          onClick={() =>
+                            toast.info(
+                              `Viewing profile for ${candidateName}`
+                            )
+                          }
+                          className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          title={
+                            c.accountStatus === "suspended"
+                              ? "Reactivate candidate"
+                              : "Suspend candidate"
+                          }
+                          onClick={() =>
+                            setStatus(
+                              c._id,
+                              c.accountStatus === "active"
+                                ? "suspended"
+                                : "active"
+                            )
+                          }
+                          className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
+                        >
+                          {c.accountStatus === "active" ? (
+                            <FaXmark className="w-4 h-4" />
+                          ) : (
+                            <RxReload className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          onChange={setPage}
+        />
       </div>
     </div>
   );

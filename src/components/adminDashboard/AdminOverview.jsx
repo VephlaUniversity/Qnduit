@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
@@ -22,13 +22,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { toast } from "sonner";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
-const stats = [
+/*const stats = [
   { icon: Briefcase, label: "Jobs", value: "158000", color: "bg-blue-600" },
   { icon: ScanSearch, label: "Employers", value: "2068", color: "bg-red-600" },
   { icon: Star, label: "Reviews", value: "21", color: "bg-emerald-600" },
   { icon: Bookmark, label: "Wishlist", value: "320", color: "bg-yellow-500" },
-];
+];*/
 
 const chartData = {
   month: [
@@ -285,9 +287,146 @@ const CustomTooltip = ({ active, payload }) => {
 
 export const AdminOverview = () => {
   const navigate = useNavigate();
+
   const [period, setPeriod] = useState("month");
-  const [candidateRows, setCandidateRows] = useState(candidates);
-  const [employerRows, setEmployerRows] = useState(employers);
+  const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState({
+    jobs: 0,
+    employers: 0,
+    candidates: 0,
+    reviews: 0,
+    wishlist: 0,
+  });
+
+  const [chartData, setChartData] = useState({
+    day: [],
+    week: [],
+    month: [],
+    year: [],
+  });
+
+  const [candidateRows, setCandidateRows] = useState([]);
+  const [employerRows, setEmployerRows] = useState([]);
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+
+      const token = localStorage.getItem("adminToken");
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/admin/dashboard`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setStats(res.data.stats);
+      setChartData(
+        res.data.chartData || {
+          day: [],
+          week: [],
+          month: [],
+          year: [],
+        }
+      );
+
+      setCandidateRows(res.data.recentCandidates || []);
+      setEmployerRows(res.data.recentEmployers || []);
+    } catch (error) {
+      console.error("Admin dashboard error:", error);
+
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to load dashboard"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const statCards = [
+    {
+      icon: Briefcase,
+      label: "Jobs",
+      value: stats.jobs,
+      color: "bg-blue-600",
+    },
+    {
+      icon: ScanSearch,
+      label: "Employers",
+      value: stats.employers,
+      color: "bg-red-600",
+    },
+    {
+      icon: Star,
+      label: "Reviews",
+      value: stats.reviews,
+      color: "bg-emerald-600",
+    },
+    {
+      icon: Bookmark,
+      label: "Wishlist",
+      value: stats.wishlist,
+      color: "bg-yellow-500",
+    },
+  ];
+
+  const candidateTableRows = candidateRows.map((candidate) => ({
+    ...candidate,
+    name:
+      candidate.fullName ||
+      `${candidate.firstName || ""} ${candidate.lastName || ""}`.trim(),
+
+    date: new Date(candidate.createdAt).toLocaleDateString(
+      "en-US",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    ),
+
+    category: candidate.jobTitle || "Not specified",
+
+    status: candidate.isVerified
+      ? "Verified"
+      : "Unverified",
+  }));
+
+  const employerTableRows = employerRows.map((employer) => ({
+    ...employer,
+
+    name:
+      employer.companyName ||
+      employer.displayName ||
+      `${employer.firstName || ""} ${employer.lastName || ""}`.trim(),
+
+    date: new Date(employer.createdAt).toLocaleDateString(
+      "en-US",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    ),
+
+    category:
+      employer.companyIndustry || "Not specified",
+
+    status: employer.isVerified
+      ? "Verified"
+      : employer.paymentStatus === "pending"
+      ? "Pending"
+      : "Unverified",
+  }));
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -300,8 +439,9 @@ export const AdminOverview = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat, index) => {
+        {statCards.map((stat, index) => {
           const Icon = stat.icon;
+
           return (
             <div
               key={index}
@@ -311,10 +451,12 @@ export const AdminOverview = () => {
                 <div className={`${stat.color} p-4 rounded-lg`}>
                   <Icon className="w-6 h-6 text-white" />
                 </div>
+
                 <div>
                   <div className="text-3xl font-bold text-white">
-                    {stat.value}
+                    {loading ? "..." : stat.value.toLocaleString()}
                   </div>
+
                   <div className="text-gray-400 text-sm mt-1">
                     {stat.label}
                   </div>
@@ -346,20 +488,28 @@ export const AdminOverview = () => {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData[period]}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+          <BarChart data={chartData?.[period] || []}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#ffffff10"
+            />
+
             <XAxis
               dataKey="name"
               stroke="#9CA3AF"
               tick={{ fill: "#9CA3AF" }}
               axisLine={{ stroke: "#ffffff20" }}
             />
+
             <YAxis
               stroke="#9CA3AF"
               tick={{ fill: "#9CA3AF" }}
               axisLine={{ stroke: "#ffffff20" }}
+              allowDecimals={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "#ffffff05" }} />
+
+            <Tooltip content={<CustomTooltip />} />
+
             <Bar
               dataKey="value"
               fill="#2563eb"
@@ -372,40 +522,18 @@ export const AdminOverview = () => {
 
       <SignupTable
         title="Recent Candidate Signups"
-        rows={candidateRows}
-        onViewAll={() => navigate("/admin-dashboard/candidates")}
-        onRowChange={(i, status) => {
-          setCandidateRows((prev) =>
-            prev.map((r, idx) => (idx === i ? { ...r, status } : r)),
-          );
-          toast.success(`Candidate marked as ${status}`);
-        }}
-        onResetPassword={(row) =>
-          toast.success(`Password reset link sent to ${row.email}`)
+        rows={candidateTableRows}
+        onViewAll={() =>
+          navigate("/admin-dashboard/candidates")
         }
-        onDelete={(i, row) => {
-          setCandidateRows((prev) => prev.filter((_, idx) => idx !== i));
-          toast.success(`${row.name} deleted`);
-        }}
       />
 
       <SignupTable
         title="Recent Employers Signups"
-        rows={employerRows}
-        onViewAll={() => navigate("/admin-dashboard/employers")}
-        onRowChange={(i, status) => {
-          setEmployerRows((prev) =>
-            prev.map((r, idx) => (idx === i ? { ...r, status } : r)),
-          );
-          toast.success(`Employer marked as ${status}`);
-        }}
-        onResetPassword={(row) =>
-          toast.success(`Password reset link sent to ${row.email}`)
+        rows={employerTableRows}
+        onViewAll={() =>
+          navigate("/admin-dashboard/employers")
         }
-        onDelete={(i, row) => {
-          setEmployerRows((prev) => prev.filter((_, idx) => idx !== i));
-          toast.success(`${row.name} deleted`);
-        }}
       />
     </div>
   );

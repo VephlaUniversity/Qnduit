@@ -66,6 +66,12 @@ const employerSchema = new mongoose.Schema(
       type: Boolean, 
       default: false 
     },
+    accountStatus: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active",
+      index: true,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

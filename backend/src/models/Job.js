@@ -107,6 +107,12 @@ const JobSchema = new mongoose.Schema(
       index: true
     },
 
+    flagged: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     isDeleted: {
       type: Boolean,
       default: false
