@@ -2,6 +2,10 @@ import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 import Job from "../models/Job.js";
 import Meeting from "../models/Meeting.js";
+import TalentSubscription from "../models/TalentSubscription.js";
+import EmployerSubscription from "../models/EmployerSubscription.js";
+import TalentPayment from "../models/TalentPayment.js";
+import EmployerPayment from "../models/EmployerPayment.js";
 
 // ADMIN DASHBOARD
 
@@ -459,18 +463,26 @@ export const getAdminJobs = async (req, res) => {
       page = 1,
       limit = 10,
       search = "",
-      sort = "-createdAt",
+      sort = "newest",
     } = req.query;
 
-    const pageNumber = Math.max(Number(page), 1);
-    const limitNumber = Math.min(Math.max(Number(limit), 1), 100);
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.min(
+      Math.max(Number(limit) || 10, 1),
+      100
+    );
 
     const filter = {
       isDeleted: false,
     };
 
-    if (search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    const searchTerm = search.trim();
+
+    if (searchTerm) {
+      const regex = new RegExp(
+        searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i"
+      );
 
       filter.$or = [
         { jobTitle: regex },
@@ -480,13 +492,22 @@ export const getAdminJobs = async (req, res) => {
       ];
     }
 
+    const sortOptions = {
+      newest: { createdAt: -1 },
+      oldest: { createdAt: 1 },
+      "applicants-desc": { applicantsCount: -1 },
+      "title-asc": { jobTitle: 1 },
+    };
+
+    const sortOrder = sortOptions[sort] || sortOptions.newest;
+
     const [jobs, total] = await Promise.all([
       Job.find(filter)
         .populate(
           "employer",
           "companyName displayName firstName lastName email"
         )
-        .sort(sort)
+        .sort(sortOrder)
         .skip((pageNumber - 1) * limitNumber)
         .limit(limitNumber)
         .lean(),
@@ -728,7 +749,6 @@ const getJobChartData = async () => {
       },
     ]),
 
-    // ALL YEARS
     Job.aggregate([
       {
         $match: {
@@ -835,4 +855,540 @@ const getJobChartData = async () => {
     month: monthData,
     year: yearData,
   };
+};
+
+
+// ADMIN SUBSCRIPTION STATS
+
+export const getAdminSubscriptionStats = async (req, res) => {
+  try {
+    const [
+      talentSubscribers,
+      employerSubscribers,
+      talentRevenue,
+      employerRevenue,
+    ] = await Promise.all([
+      TalentSubscription.countDocuments({
+        status: "active",
+      }),
+
+      EmployerSubscription.countDocuments({
+        status: "active",
+      }),
+
+      TalentPayment.aggregate([
+        {
+          $match: {
+            status: "successful",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]),
+
+      EmployerPayment.aggregate([
+        {
+          $match: {
+            status: "successful",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]),
+    ]);
+
+    const revenue =
+      (talentRevenue[0]?.total || 0) +
+      (employerRevenue[0]?.total || 0);
+
+    res.json({
+      success: true,
+      stats: {
+        revenue,
+        talentSubscribers,
+        employerSubscribers,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Get admin subscription stats error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to load subscription statistics",
+    });
+  }
+};
+
+
+// ADMIN SUBSCRIPTIONS
+export const getAdminSubscriptions = async (req, res) => {
+  try {
+    const {
+      type,
+      page = 1,
+      limit = 10,
+      search = "",
+      sort = "newest",
+    } = req.query;
+
+    if (!["talent", "employer"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid subscription type",
+      });
+    }
+
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.min(
+      Math.max(Number(limit) || 10, 1),
+      100
+    );
+
+    const skip = (pageNumber - 1) * limitNumber;
+    const searchTerm = search.trim();
+
+    const sortDirection =
+      sort === "oldest" ? 1 : -1;
+
+    if (type === "talent") {
+      const match = {};
+
+      if (searchTerm) {
+        match.$or = [
+          {
+            "talent.firstName": {
+              $regex: searchTerm,
+              $options: "i",
+            },
+          },
+          {
+            "talent.lastName": {
+              $regex: searchTerm,
+              $options: "i",
+            },
+          },
+          {
+            "talent.fullName": {
+              $regex: searchTerm,
+              $options: "i",
+            },
+          },
+          {
+            "talent.email": {
+              $regex: searchTerm,
+              $options: "i",
+            },
+          },
+          {
+            plan: {
+              $regex: searchTerm,
+              $options: "i",
+            },
+          },
+        ];
+      }
+
+      const pipeline = [
+        {
+          $lookup: {
+            from: "talents",
+            localField: "talent",
+            foreignField: "_id",
+            as: "talent",
+          },
+        },
+
+        {
+          $unwind: {
+            path: "$talent",
+            preserveNullAndEmptyArrays: false,
+          },
+        },
+
+        ...(searchTerm
+          ? [{ $match: match }]
+          : []),
+
+        {
+          $sort: {
+            createdAt: sortDirection,
+          },
+        },
+
+        {
+          $facet: {
+            data: [
+              {
+                $skip: skip,
+              },
+              {
+                $limit: limitNumber,
+              },
+            ],
+
+            total: [
+              {
+                $count: "count",
+              },
+            ],
+          },
+        },
+      ];
+
+      const result =
+        await TalentSubscription.aggregate(
+          pipeline
+        );
+
+      const data = result[0]?.data || [];
+
+      const total =
+        result[0]?.total?.[0]?.count || 0;
+
+      const rows = await Promise.all(
+        data.map(async (subscription) => {
+          const latestPayment =
+            await TalentPayment.findOne({
+              talent: subscription.talent._id,
+              status: "successful",
+            })
+              .sort({ createdAt: -1 })
+              .lean();
+
+          return {
+            id: subscription._id,
+            type: "talent",
+
+            name:
+              subscription.talent.fullName ||
+              `${subscription.talent.firstName || ""} ${
+                subscription.talent.lastName || ""
+              }`.trim(),
+
+            email: subscription.talent.email || "",
+
+            plan: subscription.plan,
+
+            status: subscription.status,
+
+            startDate:
+              subscription.currentPeriodStart ||
+              subscription.createdAt,
+
+            endDate:
+              subscription.currentPeriodEnd || null,
+
+            avatar:
+              subscription.talent.avatar || null,
+
+            lastPayment:
+              latestPayment?.paidAt ||
+              latestPayment?.createdAt ||
+              null,
+
+            amount:
+              latestPayment?.amount != null
+                ? `${latestPayment.currency || "USD"} ${Number(
+                    latestPayment.amount
+                  ).toFixed(2)}`
+                : null,
+
+            currency:
+              latestPayment?.currency || null,
+
+            transactionId:
+              latestPayment?.transactionId || null,
+          };
+        })
+      );
+
+      return res.json({
+        success: true,
+        data: rows,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          total,
+          totalPages: Math.ceil(
+            total / limitNumber
+          ),
+        },
+      });
+    }
+
+    const employerMatch = {};
+
+    if (searchTerm) {
+      employerMatch.$or = [
+        {
+          "employer.firstName": {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+        {
+          "employer.lastName": {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+        {
+          "employer.companyName": {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+        {
+          "employer.displayName": {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+        {
+          "employer.email": {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+        {
+          plan: {
+            $regex: searchTerm,
+            $options: "i",
+          },
+        },
+      ];
+    }
+
+    const employerPipeline = [
+      {
+        $lookup: {
+          from: "employers",
+          localField: "employer",
+          foreignField: "_id",
+          as: "employer",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$employer",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+
+      ...(searchTerm
+        ? [{ $match: employerMatch }]
+        : []),
+
+      {
+        $sort: {
+          createdAt: sortDirection,
+        },
+      },
+
+      {
+        $facet: {
+          data: [
+            {
+              $skip: skip,
+            },
+            {
+              $limit: limitNumber,
+            },
+          ],
+
+          total: [
+            {
+              $count: "count",
+            },
+          ],
+        },
+      },
+    ];
+
+    const result =
+      await EmployerSubscription.aggregate(
+        employerPipeline
+      );
+
+    const data = result[0]?.data || [];
+
+    const total =
+      result[0]?.total?.[0]?.count || 0;
+
+    const rows = await Promise.all(
+      data.map(async (subscription) => {
+        const latestPayment =
+          await EmployerPayment.findOne({
+            employer: subscription.employer._id,
+            status: "successful",
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        return {
+          id: subscription._id,
+          type: "employer",
+
+          name:
+            subscription.employer.companyName ||
+            subscription.employer.displayName ||
+            `${subscription.employer.firstName || ""} ${
+              subscription.employer.lastName || ""
+            }`.trim(),
+
+          email:
+            subscription.employer.email || "",
+
+          plan: subscription.plan,
+
+          status: subscription.status,
+
+          startDate:
+            subscription.currentPeriodStart ||
+            subscription.createdAt,
+
+          endDate:
+            subscription.currentPeriodEnd || null,
+
+          logo:
+            subscription.employer.logo || null,
+
+          lastPayment:
+            latestPayment?.paidAt ||
+            latestPayment?.createdAt ||
+            null,
+
+          amount:
+            latestPayment?.amount != null
+              ? `${latestPayment.currency || "USD"} ${Number(
+                  latestPayment.amount
+                ).toFixed(2)}`
+              : null,
+
+          currency:
+            latestPayment?.currency || null,
+
+          transactionId:
+            latestPayment?.transactionId || null,
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: rows,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages: Math.ceil(
+          total / limitNumber
+        ),
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Get admin subscriptions error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load subscriptions",
+      error: error.message,
+    });
+  }
+};
+
+// ADMIN SUBSCRIPTION DETAILS
+export const getAdminSubscription = async (
+  req,
+  res
+) => {
+  try {
+    const { type, id } = req.params;
+
+    if (!["talent", "employer"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid subscription type",
+      });
+    }
+
+    let subscription;
+
+    if (type === "talent") {
+      subscription =
+        await TalentSubscription.findById(id)
+          .populate(
+            "talent",
+            "firstName lastName fullName email phone location jobTitle experienceTime avatar resume"
+          )
+          .lean();
+    } else {
+      subscription =
+        await EmployerSubscription.findById(id)
+          .populate(
+            "employer",
+            "firstName lastName companyName displayName email phone location accountType logo"
+          )
+          .lean();
+    }
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "Subscription not found",
+      });
+    }
+
+    const payments =
+      type === "talent"
+        ? await TalentPayment.find({
+            talent: subscription.talent?._id,
+          })
+            .sort({ createdAt: -1 })
+            .lean()
+        : await EmployerPayment.find({
+            employer: subscription.employer?._id,
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+
+    res.json({
+      success: true,
+      subscription: {
+        ...subscription,
+        displayStatus:
+          getSubscriptionDisplayStatus(
+            subscription
+          ),
+      },
+      payments,
+    });
+  } catch (error) {
+    console.error(
+      "Get admin subscription error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Failed to load subscription",
+    });
+  }
 };

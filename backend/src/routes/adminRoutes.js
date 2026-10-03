@@ -17,6 +17,11 @@ import {
   getAdminJob,
   toggleJobFlag,
   deleteAdminJob,
+
+
+  getAdminSubscriptionStats,
+  getAdminSubscriptions,
+  getAdminSubscription,
 } from "../controllers/adminController.js";
 
 import {
@@ -93,6 +98,22 @@ router.patch(
 router.delete(
   "/jobs/:id",
   deleteAdminJob
+);
+
+
+router.get(
+  "/subscriptions/stats",
+  getAdminSubscriptionStats
+);
+
+router.get(
+  "/subscriptions",
+  getAdminSubscriptions
+);
+
+router.get(
+  "/subscriptions/:type/:id",
+  getAdminSubscription
 );
 
 export default router;

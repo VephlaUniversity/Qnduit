@@ -5,20 +5,18 @@ import Job from "../models/Job.js";
 // Apply for job
 export const applyForJob = async (req, res, next) => {
   try {
-
     const applicantId = req.user._id;
     const { jobId } = req.body;
 
     const job = await Job.findById(jobId);
 
-    if (!job) {
+    if (!job || job.isDeleted || job.status !== "published") {
       return res.status(404).json({
         success: false,
-        message: "Job not found",
+        message: "Job not found or no longer available",
       });
     }
 
-    // prevent duplicate application
     const existingApplication = await JobApplication.findOne({
       jobId,
       applicantId,
@@ -37,12 +35,15 @@ export const applyForJob = async (req, res, next) => {
       employerId: job.employer,
     });
 
+    await Job.findByIdAndUpdate(jobId, {
+      $inc: { applicantsCount: 1 },
+    });
+
     res.status(201).json({
       success: true,
       message: "Application submitted successfully",
       application,
     });
-
   } catch (error) {
     next(error);
   }
