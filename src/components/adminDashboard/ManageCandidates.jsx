@@ -1,59 +1,66 @@
-import React, { useMemo, useState } from "react";
-import { Eye, MapPin } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
-import { FaXmark } from "react-icons/fa6";
-import { RxReload } from "react-icons/rx";
+import { UserActionMenu } from "./UserActionMenu";
+import { Modal } from "./Modal";
 
 const seedCandidates = [
   {
     id: 1,
     role: "Computational Wizard",
     name: "Arlene McCoy",
-    date: "2023-12-18",
+    email: "arlene.mccoy@gmail.com",
+    date: "December 18, 2023",
     status: "Active",
   },
   {
     id: 2,
     role: "Computational Wizard",
     name: "Mrs Dianne Russell",
-    date: "2023-12-14",
+    email: "dianne.russell@gmail.com",
+    date: "December 18, 2023",
     status: "Suspended",
   },
   {
     id: 3,
     role: "Computational Wizard",
     name: "Mr Guy Hawkins",
-    date: "2023-12-10",
+    email: "guy.hawkins@gmail.com",
+    date: "December 18, 2023",
     status: "Active",
   },
   {
     id: 4,
     role: "Computational Wizard",
     name: "Lady Darlene Robertson",
-    date: "2023-12-08",
+    email: "darlene.robertson1@gmail.com",
+    date: "December 18, 2023",
     status: "Active",
   },
   {
     id: 5,
     role: "Computational Wizard",
-    name: "Esther Howard",
-    date: "2023-12-05",
+    name: "Lady Darlene Robertson",
+    email: "darlene.robertson2@gmail.com",
+    date: "December 18, 2023",
     status: "Active",
   },
   {
     id: 6,
     role: "Computational Wizard",
-    name: "Jenny Wilson",
-    date: "2023-12-02",
-    status: "Suspended",
+    name: "Lady Darlene Robertson",
+    email: "darlene.robertson3@gmail.com",
+    date: "December 18, 2023",
+    status: "Active",
   },
   {
     id: 7,
     role: "Computational Wizard",
-    name: "Cody Fisher",
-    date: "2023-11-28",
+    name: "Lady Darlene Robertson",
+    email: "darlene.robertson4@gmail.com",
+    date: "December 18, 2023",
     status: "Active",
   },
 ];
@@ -63,27 +70,47 @@ const statusStyle = {
   Suspended: "bg-red-600/15 text-red-500",
 };
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-const sortOptions = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+const SORT_OPTIONS = [
   { value: "name-asc", label: "Name (A-Z)" },
   { value: "name-desc", label: "Name (Z-A)" },
+  { value: "status", label: "Status" },
 ];
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 5;
 
 export const ManageCandidates = () => {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
   const [candidates, setCandidates] = useState(seedCandidates);
+  const [profile, setProfile] = useState(null);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = candidates.filter(
+      (c) =>
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.role.toLowerCase().includes(q),
+    );
+    rows = [...rows].sort((a, b) => {
+      if (sort === "name-asc") return a.name.localeCompare(b.name);
+      if (sort === "name-desc") return b.name.localeCompare(a.name);
+      if (sort === "status") return a.status.localeCompare(b.status);
+      return 0;
+    });
+    return rows;
+  }, [candidates, search, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Clamp so a delete/cancel on the last page never strands you on an
+  // empty page while earlier pages still have rows.
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   const setStatus = (id, status) => {
     setCandidates((prev) =>
@@ -92,36 +119,10 @@ export const ManageCandidates = () => {
     toast.success(`Candidate marked as ${status}`);
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let rows = candidates.filter(
-      (c) =>
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.role.toLowerCase().includes(q),
-    );
-    rows = [...rows].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return new Date(a.date) - new Date(b.date);
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "newest":
-        default:
-          return new Date(b.date) - new Date(a.date);
-      }
-    });
-    return rows;
-  }, [candidates, search, sort]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
+  const deleteCandidate = (id) => {
+    setCandidates((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Candidate deleted");
+  };
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -139,8 +140,8 @@ export const ManageCandidates = () => {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search by name or role"
-          sortOptions={sortOptions}
+          placeholder="Search by name, email or role"
+          sortOptions={SORT_OPTIONS}
           sortValue={sort}
           onSortChange={setSort}
         />
@@ -156,17 +157,17 @@ export const ManageCandidates = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filtered.length === 0 && (
+              {pageRows.length === 0 && (
                 <tr>
                   <td
                     colSpan={4}
-                    className="py-10 text-center text-gray-500 text-sm"
+                    className="py-8 text-center text-gray-500 text-sm"
                   >
-                    No candidates match "{search}"
+                    No candidates match your search.
                   </td>
                 </tr>
               )}
-              {paginated.map((c) => (
+              {pageRows.map((c) => (
                 <tr key={c.id}>
                   <td className="py-5 pr-4">
                     <div className="flex items-center gap-3">
@@ -194,38 +195,25 @@ export const ManageCandidates = () => {
                     </span>
                   </td>
                   <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
-                    {formatDate(c.date)}
+                    {c.date}
                   </td>
                   <td className="py-5">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        title="View Profile"
-                        onClick={() =>
-                          toast.info(`Viewing profile for ${c.name}`)
-                        }
-                        className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        title={
-                          c.status === "Active"
-                            ? "Suspend User"
-                            : "Reactivate User"
-                        }
-                        onClick={() =>
-                          setStatus(
-                            c.id,
-                            c.status === "Active" ? "Suspended" : "Active",
+                      <UserActionMenu
+                        onVerify={() => setStatus(c.id, "Active")}
+                        onUnverify={() => setStatus(c.id, "Suspended")}
+                        onResetPassword={() =>
+                          toast.success(
+                            `Password reset link sent to ${c.email}`,
                           )
                         }
-                        className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
+                        onDelete={() => deleteCandidate(c.id)}
+                      />
+                      <button
+                        onClick={() => setProfile(c)}
+                        className="px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 text-white text-xs font-medium transition-colors whitespace-nowrap"
                       >
-                        {c.status === "Active" ? (
-                          <FaXmark className="w-4 h-4" />
-                        ) : (
-                          <RxReload className="w-4 h-4" />
-                        )}
+                        View Profile
                       </button>
                     </div>
                   </td>
@@ -236,11 +224,51 @@ export const ManageCandidates = () => {
         </div>
 
         <PaginationBar
-          page={currentPage}
+          page={safePage}
           totalPages={totalPages}
           onChange={setPage}
         />
       </div>
+
+      <Modal
+        open={!!profile}
+        onClose={() => setProfile(null)}
+        maxWidth="max-w-lg"
+      >
+        {profile && (
+          <div className="p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-gray-600 flex-shrink-0" />
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  {profile.name}
+                </h2>
+                <p className="text-blue-400 text-sm">{profile.role}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <div className="text-gray-500 text-xs uppercase">Email</div>
+                <div className="text-white font-medium">{profile.email}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs uppercase">Status</div>
+                <div className="text-white font-medium">{profile.status}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs uppercase">
+                  Applied Date
+                </div>
+                <div className="text-white font-medium">{profile.date}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs uppercase">Location</div>
+                <div className="text-white font-medium">Tokyo, Japan</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

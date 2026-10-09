@@ -1,14 +1,10 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
-import {
-  MoreHorizontal,
-  MapPin,
-  BadgeCheck,
-  BadgeMinus,
-  Trash2,
-} from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
+import { UserActionMenu } from "./UserActionMenu";
+import { Modal } from "./Modal";
 
 const seedEmployers = [
   {
@@ -61,85 +57,47 @@ const statusStyle = {
   Pending: "bg-yellow-500/15 text-yellow-500",
 };
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-const sortOptions = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+const SORT_OPTIONS = [
   { value: "name-asc", label: "Name (A-Z)" },
   { value: "name-desc", label: "Name (Z-A)" },
+  { value: "status", label: "Status" },
 ];
 
-const PAGE_SIZE = 4;
-
-const RowMenu = ({ onVerify, onUnverify, onDelete }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="text-gray-400 hover:text-white transition-colors p-1"
-      >
-        <MoreHorizontal className="w-5 h-5" />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          <button
-            onClick={() => {
-              onVerify();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2"
-          >
-            <BadgeCheck className="w-4 h-4" />
-            Verify User
-          </button>
-          <button
-            onClick={() => {
-              onUnverify();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <BadgeMinus className="w-4 h-4" />
-            Unverify User
-          </button>
-          <button
-            onClick={() => {
-              onDelete();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete User
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
+const PAGE_SIZE = 5;
 
 export const ManageEmployers = () => {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
   const [employers, setEmployers] = useState(seedEmployers);
+  const [profile, setProfile] = useState(null);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = employers.filter(
+      (e) =>
+        !q ||
+        e.name.toLowerCase().includes(q) ||
+        e.email.toLowerCase().includes(q) ||
+        e.address.toLowerCase().includes(q),
+    );
+    rows = [...rows].sort((a, b) => {
+      if (sort === "name-asc") return a.name.localeCompare(b.name);
+      if (sort === "name-desc") return b.name.localeCompare(a.name);
+      if (sort === "status") return a.status.localeCompare(b.status);
+      return 0;
+    });
+    return rows;
+  }, [employers, search, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Clamp so a delete/cancel on the last page never strands you on an
+  // empty page while earlier pages still have rows.
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   const setStatus = (id, status) => {
     setEmployers((prev) =>
@@ -148,44 +106,10 @@ export const ManageEmployers = () => {
     toast.success(`Employer marked as ${status}`);
   };
 
-  const resetPassword = (e) =>
-    toast.success(`Password reset link sent to ${e.name}`);
-
-  const deleteEmployer = (e) => {
-    setEmployers((prev) => prev.filter((row) => row.id !== e.id));
-    toast.success(`${e.name} deleted`);
+  const deleteEmployer = (id) => {
+    setEmployers((prev) => prev.filter((e) => e.id !== id));
+    toast.success("Employer deleted");
   };
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let rows = employers.filter(
-      (e) =>
-        !q ||
-        e.name.toLowerCase().includes(q) ||
-        e.address.toLowerCase().includes(q),
-    );
-    rows = [...rows].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return new Date(a.date) - new Date(b.date);
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "newest":
-        default:
-          return new Date(b.date) - new Date(a.date);
-      }
-    });
-    return rows;
-  }, [employers, search, sort]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -203,8 +127,8 @@ export const ManageEmployers = () => {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search by name or location"
-          sortOptions={sortOptions}
+          placeholder="Search by name, email or address"
+          sortOptions={SORT_OPTIONS}
           sortValue={sort}
           onSortChange={setSort}
         />
@@ -220,17 +144,17 @@ export const ManageEmployers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filtered.length === 0 && (
+              {pageRows.length === 0 && (
                 <tr>
                   <td
                     colSpan={4}
-                    className="py-10 text-center text-gray-500 text-sm"
+                    className="py-8 text-center text-gray-500 text-sm"
                   >
-                    No employers match "{search}"
+                    No employers match your search.
                   </td>
                 </tr>
               )}
-              {paginated.map((employer) => (
+              {pageRows.map((employer) => (
                 <tr key={employer.id}>
                   <td className="py-5 pr-4">
                     <div className="flex items-center gap-3">
@@ -254,15 +178,27 @@ export const ManageEmployers = () => {
                     </span>
                   </td>
                   <td className="py-5 pr-4 text-gray-400 text-sm whitespace-nowrap">
-                    {formatDate(employer.date)}
+                    {employer.date}
                   </td>
-                  <td className="py-5 text-right">
-                    <RowMenu
-                      onVerify={() => setStatus(employer.id, "Verified")}
-                      onUnverify={() => setStatus(employer.id, "Unverified")}
-                      onResetPassword={() => resetPassword(employer)}
-                      onDelete={() => deleteEmployer(employer)}
-                    />
+                  <td className="py-5">
+                    <div className="flex items-center justify-end gap-2">
+                      <UserActionMenu
+                        onVerify={() => setStatus(employer.id, "Verified")}
+                        onUnverify={() => setStatus(employer.id, "Unverified")}
+                        onResetPassword={() =>
+                          toast.success(
+                            `Password reset link sent to ${employer.email}`,
+                          )
+                        }
+                        onDelete={() => deleteEmployer(employer.id)}
+                      />
+                      <button
+                        onClick={() => setProfile(employer)}
+                        className="px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 text-white text-xs font-medium transition-colors whitespace-nowrap"
+                      >
+                        View Profile
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -271,11 +207,47 @@ export const ManageEmployers = () => {
         </div>
 
         <PaginationBar
-          page={currentPage}
+          page={safePage}
           totalPages={totalPages}
           onChange={setPage}
         />
       </div>
+
+      <Modal
+        open={!!profile}
+        onClose={() => setProfile(null)}
+        maxWidth="max-w-lg"
+      >
+        {profile && (
+          <div className="p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-lg bg-gray-600 flex-shrink-0" />
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  {profile.name}
+                </h2>
+                <p className="text-gray-400 text-sm">{profile.address}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6 text-sm">
+              <div>
+                <div className="text-gray-500 text-xs uppercase">Email</div>
+                <div className="text-white font-medium">{profile.email}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs uppercase">Status</div>
+                <div className="text-white font-medium">{profile.status}</div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs uppercase">
+                  Date Joined
+                </div>
+                <div className="text-white font-medium">{profile.date}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

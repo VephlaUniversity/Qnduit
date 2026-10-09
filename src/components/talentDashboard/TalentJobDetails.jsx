@@ -13,10 +13,20 @@ import {
   ChevronRight,
   Play,
   DollarSign,
+  UserPlus,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
+import {
+  getFollows,
+  isFollowing,
+  followEmployer,
+  unfollowEmployer,
+  subscribeFollows,
+} from "../utils/follows";
 
 export const TalentJobDetails = () => {
   const { id } = useParams();
@@ -26,6 +36,16 @@ export const TalentJobDetails = () => {
   const [activeTab, setActiveTab] = useState("about");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Following the employer who posted this job
+  const { user } = useAuth();
+  const followEmail = user?.email || "guest";
+  const [follows, setFollows] = useState(() => getFollows(followEmail));
+
+  useEffect(() => {
+    setFollows(getFollows(followEmail));
+    return subscribeFollows(() => setFollows(getFollows(followEmail)));
+  }, [followEmail]);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -104,6 +124,30 @@ export const TalentJobDetails = () => {
       }
 
       toast.error(error.response?.data?.message || "Failed to apply for job");
+    }
+  };
+
+  const handleFollowEmployer = () => {
+    const employer = job?.employer;
+    if (!employer?._id) {
+      toast.error("We couldn't find this employer");
+      return;
+    }
+    if (!user) {
+      toast.error("Please sign in to follow employers");
+      return;
+    }
+
+    if (isFollowing(follows, employer._id)) {
+      unfollowEmployer(followEmail, employer._id);
+      toast.success(`Unfollowed ${employer.companyName}`);
+    } else {
+      followEmployer(followEmail, employer._id, {
+        name: employer.companyName,
+        location: employer.location,
+        category: employer.companyIndustry,
+      });
+      toast.success(`You're now following ${employer.companyName}`);
     }
   };
 
@@ -187,8 +231,32 @@ export const TalentJobDetails = () => {
             <div className="flex gap-6">
               <div className="w-24 h-24 bg-muted rounded-lg flex-shrink-0" />
               <div>
-                <div className="text-[#3B82F6] text-sm mb-2">
-                  {job.employer?.companyName}
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[#3B82F6] text-sm">
+                    {job.employer?.companyName}
+                  </span>
+                  {job.employer?._id && (
+                    <button
+                      onClick={handleFollowEmployer}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        isFollowing(follows, job.employer._id)
+                          ? "bg-[#3B82F6] border-[#3B82F6] text-white hover:bg-[#3077e8]"
+                          : "border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10"
+                      }`}
+                    >
+                      {isFollowing(follows, job.employer._id) ? (
+                        <>
+                          <UserCheck className="w-3.5 h-3.5" />
+                          Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Follow
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-3">
                   {job.jobTitle}{" "}
