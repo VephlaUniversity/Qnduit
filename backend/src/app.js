@@ -19,6 +19,7 @@ import errorHandler from "./middleware/errorHandler.js";
 import genRoutes from "./routes/genRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import followRoutes from "./routes/followRoutes.js";
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
@@ -67,6 +68,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/gen", genRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/follows", followRoutes);
 
 // Error Handler
 app.use(errorHandler);
