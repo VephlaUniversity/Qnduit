@@ -12,7 +12,7 @@ export const TalentResultsWrapper = () => {
 
   // Match by id
   const candidate = candidateId
-    ? candidatesData.find((c) => c.id === parseInt(candidateId))
+    ? candidatesData.find((c) => String(c.id) === candidateId)
     : null;
 
   const handleBack = () => {
@@ -22,7 +22,12 @@ export const TalentResultsWrapper = () => {
   };
 
   if (candidate) {
-    return <TalentProfile candidate={candidate} onBack={handleBack} />;
+    return (
+      <>
+        <p className="p-4 text-sm text-amber-200">Sample profile — demonstration data, not a real QNDUIT user account.</p>
+        <TalentProfile candidate={candidate} onBack={handleBack} />
+      </>
+    );
   }
 
   return <TalentsResultsPage searchParams={{ jobTitle }} />;

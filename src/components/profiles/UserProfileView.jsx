@@ -39,7 +39,7 @@ export default function UserProfileView() {
         <section className="rounded-2xl border border-white/10 bg-[#1A1A1E] p-6 md:p-8">
           <h1 className="text-2xl font-semibold text-white">Profile not found</h1>
           <p className="mt-3 text-gray-400">
-            This profile is unavailable. Check the user type and ID, or return to your dashboard.
+            This profile is unavailable. Only sample profiles are supported here; viewing live accounts is not available yet. Check the user type and ID, or return to your dashboard.
           </p>
         </section>
       ) : (
