@@ -1,68 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Search, MapPin, Briefcase, Star } from "lucide-react";
 
-const mockEmployers = [
-  {
-    id: 1,
-    name: "Samsung",
-    logo: null,
-    rating: 5,
-    location: "Las Vegas, NV 89107, USA",
-    category: "Design & Creative",
-    openings: 5,
-    verified: true,
-  },
-  {
-    id: 2,
-    name: "Movistar",
-    logo: null,
-    rating: 4,
-    location: "Las Vegas, NV 89107, USA",
-    category: "Advertesting",
-    openings: 4,
-    verified: false,
-  },
-  {
-    id: 3,
-    name: "Tech Corp",
-    logo: null,
-    rating: 5,
-    location: "Las Vegas, NV 89107, USA",
-    category: "IT & development",
-    openings: 5,
-    verified: true,
-  },
-  {
-    id: 4,
-    name: "Momba Jai",
-    logo: null,
-    rating: 5,
-    location: "Las Vegas, NV 89107, USA",
-    category: "Delivery Driver",
-    openings: 2,
-    verified: true,
-  },
-  {
-    id: 5,
-    name: "Sarang Hedo",
-    logo: null,
-    rating: 5,
-    location: "Las Vegas, NV 89107, USA",
-    category: "Sales & Marketing",
-    openings: 0,
-    verified: false,
-  },
-  {
-    id: 6,
-    name: "Avitex Agency",
-    logo: null,
-    rating: 5,
-    location: "Las Vegas, NV 89107, USA",
-    category: "Engineering",
-    openings: 5,
-    verified: true,
-  },
-];
+import { Link } from "react-router-dom";
+import { EMPLOYER_DIRECTORY } from "../utils/follows";
+
+const mockEmployers = EMPLOYER_DIRECTORY.slice(0, 6);
 
 export const TalentFollowingEmployers = () => {
   const [employers, setEmployers] = useState(
@@ -150,6 +92,8 @@ export const TalentFollowingEmployers = () => {
         </h1>
       </div>
 
+      <p className="mb-6 text-sm text-amber-200">Sample employers — demonstration data, not real QNDUIT user accounts.</p>
+
       {/* Search and Sort */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-1">
@@ -186,7 +130,7 @@ export const TalentFollowingEmployers = () => {
               key={employer.id}
               className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 hover:border-white/10 transition-colors"
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col xl:flex-row items-start justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1">
                   {/* Logo */}
                   <div className="w-16 h-16 bg-gray-400 rounded-lg flex-shrink-0"></div>
@@ -232,7 +176,13 @@ export const TalentFollowingEmployers = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    to={`/talent-dashboard/users/employer/${employer.id}`}
+                    className="px-4 py-2 rounded-lg border border-blue-500 text-white hover:bg-blue-600 text-sm"
+                  >
+                    View Profile
+                  </Link>
                   <button className="px-4 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-colors text-sm">
                     {employer.openings} job opening{employer.openings !== 1 ? 's' : ''}
                   </button>

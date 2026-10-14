@@ -15,12 +15,6 @@ export const TalentResultsWrapper = () => {
     ? candidatesData.find((c) => c.id === parseInt(candidateId))
     : null;
 
-  const handleViewProfile = (candidate) => {
-    navigate(
-      `/dashboard/talent-results/profile?candidateId=${candidate.id}&jobTitle=${encodeURIComponent(jobTitle)}`,
-    );
-  };
-
   const handleBack = () => {
     navigate(
       `/dashboard/talent-results?jobTitle=${encodeURIComponent(jobTitle)}`,
@@ -31,10 +25,5 @@ export const TalentResultsWrapper = () => {
     return <TalentProfile candidate={candidate} onBack={handleBack} />;
   }
 
-  return (
-    <TalentsResultsPage
-      searchParams={{ jobTitle }}
-      onViewProfile={handleViewProfile}
-    />
-  );
+  return <TalentsResultsPage searchParams={{ jobTitle }} />;
 };

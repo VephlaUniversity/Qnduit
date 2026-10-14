@@ -56,6 +56,8 @@ import SubscribedEmployers from "./components/adminDashboard/SubscribedEmployers
 import SubscribedCandidates from "./components/adminDashboard/SubscribedCandidates";
 import SupportCenter from "./components/adminDashboard/SupportCenter";
 
+import UserProfileView from "./components/profiles/UserProfileView";
+
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage =
@@ -139,6 +141,16 @@ const AppContent = () => {
           <Route path="/payment-success" element={<PaymentSuccess />} />
 
           {/* Protected routes */}
+          <Route
+            path="/dashboard/users/:userType/:userId"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <UserProfileView />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
