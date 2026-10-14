@@ -55,6 +55,8 @@ import SubscriptionPlans from "./components/adminDashboard/SubscriptionPlans";
 import SubscribedEmployers from "./components/adminDashboard/SubscribedEmployers";
 import SubscribedCandidates from "./components/adminDashboard/SubscribedCandidates";
 import SupportCenter from "./components/adminDashboard/SupportCenter";
+import Followers from "./components/employerDashboard/Followers";
+import UserSupport from "./components/support/UserSupport";
 
 const AppContent = () => {
   const location = useLocation();
@@ -276,6 +278,27 @@ const AppContent = () => {
               <ProtectedRoute>
                 <DashboardLayout>
                   <TalentResultsWrapper />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/followers"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Followers />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/support"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <UserSupport />
                 </DashboardLayout>
               </ProtectedRoute>
             }
