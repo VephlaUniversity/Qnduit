@@ -130,3 +130,89 @@ export const deleteAccount = async (req, res, next) => {
     next(error);
   }
 };
+
+
+export const searchUsers = async (req, res, next) => {
+  try {
+    const query = String(req.query.query || "").trim();
+
+    if (!query) {
+      return res.json({
+        success: true,
+        results: [],
+      });
+    }
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const [talents, employers] = await Promise.all([
+      Talent.find({
+        showProfile: "show",
+        $or: [
+          { firstName: regex },
+          { lastName: regex },
+          { fullName: regex },
+          { email: regex },
+          { jobTitle: regex },
+          { location: regex },
+        ],
+      })
+        .select("_id firstName lastName fullName email avatar jobTitle location")
+        .limit(10)
+        .lean(),
+
+      Employer.find({
+        $or: [
+          { email: regex },
+          { companyName: regex },
+          { displayName: regex },
+        ],
+      })
+        .select("_id companyName displayName email logo")
+        .limit(10)
+        .lean(),
+    ]);
+
+    const formattedTalents = talents.map((talent) => {
+      const name =
+        talent.fullName ||
+        [talent.firstName, talent.lastName].filter(Boolean).join(" ") ||
+        talent.email;
+
+      return {
+        ...talent,
+        id: String(talent._id),
+        name,
+        fullName: name,
+        role: talent.jobTitle || "Talent",
+        userType: "talent",
+        avatar: talent.avatar?.url || null,
+      };
+    });
+
+    const formattedEmployers = employers.map((employer) => {
+      const name =
+        employer.displayName ||
+        employer.companyName ||
+        employer.email;
+
+      return {
+        ...employer,
+        id: String(employer._id),
+        name,
+        fullName: name,
+        role: "Employer",
+        userType: "employer",
+        avatar: employer.logo?.url || null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      results: [...formattedTalents, ...formattedEmployers],
+    });
+  } catch (error) {
+    next(error);
+  }
+};

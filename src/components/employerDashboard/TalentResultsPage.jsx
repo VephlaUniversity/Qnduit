@@ -15,78 +15,175 @@ import {
   Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-//Import shared data
-import { candidatesData } from "../../data/talentsData";
+import { API_BASE_URL } from "../../utils/api";
+import { useLocation } from "react-router-dom";
 
-// useCandidate
-const useCandidates = () => {
+
+const useCandidates = (keyword = "") => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    // MOCK
-    Promise.resolve(candidatesData)
-      .then((d) => {
-        setData(d);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
-  }, []);
+    const controller = new AbortController();
+
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("token");
+        const query = new URLSearchParams({
+          query: keyword.trim(),
+        });
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/gen/search?${query.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              ...(token
+                ? { Authorization: `Bearer ${token}` }
+                : {}),
+            },
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to load talents (${response.status})`);
+        }
+
+        const result = await response.json();
+
+        const talents = Array.isArray(result.results)
+          ? result.results.filter(
+              (item) => item.userType === "talent",
+            )
+          : [];
+
+        const formattedTalents = talents.map((talent) => ({
+          ...talent,
+          id: String(talent._id || talent.id),
+          name:
+            talent.fullName ||
+            talent.name ||
+            [talent.firstName, talent.lastName]
+              .filter(Boolean)
+              .join(" ") ||
+            talent.email ||
+            "Talent",
+          title: talent.jobTitle || talent.title || "Talent",
+          location: talent.location || "Location not specified",
+          skills: Array.isArray(talent.skills)
+            ? talent.skills.map((skill) =>
+                typeof skill === "string"
+                  ? skill
+                  : skill.name || skill.title || "",
+              ).filter(Boolean)
+            : Array.isArray(talent.categories)
+              ? talent.categories
+              : [],
+          salary:
+            talent.expectedSalary != null
+              ? String(talent.expectedSalary)
+              : "Not specified",
+          age: talent.age ?? "",
+          availability:
+            talent.availability || "Availability not specified",
+          verified: Boolean(talent.isVerified),
+        }));
+
+        setData(formattedTalents);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Failed to fetch talents:", err);
+          setError(err.message || "Unable to load talent profiles.");
+          setData([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [keyword]);
 
   return { data, loading, error };
 };
 
+
 const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
-  const { data: allCandidates, loading, error } = useCandidates();
+  const location = useLocation();
+
+  const urlKeyword =
+    searchParams?.jobTitle ??
+    new URLSearchParams(location.search).get("jobTitle") ??
+    "";
 
   const [viewMode, setViewMode] = useState("grid");
   const [ageRange, setAgeRange] = useState([18, 65]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [sortBy, setSortBy] = useState("default");
-  const [keywordSearch, setKeywordSearch] = useState("");
+  const [keywordSearch, setKeywordSearch] = useState(urlKeyword);
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Pre-fill keyword from URL search param
   useEffect(() => {
-    if (searchParams?.jobTitle) {
-      setKeywordSearch(searchParams.jobTitle);
-    }
-  }, [searchParams?.jobTitle]);
+    setKeywordSearch(urlKeyword);
+    setCurrentPage(1);
+  }, [urlKeyword]);
+
+  const {
+    data: allCandidates,
+    loading,
+    error,
+  } = useCandidates(keywordSearch);
 
   // Unique locations derived from data
   const locations = [...new Set(allCandidates.map((c) => c.location))].sort();
 
   // Filter
   const filteredCandidates = allCandidates.filter((candidate) => {
-    if (keywordSearch) {
+    if (keywordSearch.trim()) {
       const q = keywordSearch.toLowerCase();
+
       const match =
-        candidate.name.toLowerCase().includes(q) ||
-        candidate.title.toLowerCase().includes(q) ||
-        candidate.skills.some((s) => s.toLowerCase().includes(q)) ||
-        candidate.location.toLowerCase().includes(q);
+        (candidate.name || "").toLowerCase().includes(q) ||
+        (candidate.title || "").toLowerCase().includes(q) ||
+        (candidate.location || "").toLowerCase().includes(q) ||
+        (candidate.skills || []).some((skill) =>
+          skill.toLowerCase().includes(q),
+        );
+
       if (!match) return false;
     }
 
     if (locationFilter !== "all") {
       if (
-        !candidate.location.toLowerCase().includes(locationFilter.toLowerCase())
-      )
+        !(candidate.location || "")
+          .toLowerCase()
+          .includes(locationFilter.toLowerCase())
+      ) {
         return false;
+      }
     }
 
-    // Age filter — parse age string e.g. "26 Years Old"
-    const ageNum = parseInt(candidate.age);
-    if (!isNaN(ageNum) && (ageNum < ageRange[0] || ageNum > ageRange[1]))
+    const ageNum = parseInt(candidate.age, 10);
+
+    if (
+      !Number.isNaN(ageNum) &&
+      (ageNum < ageRange[0] || ageNum > ageRange[1])
+    ) {
       return false;
+    }
 
     return true;
   });
@@ -143,7 +240,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
           <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
-            {candidate.name.charAt(0)}
+            {(candidate.name || "T").charAt(0).toUpperCase()}
           </div>
           <div>
             <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
