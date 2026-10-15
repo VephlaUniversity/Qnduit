@@ -24,8 +24,6 @@ import {
   Loader2,
 } from "lucide-react";
 
-// Import shared mock data & search helper
-import { mockSearchTalents } from "../../data/talentsData";
 import { API_BASE_URL } from "../utils/api";
 
 //Search config per userType

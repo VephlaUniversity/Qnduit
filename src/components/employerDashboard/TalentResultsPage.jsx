@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+
 import * as Slider from "@radix-ui/react-slider";
 import {
   Search,
@@ -14,8 +14,8 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-import { API_BASE_URL } from "../../utils/api";
+import { AnimatePresence, motion as Motion } from "framer-motion";
+import { API_BASE_URL } from "../utils/api";
 import { useLocation } from "react-router-dom";
 
 
@@ -118,7 +118,7 @@ const useCandidates = (keyword = "") => {
 };
 
 
-const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
+const TalentsResultsPage = ({ searchParams }) => {
   const location = useLocation();
 
   const urlKeyword =
@@ -288,12 +288,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
         </span>
       </div>
       <hr className="border-gray-700 mb-3" />
-      <button
-        onClick={() => onViewProfile(candidate)}
-        className="bg-transparent border border-[#3b82f6] hover:bg-[#3B82F6] text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
-      >
-        View Profile
-      </button>
+      <p className="text-sm text-gray-400">Profile viewing is not available for live accounts yet.</p>
     </div>
   );
 
@@ -348,7 +343,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
             {/* Mobile overlay */}
             <AnimatePresence>
               {sidebarOpen && (
-                <motion.div
+                <Motion.div
                   className="lg:hidden fixed inset-0 bg-black/50 z-30"
                   onClick={() => setSidebarOpen(false)}
                   initial={{ opacity: 0 }}
@@ -359,7 +354,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
             </AnimatePresence>
 
             {/* Filter Sidebar */}
-            <motion.div
+            <Motion.div
               className={`${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
               } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
@@ -503,10 +498,10 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   Reset Filters
                 </button>
               </div>
-            </motion.div>
+            </Motion.div>
 
             {/* Main Content */}
-            <motion.div
+            <Motion.div
               className="flex-1"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -562,7 +557,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
 
               {/* No Results */}
               {filteredCandidates.length === 0 ? (
-                <motion.div
+                <Motion.div
                   className="p-12 text-center"
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -588,11 +583,11 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   >
                     Clear Filters
                   </button>
-                </motion.div>
+                </Motion.div>
               ) : (
                 <>
                   <AnimatePresence mode="wait">
-                    <motion.div
+                    <Motion.div
                       key={`${viewMode}-${currentPage}`}
                       className={
                         viewMode === "grid"
@@ -605,16 +600,16 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                       transition={{ duration: 0.3 }}
                     >
                       {paginatedCandidates.map((candidate, index) => (
-                        <motion.div
+                        <Motion.div
                           key={candidate.id}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4, delay: index * 0.06 }}
                         >
                           <CandidateCard candidate={candidate} />
-                        </motion.div>
+                        </Motion.div>
                       ))}
-                    </motion.div>
+                    </Motion.div>
                   </AnimatePresence>
 
                   {/* Pagination */}
@@ -665,7 +660,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   )}
                 </>
               )}
-            </motion.div>
+            </Motion.div>
           </div>
         </div>
       </div>
