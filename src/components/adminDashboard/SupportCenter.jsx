@@ -31,9 +31,7 @@ const statusFilters = ["All Requests", "Open", "In Progress", "Resolved", "Close
 const pageSizeOptions = [8, 15, 25, 50];
 
 const getHeaders = () => {
-  const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken");
+  const token = localStorage.getItem("adminToken");
 
   return {
     Authorization: `Bearer ${token}`,

@@ -29,7 +29,7 @@ import { API_BASE_URL } from "../utils/api";
 //Search config per userType
 const SEARCH_CONFIG = {
   talent: {
-    endpoint: "/api/jobs",
+    endpoint: "/api/jobs/search",
     queryParam: "q",
     mockType: "jobs",
     labelKey: "jobTitle",
