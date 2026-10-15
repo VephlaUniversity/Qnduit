@@ -59,6 +59,7 @@ import Followers from "./components/employerDashboard/Followers";
 import UserSupport from "./components/support/UserSupport";
 
 import UserProfileView from "./components/profiles/UserProfileView";
+import ProfileViewHistory from "./components/profiles/ProfileViewHistory";
 
 const AppContent = () => {
   const location = useLocation();
@@ -143,6 +144,16 @@ const AppContent = () => {
           <Route path="/payment-success" element={<PaymentSuccess />} />
 
           {/* Protected routes */}
+          <Route
+            path="/dashboard/profile-views"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ProfileViewHistory />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard/users/:userType/:userId"
             element={
