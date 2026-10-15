@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { API_BASE_URL } from "../utils/api";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 
 const useCandidates = (keyword = "") => {
@@ -288,7 +288,7 @@ const TalentsResultsPage = ({ searchParams }) => {
         </span>
       </div>
       <hr className="border-gray-700 mb-3" />
-      <p className="text-sm text-gray-400">Profile viewing is not available for live accounts yet.</p>
+      <Link className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-500 px-6 text-blue-400 focus-visible:outline focus-visible:outline-2" to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?jobTitle=${encodeURIComponent(keywordSearch)}`}>View Profile</Link>
     </div>
   );
 
