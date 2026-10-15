@@ -5,6 +5,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import {
   changePassword,
   deleteAccount,
+  searchUsers
 } from "../controllers/genController.js";
 
 const router = express.Router();
