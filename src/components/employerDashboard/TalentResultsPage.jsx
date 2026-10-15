@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+
 import * as Slider from "@radix-ui/react-slider";
 import {
   Search,
@@ -14,79 +14,176 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-//Import shared data
-import { candidatesData } from "../../data/talentsData";
+import { AnimatePresence, motion as Motion } from "framer-motion";
+import { API_BASE_URL } from "../utils/api";
+import { useLocation } from "react-router-dom";
 
-// useCandidate
-const useCandidates = () => {
+
+const useCandidates = (keyword = "") => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    // MOCK
-    Promise.resolve(candidatesData)
-      .then((d) => {
-        setData(d);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
-  }, []);
+    const controller = new AbortController();
+
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("token");
+        const query = new URLSearchParams({
+          query: keyword.trim(),
+        });
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/gen/search?${query.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              ...(token
+                ? { Authorization: `Bearer ${token}` }
+                : {}),
+            },
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to load talents (${response.status})`);
+        }
+
+        const result = await response.json();
+
+        const talents = Array.isArray(result.results)
+          ? result.results.filter(
+              (item) => item.userType === "talent",
+            )
+          : [];
+
+        const formattedTalents = talents.map((talent) => ({
+          ...talent,
+          id: String(talent._id || talent.id),
+          name:
+            talent.fullName ||
+            talent.name ||
+            [talent.firstName, talent.lastName]
+              .filter(Boolean)
+              .join(" ") ||
+            talent.email ||
+            "Talent",
+          title: talent.jobTitle || talent.title || "Talent",
+          location: talent.location || "Location not specified",
+          skills: Array.isArray(talent.skills)
+            ? talent.skills.map((skill) =>
+                typeof skill === "string"
+                  ? skill
+                  : skill.name || skill.title || "",
+              ).filter(Boolean)
+            : Array.isArray(talent.categories)
+              ? talent.categories
+              : [],
+          salary:
+            talent.expectedSalary != null
+              ? String(talent.expectedSalary)
+              : "Not specified",
+          age: talent.age ?? "",
+          availability:
+            talent.availability || "Availability not specified",
+          verified: Boolean(talent.isVerified),
+        }));
+
+        setData(formattedTalents);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Failed to fetch talents:", err);
+          setError(err.message || "Unable to load talent profiles.");
+          setData([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [keyword]);
 
   return { data, loading, error };
 };
 
-const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
-  const { data: allCandidates, loading, error } = useCandidates();
+
+const TalentsResultsPage = ({ searchParams }) => {
+  const location = useLocation();
+
+  const urlKeyword =
+    searchParams?.jobTitle ??
+    new URLSearchParams(location.search).get("jobTitle") ??
+    "";
 
   const [viewMode, setViewMode] = useState("grid");
   const [ageRange, setAgeRange] = useState([18, 65]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [sortBy, setSortBy] = useState("default");
-  const [keywordSearch, setKeywordSearch] = useState("");
+  const [keywordSearch, setKeywordSearch] = useState(urlKeyword);
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Pre-fill keyword from URL search param
   useEffect(() => {
-    if (searchParams?.jobTitle) {
-      setKeywordSearch(searchParams.jobTitle);
-    }
-  }, [searchParams?.jobTitle]);
+    setKeywordSearch(urlKeyword);
+    setCurrentPage(1);
+  }, [urlKeyword]);
+
+  const {
+    data: allCandidates,
+    loading,
+    error,
+  } = useCandidates(keywordSearch);
 
   // Unique locations derived from data
   const locations = [...new Set(allCandidates.map((c) => c.location))].sort();
 
   // Filter
   const filteredCandidates = allCandidates.filter((candidate) => {
-    if (keywordSearch) {
+    if (keywordSearch.trim()) {
       const q = keywordSearch.toLowerCase();
+
       const match =
-        candidate.name.toLowerCase().includes(q) ||
-        candidate.title.toLowerCase().includes(q) ||
-        candidate.skills.some((s) => s.toLowerCase().includes(q)) ||
-        candidate.location.toLowerCase().includes(q);
+        (candidate.name || "").toLowerCase().includes(q) ||
+        (candidate.title || "").toLowerCase().includes(q) ||
+        (candidate.location || "").toLowerCase().includes(q) ||
+        (candidate.skills || []).some((skill) =>
+          skill.toLowerCase().includes(q),
+        );
+
       if (!match) return false;
     }
 
     if (locationFilter !== "all") {
       if (
-        !candidate.location.toLowerCase().includes(locationFilter.toLowerCase())
-      )
+        !(candidate.location || "")
+          .toLowerCase()
+          .includes(locationFilter.toLowerCase())
+      ) {
         return false;
+      }
     }
 
-    // Age filter — parse age string e.g. "26 Years Old"
-    const ageNum = parseInt(candidate.age);
-    if (!isNaN(ageNum) && (ageNum < ageRange[0] || ageNum > ageRange[1]))
+    const ageNum = parseInt(candidate.age, 10);
+
+    if (
+      !Number.isNaN(ageNum) &&
+      (ageNum < ageRange[0] || ageNum > ageRange[1])
+    ) {
       return false;
+    }
 
     return true;
   });
@@ -143,7 +240,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
           <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
-            {candidate.name.charAt(0)}
+            {(candidate.name || "T").charAt(0).toUpperCase()}
           </div>
           <div>
             <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
@@ -191,12 +288,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
         </span>
       </div>
       <hr className="border-gray-700 mb-3" />
-      <button
-        onClick={() => onViewProfile(candidate)}
-        className="bg-transparent border border-[#3b82f6] hover:bg-[#3B82F6] text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
-      >
-        View Profile
-      </button>
+      <p className="text-sm text-gray-400">Profile viewing is not available for live accounts yet.</p>
     </div>
   );
 
@@ -251,7 +343,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
             {/* Mobile overlay */}
             <AnimatePresence>
               {sidebarOpen && (
-                <motion.div
+                <Motion.div
                   className="lg:hidden fixed inset-0 bg-black/50 z-30"
                   onClick={() => setSidebarOpen(false)}
                   initial={{ opacity: 0 }}
@@ -262,7 +354,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
             </AnimatePresence>
 
             {/* Filter Sidebar */}
-            <motion.div
+            <Motion.div
               className={`${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
               } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
@@ -406,10 +498,10 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   Reset Filters
                 </button>
               </div>
-            </motion.div>
+            </Motion.div>
 
             {/* Main Content */}
-            <motion.div
+            <Motion.div
               className="flex-1"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -465,7 +557,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
 
               {/* No Results */}
               {filteredCandidates.length === 0 ? (
-                <motion.div
+                <Motion.div
                   className="p-12 text-center"
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -491,11 +583,11 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   >
                     Clear Filters
                   </button>
-                </motion.div>
+                </Motion.div>
               ) : (
                 <>
                   <AnimatePresence mode="wait">
-                    <motion.div
+                    <Motion.div
                       key={`${viewMode}-${currentPage}`}
                       className={
                         viewMode === "grid"
@@ -508,16 +600,16 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                       transition={{ duration: 0.3 }}
                     >
                       {paginatedCandidates.map((candidate, index) => (
-                        <motion.div
+                        <Motion.div
                           key={candidate.id}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4, delay: index * 0.06 }}
                         >
                           <CandidateCard candidate={candidate} />
-                        </motion.div>
+                        </Motion.div>
                       ))}
-                    </motion.div>
+                    </Motion.div>
                   </AnimatePresence>
 
                   {/* Pagination */}
@@ -568,7 +660,7 @@ const TalentsResultsPage = ({ searchParams, onViewProfile }) => {
                   )}
                 </>
               )}
-            </motion.div>
+            </Motion.div>
           </div>
         </div>
       </div>

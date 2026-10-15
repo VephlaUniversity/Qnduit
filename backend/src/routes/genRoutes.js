@@ -21,4 +21,6 @@ router.delete(
   deleteAccount
 );
 
+router.get("/search", protect, searchUsers);
+
 export default router;

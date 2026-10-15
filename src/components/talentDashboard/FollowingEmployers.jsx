@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Search, MapPin, Briefcase, Star, CheckCircle2 } from "lucide-react";
+import { Search, MapPin, Briefcase, Star } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 
 const SORT_OPTIONS = [
@@ -115,7 +115,7 @@ export const TalentFollowingEmployers = () => {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const loadEmployers = async () => {
+  const loadEmployers = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -149,12 +149,12 @@ export const TalentFollowingEmployers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab, searchQuery]);
 
   useEffect(() => {
     const timer = setTimeout(loadEmployers, 300);
     return () => clearTimeout(timer);
-  }, [tab, searchQuery]);
+  }, [loadEmployers]);
 
   const categories = useMemo(
     () => [
@@ -233,6 +233,8 @@ export const TalentFollowingEmployers = () => {
           Following Employers
         </h1>
       </div>
+
+      <p className="mb-6 text-sm text-gray-400">Profile viewing is not available for live accounts yet.</p>
 
       <div className="flex gap-2 border-b border-white/10 mb-6">
         <button

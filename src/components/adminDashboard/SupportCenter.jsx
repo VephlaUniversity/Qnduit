@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
   ChevronDown,
@@ -17,117 +17,8 @@ import {
 import { toast } from "sonner";
 import { PaginationBar } from "./PaginationBar";
 import { Modal } from "./Modal";
-
-const seedTickets = [
-  {
-    name: "James Edward",
-    email: "edwardj207@gmail.com",
-    subject: "Login Problem",
-    date: "12 Apr 2025",
-    status: "Open",
-    message:
-      "Hello,\n\nI've been trying to log into my account since this morning but keep getting an invalid credentials error, even after resetting my password twice.\n\nCould you please look into this for me?\n\nThanks in advance for your assistance.",
-  },
-  {
-    name: "Adam Scott",
-    email: "adamscott@gmail.com",
-    subject: "Account Issues",
-    date: "10 Apr 2025",
-    status: "In Progress",
-    message:
-      "Hi there,\n\nMy profile keeps showing an outdated job title even after I've updated it several times. Can someone check what's going on?\n\nThanks.",
-  },
-  {
-    name: "John Doe",
-    email: "johndoe@gmail.com",
-    subject: "Billing Issue",
-    fullSubject: "Billing Issue - Premium Not Activated",
-    date: "7 Apr 2025",
-    status: "Resolved",
-    message:
-      "Hello,\nI hope you're doing well. I made a payment for the premium subscription yesterday, and the transaction was completed successfully. However, I still appear to be on the free plan.\nI was looking forward to accessing the premium features right away, so I'd really appreciate it if you could look into this and help get it sorted.\nPlease let me know if you need a payment confirmation from my end.\n\nThanks in advance for your assistance.",
-  },
-  {
-    name: "James Edward",
-    email: "edwardj207@gmail.com",
-    subject: "General Inquiry",
-    date: "25 Mar 2025",
-    status: "Resolved",
-    message: "Hi, just wanted to ask about the difference between plan tiers.",
-  },
-  {
-    name: "James Edward",
-    email: "edwardj207@gmail.com",
-    subject: "General Inquiry",
-    date: "25 Mar 2025",
-    status: "In Progress",
-    message: "Following up on my previous question about plan tiers.",
-  },
-  {
-    name: "PerimeterX",
-    email: "perimeterx@gmail.com",
-    subject: "Profile",
-    date: "19 Mar 2025",
-    status: "Closed",
-    message: "Requesting help updating our company profile logo.",
-  },
-  {
-    name: "PerimeterX",
-    email: "perimeterx@gmail.com",
-    subject: "Profile",
-    date: "19 Mar 2025",
-    status: "In Progress",
-    message: "Our company address on the profile page is outdated.",
-  },
-  {
-    name: "PerimeterX",
-    email: "perimeterx@gmail.com",
-    subject: "Profile",
-    date: "19 Mar 2025",
-    status: "In Progress",
-    message: "Following up on the profile address update request.",
-  },
-  {
-    name: "Natasha Cobbs",
-    email: "ntashcbs207@gmail.com",
-    subject: "General Inquiry",
-    date: "12 Mar 2025",
-    status: "Open",
-    message: "How do I change my notification preferences?",
-  },
-  {
-    name: "Cybrary",
-    email: "cybrary@gmail.com",
-    subject: "Verification",
-    date: "7 Mar 2025",
-    status: "Resolved",
-    message: "Requesting verification badge for our employer account.",
-  },
-  {
-    name: "Cybrary",
-    email: "cybrary@gmail.com",
-    subject: "Verification",
-    date: "7 Mar 2025",
-    status: "Resolved",
-    message: "Follow-up on verification document upload.",
-  },
-  {
-    name: "Cybrary",
-    email: "cybrary@gmail.com",
-    subject: "Verification",
-    date: "7 Mar 2025",
-    status: "Resolved",
-    message: "Confirming verification badge is now visible.",
-  },
-  {
-    name: "Skale",
-    email: "Skale@gmail.com",
-    subject: "Applications",
-    date: "12 Feb 2025",
-    status: "Closed",
-    message: "Why are our job applications not showing candidate resumes?",
-  },
-];
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const statusStyle = {
   Open: "text-yellow-500",
@@ -138,6 +29,16 @@ const statusStyle = {
 
 const statusFilters = ["All Requests", "Open", "In Progress", "Resolved", "Closed"];
 const pageSizeOptions = [8, 15, 25, 50];
+
+const getHeaders = () => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken");
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 const RowActions = ({ onSetStatus }) => {
   const [open, setOpen] = useState(false);
@@ -201,7 +102,7 @@ const InfoField = (props) => {
   );
 };
 
-const TicketModal = ({ ticket, onClose, onSetStatus }) => {
+const TicketModal = ({ ticket, onClose, onSetStatus, onReply, }) => {
   const [replying, setReplying] = useState(false);
   const [response, setResponse] = useState("");
 
@@ -210,15 +111,20 @@ const TicketModal = ({ ticket, onClose, onSetStatus }) => {
     setResponse("");
   }, [ticket]);
 
-  const sendResponse = () => {
+  const sendResponse = async () => {
     if (!response.trim()) {
       toast.error("Write a response before sending");
       return;
     }
-    toast.success(`Response sent to ${ticket.name}`);
-    onSetStatus("Resolved");
-    setReplying(false);
-    setResponse("");
+
+    try {
+      await onReply(ticket.id, response.trim());
+
+      setReplying(false);
+      setResponse("");
+    } catch {
+      // The parent handles and displays the API error.
+    }
   };
 
   return (
@@ -290,7 +196,11 @@ const TicketModal = ({ ticket, onClose, onSetStatus }) => {
 };
 
 export const SupportCenter = () => {
-  const [tickets, setTickets] = useState(seedTickets);
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTickets, setTotalTickets] = useState(0);
+  const [requestError, setRequestError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Requests");
   const [pageSize, setPageSize] = useState(8);
@@ -300,6 +210,52 @@ export const SupportCenter = () => {
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
   const statusRef = useRef(null);
   const pageSizeRef = useRef(null);
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    setRequestError("");
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/support/admin/tickets`,
+        {
+          headers: getHeaders(),
+          params: {
+            q: search.trim(),
+            status: statusFilter,
+            page,
+            limit: pageSize,
+          },
+        }
+      );
+
+      const data = response.data;
+
+      setTickets(data.data || []);
+      setTotalPages(Math.max(1, data.pagination?.totalPages || 1));
+      setTotalTickets(data.pagination?.total || 0);
+
+      setActiveTicket((current) => {
+        if (!current) return null;
+
+        return (data.data || []).find(
+          (ticket) => ticket.id === current.id
+        ) || null;
+      });
+    } catch (error) {
+      setRequestError(
+        error.response?.data?.message ||
+          "Unable to load support tickets."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, page, pageSize]);
+
+  useEffect(() => {
+    const timer = setTimeout(loadTickets, 300);
+    return () => clearTimeout(timer);
+  }, [loadTickets]);
 
   useEffect(() => {
     const close = (e) => {
@@ -312,37 +268,36 @@ export const SupportCenter = () => {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const updateStatus = (index, status) => {
-    if (status === "__delete") {
-      const removed = tickets[index];
-      setTickets((prev) => prev.filter((_, i) => i !== index));
-      setActiveTicket((t) => (t === removed ? null : t));
-      toast.success("Ticket deleted");
-      return;
+  const updateStatus = async (ticketId, status) => {
+    try {
+      if (status === "__delete") {
+        await axios.delete(
+          `${API_BASE_URL}/api/support/admin/tickets/${ticketId}`,
+          { headers: getHeaders() }
+        );
+
+        setActiveTicket(null);
+        toast.success("Ticket deleted");
+      } else {
+        await axios.patch(
+          `${API_BASE_URL}/api/support/admin/tickets/${ticketId}/status`,
+          { status },
+          { headers: getHeaders() }
+        );
+
+        toast.success(`Ticket marked as ${status}`);
+      }
+
+      await loadTickets();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Unable to update the support ticket."
+      );
     }
-    const target = tickets[index];
-    setTickets((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, status } : t)),
-    );
-    setActiveTicket((t) => (t === target ? { ...t, status } : t));
-    toast.success(`Ticket marked as ${status}`);
   };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tickets.filter((t) => {
-      const matchesSearch =
-        !q ||
-        t.name.toLowerCase().includes(q) ||
-        t.email.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q);
-      const matchesStatus =
-        statusFilter === "All Requests" || t.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [tickets, search, statusFilter]);
-
-  const visible = filtered.slice(0, pageSize);
+  const visible = tickets;
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -356,7 +311,8 @@ export const SupportCenter = () => {
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <h2 className="text-lg font-semibold text-white">
-            Support Tickets <span className="text-gray-500">({filtered.length})</span>
+             Support Tickets{" "}
+            <span className="text-gray-500">({totalTickets})</span>
           </h2>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-2.5 w-full sm:w-64 focus-within:border-white/25 transition-colors">
@@ -489,7 +445,7 @@ export const SupportCenter = () => {
                     <td className="py-4">
                       <div className="flex items-center justify-end gap-2">
                         <RowActions
-                          onSetStatus={(status) => updateStatus(i, status)}
+                          onSetStatus={(status) => updateStatus(ticket.id, status)}
                         />
                         <button
                           onClick={() => setActiveTicket(ticket)}
@@ -506,15 +462,37 @@ export const SupportCenter = () => {
           </table>
         </div>
 
-        <PaginationBar page={page} totalPages={5} onChange={setPage} />
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          onChange={setPage}
+        />
       </div>
 
       <TicketModal
         ticket={activeTicket}
         onClose={() => setActiveTicket(null)}
         onSetStatus={(status) =>
-          updateStatus(tickets.indexOf(activeTicket), status)
+          updateStatus(activeTicket.id, status)
         }
+        onReply={async (ticketId, message) => {
+          try {
+            await axios.post(
+              `${API_BASE_URL}/api/support/admin/tickets/${ticketId}/replies`,
+              { message },
+              { headers: getHeaders() }
+            );
+
+            toast.success("Response saved successfully");
+            await loadTickets();
+          } catch (error) {
+            toast.error(
+              error.response?.data?.message ||
+                "Unable to send response."
+            );
+            throw error;
+          }
+        }}
       />
     </div>
   );
