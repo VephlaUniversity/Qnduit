@@ -108,17 +108,54 @@ export const selectEmployerPlan = async (req, res, next) => {
 };
 
 
-export const updateEmployerProfile = async (req, res, next) => {
+export const updateEmployerProfile = async (req, res) => {
   try {
     const id = req.user._id;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
 
-    let updates = { ...req.body };
+    const accountDetails = body.updateContext === "account-details";
+    const accountFields = body.accountType === "institutional"
+      ? ["accountType", "companyName", "aboutCompany", "companyWebsite", "companyIndustry", "location"]
+      : ["accountType", "displayName", "aboutYou"];
+    if (body.updateContext !== undefined && !["account-details", "profile-settings"].includes(body.updateContext)) {
+      return res.status(400).json({ success: false, message: "Invalid profile update context." });
+    }
+    // Explicit onboarding contract; it cannot carry Settings fields, raw geometry,
+    // coordinate fragments, files, or server-managed account fields.
+    if (accountDetails && (
+      !["institutional", "individual"].includes(body.accountType) ||
+      Object.keys(body).some((key) => key !== "updateContext" && !accountFields.includes(key)) ||
+      Object.values(req.files || {}).some((files) => files.length)
+    )) {
+      return res.status(400).json({ success: false, message: "Invalid account details update." });
+    }
 
-    delete updates.password;
-    delete updates.email;      
-    delete updates.isVerified; 
-    delete updates.selectedPlan;
+    // Coordinates are mandatory for this Settings update, including zero.
+    const errors = {};
+    for (const [field, label, max] of accountDetails ? [] : [["lat", "Latitude", 90], ["lng", "Longitude", 180]]) {
+      const value = body[field];
+      const input = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+      if (!input) errors[field] = `${label} is required.`;
+      else if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(input) || !Number.isFinite(Number(input)))
+        errors[field] = `${label} must be a number.`;
+      else if (Number(input) < -max || Number(input) > max)
+        errors[field] = `${label} must be between ${-max} and ${max}.`;
+    }
+    if (Object.keys(errors).length) {
+      return res.status(400).json({ success: false, message: "Check your location coordinates.", errors });
+    }
 
+    // Never trust client account metadata, update operators, or raw GeoJSON.
+    const editableFields = [
+      "companyName", "companyEmail", "phone", "companyWebsite", "companyIndustry",
+      "foundedYear", "companySize", "showProfile", "profileURL", "aboutCompany",
+      "introVideo", "address", "location", "mapLocation", "categories", "socialNetworks",
+      "displayName", "aboutYou",
+    ];
+    const updates = Object.fromEntries((accountDetails ? accountFields : editableFields)
+      .filter((key) => Object.hasOwn(body, key))
+      .map((key) => [key, body[key]]));
+    if (!accountDetails) updates.geoLocation = { type: "Point", coordinates: [Number(body.lng), Number(body.lat)] };
 
     const parseArrayField = (field) => {
       if (Array.isArray(field)) {
@@ -140,7 +177,7 @@ export const updateEmployerProfile = async (req, res, next) => {
           if (typeof parsed === "string") {
             return parseArrayField(parsed);
           }
-        } catch {}
+        } catch { /* Plain text categories are also supported. */ }
 
         if (value.includes(",")) {
           return value
@@ -167,21 +204,14 @@ export const updateEmployerProfile = async (req, res, next) => {
       }
     });
 
-    if (updates.socialNetworks) {
-      updates.socialNetworks = JSON.parse(updates.socialNetworks);
+    if (updates.socialNetworks !== undefined) {
+      try {
+        if (typeof updates.socialNetworks === "string") updates.socialNetworks = JSON.parse(updates.socialNetworks);
+        if (!updates.socialNetworks || typeof updates.socialNetworks !== "object" || Array.isArray(updates.socialNetworks)) throw new Error();
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid social networks." });
+      }
     }
-
-
-    if (updates.lat && updates.lng) {
-      updates.geoLocation = {
-        type: "Point",
-        coordinates: [parseFloat(updates.lng), parseFloat(updates.lat)],
-      };
-    }
-
-    delete updates.lat;
-    delete updates.lng;
-    delete updates.savedCandidates;
 
     if (req.files?.logo) {
       const logoFile = req.files.logo[0];
@@ -284,26 +314,35 @@ export const updateEmployerProfile = async (req, res, next) => {
     res.json({
       success: true,
       message: "Profile updated successfully",
-      employer,
     });
   } catch (error) {
-    next(error);
+    // Never return database diagnostics or account documents to the client.
+    const invalid = ["ValidationError", "CastError"].includes(error.name);
+    res.status(invalid ? 400 : 500).json({
+      success: false,
+      message: invalid ? "Invalid profile fields. Please check your entries." : "Unable to update profile. Please try again later.",
+    });
   }
 };
 
 
-export const getEmployerProfile = async (req, res, next) => {
+export const getEmployerProfile = async (req, res) => {
   try {
     const id = req.user._id;
 
-    const employer = await Employer.findById(id)
-      .select("-password -verificationCode");
+    const profileFields = [
+      "companyName", "companyEmail", "phone", "companyWebsite", "companyIndustry",
+      "foundedYear", "companySize", "showProfile", "categories", "profileURL",
+      "aboutCompany", "introVideo", "address", "location", "mapLocation",
+      "accountType", "displayName", "aboutYou", "socialNetworks", "logo", "gallery", "geoLocation",
+    ];
+    const employer = await Employer.findById(id).select(profileFields.join(" "));
 
     if (!employer)
       return res.status(404).json({ message: "Employer not found" });
 
     const profile = {
-      ...employer._doc,
+      ...Object.fromEntries(profileFields.map((key) => [key, employer[key]])),
 
       logo: employer.logo?.url || "",
 
@@ -313,8 +352,8 @@ export const getEmployerProfile = async (req, res, next) => {
           type: item.type
         })) || [],
 
-      lat: employer.geoLocation?.coordinates?.[1] || "",
-      lng: employer.geoLocation?.coordinates?.[0] || "",
+      lat: employer.geoLocation?.coordinates?.[1] ?? "",
+      lng: employer.geoLocation?.coordinates?.[0] ?? "",
 
       socialNetworks: employer.socialNetworks || {
         facebook: "",
@@ -331,8 +370,8 @@ export const getEmployerProfile = async (req, res, next) => {
       profile,
     });
 
-  } catch (error) {
-    next(error);
+  } catch {
+    res.status(500).json({ success: false, message: "Unable to load profile. Please try again later." });
   }
 };
 

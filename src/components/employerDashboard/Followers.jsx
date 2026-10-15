@@ -237,7 +237,7 @@ export const Followers = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400" to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}`}>View Profile</Link>
+                    <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400" to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=followers`}>View Profile</Link>
                     <button
                       onClick={() => navigate("/dashboard/messages")}
                       className="flex items-center gap-2 px-4 py-2 bg-[#2A2A2E] hover:bg-white/10 text-white rounded-lg font-medium text-sm"
