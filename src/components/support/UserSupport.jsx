@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Send, CheckCircle2, ChevronDown, Inbox, LifeBuoy } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import {
-  TICKET_CATEGORIES,
-  addTicket,
-  getTicketsForEmail,
-  subscribeTickets,
-} from "../utils/supportTickets";
+import { TICKET_CATEGORIES } from "../utils/supportTickets";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const STATUS_STYLE = {
   Open: "bg-yellow-500/15 text-yellow-500",
@@ -16,6 +13,24 @@ const STATUS_STYLE = {
 };
 
 const MIN_MESSAGE_LENGTH = 10;
+
+const getHeaders = () => {
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const formatTicketDate = (date) =>
+  date
+    ? new Date(date).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
 
 export const UserSupport = () => {
   const { user } = useAuth();
@@ -27,25 +42,41 @@ export const UserSupport = () => {
   const [submitted, setSubmitted] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [requestError, setRequestError] = useState("");
 
   const email = user?.email || "";
-  const displayName =
-    user?.name ||
-    user?.fullName ||
-    user?.company ||
-    user?.companyName ||
-    user?.email ||
-    "Unknown user";
 
-  const refresh = useCallback(() => {
-    setTickets(getTicketsForEmail(email));
-  }, [email]);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setRequestError("");
 
-  // Load this user's tickets, and keep them live so a status change made by an
-  // admin shows up without a refresh.
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/support/tickets/mine`,
+        { headers: getHeaders() },
+      );
+
+      setTickets(
+        (response.data.data || []).map((ticket) => ({
+          ...ticket,
+          subject: ticket.category,
+          fullSubject:
+            ticket.fullSubject || `${ticket.category} - ${ticket.title}`,
+          date: formatTicketDate(ticket.createdAt),
+        })),
+      );
+    } catch (error) {
+      setRequestError(
+        error.response?.data?.message || "Unable to load your support tickets.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     refresh();
-    return subscribeTickets(refresh);
   }, [refresh]);
 
   useEffect(() => {
@@ -68,24 +99,33 @@ export const UserSupport = () => {
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validate()) return;
 
-    addTicket({
-      name: displayName,
-      email,
-      userType: user?.userType || "talent",
-      category,
-      title,
-      message,
-    });
+    setRequestError("");
 
-    setTitle("");
-    setMessage("");
-    setCategory(TICKET_CATEGORIES[0]);
-    setErrors({});
-    setSubmitted(true);
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/support/tickets`,
+        { category, title, message },
+        { headers: getHeaders() },
+      );
+
+      setTitle("");
+      setMessage("");
+      setCategory(TICKET_CATEGORIES[0]);
+      setErrors({});
+      setSubmitted(true);
+
+      await refresh();
+    } catch (error) {
+      setRequestError(
+        error.response?.data?.message ||
+          "Unable to submit your support ticket.",
+      );
+    }
   };
 
   const inputBase =
@@ -204,7 +244,17 @@ export const UserSupport = () => {
             My tickets <span className="text-gray-500">({tickets.length})</span>
           </h2>
 
-          {tickets.length === 0 ? (
+          {requestError && (
+            <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+              {requestError}
+            </div>
+          )}
+
+          {loading ? (
+            <p className="py-10 text-center text-gray-400 text-sm">
+              Loading support tickets...
+            </p>
+          ) : tickets.length === 0 ? (
             <div className="flex flex-col items-center text-center py-12 gap-3">
               <div className="w-12 h-12 rounded-full bg-[#2A2A2E] flex items-center justify-center">
                 <Inbox className="w-5 h-5 text-gray-500" />
@@ -250,9 +300,44 @@ export const UserSupport = () => {
                     </button>
                     {open && (
                       <div className="px-4 pb-4 pt-0">
-                        <p className="text-gray-400 text-sm whitespace-pre-line leading-relaxed border-t border-white/5 pt-4">
-                          {ticket.message}
-                        </p>
+                        <div className="border-t border-white/5 pt-4">
+                          <h3 className="text-sm font-semibold text-white mb-3">
+                            Your message
+                          </h3>
+
+                          <p className="text-gray-400 text-sm whitespace-pre-line leading-relaxed">
+                            {ticket.message}
+                          </p>
+
+                          {ticket.replies?.length > 0 && (
+                            <div className="mt-5 space-y-3">
+                              <h3 className="text-sm font-semibold text-white">
+                                Support responses
+                              </h3>
+
+                              {ticket.replies.map((reply) => (
+                                <div
+                                  key={reply._id}
+                                  className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3"
+                                >
+                                  <div className="flex flex-wrap justify-between gap-2 mb-2">
+                                    <span className="text-sm font-medium text-blue-400">
+                                      {reply.adminName || "Support Team"}
+                                    </span>
+
+                                    <span className="text-xs text-gray-500">
+                                      {formatTicketDate(reply.createdAt)}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-sm text-gray-300 whitespace-pre-line">
+                                    {reply.message}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

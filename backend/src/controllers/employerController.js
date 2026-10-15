@@ -3,25 +3,20 @@ import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
-import { sendEmployerVerificationEmail } from "../utils/sendEmail.js";
+import { sendVerificationEmail } from "../utils/sendEmail.js";
+import cloudinary from "../utils/cloudinary.js";
 
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+const employerStorage = multer.memoryStorage();
 
 export const upload = multer({
-  storage,
+  storage: employerStorage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
+
     if (![".png", ".jpg", ".jpeg", ".mp4"].includes(ext)) {
       return cb(new Error("Only images and mp4 allowed"));
     }
+
     cb(null, true);
   },
 });
@@ -49,7 +44,7 @@ export const registerEmployer = async (req, res, next) => {
     });
 
     // console.log(`📩 Employer verification code for ${email}: ${verificationCode}`);
-    await sendEmployerVerificationEmail(
+    await sendVerificationEmail(
       email,
       firstName,
       verificationCode
@@ -125,9 +120,52 @@ export const updateEmployerProfile = async (req, res, next) => {
     delete updates.selectedPlan;
 
 
-    if (updates.categories && typeof updates.categories === "string") {
-      updates.categories = updates.categories.split(",");
-    }
+    const parseArrayField = (field) => {
+      if (Array.isArray(field)) {
+        return field.flatMap((item) => parseArrayField(item));
+      }
+
+      if (typeof field === "string") {
+        const value = field.trim();
+
+        if (!value) return [];
+
+        try {
+          const parsed = JSON.parse(value);
+
+          if (Array.isArray(parsed)) {
+            return parsed.flatMap((item) => parseArrayField(item));
+          }
+
+          if (typeof parsed === "string") {
+            return parseArrayField(parsed);
+          }
+        } catch {}
+
+        if (value.includes(",")) {
+          return value
+            .split(",")
+            .flatMap((item) => parseArrayField(item))
+            .filter(Boolean);
+        }
+
+        return [value];
+      }
+
+      return [];
+    };
+
+    ["categories", "tags", "skills"].forEach((key) => {
+      if (updates[key] !== undefined) {
+        updates[key] = [
+          ...new Set(
+            parseArrayField(updates[key])
+              .map((item) => String(item).trim())
+              .filter(Boolean)
+          ),
+        ];
+      }
+    });
 
     if (updates.socialNetworks) {
       updates.socialNetworks = JSON.parse(updates.socialNetworks);
@@ -147,18 +185,63 @@ export const updateEmployerProfile = async (req, res, next) => {
 
     if (req.files?.logo) {
       const logoFile = req.files.logo[0];
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "qnduit/employer-logos",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+
+        stream.end(logoFile.buffer);
+      });
+
       updates.logo = {
-        url: `/uploads/${logoFile.filename}`,
-        public_id: logoFile.filename,
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
       };
     }
 
     if (req.files?.gallery) {
-      updates.gallery = req.files.gallery.map((file) => ({
-        url: `/uploads/${file.filename}`,
-        type: file.mimetype.startsWith("video") ? "video" : "image",
-        public_id: file.filename,
-      }));
+      updates.gallery = [];
+
+      for (const file of req.files.gallery) {
+        const isVideo = file.mimetype.startsWith("video/");
+
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: isVideo
+                ? "qnduit/employer-videos"
+                : "qnduit/employer-gallery",
+              resource_type: isVideo ? "video" : "image",
+            },
+            (error, result) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+
+          stream.end(file.buffer);
+        });
+
+        updates.gallery.push({
+          url: uploadResult.secure_url,
+          type: isVideo ? "video" : "image",
+          public_id: uploadResult.public_id,
+        });
+      }
     }
 
     const existingEmployer = await Employer.findById(id);

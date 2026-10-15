@@ -78,30 +78,67 @@ export const TalentSignup = () => {
   };
 
   const handlePlanSelection = async (planType) => {
-    const talentId = localStorage.getItem("talentId");
-    if (!talentId) return alert("Missing Talent ID");
+    const authToken = localStorage.getItem("authToken");
+
+    if (!authToken) {
+      return alert("Missing authentication token");
+    }
 
     try {
-      await axios.put(`${API_BASE_URL}/api/talents/${talentId}/plan`, {
-        selectedPlan: planType,
-      });
-
+      // FREE PLAN
       if (planType === "free") {
-        navigate("/dashboard");
-      } else {
-        navigate("/payment", {
-          state: {
-            plan: planType,
-            planName: planType === "free" ? "Free Account" : "Public Listing",
-            price: planType === "free" ? 0.0 : 1.99,
-            userType: "talent",
-            userInfo: formData,
+        const response = await axios.post(
+          `${API_BASE_URL}/api/payments/create-checkout`,
+          {
+            plan: "free",
           },
-        });
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (response.data?.free) {
+          navigate("/dashboard");
+          return;
+        }
+
+        throw new Error(
+          response.data?.message || "Unable to select free plan"
+        );
       }
+
+      // PAID PLAN
+      const response = await axios.post(
+        `${API_BASE_URL}/api/payments/create-checkout`,
+        {
+          plan: planType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      if (response.data?.checkoutUrl) {
+        window.location.href = response.data.checkoutUrl;
+        return;
+      }
+
+      throw new Error(
+        response.data?.message ||
+          "Flutterwave checkout link not received"
+      );
     } catch (error) {
-      console.error(error);
-      alert("Failed to select plan");
+      console.error("Talent payment error:", error);
+
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to process payment"
+      );
     }
   };
 
@@ -171,32 +208,60 @@ export const TalentSignup = () => {
 
   const handleProfileUpdate = async () => {
     const talentId = localStorage.getItem("talentId");
+    const authToken = localStorage.getItem("authToken");
+
     if (!talentId) return alert("Missing Talent ID");
+    if (!authToken) return alert("Missing authentication token");
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("role", formData.role);
-      formDataToSend.append("experience", formData.experience);
-      formDataToSend.append("location", formData.location);
-      formDataToSend.append("skills", JSON.stringify(formData.skills));
-      formDataToSend.append("bio", formData.bio);
-      formDataToSend.append("linkedin", formData.linkedin);
+      // Upload resume first
       if (formData.resume) {
-        formDataToSend.append("resume", formData.resume);
+        const resumeData = new FormData();
+        resumeData.append("resume", formData.resume);
+
+        await axios.post(
+          `${API_BASE_URL}/api/talents/resume`,
+          resumeData,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
       }
+
+      // Update the rest of the profile
+      const profileData = {
+        jobTitle: formData.role,
+        experienceTime: formData.experience,
+        location: formData.location,
+        aboutMe: formData.bio,
+        socialNetworks: {
+          linkedin: formData.linkedin,
+        },
+      };
 
       const response = await axios.put(
         `${API_BASE_URL}/api/talents/${talentId}/profile`,
-        formDataToSend,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        profileData,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
       );
 
       if (response.data.success) {
         setCurrentStep(5);
       }
     } catch (error) {
-      console.error(error);
-      alert("Profile update failed");
+      console.error("Profile update error:", error);
+      console.error("Response:", error.response?.data);
+
+      alert(
+        error.response?.data?.message ||
+          "Profile update failed"
+      );
     }
   };
 

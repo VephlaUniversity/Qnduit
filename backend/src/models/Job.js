@@ -47,6 +47,13 @@ const JobSchema = new mongoose.Schema(
       max: Number
     },
 
+    workType: {
+      type: String,
+      enum: ["Remote", "On-site", "Hybrid"],
+      default: "On-site",
+      index: true,
+    },
+
     experience: String,
     careerLevel: String,
     qualification: String,
@@ -98,6 +105,12 @@ const JobSchema = new mongoose.Schema(
       enum: ["draft", "published", "closed"],
       default: "published",
       index: true
+    },
+
+    flagged: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
 
     isDeleted: {

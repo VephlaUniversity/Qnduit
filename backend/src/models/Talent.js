@@ -26,6 +26,13 @@ const talentSchema = new mongoose.Schema(
     default: false,
   },
 
+  accountStatus: {
+    type: String,
+    enum: ["active", "suspended"],
+    default: "active",
+    index: true,
+  },
+
   // ================= PROFILE =================
   fullName: String,
   dateOfBirth: String,
@@ -79,11 +86,9 @@ const talentSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: ["Point"],
-      default: "Point",
     },
     coordinates: {
       type: [Number],
-      default: [0,0],
     },
   },
 
@@ -100,6 +105,19 @@ const talentSchema = new mongoose.Schema(
     default: "",
   },
 
+  paymentStatus: {
+    type: String,
+    enum: [
+      "none",
+      "pending",
+      "active",
+      "past_due",
+      "cancelled",
+      "expired",
+      "failed",
+    ],
+    default: "none",
+  },
 },
 { timestamps: true }
 );

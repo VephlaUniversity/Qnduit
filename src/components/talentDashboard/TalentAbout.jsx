@@ -94,6 +94,50 @@ const TalentAbout = () => {
     }));
   };
 
+  const normalizeArray = (value) => {
+    if (!Array.isArray(value)) return [];
+
+    const result = [];
+
+    const processItem = (item) => {
+      if (Array.isArray(item)) {
+        item.forEach(processItem);
+        return;
+      }
+
+      if (typeof item !== "string") return;
+
+      const trimmed = item.trim();
+
+      if (!trimmed) return;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+
+        if (Array.isArray(parsed)) {
+          parsed.forEach(processItem);
+          return;
+        }
+      } catch {}
+
+      if (trimmed.includes(",")) {
+        trimmed
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .forEach(processItem);
+
+        return;
+      }
+
+      result.push(trimmed);
+    };
+
+    value.forEach(processItem);
+
+    return [...new Set(result)];
+  };
+
   useEffect(() => {
     const fetchTalentProfile = async () => {
       try {
@@ -105,7 +149,7 @@ const TalentAbout = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const profile = data.profile;
@@ -117,21 +161,18 @@ const TalentAbout = () => {
         setFormData((prev) => ({
           ...prev,
           ...profile,
-          categories: profile.categories || [],
-          socialNetworks:
-            profile.socialNetworks || prev.socialNetworks,
+          categories: normalizeArray(profile.categories),
+          socialNetworks: profile.socialNetworks || prev.socialNetworks,
         }));
 
-        setTags(profile.tags || []);
-        setSkills(profile.skills || []);
+        setTags(normalizeArray(profile.tags));
+        setSkills(normalizeArray(profile.skills));
         setLatValue(profile.lat || "");
         setLngValue(profile.lng || "");
 
-
         if (profile.avatar) {
-          setAvatarPreview(`${API_BASE_URL}${profile.avatar}`);
+          setAvatarPreview(profile.avatar);
         }
-
       } catch (error) {
         console.error(error);
       }
@@ -139,7 +180,6 @@ const TalentAbout = () => {
 
     fetchTalentProfile();
   }, []);
-
 
   const handleRemoveTag = (tagToRemove) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
@@ -165,7 +205,10 @@ const TalentAbout = () => {
       Object.keys(formData).forEach((key) => {
         if (
           key !== "avatar" &&
-          key !== "socialNetworks"
+          key !== "socialNetworks" &&
+          key !== "categories" &&
+          key !== "skills" &&
+          key !== "resume"
         ) {
           data.append(key, formData[key]);
         }
@@ -175,7 +218,7 @@ const TalentAbout = () => {
       data.append("categories", JSON.stringify(formData.categories));
       data.append("tags", JSON.stringify(tags));
       data.append("skills", JSON.stringify(skills));
-      
+
       if (
         latValue !== "" &&
         lngValue !== "" &&
@@ -186,21 +229,16 @@ const TalentAbout = () => {
         data.append("lng", Number(lngValue));
       }
 
-
       if (formData.avatar instanceof File) {
         data.append("avatar", formData.avatar);
       }
 
-      await axios.put(
-        `${API_BASE_URL}/api/talents/update`,
-        data,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      await axios.put(`${API_BASE_URL}/api/talents/update`, data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       toast({
         title: "Success!",
@@ -208,7 +246,6 @@ const TalentAbout = () => {
       });
 
       navigate("/talent-dashboard/profile");
-
     } catch (error) {
       console.error("UPDATE ERROR:", error.response?.data);
       toast({
@@ -220,7 +257,6 @@ const TalentAbout = () => {
       setSaving(false);
     }
   };
-
 
   const inputClass =
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
@@ -266,7 +302,6 @@ const TalentAbout = () => {
                 alt="Avatar"
                 className="w-full h-full object-cover rounded-lg"
               />
-
             ) : (
               <Camera className="w-12 h-12 text-gray-500" />
             )}
@@ -491,7 +526,7 @@ const TalentAbout = () => {
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    categories: e.target.value.split(",").map(c => c.trim())
+                    categories: e.target.value.split(",").map((c) => c.trim()),
                   }))
                 }
                 className={inputClass}
@@ -575,35 +610,35 @@ const TalentAbout = () => {
           <h2 className="text-xl font-semibold text-white mb-4">
             Social Network
           </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {socialIcons.map((social) => {
-                const Icon = social.icon;
-                return (
-                  <div key={social.name} className="flex gap-3">
-                    <div className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 shrink-0">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <input
-                      type="url"
-                      value={formData.socialNetworks[social.name] || ""}
-                      onChange={(e) =>
-                        handleSocialChange(social.name, e.target.value)
-                      }
-                      placeholder={social.placeholder}
-                      className={`flex-1 ${inputClass}`}
-                    />
-                    {formData.socialNetworks[social.name] && (
-                      <button
-                        onClick={() => handleSocialChange(social.name, "")}
-                        className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white shrink-0"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {socialIcons.map((social) => {
+              const Icon = social.icon;
+              return (
+                <div key={social.name} className="flex gap-3">
+                  <div className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 shrink-0">
+                    <Icon className="w-5 h-5" />
                   </div>
-                );
-              })}
-            </div>
+                  <input
+                    type="url"
+                    value={formData.socialNetworks[social.name] || ""}
+                    onChange={(e) =>
+                      handleSocialChange(social.name, e.target.value)
+                    }
+                    placeholder={social.placeholder}
+                    className={`flex-1 ${inputClass}`}
+                  />
+                  {formData.socialNetworks[social.name] && (
+                    <button
+                      onClick={() => handleSocialChange(social.name, "")}
+                      className="w-12 h-12 bg-[#0E0E10] border border-white/10 rounded-lg flex items-center justify-center text-gray-400 hover:text-white shrink-0"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Contact Information */}
@@ -627,7 +662,9 @@ const TalentAbout = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Latitude</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Latitude
+                </label>
                 <input
                   type="text"
                   name="lat"
@@ -642,7 +679,9 @@ const TalentAbout = () => {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Longitude</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Longitude
+                </label>
                 <input
                   type="text"
                   name="lng"

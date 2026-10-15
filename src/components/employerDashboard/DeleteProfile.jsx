@@ -3,6 +3,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "sonner";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const DeleteProfile = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,16 +24,36 @@ export const DeleteProfile = () => {
     setIsDeleting(true);
 
     try {
-      toast.success("Profile deleted successfully");
+      const token = localStorage.getItem("token");
 
-      // Sign out the user
-      await signOut();
+      const res = await axios.delete(
+        `${API_BASE_URL}/api/gen/delete-account`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          data: {
+            password,
+          },
+        }
+      );
 
-      // Redirect to sign-in page
-      navigate("/signin");
+      if (res.data.success) {
+        toast.success("Profile deleted successfully");
+
+        // Sign out the user
+        await signOut();
+
+        // Redirect to sign-in page
+        navigate("/signin");
+      }
     } catch (error) {
-      toast.error("Failed to delete profile. Please try again.");
       console.error("Profile deletion error:", error);
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Failed to delete profile. Please try again."
+      );
     } finally {
       setIsDeleting(false);
     }

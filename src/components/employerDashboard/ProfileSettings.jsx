@@ -88,6 +88,50 @@ const ProfileSettings = () => {
     gallery: [],
   });
 
+    const normalizeArray = (value) => {
+      if (!Array.isArray(value)) return [];
+
+      const result = [];
+
+      const processItem = (item) => {
+        if (Array.isArray(item)) {
+          item.forEach(processItem);
+          return;
+        }
+
+        if (typeof item !== "string") return;
+
+        const trimmed = item.trim();
+
+        if (!trimmed) return;
+
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          if (Array.isArray(parsed)) {
+            parsed.forEach(processItem);
+            return;
+          }
+        } catch {}
+
+        if (trimmed.includes(",")) {
+          trimmed
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .forEach(processItem);
+
+          return;
+        }
+
+        result.push(trimmed);
+      };
+
+      value.forEach(processItem);
+
+      return [...new Set(result)];
+    };
+
     // Load saved profile data
     useEffect(() => {
     const fetchProfile = async () => {
@@ -116,8 +160,8 @@ const ProfileSettings = () => {
           ...prev,
           ...profile,
           socialNetworks: profile.socialNetworks || prev.socialNetworks,
-          categories: profile.categories || [],
-          gallery: [], 
+          categories: normalizeArray(profile.categories),
+          gallery: [],
         }));
 
         // Set logo preview
@@ -372,7 +416,8 @@ const ProfileSettings = () => {
         if (
           key !== "logo" &&
           key !== "gallery" &&
-          key !== "socialNetworks"
+          key !== "socialNetworks" &&
+          key !== "categories"
         ) {
           data.append(key, formData[key]);
         }
@@ -381,6 +426,11 @@ const ProfileSettings = () => {
       data.append(
         "socialNetworks",
         JSON.stringify(formData.socialNetworks)
+      );
+
+      data.append(
+        "categories",
+        JSON.stringify(formData.categories)
       );
 
       if (formData.logo) {

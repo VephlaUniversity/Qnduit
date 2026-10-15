@@ -112,22 +112,32 @@ export const JobOpportunities = () => {
 
     // Work type (sidebar)
     if (workTypeFilter) {
-      if (
-        !job.jobApplyType?.some((t) =>
-          t.toLowerCase().includes(workTypeFilter.toLowerCase()),
-        )
-      )
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
+      const selectedWorkType = workTypeFilter
+        .toLowerCase()
+        .replace(/-/g, " ");
+
+      if (!jobApplyType?.includes(selectedWorkType)) {
         return false;
+      }
     }
 
     // Job type (sidebar)
     if (jobTypeFilter) {
-      if (
-        !job.jobApplyType?.some((t) =>
-          t.toLowerCase().includes(jobTypeFilter.toLowerCase()),
-        )
-      )
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
+      const selectedJobType = jobTypeFilter
+        .toLowerCase()
+        .replace(/-/g, " ");
+
+      if (!jobApplyType?.includes(selectedJobType)) {
         return false;
+      }
     }
 
     // Company (sidebar)
@@ -151,24 +161,31 @@ export const JobOpportunities = () => {
     // Work location from dropdown
     if (dropdownFilters.workLocation !== "Remote") {
       if (
-        !job.jobApplyType?.some((t) =>
-          t.toLowerCase().includes(dropdownFilters.workLocation.toLowerCase()),
+        !job.jobApplyType?.toLowerCase().includes(
+          dropdownFilters.workLocation.toLowerCase()
         )
-      )
+      ) {
         return false;
+      }
     }
 
     // Job types from dropdown
     const selectedJobTypes = Object.entries(dropdownFilters.jobTypes)
       .filter(([key, val]) => val && key !== "All Job Types")
-      .map(([key]) => key.toLowerCase());
+      .map(([key]) => key.toLowerCase().replace(/-/g, " "));
+
     if (selectedJobTypes.length > 0) {
+      const jobApplyType = job.jobApplyType
+        ?.toLowerCase()
+        .replace(/-/g, " ");
+
       if (
         !selectedJobTypes.some((type) =>
-          job.jobApplyType?.some((t) => t.toLowerCase().includes(type)),
+          jobApplyType?.includes(type)
         )
-      )
+      ) {
         return false;
+      }
     }
 
     // Salary from dropdown
@@ -350,15 +367,17 @@ export const JobOpportunities = () => {
 
       <div className="flex justify-between flex-wrap gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
-          {Array.isArray(job.jobApplyType) &&
-            job.jobApplyType.map((type, idx) => (
-              <span
-                key={idx}
-                className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
-              >
-                {type}
-              </span>
-            ))}
+          {job.jobApplyType && (
+            <span className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm">
+              {job.jobApplyType}
+            </span>
+          )}
+
+          {job.workType && (
+            <span className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm">
+              {job.workType}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {[...Array(5)].map((_, i) => (

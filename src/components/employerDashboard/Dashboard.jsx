@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import RecentApplication from "./RecentApplication";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const Dashboard = () => {
   const [chartPeriod, setChartPeriod] = useState("month");
@@ -18,50 +20,72 @@ const Dashboard = () => {
   const [reviewCount, setReviewCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
 
-  // Load dynamic stats from localStorage
+  // Load dynamic stats from backend
   useEffect(() => {
-    const loadStats = () => {
-      // Get posted jobs count
-      const postedJobs = JSON.parse(localStorage.getItem("postedJobs") || "[]");
-      setPostedJobsCount(postedJobs.length);
+    const loadStats = async () => {
+      const token = localStorage.getItem("token");
 
-      // Get applications (from Recent Applications - you can adjust this based on your data structure)
-      const applications = JSON.parse(
-        localStorage.getItem("applications") || "[]",
-      );
-      setApplicationsCount(applications.length);
+      if (!token) {
+        console.error("No authentication token found");
+        return;
+      }
 
-      // Get review count (applicants with "Seen" status)
-      const reviewApplicants = applications.filter(
-        (app) => app.status === "Seen",
-      );
-      setReviewCount(reviewApplicants.length);
+      try {
+        const headers = {
+          Authorization: `Bearer ${token}`,
+        };
 
-      // Get wishlist count (saved candidates)
-      const savedCandidates = JSON.parse(
-        localStorage.getItem("savedCandidates") || "[]",
-      );
-      setWishlistCount(savedCandidates.length);
+        const [
+          jobsResponse,
+          applicationsResponse,
+          savedCandidatesResponse,
+        ] = await Promise.all([
+          // Posted Jobs
+          axios.get(
+            `${API_BASE_URL}/api/jobs/my-jobs`,
+            { headers }
+          ),
+
+          // Applications
+          axios.get(
+            `${API_BASE_URL}/api/applications/employer`,
+            { headers }
+          ),
+
+          // Saved Candidates / Wishlist
+          axios.get(
+            `${API_BASE_URL}/api/employers/saved-candidates`,
+            { headers }
+          ),
+        ]);
+
+        const jobs = jobsResponse.data?.jobs || [];
+        const applications =
+          applicationsResponse.data?.applications || [];
+        const savedCandidates =
+          savedCandidatesResponse.data?.savedCandidates || [];
+
+        setPostedJobsCount(jobs.length);
+
+        setApplicationsCount(applications.length);
+
+        const reviewedApplications = applications.filter(
+          (application) => application.status === "Seen"
+        );
+
+        setReviewCount(reviewedApplications.length);
+
+        setWishlistCount(savedCandidates.length);
+
+      } catch (error) {
+        console.error(
+          "Failed to load dashboard stats:",
+          error.response?.data || error.message
+        );
+      }
     };
 
     loadStats();
-
-    // Listen for updates
-    const handleStorageUpdate = () => {
-      loadStats();
-    };
-
-    window.addEventListener("storage", handleStorageUpdate);
-    window.addEventListener("savedCandidatesUpdated", handleStorageUpdate);
-    window.addEventListener("postedJobsUpdated", handleStorageUpdate);
-    window.addEventListener("applicationsUpdated", handleStorageUpdate);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageUpdate);
-      window.removeEventListener("savedCandidatesUpdated", handleStorageUpdate);
-      window.removeEventListener("postedJobsUpdated", handleStorageUpdate);
-      window.removeEventListener("applicationsUpdated", handleStorageUpdate);
-    };
   }, []);
 
   const stats = [

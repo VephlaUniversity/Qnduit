@@ -14,7 +14,17 @@ import resumeRoutes from "./routes/resumeRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import jobApplicationRoutes from "./routes/jobApplicationRoutes.js";
 import savedJobRoutes from "./routes/savedJobRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
+import genRoutes from "./routes/genRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import followRoutes from "./routes/followRoutes.js";
+import supportRoutes from "./routes/supportRoutes.js";
+import profileRoutes from "./routes/profileRoutes.js";
+import {
+  handleFlutterwaveWebhook,
+} from "./controllers/flutterwaveWebhookController.js";
 
 dotenv.config();
 connectDB();
@@ -25,9 +35,26 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin: [
+      "https://qnduit.com",
+      "https://www.qnduit.com",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(helmet());
 app.use(morgan("dev"));
+
+// Flutter webhook
+app.post(
+  "/api/payments/flutterwave/webhook",
+  handleFlutterwaveWebhook
+);
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -39,6 +66,13 @@ app.use("/api/resume", resumeRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/applications", jobApplicationRoutes);
 app.use("/api/saved-jobs", savedJobRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/gen", genRoutes);
+app.use("/api/admin/auth", adminAuthRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/follows", followRoutes);
+app.use("/api/support", supportRoutes);
+app.use("/api/profiles", profileRoutes);
 
 // Error Handler
 app.use(errorHandler);

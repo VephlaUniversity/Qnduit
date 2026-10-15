@@ -4,12 +4,18 @@ import Employer from "../models/Employer.js";
 
 // Helper to get user's role from DB
 const getUserRole = async (userId) => {
-  let user = await Talent.findById(userId).select("_id fullName email");
+  let user = await Talent.findById(userId).select(
+    "_id firstName lastName email avatar"
+  );
+
   if (user) return { role: "Talent", user };
-  
-  user = await Employer.findById(userId).select("_id companyName email");
+
+  user = await Employer.findById(userId).select(
+    "_id firstName lastName email companyName logo"
+  );
+
   if (user) return { role: "Employer", user };
-  
+
   return null;
 };
 
@@ -92,31 +98,44 @@ export const searchUsers = async (req, res, next) => {
     const talentResults = await Talent.find({
       $or: [
         { email: { $regex: query, $options: "i" } },
-        { fullName: { $regex: query, $options: "i" } },
+        { firstName: { $regex: query, $options: "i" } },
+        { lastName: { $regex: query, $options: "i" } }
       ],
-    }).select("_id fullName email avatar");
+    }).select("_id firstName lastName email avatar");
 
     const employerResults = await Employer.find({
       $or: [
         { email: { $regex: query, $options: "i" } },
+        { firstName: { $regex: query, $options: "i" } },
+        { lastName: { $regex: query, $options: "i" } },
         { companyName: { $regex: query, $options: "i" } },
       ],
-    }).select("_id companyName email logo");
+    }).select("_id firstName lastName email companyName logo");
 
     // Add `role` for frontend
-    const formattedTalentResults = talentResults.map((t) => ({
-      ...t.toObject(),
-      role: "Talent",
-      name: t.fullName,
-      avatar: t.avatar || t.fullName.charAt(0),
-    }));
+    const formattedTalentResults = talentResults.map((t) => {
+      const name = `${t.firstName || ""} ${t.lastName || ""}`.trim();
 
-    const formattedEmployerResults = employerResults.map((e) => ({
-      ...e.toObject(),
-      role: "Employer",
-      name: e.companyName,
-      avatar: e.logo || e.companyName.charAt(0),
-    }));
+      return {
+        ...t.toObject(),
+        role: "Talent",
+        name: name || t.email,
+        avatar: t.avatar?.url || name.charAt(0) || "?",
+      };
+    });
+
+    const formattedEmployerResults = employerResults.map((e) => {
+      const personName = `${e.firstName || ""} ${e.lastName || ""}`.trim();
+
+      const name = e.companyName || personName || e.email;
+
+      return {
+        ...e.toObject(),
+        role: "Employer",
+        name,
+        avatar: e.logo?.url || name.charAt(0) || "?",
+      };
+    });
 
     res.json({
       success: true,
@@ -147,21 +166,35 @@ export const getChats = async (req, res, next) => {
       if (m.recipient.toString() !== userId.toString()) userIds.add(m.recipient.toString());
     });
 
-    const talents = await Talent.find({ _id: { $in: [...userIds] } }).select("_id fullName email avatar");
-    const employers = await Employer.find({ _id: { $in: [...userIds] } }).select("_id companyName email logo");
+    const talents = await Talent.find({
+      _id: { $in: [...userIds] }
+    }).select("_id firstName lastName email avatar");
+    const employers = await Employer.find({
+      _id: { $in: [...userIds] }
+    }).select("_id firstName lastName email companyName logo");
 
-    const formattedTalents = talents.map((t) => ({
-      ...t.toObject(),
-      role: "Talent",
-      name: t.fullName,
-      avatar: t.avatar || t.fullName.charAt(0),
-    }));
-    const formattedEmployers = employers.map((e) => ({
-      ...e.toObject(),
-      role: "Employer",
-      name: e.companyName,
-      avatar: e.logo || e.companyName.charAt(0),
-    }));
+    const formattedTalents = talents.map((t) => {
+      const name = `${t.firstName || ""} ${t.lastName || ""}`.trim();
+
+      return {
+        ...t.toObject(),
+        role: "Talent",
+        name: name || t.email,
+        avatar: t.avatar?.url || name.charAt(0) || "?",
+      };
+    });
+
+    const formattedEmployers = employers.map((e) => {
+      const personName = `${e.firstName || ""} ${e.lastName || ""}`.trim();
+      const name = e.companyName || personName || e.email;
+
+      return {
+        ...e.toObject(),
+        role: "Employer",
+        name,
+        avatar: e.logo?.url || name.charAt(0) || "?",
+      };
+    });
 
     res.json({ success: true, results: [...formattedTalents, ...formattedEmployers] });
   } catch (error) {

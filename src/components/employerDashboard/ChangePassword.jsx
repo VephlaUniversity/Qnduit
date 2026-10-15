@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const ChangePassword = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -9,9 +11,56 @@ export const ChangePassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [retypePassword, setRetypePassword] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Password change submitted");
+
+    if (!oldPassword || !newPassword || !retypePassword) {
+      alert("Please fill in all password fields");
+      return;
+    }
+
+    if (newPassword !== retypePassword) {
+      alert("New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      alert("New password must be at least 8 characters");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        `${API_BASE_URL}/api/gen/change-password`,
+        {
+          oldPassword,
+          newPassword,
+          retypePassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.data.success) {
+        alert("Password changed successfully");
+
+        setOldPassword("");
+        setNewPassword("");
+        setRetypePassword("");
+      }
+    } catch (err) {
+      console.error("Change password error:", err);
+
+      alert(
+        err?.response?.data?.message ||
+          "Unable to change password. Please try again."
+      );
+    }
   };
 
   return (

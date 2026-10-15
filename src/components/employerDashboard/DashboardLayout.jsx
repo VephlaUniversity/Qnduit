@@ -26,13 +26,12 @@ import {
   LifeBuoy,
 } from "lucide-react";
 
-// Import shared mock data & search helper
-import { mockSearchTalents } from "../../data/talentsData";
+import { API_BASE_URL } from "../utils/api";
 
 //Search config per userType
 const SEARCH_CONFIG = {
   talent: {
-    endpoint: "/api/jobs",
+    endpoint: "/api/jobs/search",
     queryParam: "q",
     mockType: "jobs",
     labelKey: "jobTitle",
@@ -42,10 +41,10 @@ const SEARCH_CONFIG = {
     placeholder: "Search jobs...",
   },
   employer: {
-    endpoint: "/api/talents",
-    queryParam: "q",
+    endpoint: "/api/gen/search",
+    queryParam: "query",
     mockType: "talents",
-    labelKey: "fullName",
+    labelKey: "name",
     sublabelKey: "role",
     resultsRoute: "/dashboard/talent-results",
     searchParamKey: "jobTitle",
@@ -87,9 +86,12 @@ export const DashboardLayout = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+
   // Debounced live search
   useEffect(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
 
     const trimmed = searchQuery.trim();
 
@@ -105,31 +107,50 @@ export const DashboardLayout = ({
 
     debounceTimer.current = setTimeout(async () => {
       try {
-        //MOCK MODE
-        const results = await mockSearchTalents(trimmed);
+        const token = localStorage.getItem("token");
+
+        const searchUrl =
+          userType === "talent"
+            ? `${API_BASE_URL}/api/jobs?q=${encodeURIComponent(trimmed)}`
+            : `${API_BASE_URL}/api/gen/search?query=${encodeURIComponent(trimmed)}`;
+
+        const response = await fetch(searchUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Search failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const results = Array.isArray(data.results)
+          ? data.results
+          : Array.isArray(data.jobs)
+            ? data.jobs
+            : Array.isArray(data.data)
+              ? data.data
+              : [];
+
         setSearchResults(results);
         setSearchStatus("success");
-
-        // const url = `${config.endpoint}?${config.queryParam}=${encodeURIComponent(trimmed)}`;
-        // const res = await fetch(url, {
-        //   headers: {
-        //     "Content-Type": "application/json",
-        //     // Authorization: `Bearer ${token}`,
-        //   },
-        // });
-        // if (!res.ok) throw new Error("Request failed");
-        // const data = await res.json();
-        // const results = Array.isArray(data) ? data : (data.results ?? data.data ?? []);
-        // setSearchResults(results);
-        // setSearchStatus("success");
-      } catch {
-        setSearchStatus("error");
+      } catch (error) {
+        console.error("Search error:", error);
         setSearchResults([]);
+        setSearchStatus("error");
       }
     }, 400);
 
-    return () => clearTimeout(debounceTimer.current);
-  }, [searchQuery, config]);
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [searchQuery, userType]);
+
 
   const handleResultClick = (result) => {
     setShowDropdown(false);
@@ -155,6 +176,7 @@ export const DashboardLayout = ({
   const defaultMenuItems = menuItems || [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: User, label: "Profile", path: "/dashboard/profile" },
+    { icon: Users, label: "Profile Views", path: "/dashboard/profile-views" },
     { icon: Briefcase, label: "My Job", path: "/dashboard/my-job" },
     { icon: PlusCircle, label: "Submit Job", path: "/dashboard/submit-job" },
     { icon: Users, label: "Applicants Jobs", path: "/dashboard/applicants" },

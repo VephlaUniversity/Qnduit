@@ -3,16 +3,17 @@ import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
+import { sendVerificationEmail } from "../utils/sendEmail.js";
 
 
-const storage = multer.diskStorage({
+/*const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/resumes/");
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   },
-});
+});*/
 
 const resumeStorage = multer.memoryStorage();
 
@@ -29,14 +30,7 @@ export const upload = multer({
   },
 });
 
-const talentStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/talent/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+const talentStorage = multer.memoryStorage();
 
 export const talentUpload = multer({
   storage: talentStorage,
@@ -50,8 +44,6 @@ export const talentUpload = multer({
     cb(null, true);
   },
 });
-
-
 
 
 export const registerTalent = async (req, res, next) => {
@@ -74,7 +66,13 @@ export const registerTalent = async (req, res, next) => {
     });
 
     // ********Send this via email service (SendGrid, Nodemailer, etc.)********
-    console.log(`📩 Verification code for ${email}: ${verificationCode}`);
+    // console.log(`📩 Verification code for ${email}: ${verificationCode}`);
+
+    await sendVerificationEmail(
+      email,
+      firstName,
+      verificationCode
+    );
 
     res.status(201).json({
       success: true,
@@ -115,7 +113,7 @@ export const verifyTalentEmail = async (req, res, next) => {
  
 export const updateTalentProfile = async (req, res, next) => {
   try {
-    const id = req.params.id;
+    const id = req.user._id;
     const updates = { ...req.body };
 
     delete updates.password;
@@ -123,27 +121,52 @@ export const updateTalentProfile = async (req, res, next) => {
     delete updates.isVerified;
     delete updates.selectedPlan;
 
-    /*const parseArrayField = (field) => {
-      if (Array.isArray(field)) return field;
-      if (typeof field === "string") {
-        try {
-          const parsed = JSON.parse(field);
-          if (Array.isArray(parsed)) return parsed;
-        } catch {}
-        return field
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
+    const parseArrayField = (field) => {
+      if (Array.isArray(field)) {
+        return field.flatMap((item) => parseArrayField(item));
       }
-      return undefined;
+
+      if (typeof field === "string") {
+        const value = field.trim();
+
+        if (!value) return [];
+
+        try {
+          const parsed = JSON.parse(value);
+
+          if (Array.isArray(parsed)) {
+            return parsed.flatMap((item) => parseArrayField(item));
+          }
+
+          if (typeof parsed === "string") {
+            return parseArrayField(parsed);
+          }
+        } catch {}
+
+        if (value.includes(",")) {
+          return value
+            .split(",")
+            .flatMap((item) => parseArrayField(item))
+            .filter(Boolean);
+        }
+
+        return [value];
+      }
+
+      return [];
     };
 
     ["categories", "tags", "skills"].forEach((key) => {
       if (updates[key] !== undefined) {
-        const parsed = parseArrayField(updates[key]);
-        if (parsed !== undefined) updates[key] = parsed;
+        updates[key] = [
+          ...new Set(
+            parseArrayField(updates[key])
+              .map((item) => String(item).trim())
+              .filter(Boolean)
+          ),
+        ];
       }
-    });*/
+    });
 
     if (updates.socialNetworks) {
       try {
@@ -176,17 +199,55 @@ export const updateTalentProfile = async (req, res, next) => {
 
     if (req.files?.avatar) {
       const avatarFile = req.files.avatar[0];
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "qnduit/talent-avatars",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+
+        stream.end(avatarFile.buffer);
+      });
+
       updates.avatar = {
-        url: `/uploads/talent/${avatarFile.filename}`,
-        public_id: avatarFile.filename,
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
       };
     }
 
     if (req.files?.introVideo) {
       const videoFile = req.files.introVideo[0];
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "qnduit/talent-videos",
+            resource_type: "video",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+
+        stream.end(videoFile.buffer);
+      });
+
       updates.introVideo = {
-        url: `/uploads/talent/${videoFile.filename}`,
-        public_id: videoFile.filename,
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
       };
     }
 
@@ -244,12 +305,14 @@ export const uploadResume = async (req, res, next) => {
       });
     }
 
+    const extension = path.extname(req.file.originalname).toLowerCase();
+
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           folder: "qnduit/talent-resumes",
           resource_type: "raw",
-          public_id: `${talent._id}-${Date.now()}`,
+          public_id: `${talent._id}-${Date.now()}${extension}`,
         },
         (error, result) => {
           if (error) {
@@ -314,15 +377,12 @@ export const getTalentProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Talent not found" });
 
     const profile = {
-
-      ...talent._doc,
-
-      avatar: talent.avatar?.url || "",
-
-      introVideo: talent.introVideo?.url || "",
-
-      lat: talent.geoLocation?.coordinates?.[1] || "",
-      lng: talent.geoLocation?.coordinates?.[0] || "",
+    ...talent._doc,
+    avatar: talent.avatar?.url || "",
+    introVideo: talent.introVideo?.url || "",
+    resume: talent.resume?.url || "",
+    lat: talent.geoLocation?.coordinates?.[1] || "",
+    lng: talent.geoLocation?.coordinates?.[0] || "",
 
       socialNetworks: talent.socialNetworks || {
         facebook: "",

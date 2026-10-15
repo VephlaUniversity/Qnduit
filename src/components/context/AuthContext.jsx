@@ -1,12 +1,12 @@
 import { createContext, useState, useEffect } from "react";
-import {
-  MOCK_EMPLOYER_CREDENTIALS,
-  MOCK_EMPLOYER_DATA,
-  MOCK_TALENT_CREDENTIALS,
-  MOCK_TALENT_DATA,
-  MOCK_ADMIN_CREDENTIALS,
-  MOCK_ADMIN_DATA,
-} from "../utils/mockUser";
+ import {
+//   MOCK_EMPLOYER_CREDENTIALS,
+   MOCK_EMPLOYER_DATA,
+//   MOCK_TALENT_CREDENTIALS,
+   MOCK_TALENT_DATA,
+//   MOCK_ADMIN_CREDENTIALS,
+//   MOCK_ADMIN_DATA,
+ } from "../utils/mockUser";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api"; // Make sure this points to your backend base URL
 
@@ -106,17 +106,40 @@ export const AuthProvider = ({ children }) => {
   };
 
   const adminSignIn = async (email, password) => {
-    if (email?.trim().toLowerCase() !== MOCK_ADMIN_CREDENTIALS.email) {
-      throw new Error("Invalid email or password");
-    }
-    if (password !== MOCK_ADMIN_CREDENTIALS.password) {
-      throw new Error("Invalid email or password");
-    }
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/api/admin/auth/login`,
+        {
+          email,
+          password,
+        }
+      );
 
-    localStorage.setItem("adminUser", JSON.stringify(MOCK_ADMIN_DATA));
-    localStorage.setItem("adminToken", "local-admin-session");
-    setAdminUser(MOCK_ADMIN_DATA);
-    return MOCK_ADMIN_DATA;
+      const { token, admin } = res.data;
+
+      if (!token || !admin) {
+        throw new Error("Invalid admin data returned from server");
+      }
+
+      const adminData = {
+        ...admin,
+        userType: "admin",
+      };
+
+      localStorage.setItem("adminUser", JSON.stringify(adminData));
+      localStorage.setItem("adminToken", token);
+
+      setAdminUser(adminData);
+
+      return adminData;
+    } catch (error) {
+      console.error("Admin sign in error:", error);
+
+      throw new Error(
+        error.response?.data?.message ||
+          "Invalid email or password"
+      );
+    }
   };
 
   const adminSignOut = async () => {
