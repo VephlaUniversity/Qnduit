@@ -22,6 +22,8 @@ import {
   ChevronDown,
   Search,
   Loader2,
+  UserCheck,
+  LifeBuoy,
 } from "lucide-react";
 
 import { API_BASE_URL } from "../utils/api";
@@ -183,9 +185,11 @@ export const DashboardLayout = ({
       label: "Saved Candidates",
       path: "/dashboard/saved-candidates",
     },
+    { icon: UserCheck, label: "Followers", path: "/dashboard/followers" },
     { icon: Package, label: "My Packages", path: "/dashboard/packages" },
     { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
     { icon: Video, label: "Meeting", path: "/dashboard/meeting" },
+    { icon: LifeBuoy, label: "Support", path: "/dashboard/support" },
     {
       icon: Lock,
       label: "Change Passwords",

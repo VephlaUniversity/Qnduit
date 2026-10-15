@@ -18,7 +18,7 @@ import { API_BASE_URL } from "../utils/api";
 
 export const EmployerSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -138,16 +138,28 @@ export const EmployerSignup = () => {
 
   const handleAccountTypeContinue = async () => {
     const token = localStorage.getItem("token");
-    const employerId = localStorage.getItem("employerId");
 
     try {
       const res = await axios.put(
         `${API_BASE_URL}/api/employers/update`,
-        formData,
+        {
+          updateContext: "account-details",
+          accountType: formData.accountType,
+          ...(formData.accountType === "institutional" ? {
+            companyName: formData.companyName,
+            aboutCompany: formData.aboutCompany,
+            companyWebsite: formData.companyWebsite,
+            companyIndustry: formData.companyIndustry,
+            location: formData.location,
+          } : {
+            displayName: formData.displayName,
+            aboutYou: formData.aboutYou,
+          }),
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
+            "Content-Type": "application/json",
           },
         }
       );
@@ -167,6 +179,7 @@ export const EmployerSignup = () => {
   };
 
   const handleSubmit = async () => {
+    if (!validateStep()) return;
     try {
       const res = await axios.post(`${API_BASE_URL}/api/employers/signup`, {
         email: formData.email,
@@ -216,12 +229,6 @@ export const EmployerSignup = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const nextStep = () => {
-    if (validateStep()) {
-      setCurrentStep(currentStep + 1);
-    }
   };
 
   const prevStep = () => {

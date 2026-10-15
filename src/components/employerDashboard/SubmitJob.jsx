@@ -141,6 +141,11 @@ const SubmitJob = () => {
       return;
     }
 
+    if (!formData.jobDescription.trim()) {
+      toast({ title: "Error", description: "Job Description is required", variant: "destructive" });
+      return;
+    }
+
     const form = new FormData();
 
     Object.keys(formData).forEach(key => {
@@ -167,7 +172,7 @@ const SubmitJob = () => {
 
       const token = localStorage.getItem("token");
 
-      const { data } = await axios({
+      await axios({
         method: isEditing ? "put" : "post",
         url: url,
         data: form,
