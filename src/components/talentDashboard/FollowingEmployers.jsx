@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import { Search, MapPin, Briefcase, Star } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 
@@ -85,21 +86,24 @@ const EmployerCard = ({ employer, onAction, loading }) => (
         </div>
       </div>
 
-      <button
-        disabled={loading}
-        onClick={onAction}
-        className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
-          employer.isFollowing
-            ? "bg-[#2A2A2E] hover:bg-white/10 text-white"
-            : "bg-blue-600 hover:bg-blue-700 text-white"
-        }`}
-      >
-        {loading
-          ? "Please wait..."
-          : employer.isFollowing
-            ? "Unfollow"
-            : "Follow"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-blue-400 focus-visible:outline focus-visible:outline-2" to={`/talent-dashboard/users/employer/${encodeURIComponent(employer.id)}`}>View Profile</Link>
+        <button
+          disabled={loading}
+          onClick={onAction}
+          className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
+            employer.isFollowing
+              ? "bg-[#2A2A2E] hover:bg-white/10 text-white"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+          }`}
+        >
+          {loading
+            ? "Please wait..."
+            : employer.isFollowing
+              ? "Unfollow"
+              : "Follow"}
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -233,8 +237,6 @@ export const TalentFollowingEmployers = () => {
           Following Employers
         </h1>
       </div>
-
-      <p className="mb-6 text-sm text-gray-400">Profile viewing is not available for live accounts yet.</p>
 
       <div className="flex gap-2 border-b border-white/10 mb-6">
         <button

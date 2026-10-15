@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
   MapPin,
@@ -50,7 +50,7 @@ export const Followers = () => {
   const [actionId, setActionId] = useState(null);
   const [error, setError] = useState("");
 
-  const loadFollowers = async () => {
+  const loadFollowers = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -87,12 +87,12 @@ export const Followers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, page]);
 
   useEffect(() => {
     const timer = setTimeout(loadFollowers, 300);
     return () => clearTimeout(timer);
-  }, [search, page]);
+  }, [loadFollowers]);
 
   const handleFollowToggle = async (talent) => {
     setActionId(talent.id);
@@ -236,7 +236,8 @@ export const Followers = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400" to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}`}>View Profile</Link>
                     <button
                       onClick={() => navigate("/dashboard/messages")}
                       className="flex items-center gap-2 px-4 py-2 bg-[#2A2A2E] hover:bg-white/10 text-white rounded-lg font-medium text-sm"
