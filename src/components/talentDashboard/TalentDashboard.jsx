@@ -32,6 +32,8 @@ import { TalentJobs } from "./TalentJobs";
 import { TalentJobDetails } from "./TalentJobDetails";
 import UserSupport from "../support/UserSupport";
 
+import UserSupport from "../support/UserSupport";
+
 import UserProfileView from "../profiles/UserProfileView";
 import ProfileViewHistory from "../profiles/ProfileViewHistory";
 

@@ -20,13 +20,138 @@ import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
-import {
-  getFollows,
-  isFollowing,
-  followEmployer,
-  unfollowEmployer,
-  subscribeFollows,
-} from "../utils/follows";
+
+const followError = (error) => {
+  const status = error.response?.status;
+  if (status === 401) return "Your session has expired. Please sign in again.";
+  if (status === 403) return "Only Talent accounts can follow employers.";
+  if (status === 404) return "This employer is no longer available.";
+  return "Unable to update employer follow status. Please try again.";
+};
+
+const EmployerFollow = ({ employerId, token }) => {
+  const [status, setStatus] = useState("loading");
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setStatus("loading");
+    setError("");
+    axios
+      .get(`${API_BASE_URL}/api/follows/status/${employerId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(({ data }) => {
+        if (!active) return;
+        if (!data.success || typeof data.isFollowing !== "boolean")
+          throw new Error();
+        setIsFollowing(data.isFollowing);
+        setStatus("ready");
+      })
+      .catch((failure) => {
+        if (!active) return;
+        setError(followError(failure));
+        setStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [employerId, token, attempt]);
+
+  const toggle = async () => {
+    if (status !== "ready") return;
+    setStatus("busy");
+    setError("");
+    try {
+      const url = `${API_BASE_URL}/api/follows/employers/${employerId}`;
+      const options = { headers: { Authorization: `Bearer ${token}` } };
+      const { data } = isFollowing
+        ? await axios.delete(url, options)
+        : await axios.post(url, {}, options);
+      if (!data.success || typeof data.isFollowing !== "boolean")
+        throw new Error();
+      setIsFollowing(data.isFollowing);
+    } catch (failure) {
+      setError(followError(failure));
+    } finally {
+      setStatus("ready");
+    }
+  };
+
+  return (
+    <div>
+      {status === "error" ? (
+        <button
+          onClick={() => setAttempt((value) => value + 1)}
+          className="min-h-[44px] rounded-lg border border-blue-500 px-3 text-blue-400 focus-visible:outline focus-visible:outline-2"
+        >
+          Retry follow status
+        </button>
+      ) : (
+        <button
+          onClick={toggle}
+          disabled={status !== "ready"}
+          aria-pressed={isFollowing}
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-blue-500 px-3 text-blue-400 disabled:opacity-50 focus-visible:outline focus-visible:outline-2"
+        >
+          {isFollowing ? (
+            <UserCheck className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+          )}
+          {status === "loading"
+            ? "Loading follow status…"
+            : status === "busy"
+              ? "Updating…"
+              : isFollowing
+                ? "Unfollow employer"
+                : "Follow employer"}
+        </button>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+};
+
+const JobEmployerActions = ({ employerId, jobId }) => {
+  const { user } = useAuth();
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
+  if (typeof employerId !== "string" || !/^[a-f\d]{24}$/i.test(employerId)) {
+    return (
+      <p className="text-sm text-gray-400">Employer profile unavailable.</p>
+    );
+  }
+  const origin = /^[a-f\d]{24}$/i.test(jobId) ? `?from=job&jobId=${jobId}` : "";
+  return (
+    <div className="mb-3 flex flex-wrap items-start gap-3">
+      <Link
+        to={`/talent-dashboard/users/employer/${employerId}${origin}`}
+        className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-3 text-sm text-blue-400 focus-visible:outline focus-visible:outline-2"
+      >
+        View Employer Profile
+      </Link>
+      {user?.userType === "talent" &&
+        (token ? (
+          <EmployerFollow
+            key={`${employerId}:${user.id}`}
+            employerId={employerId}
+            token={token}
+          />
+        ) : (
+          <p role="alert" className="text-sm text-red-400">
+            Please sign in to follow this employer.
+          </p>
+        ))}
+    </div>
+  );
+};
 
 export const TalentJobDetails = () => {
   const { id } = useParams();
@@ -48,10 +173,12 @@ export const TalentJobDetails = () => {
   }, [followEmail]);
 
   useEffect(() => {
+    let active = true;
+    setJob(null);
     const fetchJob = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/api/jobs/public/${id}`);
-        setJob(res.data.job);
+        if (active) setJob(res.data.job);
       } catch (error) {
         console.error("Failed to fetch job", error);
       }
@@ -60,7 +187,7 @@ export const TalentJobDetails = () => {
     const fetchRelatedJobs = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/api/jobs/related/${id}`);
-        setRelatedJobs(res.data.jobs);
+        if (active) setRelatedJobs(res.data.jobs);
       } catch (error) {
         console.error("Failed to fetch related jobs", error);
       }
@@ -68,6 +195,9 @@ export const TalentJobDetails = () => {
 
     fetchJob();
     fetchRelatedJobs();
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   // **** new route needed ****
@@ -258,6 +388,7 @@ export const TalentJobDetails = () => {
                     </button>
                   )}
                 </div>
+                <JobEmployerActions employerId={job.employer?._id} jobId={id} />
                 <h1 className="text-3xl font-bold text-white mb-3">
                   {job.jobTitle}{" "}
                   {job.verified && (
@@ -625,110 +756,14 @@ export const TalentJobDetails = () => {
             )}
 
             {activeTab === "reviews" && (
-              <div className="space-y-8">
-                {/* Reviews Section */}
-                <section className="bg-[#1A1F2E] rounded-xl p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-white">
-                      Customer Reviews
-                    </h2>
-
-                    <button className="px-6 py-3 border border-[#3B82F6]  text-[#3B82F6] hover:bg-[#3077e8] hover:text-white rounded-sm font-semibold transition-colors">
-                      Write A Review
-                    </button>
-                  </div>
-
-                  <div className="flex items-start gap-12 mb-8">
-                    <div className="text-center">
-                      <div className="text-6xl font-bold text-white mb-2">
-                        4.8
-                      </div>
-                      <div className="flex items-center gap-1 mb-2">
-                        {[...Array(5)].map((_, i) => (
-                          <span key={i} className="text-yellow-400 text-xl">
-                            ★
-                          </span>
-                        ))}
-                      </div>
-                      <div className="text-muted-foreground text-sm">
-                        (1,968 Ratings)
-                      </div>
-                    </div>
-
-                    <div className="flex-1 space-y-2">
-                      {[
-                        { stars: 5, percentage: 60 },
-                        { stars: 4, percentage: 20 },
-                        { stars: 3, percentage: 10 },
-                        { stars: 2, percentage: 7 },
-                        { stars: 1, percentage: 3 },
-                      ].map(({ stars, percentage }) => (
-                        <div key={stars} className="flex items-center gap-3">
-                          <span className="text-sm text-muted-foreground w-4">
-                            {stars}
-                          </span>
-                          <span className="text-yellow-400">★</span>
-                          <div className="flex-1 h-2 bg-[#2A3142] rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[[#3B82F6] ] rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="text-sm text-muted-foreground w-12 text-right">
-                            {percentage}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Review List */}
-                  <div className="space-y-6">
-                    {reviews.map((review) => (
-                      <div
-                        key={review.id}
-                        className="pt-6 border-t border-[#2A3142]"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-full bg-muted flex-shrink-0" />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold text-white">
-                                {review.name}
-                              </h4>
-                              {review.verified && (
-                                <span className="text-green-400">✓</span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground mb-2">
-                              {review.date}
-                            </div>
-                            <div className="flex items-center gap-1 mb-3">
-                              {[...Array(5)].map((_, i) => (
-                                <span key={i} className="text-yellow-400">
-                                  ★
-                                </span>
-                              ))}
-                            </div>
-                            <p className="text-muted-foreground">
-                              {review.comment}
-                            </p>
-                          </div>
-                          <button className="text-muted-foreground hover:text-white text-sm border border-[#2A3142] px-4 py-2 rounded-lg">
-                            Was this helpful? 👍
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8 text-center">
-                    <button className="text-[#f1f1f1] hover:underline">
-                      See more reviews (19)
-                    </button>
-                  </div>
-                </section>
-              </div>
+              <section className="bg-[#1A1F2E] rounded-xl p-8">
+                <h2 className="text-2xl font-bold text-white mb-4">
+                  Customer Reviews
+                </h2>
+                <p className="text-muted-foreground">
+                  Reviews are currently unavailable for this job.
+                </p>
+              </section>
             )}
           </div>
 
@@ -738,45 +773,45 @@ export const TalentJobDetails = () => {
               <div className="flex justify-between">
                 <h3 className=" text-[#64666C] text-sm">Website</h3>
                 <a
-                  href={job.employer.companyWebsite}
+                  href={job.employer?.companyWebsite}
                   className="text-[#3B82F6] hover:underline"
                 >
-                  {job.employer.companyWebsite}
+                  {job.employer?.companyWebsite}
                 </a>
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
                 <h3 className=" text-sm mb-1 text-[#64666C]">Email</h3>
                 <div className="text-white text-sm">
-                  {job.employer.companyEmail}
+                  {job.employer?.companyEmail}
                 </div>
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
                 <h3 className=" text-sm mb-1 text-[#64666C]">Industry</h3>
                 <div className="text-white text-sm">
-                  {job.employer.companyIndustry}
+                  {job.employer?.companyIndustry}
                 </div>
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
                 <h3 className=" text-sm mb-1 text-[#64666C]">Company size</h3>
                 <div className="text-white text-sm">
-                  {job.employer.companySize}
+                  {job.employer?.companySize}
                 </div>
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
                 <h3 className=" text-sm mb-1 text-[#64666C]">Headquarters</h3>
                 <div className="text-white text-sm">
-                  {job.employer.location}
+                  {job.employer?.location}
                 </div>
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
                 <h3 className=" text-sm mb-1 text-[#64666C]">Founded</h3>
                 <div className="text-white text-sm">
-                  {job.employer.foundedYear}
+                  {job.employer?.foundedYear}
                 </div>
               </div>
               <hr className="text-[#64666C]" />

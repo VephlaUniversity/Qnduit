@@ -260,13 +260,23 @@ export default function UserProfileView() {
   const dashboard = pathname.startsWith("/talent-dashboard/")
     ? "/talent-dashboard"
     : "/dashboard";
-  const returnTo =
-    dashboard === "/dashboard" && userType === "talent"
-      ? `${dashboard}/talent-results${search}`
-      : dashboard === "/talent-dashboard" && userType === "employer"
-        ? `${dashboard}/following-employers`
-        : dashboard;
-  const backLabel = `Back to ${returnTo.includes("talent-results") ? "talent results" : returnTo.includes("following-employers") ? "following employers" : "dashboard"}`;
+  const params = new URLSearchParams(search);
+  // Only named origins resolve to fixed dashboard routes; never use a supplied URL.
+  const fromFollowers = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "followers";
+  const jobId = params.get("jobId") || "";
+  const fromJob = dashboard === "/talent-dashboard" && userType === "employer" &&
+    params.get("from") === "job" && /^[a-f\d]{24}$/i.test(jobId);
+  const returnTo = fromFollowers
+    ? "/dashboard/followers"
+    : fromJob
+      ? `/talent-dashboard/job-results/details/${jobId}`
+      : dashboard === "/dashboard" && userType === "talent"
+        ? `${dashboard}/talent-results${search}`
+        : dashboard === "/talent-dashboard" && userType === "employer"
+          ? `${dashboard}/following-employers`
+          : dashboard;
+  const backLabel = fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
+    `Back to ${returnTo.includes("talent-results") ? "talent results" : returnTo.includes("following-employers") ? "following employers" : "dashboard"}`;
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
       <Link

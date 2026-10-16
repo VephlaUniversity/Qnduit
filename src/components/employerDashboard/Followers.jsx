@@ -227,7 +227,7 @@ export const Followers = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400"
-                      to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}`}
+                      to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=followers`}
                     >
                       View Profile
                     </Link>

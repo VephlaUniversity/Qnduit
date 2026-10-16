@@ -93,6 +93,7 @@ export const UserSupport = () => {
     } else if (message.trim().length < MIN_MESSAGE_LENGTH) {
       next.message = `Please give us a bit more detail (at least ${MIN_MESSAGE_LENGTH} characters)`;
     }
+    if (message.trim().length > 10000) next.message = "Message cannot exceed 10,000 characters.";
     if (!email)
       next.form = "We couldn't find your account email. Please sign in again.";
     setErrors(next);
@@ -214,6 +215,7 @@ export const UserSupport = () => {
                 Message
               </label>
               <textarea
+                maxLength={10000}
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);

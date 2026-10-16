@@ -162,6 +162,11 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
       return;
     }
 
+    if (response.trim().length > 10000) {
+      toast.error("Response cannot exceed 10,000 characters");
+      return;
+    }
+
     try {
       await onReply(ticket.id, response.trim());
 
@@ -200,6 +205,7 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
           {replying && (
             <div className="mb-8 bg-[#0E0E10] border border-white/10 rounded-lg p-4">
               <textarea
+                maxLength={10000}
                 value={response}
                 onChange={(e) => setResponse(e.target.value)}
                 rows={4}
@@ -242,10 +248,10 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
 
 export const SupportCenter = () => {
   const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTickets, setTotalTickets] = useState(0);
-  const [requestError, setRequestError] = useState("");
+  const [, setRequestError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Requests");
   const [pageSize, setPageSize] = useState(8);

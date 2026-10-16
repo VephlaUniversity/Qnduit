@@ -206,7 +206,8 @@ export const validateFormData = (schema, data) => {
     return { success: true, errors: {} };
   } catch (error) {
     const errors = {};
-    error.errors.forEach((err) => {
+    if (!(error instanceof z.ZodError)) throw error;
+    error.issues.forEach((err) => {
       errors[err.path[0]] = err.message;
     });
     return { success: false, errors };

@@ -10,6 +10,7 @@ import TextEditor from "../TextEditor";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { coordinateError, employerEditableFields, employerProfileFormData, validateEmployerProfile } from "../utils/employerProfileValidation";
 
 // Fix leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,12 +22,16 @@ L.Icon.Default.mergeOptions({
 });
 
 const DraggableMarker = ({ position, onPositionChange }) => {
-  useMapEvents({
+  const map = useMapEvents({
     click(e) {
-      onPositionChange(e.latlng.lat, e.latlng.lng);
+      const wrapped = e.latlng.wrap();
+      onPositionChange(wrapped.lat, wrapped.lng);
     },
   });
-  return position[0] && position[1] ? <Marker position={position} /> : null;
+  useEffect(() => {
+    if (position.every(Number.isFinite)) map.panTo(position);
+  }, [map, position]);
+  return position.every(Number.isFinite) ? <Marker position={position} /> : null;
 };
 
 const socialIcons = [
@@ -48,6 +53,23 @@ const socialIcons = [
 
 const ProfileSettings = () => {
   const navigate = useNavigate();
+  const [errors, setErrors] = useState({});
+  const pageRef = useRef(null);
+  const focusErrors = (next) => {
+    requestAnimationFrame(() => {
+      const first = pageRef.current?.querySelector("[aria-invalid=\"true\"]");
+      if (Object.keys(next).length) first?.focus();
+    });
+  };
+  const fieldProps = (name) => ({
+    id: `employer-${name}`,
+    "aria-invalid": Boolean(errors[name]),
+    "aria-required": ["lat", "lng"].includes(name),
+    "aria-describedby": errors[name] ? `employer-${name}-error` : undefined,
+  });
+  const fieldError = (name) => errors[name] ? (
+    <p id={`employer-${name}-error`} className="text-red-400 text-sm mt-2" role="alert">{errors[name]}</p>
+  ) : null;
   const { toast } = useToast();
   const [categoryInput, setCategoryInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -112,7 +134,7 @@ const ProfileSettings = () => {
             parsed.forEach(processItem);
             return;
           }
-        } catch {}
+        } catch { /* Plain text categories are also supported. */ }
 
         if (trimmed.includes(",")) {
           trimmed
@@ -158,7 +180,10 @@ const ProfileSettings = () => {
 
         setFormData((prev) => ({
           ...prev,
-          ...profile,
+          ...Object.fromEntries(employerEditableFields.map((key) => [key, profile[key] ?? prev[key]])),
+          lat: String(profile.geoLocation?.coordinates?.[1] ?? profile.lat ?? ""),
+          lng: String(profile.geoLocation?.coordinates?.[0] ?? profile.lng ?? ""),
+          logo: null,
           socialNetworks: profile.socialNetworks || prev.socialNetworks,
           categories: normalizeArray(profile.categories),
           gallery: [],
@@ -166,25 +191,24 @@ const ProfileSettings = () => {
 
         // Set logo preview
         if (profile.logo) {
-          setLogoPreview(`${API_BASE_URL}${profile.logo}`);
+          setLogoPreview(/^https?:\/\//i.test(profile.logo) ? profile.logo : `${API_BASE_URL}${profile.logo}`);
         }
 
         // Set gallery preview
         if (profile.gallery && Array.isArray(profile.gallery)) {
           setGalleryItems(
             profile.gallery.map((item) => ({
-              url: `${API_BASE_URL}${item.url}`,
+              url: /^https?:\/\//i.test(item.url) ? item.url : `${API_BASE_URL}${item.url}`,
               type: item.type,
             }))
           );
         }
 
         // Set map position
-        if (profile.lat && profile.lng) {
-          setMapPosition([
-            parseFloat(profile.lat),
-            parseFloat(profile.lng),
-          ]);
+        const lat = profile.geoLocation?.coordinates?.[1] ?? profile.lat ?? "";
+        const lng = profile.geoLocation?.coordinates?.[0] ?? profile.lng ?? "";
+        if (!coordinateError(lat, "Latitude", 90) && !coordinateError(lng, "Longitude", 180)) {
+          setMapPosition([Number(lat), Number(lng)]);
         }
 
       } catch (error) {
@@ -236,6 +260,11 @@ const ProfileSettings = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Choose an image for the logo.", variant: "destructive" });
+      return;
+    }
+
     const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB limit for logo
 
     if (file.size > MAX_FILE_SIZE) {
@@ -280,94 +309,24 @@ const ProfileSettings = () => {
 
     const fileArray = Array.from(files);
     const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB limit per file
-    let processedCount = 0;
-    const newItems = [];
-    let hasError = false;
-
-    // Validate file sizes first
-    for (const file of fileArray) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast({
-          title: "File too large",
-          description: `${file.name} exceeds 2MB limit. Please use smaller files.`,
-          variant: "destructive",
-        });
-        hasError = true;
-      }
+    if (fileArray.some((file) => file.size > MAX_FILE_SIZE)) {
+      toast({ title: "File too large", description: "Each gallery file must be less than 2MB.", variant: "destructive" });
+      return;
     }
-
-    if (hasError) return;
-
-    fileArray.forEach((file) => {
-      const isVideo = file.type.startsWith("video/");
-      const isImage = file.type.startsWith("image/");
-
-      if (!isVideo && !isImage) {
-        toast({
-          title: "Invalid file",
-          description: `${file.name} is not a valid image or video file`,
-          variant: "destructive",
-        });
-        processedCount++;
-        if (processedCount === fileArray.length && newItems.length > 0) {
-          updateGalleryState(newItems);
-        }
-        return;
-      }
-
-      const newItems = fileArray.map((file) => ({
-        url: URL.createObjectURL(file),
-        type: file.type.startsWith("video/") ? "video" : "image",
-      }));
-
-      setGalleryItems((prev) => [...prev, ...newItems]);
-
-      setFormData((prev) => ({
-        ...prev,
-        gallery: [...prev.gallery, ...fileArray], 
-      }));
-
-    });
-  };
-
-  const updateGalleryState = (newItems) => {
-    try {
-      setGalleryItems((prev) => {
-        const updated = [...prev, ...newItems];
-        // Check if we're approaching localStorage limit
-        if (updated.length > 10) {
-          toast({
-            title: "Warning",
-            description:
-              "Too many gallery items may cause storage issues. Consider removing some.",
-            variant: "destructive",
-          });
-        }
-        return updated;
-      });
-
-      setFormData((prev) => {
-        // Ensure prev.gallery is always an array
-        const currentGallery = Array.isArray(prev.gallery) ? prev.gallery : [];
-        return {
-          ...prev,
-          gallery: [...currentGallery, ...newItems],
-        };
-      });
-
-      toast({
-        title: "Success!",
-        description: `${newItems.length} file(s) added to gallery`,
-      });
-    } catch (error) {
-      console.error("Error updating gallery:", error);
-      toast({
-        title: "Error",
-        description:
-          "Failed to add files to gallery. Storage limit may be reached.",
-        variant: "destructive",
-      });
+    if (fileArray.some((file) => !file.type.startsWith("image/") && !file.type.startsWith("video/"))) {
+      toast({ title: "Invalid file", description: "Choose images or videos for the gallery.", variant: "destructive" });
+      return;
     }
+    if (galleryItems.length + fileArray.length > 10) {
+      toast({ title: "Too many files", description: "The gallery supports up to 10 files.", variant: "destructive" });
+      return;
+    }
+    const items = fileArray.map((file) => ({
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith("video/") ? "video" : "image",
+    }));
+    setGalleryItems((prev) => [...prev, ...items]);
+    setFormData((prev) => ({ ...prev, gallery: [...prev.gallery, ...fileArray] }));
   };
 
   const handleRemoveGalleryItem = (index) => {
@@ -397,10 +356,14 @@ const ProfileSettings = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     const lat = field === "lat" ? parseFloat(value) : parseFloat(formData.lat);
     const lng = field === "lng" ? parseFloat(value) : parseFloat(formData.lng);
-    if (!isNaN(lat) && !isNaN(lng)) setMapPosition([lat, lng]);
+    if (!coordinateError(field === "lat" ? value : formData.lat, "Latitude", 90) &&
+        !coordinateError(field === "lng" ? value : formData.lng, "Longitude", 180)) setMapPosition([lat, lng]);
   };
 
   const handleSave = async () => {
+    const validation = validateEmployerProfile(formData);
+    setErrors(validation);
+    if (Object.keys(validation).length) { focusErrors(validation); return; }
     setIsSaving(true);
 
     try {
@@ -410,40 +373,9 @@ const ProfileSettings = () => {
 
       if (!employerId) throw new Error("An error occured. Please try again.");
 
-      const data = new FormData();
+      const data = employerProfileFormData(formData);
 
-      Object.keys(formData).forEach((key) => {
-        if (
-          key !== "logo" &&
-          key !== "gallery" &&
-          key !== "socialNetworks" &&
-          key !== "categories"
-        ) {
-          data.append(key, formData[key]);
-        }
-      });
-
-      data.append(
-        "socialNetworks",
-        JSON.stringify(formData.socialNetworks)
-      );
-
-      data.append(
-        "categories",
-        JSON.stringify(formData.categories)
-      );
-
-      if (formData.logo) {
-        data.append("logo", formData.logo);
-      }
-
-      if (formData.gallery?.length) {
-        formData.gallery.forEach((file) => {
-          data.append("gallery", file);
-        });
-      }
-
-      const response = await axios.put(
+      await axios.put(
         `${API_BASE_URL}/api/employers/update`,
         data,
         {
@@ -454,7 +386,6 @@ const ProfileSettings = () => {
         }
       );
 
-      const result = response.data;
 
 
       toast({
@@ -467,11 +398,17 @@ const ProfileSettings = () => {
       navigate("/dashboard/profile");
 
     } catch (error) {
-      console.error("Save error:", error);
+      if (error.response?.status === 400 && error.response.data?.errors) {
+        const next = error.response.data.errors;
+        setErrors(next);
+        focusErrors(next);
+      }
 
       toast({
         title: "Error",
-        description: error.message || "Failed to save profile. Please try again later.",
+        description: error.response?.status === 400
+          ? "Please check the highlighted fields."
+          : "Failed to save profile. Please try again later.",
         variant: "destructive",
       });
 
@@ -485,7 +422,7 @@ const ProfileSettings = () => {
   const selectClass = inputClass;
 
   return (
-    <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+    <div ref={pageRef} className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 bg-blue-600 rounded-full" />
@@ -617,13 +554,15 @@ const ProfileSettings = () => {
                 />
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">Company Email</label>
+                <label className="text-white text-sm mb-2 block" htmlFor="employer-companyEmail">Company Email</label>
                 <input
                   type="email"
+                  {...fieldProps("companyEmail")}
                   value={formData.companyEmail}
                   onChange={(e) => handleInputChange("companyEmail", e.target.value)}
                   className={inputClass}
                 />
+                {fieldError("companyEmail")}
               </div>
               <div>
                 <label className="text-white text-sm mb-2 block">
@@ -637,13 +576,15 @@ const ProfileSettings = () => {
                 />
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">Website</label>
+                <label className="text-white text-sm mb-2 block" htmlFor="employer-companyWebsite">Website</label>
                 <input
                   type="url"
+                  {...fieldProps("companyWebsite")}
                   value={formData.companyWebsite}
                   onChange={(e) => handleInputChange("companyWebsite", e.target.value)}
                   className={inputClass}
                 />
+                {fieldError("companyWebsite")}
               </div>
               <div>
                 <label className="text-white text-sm mb-2 block">
@@ -659,11 +600,12 @@ const ProfileSettings = () => {
                 />
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">
+                <label className="text-white text-sm mb-2 block" htmlFor="employer-foundedYear">
                   Founded Year
                 </label>
                 <input
                   type="text"
+                  {...fieldProps("foundedYear")}
                   value={formData.foundedYear}
                   onChange={(e) =>
                     handleInputChange("foundedYear", e.target.value)
@@ -671,6 +613,7 @@ const ProfileSettings = () => {
                   placeholder="e.g. 2020"
                   className={inputClass}
                 />
+                {fieldError("foundedYear")}
               </div>
               <div>
                 <label className="text-white text-sm mb-2 block">
@@ -722,7 +665,7 @@ const ProfileSettings = () => {
             {/* Categories */}
             <div className="mt-6">
               <label className="text-white text-sm mb-3 block">
-                Categories <span className="text-red-500">*</span>
+                Categories
               </label>
               <div className="flex flex-wrap items-center gap-2 w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg min-h-[48px]">
                 {formData.categories.map((cat, i) => (
@@ -741,6 +684,8 @@ const ProfileSettings = () => {
                 ))}
                 <input
                   type="text"
+                  {...fieldProps("categories")}
+                  aria-label="Categories"
                   value={categoryInput}
                   onChange={(e) => setCategoryInput(e.target.value)}
                   onKeyDown={handleCategoryKeyDown}
@@ -754,20 +699,24 @@ const ProfileSettings = () => {
               </div>
             </div>
 
+            {fieldError("categories")}
+
             {/* Profile URL */}
             <div className="mt-6">
-              <label className="text-white text-sm mb-3 block">
+              <label className="text-white text-sm mb-3 block" htmlFor="employer-profileURL">
                 Profile URL
               </label>
               <div className="relative">
                 <input
                   type="url"
+                  {...fieldProps("profileURL")}
                   value={formData.profileURL}
                   onChange={(e) =>
                     handleInputChange("profileURL", e.target.value)
                   }
                   className={`${inputClass} pr-10`}
                 />
+                {fieldError("profileURL")}
                 <button className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400">
                   <ExternalLink className="w-5 h-5" />
                 </button>
@@ -793,11 +742,14 @@ const ProfileSettings = () => {
             </h2>
             <input
               type="url"
-              value={formData.introVideo}
+              {...fieldProps("introVideo")}
+              aria-label="Introduction video URL"
+                  value={formData.introVideo}
               onChange={(e) => handleInputChange("introVideo", e.target.value)}
               placeholder="https://www.youtube.com/watch?v="
               className={inputClass}
             />
+                {fieldError("introVideo")}
           </div>
 
           {/* Social Network */}
@@ -815,6 +767,7 @@ const ProfileSettings = () => {
                     </div>
                     <input
                       type="url"
+                      {...fieldProps(`social-${social.name}`)}
                       value={formData.socialNetworks[social.name] || ""}
                       onChange={(e) =>
                         handleSocialChange(social.name, e.target.value)
@@ -822,6 +775,7 @@ const ProfileSettings = () => {
                       placeholder={social.placeholder}
                       className={`flex-1 ${inputClass}`}
                     />
+                    {fieldError(`social-${social.name}`)}
                     {formData.socialNetworks[social.name] && (
                       <button
                         onClick={() => handleSocialChange(social.name, "")}
@@ -905,28 +859,34 @@ const ProfileSettings = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-white text-sm mb-2 block">
-                  Latitude
+                <label className="text-white text-sm mb-2 block" htmlFor="employer-lat">
+                  Latitude <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  {...fieldProps("lat")}
+                  inputMode="decimal"
                   value={formData.lat}
                   onChange={(e) => handleLatLngInput("lat", e.target.value)}
                   placeholder="Latitude"
                   className={inputClass}
                 />
+                {fieldError("lat")}
               </div>
               <div>
-                <label className="text-white text-sm mb-2 block">
-                  Longitude
+                <label className="text-white text-sm mb-2 block" htmlFor="employer-lng">
+                  Longitude <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  {...fieldProps("lng")}
+                  inputMode="decimal"
                   value={formData.lng}
                   onChange={(e) => handleLatLngInput("lng", e.target.value)}
                   placeholder="Longitude"
                   className={inputClass}
                 />
+                {fieldError("lng")}
               </div>
             </div>
           </div>
