@@ -836,7 +836,7 @@ const ProfileSettings = () => {
             {/* Interactive Map */}
             <div className="mb-2">
               <p className="text-gray-400 text-sm mb-2">
-                Click on the map to set your location:
+                Location is optional. Supply both coordinates or leave both blank. Blank coordinates keep any saved location. Click the map to select a location:
               </p>
             </div>
             <div className="rounded-lg overflow-hidden border border-white/5 mb-6 h-72">
@@ -860,7 +860,7 @@ const ProfileSettings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-white text-sm mb-2 block" htmlFor="employer-lat">
-                  Latitude <span className="text-red-500">*</span>
+                  Latitude (optional)
                 </label>
                 <input
                   type="text"
@@ -875,7 +875,7 @@ const ProfileSettings = () => {
               </div>
               <div>
                 <label className="text-white text-sm mb-2 block" htmlFor="employer-lng">
-                  Longitude <span className="text-red-500">*</span>
+                  Longitude (optional)
                 </label>
                 <input
                   type="text"

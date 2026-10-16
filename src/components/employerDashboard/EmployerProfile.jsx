@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { hasValidCoordinates } from "../utils/employerProfileValidation";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -35,7 +36,7 @@ const getYouTubeVideoId = (url) => {
 export const EmployerProfile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [availableJobs, setAvailableJobs] = useState([]);
+  const [availableJobs] = useState([]);
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export const EmployerProfile = () => {
   };
 
   const activeSocials = profile
-    ? Object.entries(profile.socialNetworks || {}).filter(([_, url]) => url)
+    ? Object.entries(profile.socialNetworks || {}).filter(([, url]) => url)
     : [];
 
   const youtubeVideoId = getYouTubeVideoId(profile?.introVideo);
@@ -154,7 +155,7 @@ export const EmployerProfile = () => {
           {/* Left Column - Company Info */}
           <div className="space-y-4">
             {/* Map - shows saved location */}
-            {profile?.lat && profile?.lng && (
+            {hasValidCoordinates(profile?.lat, profile?.lng) && (
               <div
                 className="rounded-lg overflow-hidden"
                 style={{ height: "200px", zIndex: 0 }}

@@ -35,13 +35,21 @@ export function coordinateError(value, label, max) {
   return "";
 }
 
+export function coordinatesAreBlank(lat, lng) {
+  return [lat, lng].every((value) => value == null || (typeof value === "string" && !value.trim()));
+}
+
+export function hasValidCoordinates(lat, lng) {
+  return !coordinateError(lat, "Latitude", 90) && !coordinateError(lng, "Longitude", 180);
+}
+
 export function validateEmployerProfile(data) {
   const errors = {};
   for (const [field, label, max] of [
     ["lat", "Latitude", 90],
     ["lng", "Longitude", 180],
   ]) {
-    const error = coordinateError(data[field], label, max);
+    const error = coordinatesAreBlank(data.lat, data.lng) ? "" : coordinateError(data[field], label, max);
     if (error) errors[field] = error;
   }
   if (
@@ -77,7 +85,11 @@ function isWebUrl(value) {
 export function employerProfileFormData(data) {
   const body = new FormData();
   body.append("updateContext", "profile-settings");
-  for (const key of employerEditableFields) body.append(key, data[key] ?? "");
+  for (const key of employerEditableFields) {
+    // Blank pairs preserve saved geometry; they never mean zero or removal.
+    if (["lat", "lng"].includes(key) && coordinatesAreBlank(data.lat, data.lng)) continue;
+    body.append(key, data[key] ?? "");
+  }
   body.append("categories", JSON.stringify(data.categories));
   body.append("socialNetworks", JSON.stringify(data.socialNetworks));
   if (data.logo instanceof File) body.append("logo", data.logo);
