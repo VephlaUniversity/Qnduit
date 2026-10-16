@@ -25,13 +25,9 @@ import profileRoutes from "./routes/profileRoutes.js";
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
-import { fixEmployerSubscriptionIndex } from "./scripts/fixEmployerSubscriptionIndex.js";
-
 
 dotenv.config();
 connectDB();
-
-await fixEmployerSubscriptionIndex();
 
 const app = express();
 
