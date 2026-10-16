@@ -30,6 +30,7 @@ import TalentMyApplied from "./TalentMyApplied";
 import TalentDashboardOverview from "./TalentDashboardOverview";
 import { TalentJobs } from "./TalentJobs";
 import { TalentJobDetails } from "./TalentJobDetails";
+import UserSupport from "../support/UserSupport";
 
 import UserSupport from "../support/UserSupport";
 
@@ -39,7 +40,11 @@ import ProfileViewHistory from "../profiles/ProfileViewHistory";
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
   { icon: User, label: "Profile", path: "/talent-dashboard/profile" },
-  { icon: Users, label: "Profile Views", path: "/talent-dashboard/profile-views" },
+  {
+    icon: Users,
+    label: "Profile Views",
+    path: "/talent-dashboard/profile-views",
+  },
   { icon: FileText, label: "Resumes", path: "/talent-dashboard/resumes" },
 
   {

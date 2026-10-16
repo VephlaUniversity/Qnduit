@@ -14,8 +14,7 @@ const SORT_OPTIONS = [
 
 const getHeaders = () => {
   const token =
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("token");
+    localStorage.getItem("authToken") || localStorage.getItem("token");
 
   return { Authorization: `Bearer ${token}` };
 };
@@ -23,14 +22,12 @@ const getHeaders = () => {
 const normalizeEmployer = (employer) => ({
   ...employer,
   id: employer.id || employer._id,
-  name: employer.name || employer.displayName || employer.companyName || "Company",
+  name:
+    employer.name || employer.displayName || employer.companyName || "Company",
   category: Array.isArray(employer.categories)
     ? employer.categories.join(", ")
     : employer.companyIndustry || employer.category || "Employer",
-  logo:
-    typeof employer.logo === "object"
-      ? employer.logo?.url
-      : employer.logo,
+  logo: typeof employer.logo === "object" ? employer.logo?.url : employer.logo,
 });
 
 const EmployerCard = ({ employer, onAction, loading }) => (
@@ -87,7 +84,12 @@ const EmployerCard = ({ employer, onAction, loading }) => (
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-blue-400 focus-visible:outline focus-visible:outline-2" to={`/talent-dashboard/users/employer/${encodeURIComponent(employer.id)}`}>View Profile</Link>
+        <Link
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-blue-400 focus-visible:outline focus-visible:outline-2"
+          to={`/talent-dashboard/users/employer/${encodeURIComponent(employer.id)}`}
+        >
+          View Profile
+        </Link>
         <button
           disabled={loading}
           onClick={onAction}
@@ -147,7 +149,7 @@ export const TalentFollowingEmployers = () => {
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Unable to load employers."
+          "Unable to load employers.",
       );
       setEmployers([]);
     } finally {
@@ -160,16 +162,20 @@ export const TalentFollowingEmployers = () => {
     return () => clearTimeout(timer);
   }, [loadEmployers]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(""), 3500);
+    return () => clearTimeout(id);
+  }, [notice]);
+
   const categories = useMemo(
     () => [
       "All",
       ...new Set(
-        employers
-          .map((employer) => employer.category)
-          .filter(Boolean)
+        employers.map((employer) => employer.category).filter(Boolean),
       ),
     ],
-    [employers]
+    [employers],
   );
 
   const activeCategory = categories.includes(category) ? category : "All";
@@ -179,7 +185,7 @@ export const TalentFollowingEmployers = () => {
       (employer) =>
         tab !== "discover" ||
         activeCategory === "All" ||
-        employer.category === activeCategory
+        employer.category === activeCategory,
     );
 
     return [...rows].sort((a, b) => {
@@ -222,7 +228,7 @@ export const TalentFollowingEmployers = () => {
       await loadEmployers();
     } catch (err) {
       setError(
-        err.response?.data?.message || "Unable to update follow status."
+        err.response?.data?.message || "Unable to update follow status.",
       );
     } finally {
       setActionId(null);
@@ -317,9 +323,7 @@ export const TalentFollowingEmployers = () => {
 
       <div className="space-y-4">
         {loading ? (
-          <p className="text-gray-400 py-8 text-center">
-            Loading employers...
-          </p>
+          <p className="text-gray-400 py-8 text-center">Loading employers...</p>
         ) : visible.length === 0 ? (
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-12 text-center text-gray-400">
             {tab === "following"

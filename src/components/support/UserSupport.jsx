@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Send, CheckCircle2, ChevronDown, Inbox, LifeBuoy } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import {
-  TICKET_CATEGORIES,
-  /*addTicket,
-  getTicketsForEmail,
-  subscribeTickets,*/
-} from "../utils/supportTickets";
+import { TICKET_CATEGORIES } from "../utils/supportTickets";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
@@ -21,8 +16,7 @@ const MIN_MESSAGE_LENGTH = 10;
 
 const getHeaders = () => {
   const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken");
+    localStorage.getItem("token") || localStorage.getItem("authToken");
 
   return {
     Authorization: `Bearer ${token}`,
@@ -52,13 +46,6 @@ export const UserSupport = () => {
   const [requestError, setRequestError] = useState("");
 
   const email = user?.email || "";
-  // const displayName =
-  //   user?.name ||
-  //   user?.fullName ||
-  //   user?.company ||
-  //   user?.companyName ||
-  //   user?.email ||
-  //   "Unknown user";
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -67,7 +54,7 @@ export const UserSupport = () => {
     try {
       const response = await axios.get(
         `${API_BASE_URL}/api/support/tickets/mine`,
-        { headers: getHeaders() }
+        { headers: getHeaders() },
       );
 
       setTickets(
@@ -75,15 +62,13 @@ export const UserSupport = () => {
           ...ticket,
           subject: ticket.category,
           fullSubject:
-            ticket.fullSubject ||
-            `${ticket.category} - ${ticket.title}`,
+            ticket.fullSubject || `${ticket.category} - ${ticket.title}`,
           date: formatTicketDate(ticket.createdAt),
-        }))
+        })),
       );
     } catch (error) {
       setRequestError(
-        error.response?.data?.message ||
-          "Unable to load your support tickets."
+        error.response?.data?.message || "Unable to load your support tickets.",
       );
     } finally {
       setLoading(false);
@@ -126,7 +111,7 @@ export const UserSupport = () => {
       await axios.post(
         `${API_BASE_URL}/api/support/tickets`,
         { category, title, message },
-        { headers: getHeaders() }
+        { headers: getHeaders() },
       );
 
       setTitle("");
@@ -139,7 +124,7 @@ export const UserSupport = () => {
     } catch (error) {
       setRequestError(
         error.response?.data?.message ||
-          "Unable to submit your support ticket."
+          "Unable to submit your support ticket.",
       );
     }
   };

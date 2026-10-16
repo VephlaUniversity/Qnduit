@@ -1,10 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  MoreVertical,
-  XCircle,
-  ArrowDownCircle,
-  Send,
-} from "lucide-react";
+import { MoreVertical, XCircle, ArrowDownCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { ListToolbar } from "./ListToolbar";
@@ -81,21 +76,14 @@ const RowMenu = ({ row }) => {
 
   useEffect(() => {
     const close = (e) => {
-      if (
-        ref.current &&
-        !ref.current.contains(e.target)
-      ) {
+      if (ref.current && !ref.current.contains(e.target)) {
         setOpen(false);
       }
     };
 
     document.addEventListener("mousedown", close);
 
-    return () =>
-      document.removeEventListener(
-        "mousedown",
-        close
-      );
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
   return (
@@ -112,7 +100,7 @@ const RowMenu = ({ row }) => {
           <button
             onClick={() => {
               toast.info(
-                "Subscription cancellation is not connected to the backend yet."
+                "Subscription cancellation is not connected to the backend yet.",
               );
               setOpen(false);
             }}
@@ -125,7 +113,7 @@ const RowMenu = ({ row }) => {
           <button
             onClick={() => {
               toast.info(
-                "Subscription downgrade is not connected to the backend yet."
+                "Subscription downgrade is not connected to the backend yet.",
               );
               setOpen(false);
             }}
@@ -138,7 +126,7 @@ const RowMenu = ({ row }) => {
           <button
             onClick={() => {
               toast.info(
-                "Invoice sending is not connected to the backend yet."
+                "Invoice sending is not connected to the backend yet.",
               );
               setOpen(false);
             }}
@@ -187,14 +175,11 @@ export const SubscribedCandidates = () => {
               sort,
             },
             headers: getAuthHeaders(),
-          }
+          },
         );
 
         if (!response.data.success) {
-          throw new Error(
-            response.data.message ||
-              "Failed to load candidates"
-          );
+          throw new Error(response.data.message || "Failed to load candidates");
         }
 
         if (cancelled) return;
@@ -207,20 +192,17 @@ export const SubscribedCandidates = () => {
             limit: 10,
             total: 0,
             totalPages: 1,
-          }
+          },
         );
       } catch (error) {
         if (cancelled) return;
 
-        console.error(
-          "Failed to load subscribed candidates:",
-          error
-        );
+        console.error("Failed to load subscribed candidates:", error);
 
         toast.error(
           error.response?.data?.message ||
             error.message ||
-            "Failed to load subscribed candidates"
+            "Failed to load subscribed candidates",
         );
       } finally {
         if (!cancelled) {
@@ -270,29 +252,17 @@ export const SubscribedCandidates = () => {
           <table className="w-full min-w-[760px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-white/5">
-                <th className="pb-3 font-medium">
-                  Name
-                </th>
+                <th className="pb-3 font-medium">Name</th>
 
-                <th className="pb-3 font-medium">
-                  Email
-                </th>
+                <th className="pb-3 font-medium">Email</th>
 
-                <th className="pb-3 font-medium">
-                  Plan Type
-                </th>
+                <th className="pb-3 font-medium">Plan Type</th>
 
-                <th className="pb-3 font-medium">
-                  Start date
-                </th>
+                <th className="pb-3 font-medium">Start date</th>
 
-                <th className="pb-3 font-medium">
-                  Status
-                </th>
+                <th className="pb-3 font-medium">Status</th>
 
-                <th className="pb-3 font-medium text-right">
-                  Actions
-                </th>
+                <th className="pb-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
 
@@ -319,10 +289,7 @@ export const SubscribedCandidates = () => {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="text-sm"
-                  >
+                  <tr key={row.id} className="text-sm">
                     <td className="py-4 pr-4 text-white font-medium whitespace-nowrap">
                       {row.name || "-"}
                     </td>
@@ -341,9 +308,7 @@ export const SubscribedCandidates = () => {
 
                     <td
                       className={`py-4 pr-4 font-medium whitespace-nowrap ${
-                        statusStyle[
-                          formatStatus(row.status)
-                        ] || "text-gray-400"
+                        statusStyle[formatStatus(row.status)] || "text-gray-400"
                       }`}
                     >
                       {formatStatus(row.status)}
@@ -354,9 +319,7 @@ export const SubscribedCandidates = () => {
                         <RowMenu row={row} />
 
                         <button
-                          onClick={() =>
-                            setActive(row)
-                          }
+                          onClick={() => setActive(row)}
                           className="px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 text-white text-xs font-medium transition-colors whitespace-nowrap"
                         >
                           View Details

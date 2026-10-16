@@ -12,8 +12,7 @@ import { API_BASE_URL } from "../utils/api";
 
 const getHeaders = () => {
   const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("authToken");
+    localStorage.getItem("token") || localStorage.getItem("authToken");
 
   return { Authorization: `Bearer ${token}` };
 };
@@ -35,9 +34,7 @@ const getName = (talent) =>
   "Talent";
 
 const getAvatar = (talent) =>
-  typeof talent.avatar === "object"
-    ? talent.avatar?.url
-    : talent.avatar;
+  typeof talent.avatar === "object" ? talent.avatar?.url : talent.avatar;
 
 export const Followers = () => {
   const navigate = useNavigate();
@@ -64,25 +61,21 @@ export const Followers = () => {
             page,
             limit: 10,
           },
-        }
+        },
       );
 
       if (!response.data?.success) {
-        throw new Error(
-          response.data?.message || "Unable to load followers."
-        );
+        throw new Error(response.data?.message || "Unable to load followers.");
       }
 
       setRows(response.data.data || []);
-      setTotalPages(
-        Math.max(1, response.data.pagination?.totalPages || 1)
-      );
+      setTotalPages(Math.max(1, response.data.pagination?.totalPages || 1));
     } catch (err) {
       setRows([]);
       setError(
         err.response?.data?.message ||
           err.message ||
-          "Unable to load followers."
+          "Unable to load followers.",
       );
     } finally {
       setLoading(false);
@@ -110,8 +103,7 @@ export const Followers = () => {
       await loadFollowers();
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          "Unable to update follow status."
+        err.response?.data?.message || "Unable to update follow status.",
       );
     } finally {
       setActionId(null);
@@ -166,9 +158,7 @@ export const Followers = () => {
             const avatar = getAvatar(talent);
             const skills = [
               ...(Array.isArray(talent.tags) ? talent.tags : []),
-              ...(Array.isArray(talent.categories)
-                ? talent.categories
-                : []),
+              ...(Array.isArray(talent.categories) ? talent.categories : []),
             ];
 
             return (
@@ -217,9 +207,7 @@ export const Followers = () => {
 
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          <span>
-                            Followed {formatDate(talent.followedAt)}
-                          </span>
+                          <span>Followed {formatDate(talent.followedAt)}</span>
                         </div>
                       </div>
 
@@ -237,7 +225,12 @@ export const Followers = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <Link className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400" to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=followers`}>View Profile</Link>
+                    <Link
+                      className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400"
+                      to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=followers`}
+                    >
+                      View Profile
+                    </Link>
                     <button
                       onClick={() => navigate("/dashboard/messages")}
                       className="flex items-center gap-2 px-4 py-2 bg-[#2A2A2E] hover:bg-white/10 text-white rounded-lg font-medium text-sm"

@@ -12,78 +12,75 @@ import { PaginationBar } from "./PaginationBar";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
-
 const statusStyle = {
   Verified: "bg-emerald-600/15 text-emerald-500",
   Unverified: "bg-red-600/15 text-red-500",
   Pending: "bg-yellow-500/15 text-yellow-500",
 };
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-const sortOptions = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+const SORT_OPTIONS = [
   { value: "name-asc", label: "Name (A-Z)" },
   { value: "name-desc", label: "Name (Z-A)" },
+  { value: "status", label: "Status" },
 ];
+
+const formatDate = (date) =>
+  date
+    ? new Date(date).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
 
 const RowMenu = ({ onVerify, onUnverify, onDelete }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
-    const close = (e) => {
+    const handleClickOutside = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const run = (fn) => () => {
+    setOpen(false);
+    fn();
+  };
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative inline-block" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-gray-400 hover:text-white transition-colors p-1"
+        className="w-9 h-9 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 flex items-center justify-center text-white transition-colors"
       >
-        <MoreHorizontal className="w-5 h-5" />
+        <MoreHorizontal className="w-4 h-4" />
       </button>
+
       {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
+        <div className="absolute right-0 mt-2 w-44 z-20 rounded-lg bg-[#2A2A2E] border border-white/10 shadow-lg py-1 text-left">
           <button
-            onClick={() => {
-              onVerify();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2"
+            onClick={run(onVerify)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5"
           >
-            <BadgeCheck className="w-4 h-4" />
-            Verify User
+            <BadgeCheck className="w-4 h-4 text-emerald-500" />
+            Verify
           </button>
           <button
-            onClick={() => {
-              onUnverify();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
+            onClick={run(onUnverify)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5"
           >
-            <BadgeMinus className="w-4 h-4" />
-            Unverify User
+            <BadgeMinus className="w-4 h-4 text-yellow-500" />
+            Unverify
           </button>
           <button
-            onClick={() => {
-              onDelete();
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-white/10 transition-colors flex items-center gap-2"
+            onClick={run(onDelete)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5"
           >
             <Trash2 className="w-4 h-4" />
-            Delete User
+            Delete
           </button>
         </div>
       )}
@@ -93,9 +90,8 @@ const RowMenu = ({ onVerify, onUnverify, onDelete }) => {
 
 export const ManageEmployers = () => {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
-  // const [employers, setEmployers] = useState(seedEmployers);
   const [employers, setEmployers] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -105,21 +101,6 @@ export const ManageEmployers = () => {
     total: 0,
     totalPages: 1,
   });
-
-  // const setStatus = (id, status) => {
-  //   setEmployers((prev) =>
-  //     prev.map((e) => (e.id === id ? { ...e, status } : e)),
-  //   );
-  //   toast.success(`Employer marked as ${status}`);
-  // };
-
-  // const resetPassword = (e) =>
-  //   toast.success(`Password reset link sent to ${e.name}`);
-
-  // const deleteEmployer = (e) => {
-  //   setEmployers((prev) => prev.filter((row) => row.id !== e.id));
-  //   toast.success(`${e.name} deleted`);
-  // };
 
   const fetchEmployers = async () => {
     try {
@@ -135,10 +116,10 @@ export const ManageEmployers = () => {
           sort === "oldest"
             ? "createdAt"
             : sort === "name-asc"
-            ? "companyName"
-            : sort === "name-desc"
-            ? "-companyName"
-            : "-createdAt",
+              ? "companyName"
+              : sort === "name-desc"
+                ? "-companyName"
+                : "-createdAt",
       });
 
       const res = await axios.get(
@@ -147,7 +128,7 @@ export const ManageEmployers = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       setEmployers(res.data.data || []);
@@ -155,10 +136,7 @@ export const ManageEmployers = () => {
     } catch (error) {
       console.error("Fetch employers error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to load employers"
-      );
+      toast.error(error.response?.data?.message || "Failed to load employers");
     } finally {
       setLoading(false);
     }
@@ -179,21 +157,14 @@ export const ManageEmployers = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
-      toast.success(
-        verified
-          ? "Employer verified"
-          : "Employer unverified"
-      );
+      toast.success(verified ? "Employer verified" : "Employer unverified");
 
       fetchEmployers();
     } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to update employer"
-      );
+      toast.error(error.response?.data?.message || "Failed to update employer");
     }
   };
 
@@ -201,14 +172,11 @@ export const ManageEmployers = () => {
     try {
       const token = localStorage.getItem("adminToken");
 
-      await axios.delete(
-        `${API_BASE_URL}/api/admin/employers/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await axios.delete(`${API_BASE_URL}/api/admin/employers/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       toast.success("Employer deleted successfully");
 
@@ -216,10 +184,7 @@ export const ManageEmployers = () => {
     } catch (error) {
       console.error("Delete employer error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to delete employer"
-      );
+      toast.error(error.response?.data?.message || "Failed to delete employer");
     }
   };
 
@@ -239,8 +204,8 @@ export const ManageEmployers = () => {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search by name or location"
-          sortOptions={sortOptions}
+          placeholder="Search by name, email or address"
+          sortOptions={SORT_OPTIONS}
           sortValue={sort}
           onSortChange={setSort}
         />
@@ -260,7 +225,7 @@ export const ManageEmployers = () => {
                 <tr>
                   <td
                     colSpan={4}
-                    className="py-10 text-center text-gray-500 text-sm"
+                    className="py-8 text-center text-gray-500 text-sm"
                   >
                     {loading
                       ? "Loading employers..."
@@ -281,8 +246,8 @@ export const ManageEmployers = () => {
                 const employerStatus = employer.isVerified
                   ? "Verified"
                   : employer.paymentStatus === "pending"
-                  ? "Pending"
-                  : "Unverified";
+                    ? "Pending"
+                    : "Unverified";
 
                 return (
                   <tr key={employer._id}>
@@ -328,12 +293,8 @@ export const ManageEmployers = () => {
 
                     <td className="py-5 text-right">
                       <RowMenu
-                        onVerify={() =>
-                          setVerification(employer._id, true)
-                        }
-                        onUnverify={() =>
-                          setVerification(employer._id, false)
-                        }
+                        onVerify={() => setVerification(employer._id, true)}
+                        onUnverify={() => setVerification(employer._id, false)}
                         onDelete={() => deleteEmployer(employer._id)}
                       />
                     </td>

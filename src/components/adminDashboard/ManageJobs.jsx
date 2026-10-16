@@ -42,10 +42,7 @@ const getJobStatus = (job) => {
   if (job.status === "draft") return "Draft";
   if (job.status === "closed") return "Closed";
 
-  if (
-    job.deadlineDate &&
-    new Date(job.deadlineDate) < new Date()
-  ) {
+  if (job.deadlineDate && new Date(job.deadlineDate) < new Date()) {
     return "Expired";
   }
 
@@ -89,12 +86,9 @@ export const ManageJobs = () => {
         sort,
       });
 
-      const res = await axios.get(
-        `${API_BASE_URL}/api/admin/jobs?${params}`,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
+      const res = await axios.get(`${API_BASE_URL}/api/admin/jobs?${params}`, {
+        headers: getAuthHeaders(),
+      });
 
       setJobs(res.data.data || []);
       setPagination(
@@ -103,15 +97,12 @@ export const ManageJobs = () => {
           limit: 10,
           total: 0,
           totalPages: 1,
-        }
+        },
       );
     } catch (error) {
       console.error("Fetch jobs error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to load jobs"
-      );
+      toast.error(error.response?.data?.message || "Failed to load jobs");
     } finally {
       setLoading(false);
     }
@@ -128,7 +119,7 @@ export const ManageJobs = () => {
         {},
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       const updatedJob = res.data.data;
@@ -137,8 +128,8 @@ export const ManageJobs = () => {
         prev.map((item) =>
           item._id === updatedJob._id
             ? { ...item, flagged: updatedJob.flagged }
-            : item
-        )
+            : item,
+        ),
       );
 
       if (activeJob?._id === updatedJob._id) {
@@ -151,32 +142,26 @@ export const ManageJobs = () => {
       toast.success(
         updatedJob.flagged
           ? `"${job.jobTitle}" flagged for review`
-          : `Flag removed from "${job.jobTitle}"`
+          : `Flag removed from "${job.jobTitle}"`,
       );
     } catch (error) {
       console.error("Toggle job flag error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to update job flag"
-      );
+      toast.error(error.response?.data?.message || "Failed to update job flag");
     }
   };
 
   const deleteJob = async (job) => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${job.jobTitle}"?`
+      `Are you sure you want to delete "${job.jobTitle}"?`,
     );
 
     if (!confirmed) return;
 
     try {
-      await axios.delete(
-        `${API_BASE_URL}/api/admin/jobs/${job._id}`,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
+      await axios.delete(`${API_BASE_URL}/api/admin/jobs/${job._id}`, {
+        headers: getAuthHeaders(),
+      });
 
       toast.success(`"${job.jobTitle}" deleted`);
 
@@ -193,10 +178,7 @@ export const ManageJobs = () => {
     } catch (error) {
       console.error("Delete job error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to delete job"
-      );
+      toast.error(error.response?.data?.message || "Failed to delete job");
     }
   };
 
@@ -205,20 +187,16 @@ export const ManageJobs = () => {
     setDetailsLoading(true);
 
     try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/admin/jobs/${job._id}`,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
+      const res = await axios.get(`${API_BASE_URL}/api/admin/jobs/${job._id}`, {
+        headers: getAuthHeaders(),
+      });
 
       setActiveJob(res.data.data);
     } catch (error) {
       console.error("Fetch job details error:", error);
 
       toast.error(
-        error.response?.data?.message ||
-          "Failed to load job details"
+        error.response?.data?.message || "Failed to load job details",
       );
     } finally {
       setDetailsLoading(false);
@@ -231,9 +209,7 @@ export const ManageJobs = () => {
     return (
       employer.companyName ||
       employer.displayName ||
-      `${employer.firstName || ""} ${
-        employer.lastName || ""
-      }`.trim() ||
+      `${employer.firstName || ""} ${employer.lastName || ""}`.trim() ||
       "Unnamed Employer"
     );
   };
@@ -269,13 +245,9 @@ export const ManageJobs = () => {
               <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-white/5">
                 <th className="pb-3 font-medium">Jobs</th>
                 <th className="pb-3 font-medium">Applicants</th>
-                <th className="pb-3 font-medium">
-                  Created &amp; Expiry
-                </th>
+                <th className="pb-3 font-medium">Created &amp; Expiry</th>
                 <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium text-right">
-                  Action
-                </th>
+                <th className="pb-3 font-medium text-right">Action</th>
               </tr>
             </thead>
 
@@ -286,9 +258,7 @@ export const ManageJobs = () => {
                     colSpan={5}
                     className="py-10 text-center text-gray-500 text-sm"
                   >
-                    {loading
-                      ? "Loading jobs..."
-                      : `No jobs match "${search}"`}
+                    {loading ? "Loading jobs..." : `No jobs match "${search}"`}
                   </td>
                 </tr>
               )}
@@ -340,8 +310,7 @@ export const ManageJobs = () => {
                     <td className="py-5 pr-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          statusStyle[status] ||
-                          "bg-gray-600/15 text-gray-400"
+                          statusStyle[status] || "bg-gray-600/15 text-gray-400"
                         }`}
                       >
                         {status}
@@ -351,11 +320,7 @@ export const ManageJobs = () => {
                     <td className="py-5">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          title={
-                            job.flagged
-                              ? "Remove Flag"
-                              : "Flag Job"
-                          }
+                          title={job.flagged ? "Remove Flag" : "Flag Job"}
                           onClick={() => toggleFlag(job)}
                           className={`w-9 h-9 rounded-sm flex items-center justify-center text-white transition-colors ${
                             job.flagged
@@ -421,9 +386,7 @@ export const ManageJobs = () => {
             </div>
 
             {detailsLoading ? (
-              <p className="text-gray-400 text-sm">
-                Loading job details...
-              </p>
+              <p className="text-gray-400 text-sm">Loading job details...</p>
             ) : (
               <>
                 <div className="space-y-3 text-sm">
@@ -458,9 +421,7 @@ export const ManageJobs = () => {
                   </div>
 
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                    <span className="text-gray-400">
-                      Status
-                    </span>
+                    <span className="text-gray-400">Status</span>
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${
                         statusStyle[getJobStatus(activeJob)] ||
@@ -472,30 +433,23 @@ export const ManageJobs = () => {
                   </div>
 
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                    <span className="text-gray-400">
-                      Employer
-                    </span>
+                    <span className="text-gray-400">Employer</span>
                     <span className="text-white font-medium text-right">
                       {getEmployerName(activeJob.employer)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                    <span className="text-gray-400">
-                      Work type
-                    </span>
+                    <span className="text-gray-400">Work type</span>
                     <span className="text-white font-medium">
                       {activeJob.workType || "Not specified"}
                     </span>
                   </div>
 
                   <div className="border-b border-white/5 pb-3">
-                    <p className="text-gray-400 mb-2">
-                      Description
-                    </p>
+                    <p className="text-gray-400 mb-2">Description</p>
                     <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
-                      {activeJob.jobDescription ||
-                        "No description provided."}
+                      {activeJob.jobDescription || "No description provided."}
                     </p>
                   </div>
                 </div>

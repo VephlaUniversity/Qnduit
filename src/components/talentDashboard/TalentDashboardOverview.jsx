@@ -68,28 +68,21 @@ export const TalentDashboard = () => {
           Authorization: `Bearer ${token}`,
         };
 
-        const [applicationsRes, savedJobsRes, meetingsRes] =
-          await Promise.all([
-            axios.get(
-              `${API_BASE_URL}/api/applications/my-applications`,
-              { headers }
-            ),
+        const [applicationsRes, savedJobsRes, meetingsRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/applications/my-applications`, {
+            headers,
+          }),
 
-            axios.get(
-              `${API_BASE_URL}/api/saved-jobs`,
-              { headers }
-            ),
+          axios.get(`${API_BASE_URL}/api/saved-jobs`, { headers }),
 
-            axios.get(
-              `${API_BASE_URL}/api/meetings/talent-meetings`,
-              { headers }
-            ),
-          ]);
+          axios.get(`${API_BASE_URL}/api/meetings/talent-meetings`, {
+            headers,
+          }),
+        ]);
 
         setApplications(applicationsRes.data.applications || []);
         setSavedJobs(savedJobsRes.data.jobs || []);
         setMeetings(meetingsRes.data.meetings || []);
-
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
       }
@@ -150,8 +143,6 @@ export const TalentDashboard = () => {
     }
   };
 
-  
- 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -164,8 +155,6 @@ export const TalentDashboard = () => {
     }
     return null;
   };
-
- 
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -238,7 +227,10 @@ export const TalentDashboard = () => {
                 tick={{ fill: "#9CA3AF" }}
                 axisLine={{ stroke: "#ffffff20" }}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "#ffffff05" }} />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "#ffffff05" }}
+              />
               <Bar
                 dataKey="views"
                 fill="#2563eb"
@@ -248,8 +240,6 @@ export const TalentDashboard = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-       
       </div>
 
       {/* Job Applied Recently */}

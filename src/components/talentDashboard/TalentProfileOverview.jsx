@@ -14,7 +14,6 @@ import RecentApplication from "./RecentApplication";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
-
 const TalentProfileOverview = () => {
   const navigate = useNavigate();
   const [resumeData, setResumeData] = useState(null);
@@ -32,13 +31,12 @@ const TalentProfileOverview = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (data.profile) {
           setAboutData(data.profile);
         }
-
       } catch (error) {
         console.error("PROFILE FETCH ERROR:", error);
       }
@@ -69,10 +67,22 @@ const TalentProfileOverview = () => {
     .toUpperCase();
 
   const socialLinks = [
-    { name: "facebook", icon: Facebook, url: aboutData?.socialNetworks?.facebook },
-    { name: "linkedin", icon: Linkedin, url: aboutData?.socialNetworks?.linkedin },
+    {
+      name: "facebook",
+      icon: Facebook,
+      url: aboutData?.socialNetworks?.facebook,
+    },
+    {
+      name: "linkedin",
+      icon: Linkedin,
+      url: aboutData?.socialNetworks?.linkedin,
+    },
     { name: "twitter", icon: Twitter, url: aboutData?.socialNetworks?.twitter },
-    { name: "instagram", icon: Instagram, url: aboutData?.socialNetworks?.instagram },
+    {
+      name: "instagram",
+      icon: Instagram,
+      url: aboutData?.socialNetworks?.instagram,
+    },
     { name: "youtube", icon: Youtube, url: aboutData?.socialNetworks?.youtube },
   ];
 
@@ -92,10 +102,10 @@ const TalentProfileOverview = () => {
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 bg-[#2A2A2E] rounded-lg flex items-center justify-center text-gray-400 text-2xl font-bold border border-white/10">
               {aboutData?.avatar ? (
-                <img 
-                  src={aboutData.avatar} 
-                  alt="Avatar" 
-                  className="w-full h-full object-cover rounded-lg" 
+                <img
+                  src={aboutData.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
                 initials

@@ -13,25 +13,25 @@ const statusStyle = {
   Suspended: "bg-red-600/15 text-red-500",
 };
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-const sortOptions = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+const SORT_OPTIONS = [
   { value: "name-asc", label: "Name (A-Z)" },
   { value: "name-desc", label: "Name (Z-A)" },
+  { value: "status", label: "Status" },
 ];
+
+const formatDate = (date) =>
+  date
+    ? new Date(date).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "-";
 
 export const ManageCandidates = () => {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
-  // const [candidates, setCandidates] = useState(seedCandidates);
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
@@ -55,10 +55,10 @@ export const ManageCandidates = () => {
           sort === "oldest"
             ? "createdAt"
             : sort === "name-asc"
-            ? "firstName"
-            : sort === "name-desc"
-            ? "-firstName"
-            : "-createdAt",
+              ? "firstName"
+              : sort === "name-desc"
+                ? "-firstName"
+                : "-createdAt",
       });
 
       const res = await axios.get(
@@ -67,7 +67,7 @@ export const ManageCandidates = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       setCandidates(res.data.data || []);
@@ -75,21 +75,11 @@ export const ManageCandidates = () => {
     } catch (error) {
       console.error("Fetch candidates error:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to load candidates"
-      );
+      toast.error(error.response?.data?.message || "Failed to load candidates");
     } finally {
       setLoading(false);
     }
   };
-
-  // const setStatus = (id, status) => {
-  //   setCandidates((prev) =>
-  //     prev.map((c) => (c.id === id ? { ...c, status } : c)),
-  //   );
-  //   toast.success(`Candidate marked as ${status}`);
-  // };
 
   useEffect(() => {
     fetchCandidates();
@@ -108,20 +98,19 @@ export const ManageCandidates = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       toast.success(
         status === "suspended"
           ? "Candidate suspended"
-          : "Candidate reactivated"
+          : "Candidate reactivated",
       );
 
       fetchCandidates();
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
-          "Failed to update candidate"
+        error.response?.data?.message || "Failed to update candidate",
       );
     }
   };
@@ -142,8 +131,8 @@ export const ManageCandidates = () => {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Search by name or role"
-          sortOptions={sortOptions}
+          placeholder="Search by name, email or role"
+          sortOptions={SORT_OPTIONS}
           sortValue={sort}
           onSortChange={setSort}
         />
@@ -163,7 +152,7 @@ export const ManageCandidates = () => {
                 <tr>
                   <td
                     colSpan={4}
-                    className="py-10 text-center text-gray-500 text-sm"
+                    className="py-8 text-center text-gray-500 text-sm"
                   >
                     {loading
                       ? "Loading candidates..."
@@ -179,9 +168,7 @@ export const ManageCandidates = () => {
                   "Unnamed Candidate";
 
                 const candidateStatus =
-                  c.accountStatus === "suspended"
-                    ? "Suspended"
-                    : "Active";
+                  c.accountStatus === "suspended" ? "Suspended" : "Active";
 
                 return (
                   <tr key={c._id}>
@@ -237,9 +224,7 @@ export const ManageCandidates = () => {
                         <button
                           title="View Profile"
                           onClick={() =>
-                            toast.info(
-                              `Viewing profile for ${candidateName}`
-                            )
+                            toast.info(`Viewing profile for ${candidateName}`)
                           }
                           className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
                         >
@@ -257,7 +242,7 @@ export const ManageCandidates = () => {
                               c._id,
                               c.accountStatus === "active"
                                 ? "suspended"
-                                : "active"
+                                : "active",
                             )
                           }
                           className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"

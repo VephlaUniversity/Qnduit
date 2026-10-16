@@ -39,19 +39,25 @@ const EmployerFollow = ({ employerId, token }) => {
     let active = true;
     setStatus("loading");
     setError("");
-    axios.get(`${API_BASE_URL}/api/follows/status/${employerId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(({ data }) => {
-      if (!active) return;
-      if (!data.success || typeof data.isFollowing !== "boolean") throw new Error();
-      setIsFollowing(data.isFollowing);
-      setStatus("ready");
-    }).catch((failure) => {
-      if (!active) return;
-      setError(followError(failure));
-      setStatus("error");
-    });
-    return () => { active = false; };
+    axios
+      .get(`${API_BASE_URL}/api/follows/status/${employerId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(({ data }) => {
+        if (!active) return;
+        if (!data.success || typeof data.isFollowing !== "boolean")
+          throw new Error();
+        setIsFollowing(data.isFollowing);
+        setStatus("ready");
+      })
+      .catch((failure) => {
+        if (!active) return;
+        setError(followError(failure));
+        setStatus("error");
+      });
+    return () => {
+      active = false;
+    };
   }, [employerId, token, attempt]);
 
   const toggle = async () => {
@@ -64,7 +70,8 @@ const EmployerFollow = ({ employerId, token }) => {
       const { data } = isFollowing
         ? await axios.delete(url, options)
         : await axios.post(url, {}, options);
-      if (!data.success || typeof data.isFollowing !== "boolean") throw new Error();
+      if (!data.success || typeof data.isFollowing !== "boolean")
+        throw new Error();
       setIsFollowing(data.isFollowing);
     } catch (failure) {
       setError(followError(failure));
@@ -76,37 +83,72 @@ const EmployerFollow = ({ employerId, token }) => {
   return (
     <div>
       {status === "error" ? (
-        <button onClick={() => setAttempt((value) => value + 1)} className="min-h-[44px] rounded-lg border border-blue-500 px-3 text-blue-400 focus-visible:outline focus-visible:outline-2">
+        <button
+          onClick={() => setAttempt((value) => value + 1)}
+          className="min-h-[44px] rounded-lg border border-blue-500 px-3 text-blue-400 focus-visible:outline focus-visible:outline-2"
+        >
           Retry follow status
         </button>
       ) : (
-        <button onClick={toggle} disabled={status !== "ready"} aria-pressed={isFollowing}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-blue-500 px-3 text-blue-400 disabled:opacity-50 focus-visible:outline focus-visible:outline-2">
-          {isFollowing ? <UserCheck className="h-4 w-4" aria-hidden="true" /> : <UserPlus className="h-4 w-4" aria-hidden="true" />}
-          {status === "loading" ? "Loading follow status…" : status === "busy" ? "Updating…" : isFollowing ? "Unfollow employer" : "Follow employer"}
+        <button
+          onClick={toggle}
+          disabled={status !== "ready"}
+          aria-pressed={isFollowing}
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-blue-500 px-3 text-blue-400 disabled:opacity-50 focus-visible:outline focus-visible:outline-2"
+        >
+          {isFollowing ? (
+            <UserCheck className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+          )}
+          {status === "loading"
+            ? "Loading follow status…"
+            : status === "busy"
+              ? "Updating…"
+              : isFollowing
+                ? "Unfollow employer"
+                : "Follow employer"}
         </button>
       )}
-      {error && <p role="alert" className="mt-2 text-sm text-red-400">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 };
 
 const JobEmployerActions = ({ employerId, jobId }) => {
   const { user } = useAuth();
-  const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("authToken");
   if (typeof employerId !== "string" || !/^[a-f\d]{24}$/i.test(employerId)) {
-    return <p className="text-sm text-gray-400">Employer profile unavailable.</p>;
+    return (
+      <p className="text-sm text-gray-400">Employer profile unavailable.</p>
+    );
   }
   const origin = /^[a-f\d]{24}$/i.test(jobId) ? `?from=job&jobId=${jobId}` : "";
   return (
     <div className="mb-3 flex flex-wrap items-start gap-3">
-      <Link to={`/talent-dashboard/users/employer/${employerId}${origin}`}
-        className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-3 text-sm text-blue-400 focus-visible:outline focus-visible:outline-2">
+      <Link
+        to={`/talent-dashboard/users/employer/${employerId}${origin}`}
+        className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-3 text-sm text-blue-400 focus-visible:outline focus-visible:outline-2"
+      >
         View Employer Profile
       </Link>
-      {user?.userType === "talent" && (token ? (
-        <EmployerFollow key={`${employerId}:${user.id}`} employerId={employerId} token={token} />
-      ) : <p role="alert" className="text-sm text-red-400">Please sign in to follow this employer.</p>)}
+      {user?.userType === "talent" &&
+        (token ? (
+          <EmployerFollow
+            key={`${employerId}:${user.id}`}
+            employerId={employerId}
+            token={token}
+          />
+        ) : (
+          <p role="alert" className="text-sm text-red-400">
+            Please sign in to follow this employer.
+          </p>
+        ))}
     </div>
   );
 };
@@ -119,6 +161,16 @@ export const TalentJobDetails = () => {
   const [activeTab, setActiveTab] = useState("about");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Following the employer who posted this job
+  const { user } = useAuth();
+  const followEmail = user?.email || "guest";
+  const [follows, setFollows] = useState(() => getFollows(followEmail));
+
+  useEffect(() => {
+    setFollows(getFollows(followEmail));
+    return subscribeFollows(() => setFollows(getFollows(followEmail)));
+  }, [followEmail]);
 
   useEffect(() => {
     let active = true;
@@ -143,7 +195,9 @@ export const TalentJobDetails = () => {
 
     fetchJob();
     fetchRelatedJobs();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   // **** new route needed ****
@@ -200,6 +254,30 @@ export const TalentJobDetails = () => {
       }
 
       toast.error(error.response?.data?.message || "Failed to apply for job");
+    }
+  };
+
+  const handleFollowEmployer = () => {
+    const employer = job?.employer;
+    if (!employer?._id) {
+      toast.error("We couldn't find this employer");
+      return;
+    }
+    if (!user) {
+      toast.error("Please sign in to follow employers");
+      return;
+    }
+
+    if (isFollowing(follows, employer._id)) {
+      unfollowEmployer(followEmail, employer._id);
+      toast.success(`Unfollowed ${employer.companyName}`);
+    } else {
+      followEmployer(followEmail, employer._id, {
+        name: employer.companyName,
+        location: employer.location,
+        category: employer.companyIndustry,
+      });
+      toast.success(`You're now following ${employer.companyName}`);
     }
   };
 
@@ -283,8 +361,32 @@ export const TalentJobDetails = () => {
             <div className="flex gap-6">
               <div className="w-24 h-24 bg-muted rounded-lg flex-shrink-0" />
               <div>
-                <div className="text-[#3B82F6] text-sm mb-2">
-                  {job.employer?.companyName}
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[#3B82F6] text-sm">
+                    {job.employer?.companyName}
+                  </span>
+                  {job.employer?._id && (
+                    <button
+                      onClick={handleFollowEmployer}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        isFollowing(follows, job.employer._id)
+                          ? "bg-[#3B82F6] border-[#3B82F6] text-white hover:bg-[#3077e8]"
+                          : "border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10"
+                      }`}
+                    >
+                      {isFollowing(follows, job.employer._id) ? (
+                        <>
+                          <UserCheck className="w-3.5 h-3.5" />
+                          Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Follow
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 <JobEmployerActions employerId={job.employer?._id} jobId={id} />
                 <h1 className="text-3xl font-bold text-white mb-3">
@@ -655,8 +757,12 @@ export const TalentJobDetails = () => {
 
             {activeTab === "reviews" && (
               <section className="bg-[#1A1F2E] rounded-xl p-8">
-                <h2 className="text-2xl font-bold text-white mb-4">Customer Reviews</h2>
-                <p className="text-muted-foreground">Reviews are currently unavailable for this job.</p>
+                <h2 className="text-2xl font-bold text-white mb-4">
+                  Customer Reviews
+                </h2>
+                <p className="text-muted-foreground">
+                  Reviews are currently unavailable for this job.
+                </p>
               </section>
             )}
           </div>

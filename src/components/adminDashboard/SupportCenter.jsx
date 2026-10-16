@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
   ChevronDown,
+  Check,
   MoreVertical,
   ArrowRight,
   User,
@@ -9,14 +10,14 @@ import {
   Calendar,
   CircleDot,
   Send,
-  Clock,
+  PlayCircle,
   CheckCircle2,
   XCircle,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { PaginationBar } from "./PaginationBar";
 import { Modal } from "./Modal";
+import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
@@ -27,8 +28,54 @@ const statusStyle = {
   Closed: "text-red-500",
 };
 
-const statusFilters = ["All Requests", "Open", "In Progress", "Resolved", "Closed"];
-const pageSizeOptions = [8, 15, 25, 50];
+const STATUS_FILTERS = [
+  "All Requests",
+  "Open",
+  "In Progress",
+  "Resolved",
+  "Closed",
+];
+const PAGE_SIZES = [8, 16, 24];
+
+const SimpleDropdown = ({ options, value, onChange, renderLabel }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center justify-between gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-300 whitespace-nowrap w-full sm:w-auto"
+      >
+        {renderLabel ? renderLabel(value) : value}
+        <ChevronDown className="w-4 h-4 text-gray-500" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 min-w-full bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => {
+                onChange(opt);
+                setOpen(false);
+              }}
+              className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-4 text-gray-200 hover:bg-white/10 transition-colors whitespace-nowrap"
+            >
+              {renderLabel ? renderLabel(opt) : opt}
+              {opt === value && <Check className="w-4 h-4 text-blue-500" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const getHeaders = () => {
   const token = localStorage.getItem("adminToken");
@@ -50,17 +97,17 @@ const RowActions = ({ onSetStatus }) => {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const item = (label, status, Icon, danger) => (
+  const item = (Icon, label, status, danger) => (
     <button
       onClick={() => {
         onSetStatus(status);
         setOpen(false);
       }}
-      className={`w-full text-left px-4 py-2.5 flex items-center gap-2 hover:bg-white/10 transition-colors ${
+      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 hover:bg-white/10 transition-colors ${
         danger ? "text-red-500" : "text-gray-200"
       }`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-4 h-4 flex-shrink-0" />
       {label}
     </button>
   );
@@ -75,10 +122,10 @@ const RowActions = ({ onSetStatus }) => {
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          {item("Mark as In Progress", "In Progress", Clock)}
-          {item("Mark as Resolved", "Resolved", CheckCircle2)}
-          {item("Mark as Closed", "Closed", XCircle)}
-          {item("Delete", "__delete", Trash2, true)}
+          {item(PlayCircle, "Mark as In Progress", "In Progress")}
+          {item(CheckCircle2, "Mark as Resolved", "Resolved")}
+          {item(XCircle, "Mark as Closed", "Closed")}
+          {item(Trash2, "Delete", "__delete", true)}
         </div>
       )}
     </div>
@@ -100,7 +147,7 @@ const InfoField = (props) => {
   );
 };
 
-const TicketModal = ({ ticket, onClose, onSetStatus, onReply, }) => {
+const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
   const [replying, setReplying] = useState(false);
   const [response, setResponse] = useState("");
 
@@ -210,10 +257,6 @@ export const SupportCenter = () => {
   const [pageSize, setPageSize] = useState(8);
   const [page, setPage] = useState(1);
   const [activeTicket, setActiveTicket] = useState(null);
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
-  const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
-  const statusRef = useRef(null);
-  const pageSizeRef = useRef(null);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -230,7 +273,7 @@ export const SupportCenter = () => {
             page,
             limit: pageSize,
           },
-        }
+        },
       );
 
       const data = response.data;
@@ -242,14 +285,13 @@ export const SupportCenter = () => {
       setActiveTicket((current) => {
         if (!current) return null;
 
-        return (data.data || []).find(
-          (ticket) => ticket.id === current.id
-        ) || null;
+        return (
+          (data.data || []).find((ticket) => ticket.id === current.id) || null
+        );
       });
     } catch (error) {
       setRequestError(
-        error.response?.data?.message ||
-          "Unable to load support tickets."
+        error.response?.data?.message || "Unable to load support tickets.",
       );
     } finally {
       setLoading(false);
@@ -261,23 +303,12 @@ export const SupportCenter = () => {
     return () => clearTimeout(timer);
   }, [loadTickets]);
 
-  useEffect(() => {
-    const close = (e) => {
-      if (statusRef.current && !statusRef.current.contains(e.target))
-        setStatusMenuOpen(false);
-      if (pageSizeRef.current && !pageSizeRef.current.contains(e.target))
-        setPageSizeMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
   const updateStatus = async (ticketId, status) => {
     try {
       if (status === "__delete") {
         await axios.delete(
           `${API_BASE_URL}/api/support/admin/tickets/${ticketId}`,
-          { headers: getHeaders() }
+          { headers: getHeaders() },
         );
 
         setActiveTicket(null);
@@ -286,7 +317,7 @@ export const SupportCenter = () => {
         await axios.patch(
           `${API_BASE_URL}/api/support/admin/tickets/${ticketId}/status`,
           { status },
-          { headers: getHeaders() }
+          { headers: getHeaders() },
         );
 
         toast.success(`Ticket marked as ${status}`);
@@ -295,13 +326,10 @@ export const SupportCenter = () => {
       await loadTickets();
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
-          "Unable to update the support ticket."
+        error.response?.data?.message || "Unable to update the support ticket.",
       );
     }
   };
-
-  const visible = tickets;
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -315,7 +343,7 @@ export const SupportCenter = () => {
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <h2 className="text-lg font-semibold text-white">
-             Support Tickets{" "}
+            Support Tickets{" "}
             <span className="text-gray-500">({totalTickets})</span>
           </h2>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -332,76 +360,23 @@ export const SupportCenter = () => {
                 className="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full"
               />
             </div>
-
-            <div className="relative" ref={statusRef}>
-              <button
-                onClick={() => setStatusMenuOpen((o) => !o)}
-                className="flex items-center justify-between gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-gray-300 whitespace-nowrap w-full sm:w-auto hover:border-white/25 transition-colors"
-              >
-                {statusFilter}
-                <ChevronDown
-                  className={`w-4 h-4 text-gray-500 transition-transform ${
-                    statusMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              {statusMenuOpen && (
-                <div className="absolute right-0 mt-1 w-44 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-                  {statusFilters.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => {
-                        setStatusFilter(s);
-                        setStatusMenuOpen(false);
-                        setPage(1);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 transition-colors ${
-                        statusFilter === s
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-200 hover:bg-white/10"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative" ref={pageSizeRef}>
-              <button
-                onClick={() => setPageSizeMenuOpen((o) => !o)}
-                className="flex items-center justify-between gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-gray-300 whitespace-nowrap w-full sm:w-auto hover:border-white/25 transition-colors"
-              >
-                {pageSize} per page
-                <ChevronDown
-                  className={`w-4 h-4 text-gray-500 transition-transform ${
-                    pageSizeMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              {pageSizeMenuOpen && (
-                <div className="absolute right-0 mt-1 w-36 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-                  {pageSizeOptions.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => {
-                        setPageSize(n);
-                        setPageSizeMenuOpen(false);
-                        setPage(1);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 transition-colors ${
-                        pageSize === n
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-200 hover:bg-white/10"
-                      }`}
-                    >
-                      {n} per page
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <SimpleDropdown
+              options={STATUS_FILTERS}
+              value={statusFilter}
+              onChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            />
+            <SimpleDropdown
+              options={PAGE_SIZES}
+              value={pageSize}
+              onChange={(v) => {
+                setPageSize(v);
+                setPage(1);
+              }}
+              renderLabel={(v) => `${v} per page`}
+            />
           </div>
         </div>
 
@@ -418,81 +393,78 @@ export const SupportCenter = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {visible.length === 0 && (
+              {tickets.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500 text-sm">
-                    No tickets match your filters
+                  <td
+                    colSpan={6}
+                    className="py-8 text-center text-gray-500 text-sm"
+                  >
+                    {loading
+                      ? "Loading tickets..."
+                      : requestError || "No tickets match your filters."}
                   </td>
                 </tr>
               )}
-              {visible.map((ticket) => {
-                const i = tickets.indexOf(ticket);
-                return (
-                  <tr key={i} className="text-sm">
-                    <td className="py-4 pr-4 text-white font-medium whitespace-nowrap">
-                      {ticket.name}
-                    </td>
-                    <td className="py-4 pr-4 text-gray-400 whitespace-nowrap">
-                      {ticket.email}
-                    </td>
-                    <td className="py-4 pr-4 text-gray-300 whitespace-nowrap">
-                      {ticket.subject}
-                    </td>
-                    <td className="py-4 pr-4 text-gray-400 whitespace-nowrap">
-                      {ticket.date}
-                    </td>
-                    <td
-                      className={`py-4 pr-4 font-medium whitespace-nowrap ${statusStyle[ticket.status]}`}
-                    >
-                      {ticket.status}
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <RowActions
-                          onSetStatus={(status) => updateStatus(ticket.id, status)}
-                        />
-                        <button
-                          onClick={() => setActiveTicket(ticket)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 text-white text-sm font-medium transition-colors"
-                        >
-                          View <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {tickets.map((ticket) => (
+                <tr key={ticket.id} className="text-sm">
+                  <td className="py-4 pr-4 text-white font-medium whitespace-nowrap">
+                    {ticket.name}
+                  </td>
+                  <td className="py-4 pr-4 text-gray-400 whitespace-nowrap">
+                    {ticket.email}
+                  </td>
+                  <td className="py-4 pr-4 text-gray-300 whitespace-nowrap">
+                    {ticket.subject}
+                  </td>
+                  <td className="py-4 pr-4 text-gray-400 whitespace-nowrap">
+                    {ticket.date}
+                  </td>
+                  <td
+                    className={`py-4 pr-4 font-medium whitespace-nowrap ${statusStyle[ticket.status]}`}
+                  >
+                    {ticket.status}
+                  </td>
+                  <td className="py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <RowActions
+                        onSetStatus={(status) =>
+                          updateStatus(ticket.id, status)
+                        }
+                      />
+                      <button
+                        onClick={() => setActiveTicket(ticket)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 text-white text-sm font-medium transition-colors"
+                      >
+                        View <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
-        <PaginationBar
-          page={page}
-          totalPages={totalPages}
-          onChange={setPage}
-        />
+        <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />
       </div>
 
       <TicketModal
         ticket={activeTicket}
         onClose={() => setActiveTicket(null)}
-        onSetStatus={(status) =>
-          updateStatus(activeTicket.id, status)
-        }
+        onSetStatus={(status) => updateStatus(activeTicket.id, status)}
         onReply={async (ticketId, message) => {
           try {
             await axios.post(
               `${API_BASE_URL}/api/support/admin/tickets/${ticketId}/replies`,
               { message },
-              { headers: getHeaders() }
+              { headers: getHeaders() },
             );
 
             toast.success("Response saved successfully");
             await loadTickets();
           } catch (error) {
             toast.error(
-              error.response?.data?.message ||
-                "Unable to send response."
+              error.response?.data?.message || "Unable to send response.",
             );
             throw error;
           }
