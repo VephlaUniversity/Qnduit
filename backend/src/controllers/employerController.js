@@ -130,9 +130,11 @@ export const updateEmployerProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid account details update." });
     }
 
-    // Coordinates are mandatory for this Settings update, including zero.
+    // Blank/omitted pairs preserve existing geometry. There is no location-clear contract.
+    const coordinatesBlank = [body.lat, body.lng].every((value) =>
+      value == null || (typeof value === "string" && !value.trim()));
     const errors = {};
-    for (const [field, label, max] of accountDetails ? [] : [["lat", "Latitude", 90], ["lng", "Longitude", 180]]) {
+    for (const [field, label, max] of accountDetails || coordinatesBlank ? [] : [["lat", "Latitude", 90], ["lng", "Longitude", 180]]) {
       const value = body[field];
       const input = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
       if (!input) errors[field] = `${label} is required.`;
@@ -155,7 +157,7 @@ export const updateEmployerProfile = async (req, res) => {
     const updates = Object.fromEntries((accountDetails ? accountFields : editableFields)
       .filter((key) => Object.hasOwn(body, key))
       .map((key) => [key, body[key]]));
-    if (!accountDetails) updates.geoLocation = { type: "Point", coordinates: [Number(body.lng), Number(body.lat)] };
+    if (!accountDetails && !coordinatesBlank) updates.geoLocation = { type: "Point", coordinates: [Number(body.lng), Number(body.lat)] };
 
     const parseArrayField = (field) => {
       if (Array.isArray(field)) {
