@@ -3,6 +3,7 @@ import { Search, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { formatJobDeadline } from "../utils/jobDeadline";
 
 const MyJob = () => {
   const navigate = useNavigate();
@@ -219,7 +220,7 @@ const MyJob = () => {
                         Created: {new Date(job.createdAt).toLocaleDateString()}
                       </p>
                       <p className="text-gray-400 text-sm">
-                        Expiry: {job.deadlineDate || "N/A"}
+                        Expiry: {formatJobDeadline(job.deadlineDate)}
                       </p>
                     </td>
                     <td className="p-4">

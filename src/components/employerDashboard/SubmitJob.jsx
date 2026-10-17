@@ -6,6 +6,7 @@ import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { profileImageUrl } from "../profiles/profileApi";
 import { validateJobSalary } from "../utils/jobSalaryValidation";
+import { deadlineError, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 import { useSearchParams } from "react-router-dom";
 
 const SubmitJob = () => {
@@ -15,6 +16,8 @@ const SubmitJob = () => {
   const photosRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [salaryErrors, setSalaryErrors] = useState({});
+  const [deadlineMessage, setDeadlineMessage] = useState("");
+  const [savedDeadline, setSavedDeadline] = useState("");
   const [loadingJob, setLoadingJob] = useState(true);
   const [jobError, setJobError] = useState("");
   const [editingJobId, setEditingJobId] = useState(null);
@@ -46,6 +49,8 @@ const SubmitJob = () => {
 
     setEditingJobId(null);
     setJobError("");
+    setDeadlineMessage("");
+    setSavedDeadline("");
     if (!isEditing) {
       setFormData(prev => Object.fromEntries(Object.keys(prev).map(key => [key, ""])));
       setFeaturedImage(null);
@@ -83,6 +88,7 @@ const SubmitJob = () => {
         }
 
         setEditingJobId(job._id);
+        setSavedDeadline(jobDateKey(job.deadlineDate));
 
         // map DB structure → your form structure
         setFormData({
@@ -97,9 +103,7 @@ const SubmitJob = () => {
           experience: job.experience || "",
           careerLevel: job.careerLevel || "",
           qualification: job.qualification || "",
-          deadlineDate: job.deadlineDate
-            ? job.deadlineDate.split("T")[0]
-            : "",
+          deadlineDate: jobDateKey(job.deadlineDate),
           address: job.address || "",
           location: job.location || "",
         });
@@ -160,6 +164,12 @@ const SubmitJob = () => {
     toast({ title: "Check salary", description: Object.values(errors)[0], variant: "destructive" });
   };
 
+  const reportDeadlineError = (message) => {
+    setDeadlineMessage(message);
+    requestAnimationFrame(() => document.getElementById("job-deadlineDate")?.focus());
+    toast({ title: "Check deadline", description: message, variant: "destructive" });
+  };
+
   const handleSubmit = async () => {
     if (saving || loadingJob || jobError || (isEditing && !editingJobId)) return;
 
@@ -180,6 +190,10 @@ const SubmitJob = () => {
     const errors = validateJobSalary(formData);
     if (Object.keys(errors).length) { reportSalaryErrors(errors); return; }
     setSalaryErrors({});
+
+    const message = deadlineError(formData.deadlineDate, savedDeadline);
+    if (message) { reportDeadlineError(message); return; }
+    setDeadlineMessage("");
 
     const form = new FormData();
 
@@ -228,7 +242,8 @@ const SubmitJob = () => {
     } catch (err) {
 
       const errors = err.response?.data?.errors;
-      if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
+      if (errors?.deadlineDate) reportDeadlineError(errors.deadlineDate);
+      else if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
       else toast({
         title: "Error",
         description: err.response?.status === 401 ? "Your session expired. Please sign in again."
@@ -521,16 +536,22 @@ const SubmitJob = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-deadlineDate" className="block text-gray-400 text-sm mb-2">
               Applicant Deadline Date
             </label>
             <input
               type="date"
               name="deadlineDate"
+              id="job-deadlineDate"
+              min={lagosDateKey()}
+              aria-invalid={Boolean(deadlineMessage)}
+              aria-describedby={deadlineMessage ? "job-deadlineDate-error" : undefined}
               value={formData.deadlineDate}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {deadlineMessage && <p id="job-deadlineDate-error" className="text-red-400 text-sm mt-2">{deadlineMessage}</p>}
+            {savedDeadline && savedDeadline < lagosDateKey() && <p className="text-gray-400 text-sm mt-2">You may keep the existing expired deadline unchanged.</p>}
           </div>
         </div>
 

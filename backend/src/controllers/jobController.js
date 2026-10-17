@@ -1,5 +1,6 @@
 import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
+import { jobDeadlineUpdate } from "../utils/jobDeadline.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 
 
@@ -23,13 +24,14 @@ export const createJob = async (req, res) => {
       experience,
       careerLevel,
       qualification,
-      deadlineDate,
       address,
       location,
       lat,
       lng
     } = req.body;
 
+    const deadline = jobDeadlineUpdate(req.body);
+    if (deadline.error) return res.status(400).json({ success: false, message: deadline.error, errors: { deadlineDate: deadline.error } });
     const { errors, salary } = jobSalaryUpdate(req.body);
     if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
 
@@ -43,7 +45,7 @@ export const createJob = async (req, res) => {
       experience,
       careerLevel,
       qualification,
-      deadlineDate,
+      deadlineDate: deadline.value,
       address,
       location,
       salary
@@ -100,12 +102,15 @@ export const updateJob = async (req, res) => {
     if (!job)
       return res.status(404).json({ message: "Job not found" });
 
+    const deadline = jobDeadlineUpdate(req.body, job.deadlineDate);
+    if (deadline.error) return res.status(400).json({ success: false, message: deadline.error, errors: { deadlineDate: deadline.error } });
     const { errors, salary } = jobSalaryUpdate(req.body, job.salary);
     if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
     // Salary needs deliberate mapping; flat form fields are not model paths.
     const updates = Object.fromEntries(Object.entries(req.body)
-      .filter(([key]) => !["salary", "salaryType", "minSalary", "maxSalary"].includes(key) && !key.startsWith("salary.")));
+      .filter(([key]) => !["salary", "salaryType", "minSalary", "maxSalary", "deadlineDate"].includes(key) && !key.startsWith("salary.")));
     Object.assign(job, updates);
+    if (Object.hasOwn(deadline, "value")) job.deadlineDate = deadline.value;
     for (const [key, value] of Object.entries(salary)) job.set(`salary.${key}`, value);
 
     if (req.files?.featuredImage) {

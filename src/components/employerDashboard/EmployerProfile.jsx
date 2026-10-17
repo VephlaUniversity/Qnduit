@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { formatJobDeadline } from "../utils/jobDeadline";
 import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
 
@@ -480,7 +481,7 @@ export const EmployerProfile = () => {
                         </div>
                         <span className="text-gray-400 text-sm">
                           {job.deadlineDate
-                            ? `Expires: ${job.deadlineDate}`
+                            ? `Expires: ${formatJobDeadline(job.deadlineDate)}`
                             : "No deadline set"}
                         </span>
                       </div>
