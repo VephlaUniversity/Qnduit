@@ -5,6 +5,7 @@ import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { profileImageUrl } from "../profiles/profileApi";
+import { validateJobSalary } from "../utils/jobSalaryValidation";
 import { useSearchParams } from "react-router-dom";
 
 const SubmitJob = () => {
@@ -13,6 +14,7 @@ const SubmitJob = () => {
   const featuredImageRef = useRef(null);
   const photosRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [salaryErrors, setSalaryErrors] = useState({});
   const [loadingJob, setLoadingJob] = useState(true);
   const [jobError, setJobError] = useState("");
   const [editingJobId, setEditingJobId] = useState(null);
@@ -149,6 +151,15 @@ const SubmitJob = () => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const reportSalaryErrors = (errors) => {
+    setSalaryErrors(errors);
+    requestAnimationFrame(() => {
+      const field = errors.minSalary ? "minSalary" : "maxSalary";
+      document.getElementById(`job-${field}`)?.focus();
+    });
+    toast({ title: "Check salary", description: Object.values(errors)[0], variant: "destructive" });
+  };
+
   const handleSubmit = async () => {
     if (saving || loadingJob || jobError || (isEditing && !editingJobId)) return;
 
@@ -165,6 +176,10 @@ const SubmitJob = () => {
       toast({ title: "Error", description: "Job Description is required", variant: "destructive" });
       return;
     }
+
+    const errors = validateJobSalary(formData);
+    if (Object.keys(errors).length) { reportSalaryErrors(errors); return; }
+    setSalaryErrors({});
 
     const form = new FormData();
 
@@ -212,10 +227,16 @@ const SubmitJob = () => {
 
     } catch (err) {
 
-      toast({
-        title:"Error",
-        description:err.response?.data?.message || err.message,
-        variant:"destructive"
+      const errors = err.response?.data?.errors;
+      if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
+      else toast({
+        title: "Error",
+        description: err.response?.status === 401 ? "Your session expired. Please sign in again."
+          : err.response?.status === 403 ? "You are not authorized to save this job."
+          : err.response?.status === 404 ? "Job not found. Return to My Jobs and try again."
+          : err.response?.status === 400 ? "Please check the job details and try again."
+          : "Unable to save this job. Please try again.",
+        variant: "destructive",
       });
 
     }
@@ -403,28 +424,38 @@ const SubmitJob = () => {
         {/* Min & Max Salary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-minSalary" className="block text-gray-400 text-sm mb-2">
               Min. Salary
             </label>
             <input
               type="text"
               name="minSalary"
+              id="job-minSalary"
+              inputMode="decimal"
+              aria-invalid={Boolean(salaryErrors.minSalary)}
+              aria-describedby={salaryErrors.minSalary ? "job-minSalary-error" : undefined}
               value={formData.minSalary}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {salaryErrors.minSalary && <p id="job-minSalary-error" className="text-red-400 text-sm mt-2">{salaryErrors.minSalary}</p>}
           </div>
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-maxSalary" className="block text-gray-400 text-sm mb-2">
               Max. Salary
             </label>
             <input
               type="text"
               name="maxSalary"
+              id="job-maxSalary"
+              inputMode="decimal"
+              aria-invalid={Boolean(salaryErrors.maxSalary)}
+              aria-describedby={salaryErrors.maxSalary ? "job-maxSalary-error" : undefined}
               value={formData.maxSalary}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {salaryErrors.maxSalary && <p id="job-maxSalary-error" className="text-red-400 text-sm mt-2">{salaryErrors.maxSalary}</p>}
           </div>
         </div>
 

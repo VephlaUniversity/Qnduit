@@ -1,5 +1,6 @@
 import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
+import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 
 
 export const jobUpload = upload.fields([
@@ -8,7 +9,7 @@ export const jobUpload = upload.fields([
 ]);
 
 
-export const createJob = async (req, res, next) => {
+export const createJob = async (req, res) => {
   try {
 
     const employerId = req.user._id;
@@ -19,9 +20,6 @@ export const createJob = async (req, res, next) => {
       category,
       jobCategory,
       jobApplyType,
-      salaryType,
-      minSalary,
-      maxSalary,
       experience,
       careerLevel,
       qualification,
@@ -31,6 +29,9 @@ export const createJob = async (req, res, next) => {
       lat,
       lng
     } = req.body;
+
+    const { errors, salary } = jobSalaryUpdate(req.body);
+    if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
 
     const job = new Job({
       employer: employerId,
@@ -45,11 +46,7 @@ export const createJob = async (req, res, next) => {
       deadlineDate,
       address,
       location,
-      salary: {
-        type: salaryType,
-        min: Number(minSalary),
-        max: Number(maxSalary)
-      }
+      salary
     });
 
     if (lat && lng) {
@@ -84,12 +81,12 @@ export const createJob = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    jobSaveError(res, error);
   }
 };
 
 
-export const updateJob = async (req, res, next) => {
+export const updateJob = async (req, res) => {
   try {
 
     const { id } = req.params;
@@ -103,7 +100,13 @@ export const updateJob = async (req, res, next) => {
     if (!job)
       return res.status(404).json({ message: "Job not found" });
 
-    Object.assign(job, req.body);
+    const { errors, salary } = jobSalaryUpdate(req.body, job.salary);
+    if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
+    // Salary needs deliberate mapping; flat form fields are not model paths.
+    const updates = Object.fromEntries(Object.entries(req.body)
+      .filter(([key]) => !["salary", "salaryType", "minSalary", "maxSalary"].includes(key) && !key.startsWith("salary.")));
+    Object.assign(job, updates);
+    for (const [key, value] of Object.entries(salary)) job.set(`salary.${key}`, value);
 
     if (req.files?.featuredImage) {
       const file = req.files.featuredImage[0];
@@ -130,7 +133,7 @@ export const updateJob = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    jobSaveError(res, error);
   }
 };
 
