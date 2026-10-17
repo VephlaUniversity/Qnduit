@@ -1,5 +1,6 @@
 import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
+import { uploadJobMedia } from "../utils/jobMediaUpload.js";
 import { jobDeadlineUpdate } from "../utils/jobDeadline.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 
@@ -58,21 +59,9 @@ export const createJob = async (req, res) => {
       };
     }
 
-    if (req.files?.featuredImage) {
-      const file = req.files.featuredImage[0];
-      job.featuredImage = {
-        url: `/uploads/${file.filename}`,
-        public_id: file.filename
-      };
-    }
-
-    if (req.files?.photos) {
-      job.gallery = req.files.photos.map(file => ({
-        url: `/uploads/${file.filename}`,
-        type: file.mimetype.startsWith("video") ? "video" : "image",
-        public_id: file.filename
-      }));
-    }
+    await job.validate();
+    // Do not mutate saved media until every replacement upload has succeeded.
+    Object.assign(job, await uploadJobMedia(req.files));
 
     await job.save();
 
@@ -113,21 +102,9 @@ export const updateJob = async (req, res) => {
     if (Object.hasOwn(deadline, "value")) job.deadlineDate = deadline.value;
     for (const [key, value] of Object.entries(salary)) job.set(`salary.${key}`, value);
 
-    if (req.files?.featuredImage) {
-      const file = req.files.featuredImage[0];
-      job.featuredImage = {
-        url: `/uploads/${file.filename}`,
-        public_id: file.filename
-      };
-    }
-
-    if (req.files?.photos) {
-      job.gallery = req.files.photos.map(file => ({
-        url: `/uploads/${file.filename}`,
-        type: file.mimetype.startsWith("video") ? "video" : "image",
-        public_id: file.filename
-      }));
-    }
+    await job.validate();
+    // Do not mutate saved media until every replacement upload has succeeded.
+    Object.assign(job, await uploadJobMedia(req.files));
 
     await job.save();
 
