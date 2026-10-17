@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   MapPin,
@@ -8,6 +8,7 @@ import {
   Calendar,
   MessageSquare,
 } from "lucide-react";
+import { employerFollowParams, employerFollowState } from "../utils/employerFollowNavigation";
 import { API_BASE_URL } from "../utils/api";
 
 const getHeaders = () => {
@@ -39,74 +40,64 @@ const getAvatar = (talent) =>
 export const Followers = () => {
   const navigate = useNavigate();
 
-  const [search, setSearch] = useState("");
-  const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [actionId, setActionId] = useState(null);
-  const [error, setError] = useState("");
-
-  const loadFollowers = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/follows/talents/followers`,
-        {
-          headers: getHeaders(),
-          params: {
-            q: search.trim(),
-            page,
-            limit: 10,
-          },
-        },
-      );
-
-      if (!response.data?.success) {
-        throw new Error(response.data?.message || "Unable to load followers.");
-      }
-
-      setRows(response.data.data || []);
-      setTotalPages(Math.max(1, response.data.pagination?.totalPages || 1));
-    } catch (err) {
-      setRows([]);
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to load followers.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [search, page]);
-
+  const [params, setParams] = useSearchParams();
+  const { tab, q: search, page } = employerFollowState(params);
+  const canonical = employerFollowParams({ tab, q: search, page }).toString();
+  const queryString = params.toString();
   useEffect(() => {
-    const timer = setTimeout(loadFollowers, 300);
-    return () => clearTimeout(timer);
-  }, [loadFollowers]);
+    if (canonical !== queryString) setParams(canonical, { replace: true });
+  }, [canonical, queryString, setParams]);
+  const [result, setResult] = useState({ key: "", rows: [], totalPages: 1, loading: true, error: "" });
+  const [reload, setReload] = useState(0);
+  const [pendingIds, setPendingIds] = useState(new Set());
+  const pending = useRef(new Set());
+  const [actionError, setActionError] = useState("");
+  const key = JSON.stringify([tab, search, page, reload]);
+  const loading = result.loading || result.key !== key;
+  const error = result.key === key ? result.error : "";
+  const rows = result.rows;
+  const totalPages = result.totalPages;
+  const updateList = (changes, pagination = false) => {
+    setActionError("");
+    setParams(employerFollowParams({ tab, q: search, page: 1, ...changes, ...(pagination ? {} : { page: 1 }) }));
+  };
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/follows/talents/${tab}`, {
+          headers: getHeaders(), params: { q: search.trim(), page, limit: 10 }, signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (!response.data?.success) throw new Error();
+        const pages = Math.max(1, response.data.pagination?.totalPages || 1);
+        if (page > pages) {
+          setParams(employerFollowParams({ tab, q: search, page: pages }), { replace: true });
+          return;
+        }
+        setResult({ key, rows: response.data.data || [], totalPages: pages, loading: false, error: "" });
+      } catch {
+        if (!controller.signal.aborted) setResult({ key, rows: [], totalPages: 1, loading: false, error: `Unable to load ${tab}. Please try again.` });
+      }
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [tab, search, page, reload, key, setParams]);
 
   const handleFollowToggle = async (talent) => {
-    setActionId(talent.id);
-    setError("");
-
+    if (pending.current.has(talent.id)) return;
+    pending.current.add(talent.id);
+    setPendingIds(new Set(pending.current));
+    setActionError("");
     try {
-      const url = `${API_BASE_URL}/api/follows/talents/${talent.id}`;
-
-      if (talent.isFollowing) {
-        await axios.delete(url, { headers: getHeaders() });
-      } else {
-        await axios.post(url, {}, { headers: getHeaders() });
-      }
-
-      await loadFollowers();
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "Unable to update follow status.",
-      );
+      const url = `${API_BASE_URL}/api/follows/talents/${encodeURIComponent(talent.id)}`;
+      if (talent.isFollowing) await axios.delete(url, { headers: getHeaders() });
+      else await axios.post(url, {}, { headers: getHeaders() });
+      setReload(value => value + 1);
+    } catch {
+      setActionError("Unable to update follow status. Please try again.");
     } finally {
-      setActionId(null);
+      pending.current.delete(talent.id);
+      setPendingIds(new Set(pending.current));
     }
   };
 
@@ -119,37 +110,44 @@ export const Followers = () => {
         </h1>
       </div>
 
+      <div className="flex gap-2 mb-6" role="tablist" aria-label="Employer connections">
+        {["followers", "following"].map(value => (
+          <button key={value} role="tab" aria-selected={tab === value}
+            onClick={() => updateList({ tab: value })}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === value ? "bg-blue-600 text-white" : "bg-[#2A2A2E] text-gray-400 hover:text-white"}`}>
+            {value === "followers" ? "Followers" : "Following"}
+          </button>
+        ))}
+      </div>
+
       <div className="relative mb-6">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search followers by name, email, role or location"
+          placeholder={`Search ${tab} by name, email, role or location`}
           value={search}
           onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
+            updateList({ q: event.target.value });
           }}
           className="w-full pl-12 pr-4 py-3 bg-[#1A1A1E] border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500"
         />
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+      {actionError && <div role="alert" className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">{actionError}</div>}
 
       <div className="space-y-4">
         {loading ? (
           <div className="bg-[#1A1A1E] rounded-lg p-10 text-center text-gray-400">
-            Loading followers...
+            Loading {tab}...
           </div>
+        ) : error ? (
+          <div role="alert" className="p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">{error}</div>
         ) : rows.length === 0 ? (
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-12 text-center">
             <p className="text-gray-400">
               {search.trim()
-                ? "No followers match your search."
-                : "No one is following your company yet."}
+                ? `No ${tab} match your search.`
+                : tab === "followers" ? "No one is following your company yet." : "You are not following any Talents yet."}
             </p>
           </div>
         ) : (
@@ -225,12 +223,12 @@ export const Followers = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <Link
+                    {talent.profileAvailable === false ? <span className="text-sm text-gray-400">Profile unavailable</span> : <Link
                       className="inline-flex min-h-[44px] items-center rounded-lg border border-blue-500 px-4 text-sm text-blue-400"
-                      to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=followers`}
+                      to={`/dashboard/users/talent/${encodeURIComponent(talent.id)}?from=${tab}${tab === "following" ? `&${employerFollowParams({ tab, q: search, page })}` : ""}`}
                     >
                       View Profile
-                    </Link>
+                    </Link>}
                     <button
                       onClick={() => navigate("/dashboard/messages")}
                       className="flex items-center gap-2 px-4 py-2 bg-[#2A2A2E] hover:bg-white/10 text-white rounded-lg font-medium text-sm"
@@ -240,11 +238,11 @@ export const Followers = () => {
                     </button>
 
                     <button
-                      disabled={actionId === talent.id}
+                      disabled={pendingIds.has(talent.id)}
                       onClick={() => handleFollowToggle(talent)}
                       className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm disabled:opacity-50"
                     >
-                      {actionId === talent.id
+                      {pendingIds.has(talent.id)
                         ? "Please wait..."
                         : talent.isFollowing
                           ? "Unfollow"
@@ -258,11 +256,11 @@ export const Followers = () => {
         )}
       </div>
 
-      {!loading && totalPages > 1 && (
+      {!loading && !error && totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 mt-6">
           <button
             disabled={page <= 1}
-            onClick={() => setPage((current) => current - 1)}
+            onClick={() => updateList({ page: page - 1 }, true)}
             className="px-4 py-2 rounded-lg bg-[#2A2A2E] text-white disabled:opacity-40"
           >
             Previous
@@ -274,7 +272,7 @@ export const Followers = () => {
 
           <button
             disabled={page >= totalPages}
-            onClick={() => setPage((current) => current + 1)}
+            onClick={() => updateList({ page: page + 1 }, true)}
             className="px-4 py-2 rounded-lg bg-[#2A2A2E] text-white disabled:opacity-40"
           >
             Next
