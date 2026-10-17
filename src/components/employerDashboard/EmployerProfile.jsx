@@ -202,7 +202,7 @@ export const EmployerProfile = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Email</span>
-                <span className="text-white">{profile?.email || "N/A"}</span>
+                <span className="text-white">{profile?.companyEmail || "N/A"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Industry</span>
