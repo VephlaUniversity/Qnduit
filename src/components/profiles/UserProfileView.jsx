@@ -266,11 +266,15 @@ export default function UserProfileView() {
   const fromFollowers = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "followers";
   const fromFollowing = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "following";
   const followingReturn = employerFollowParams({ ...employerFollowState(params), tab: "following" });
+  const fromApplicants = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "applicants";
+  const applicantsReturn = params.get("origin") === "applicants" ? "/dashboard/applicants" : "/dashboard";
   const fromSavedCandidates = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "saved-candidates";
   const jobId = params.get("jobId") || "";
   const fromJob = dashboard === "/talent-dashboard" && userType === "employer" &&
     params.get("from") === "job" && /^[a-f\d]{24}$/i.test(jobId);
-  const returnTo = fromFollowing
+  const returnTo = fromApplicants
+    ? applicantsReturn
+    : fromFollowing
     ? `/dashboard/followers?${followingReturn}`
     : fromSavedCandidates
     ? "/dashboard/saved-candidates"
@@ -283,7 +287,7 @@ export default function UserProfileView() {
         : dashboard === "/talent-dashboard" && userType === "employer"
           ? `${dashboard}/following-employers`
           : dashboard;
-  const backLabel = fromFollowing ? "Back to following" : fromSavedCandidates ? "Back to saved candidates" : fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
+  const backLabel = fromApplicants ? (applicantsReturn === "/dashboard/applicants" ? "Back to applicants" : "Back to dashboard") : fromFollowing ? "Back to following" : fromSavedCandidates ? "Back to saved candidates" : fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
     `Back to ${returnTo.includes("talent-results") ? "talent results" : returnTo.includes("following-employers") ? "following employers" : "dashboard"}`;
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
