@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "../profiles/profileApi";
 import { useSearchParams } from "react-router-dom";
 
 const SubmitJob = () => {
@@ -12,7 +13,8 @@ const SubmitJob = () => {
   const featuredImageRef = useRef(null);
   const photosRef = useRef(null);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [loadingJob, setLoadingJob] = useState(true);
+  const [jobError, setJobError] = useState("");
   const [editingJobId, setEditingJobId] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -36,10 +38,27 @@ const SubmitJob = () => {
   const [photos, setPhotos] = useState([]);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("edit");
+  const isEditing = searchParams.has("edit");
 
   useEffect(() => {
 
-    if (!id) return;
+    setEditingJobId(null);
+    setJobError("");
+    if (!isEditing) {
+      setFormData(prev => Object.fromEntries(Object.keys(prev).map(key => [key, ""])));
+      setFeaturedImage(null);
+      setPhotos([]);
+      setLoadingJob(false);
+      return;
+    }
+    if (!/^[a-f\d]{24}$/i.test(id || "")) {
+      setJobError("Invalid or missing job ID.");
+      setLoadingJob(false);
+      return;
+    }
+    let active = true;
+    const controller = new AbortController();
+    setLoadingJob(true);
 
     const fetchJob = async () => {
       try {
@@ -47,16 +66,20 @@ const SubmitJob = () => {
         const { data } = await axios.get(
           `${API_BASE_URL}/api/jobs/${id}`,
           {
+            signal: controller.signal,
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`
             }
           }
         );
 
+        if (!active) return;
         const job = data.job;
+        if (!job?._id || job._id.toLowerCase() !== id.toLowerCase()) {
+          setJobError("Job not found.");
+          return;
+        }
 
-        // activate edit mode using your frontend setup
-        setIsEditing(true);
         setEditingJobId(job._id);
 
         // map DB structure → your form structure
@@ -67,8 +90,8 @@ const SubmitJob = () => {
           jobCategory: job.jobCategory || "",
           jobApplyType: job.jobApplyType || "",
           salaryType: job.salary?.type || "",
-          minSalary: job.salary?.min || "",
-          maxSalary: job.salary?.max || "",
+          minSalary: job.salary?.min ?? "",
+          maxSalary: job.salary?.max ?? "",
           experience: job.experience || "",
           careerLevel: job.careerLevel || "",
           qualification: job.qualification || "",
@@ -79,30 +102,26 @@ const SubmitJob = () => {
           location: job.location || "",
         });
 
-        // Featured Image Preview (important for your UI)
-        if (job.featuredImage?.url) {
-          setFeaturedImage({
-            preview: `${API_BASE_URL}${job.featuredImage.url}`
-          });
-        }
-
-        // Gallery Preview
-        if (job.gallery?.length > 0) {
-          setPhotos(
-            job.gallery.map(item => ({
-              preview: `${API_BASE_URL}${item.url}`
-            }))
-          );
-        }
-
+        setFeaturedImage(job.featuredImage?.url
+          ? { preview: profileImageUrl(job.featuredImage.url) } : null);
+        setPhotos((job.gallery || []).map(item => ({
+          preview: profileImageUrl(item.url),
+        })));
       } catch (error) {
-        console.log(error);
+        if (!active) return;
+        const status = error.response?.status;
+        setJobError(status === 401 ? "Your session expired. Please sign in again."
+          : status === 403 ? "You are not authorized to edit this job."
+          : status === 404 ? "Job not found."
+          : "Unable to load this job. Please try again.");
+      } finally {
+        if (active) setLoadingJob(false);
       }
     };
 
     fetchJob();
-
-  }, [id]);
+    return () => { active = false; controller.abort(); };
+  }, [id, isEditing]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -131,6 +150,7 @@ const SubmitJob = () => {
   };
 
   const handleSubmit = async () => {
+    if (saving || loadingJob || jobError || (isEditing && !editingJobId)) return;
 
     if (!formData.jobTitle.trim()) {
       toast({
@@ -207,6 +227,19 @@ const SubmitJob = () => {
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
   const selectClass =
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 appearance-none";
+
+  if (loadingJob || jobError) {
+    return (
+      <div className="min-h-screen bg-[#0E0E10] p-4 md:p-8 text-white">
+        <h1 className="text-2xl font-semibold mb-4">{isEditing ? "Edit Job" : "Submit Job"}</h1>
+        <p role={jobError ? "alert" : "status"}>{jobError || "Loading job…"}</p>
+        <button onClick={() => navigate("/dashboard/my-job")}
+          className="mt-4 min-h-[44px] px-4 border border-blue-500 rounded-lg focus-visible:outline focus-visible:outline-2">
+          Back to My Jobs
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -478,7 +511,7 @@ const SubmitJob = () => {
               {photos.map((photo, index) => (
                 <div key={index} className="relative w-44 h-28">
                   <img
-                    src={URL.createObjectURL(photo)}
+                    src={photo instanceof File ? URL.createObjectURL(photo) : photo.preview}
                     alt="preview"
                     className="w-full h-full object-cover rounded-lg border border-white/10"
                   />
@@ -554,7 +587,11 @@ const SubmitJob = () => {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <button onClick={() => navigate("/dashboard/my-job")} disabled={saving}
+            className="min-h-[44px] px-6 py-3 border border-white/20 text-white rounded-lg focus-visible:outline focus-visible:outline-2 disabled:opacity-70">
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
