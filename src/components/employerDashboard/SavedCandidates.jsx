@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Search, Eye, MessageSquare, Trash2 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../utils/api";
 
 export const SavedCandidates = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("default");
   const [candidates, setCandidates] = useState([]);
@@ -41,10 +43,7 @@ export const SavedCandidates = () => {
   }, []);
 
   const handleViewProfile = (candidate) => {
-    toast({
-      title: "Profile Viewer",
-      description: `Viewing ${candidate.name}'s profile`,
-    });
+    navigate(`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?from=saved-candidates`);
   };
 
   const handleMessage = (candidate) => {
@@ -67,7 +66,7 @@ export const SavedCandidates = () => {
         title: "Success!",
         description: `${name} removed from saved candidates`,
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to remove candidate",
