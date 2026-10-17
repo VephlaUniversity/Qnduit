@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -119,7 +120,7 @@ export const EmployerProfile = () => {
             <div className="w-20 h-20 rounded-lg bg-gray-600 flex-shrink-0 overflow-hidden">
               {profile?.logo ? (
                 <img
-                  src={`${API_BASE_URL}${profile.logo}`}
+                  src={profileImageUrl(profile.logo)}
                   alt="Logo"
                   className="w-full h-full object-cover"
                 />
@@ -289,7 +290,7 @@ export const EmployerProfile = () => {
                   galleryItems[currentGalleryIndex].type === "video" ? (
                     <video
                       key={galleryItems[currentGalleryIndex].url}
-                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
+                      src={profileImageUrl(galleryItems[currentGalleryIndex].url)}
                       className="w-full h-full object-cover"
                       controls
                       autoPlay
@@ -299,7 +300,7 @@ export const EmployerProfile = () => {
                   ) : (
                     <img
                       key={galleryItems[currentGalleryIndex].url}
-                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
+                      src={profileImageUrl(galleryItems[currentGalleryIndex].url)}
                       alt={`Gallery ${currentGalleryIndex + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -350,14 +351,14 @@ export const EmployerProfile = () => {
                       >
                         {item.type === "video" ? (
                           <video
-                            src={`${API_BASE_URL}${item.url}`}
+                            src={profileImageUrl(item.url)}
                             className="w-full h-full object-cover"
                             muted
                           />
 
                         ) : (
                           <img
-                            src={`${API_BASE_URL}${item.url}`}
+                            src={profileImageUrl(item.url)}
                             alt={`Thumbnail ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -404,7 +405,7 @@ export const EmployerProfile = () => {
                           <div className="w-16 h-16 rounded bg-gray-600 flex-shrink-0 overflow-hidden">
                             {profile?.logo ? (
                               <img
-                                src={`${API_BASE_URL}${profile.logo}`}
+                                src={profileImageUrl(profile.logo)}
                                 alt="Company"
                                 className="w-full h-full object-cover"
                               />
