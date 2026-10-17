@@ -5,6 +5,7 @@ import {
   getUserProfile,
   recordProfileView,
   getProfileViews,
+  getProfileViewSummary,
 } from "../controllers/profileController.js";
 
 const router = express.Router();
@@ -20,6 +21,7 @@ router.use((req, res, next) => {
       .json({ message: "Verify your account before viewing profiles" });
   next();
 });
+router.get("/:userType/:userId/views/summary", authorize("employer"), validateProfileTarget, getProfileViewSummary);
 router.get("/:userType/:userId", validateProfileTarget, getUserProfile);
 router.post(
   "/:userType/:userId/views",

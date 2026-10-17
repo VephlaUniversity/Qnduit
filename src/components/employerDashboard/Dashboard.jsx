@@ -115,58 +115,33 @@ const Dashboard = () => {
     },
   ];
 
-  const getChartData = () => {
-    const monthData = [
-      { name: "Jan", views: 420 },
-      { name: "Feb", views: 380 },
-      { name: "Mar", views: 540 },
-      { name: "Apr", views: 470 },
-      { name: "May", views: 620 },
-      { name: "Jun", views: 590 },
-      { name: "Jul", views: 680 },
-      { name: "Aug", views: 720 },
-      { name: "Sep", views: 650 },
-      { name: "Oct", views: 710 },
-      { name: "Nov", views: 780 },
-      { name: "Dec", views: 820 },
-    ];
-    const weekData = [
-      { name: "Mon", views: 120 },
-      { name: "Tue", views: 150 },
-      { name: "Wed", views: 180 },
-      { name: "Thu", views: 140 },
-      { name: "Fri", views: 200 },
-      { name: "Sat", views: 90 },
-      { name: "Sun", views: 85 },
-    ];
-    const dayData = Array.from({ length: 24 }, (_, i) => ({
-      name: `${i}:00`,
-      views: Math.floor(Math.random() * 50) + 10,
-    }));
-    const yearData = [
-      { name: "2020", views: 5200 },
-      { name: "2021", views: 6100 },
-      { name: "2022", views: 7300 },
-      { name: "2023", views: 8500 },
-      { name: "2024", views: 9200 },
-    ];
-    switch (chartPeriod) {
-      case "day":
-        return dayData;
-      case "week":
-        return weekData;
-      case "year":
-        return yearData;
-      default:
-        return monthData;
+  const [chart, setChart] = useState({ period: null, loading: true, data: null, error: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    setChart({ period: chartPeriod, loading: true, data: null, error: false });
+    async function loadChart() {
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "null");
+        if (!user?.id) throw new Error();
+        const { data } = await axios.get(`${API_BASE_URL}/api/profiles/employer/${encodeURIComponent(user.id)}/views/summary`, {
+          params: { period: chartPeriod }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        if (!controller.signal.aborted) setChart({ period: chartPeriod, loading: false, data, error: false });
+      } catch {
+        if (!controller.signal.aborted) setChart({ period: chartPeriod, loading: false, data: null, error: true });
+      }
     }
-  };
+    loadChart();
+    return () => controller.abort();
+  }, [chartPeriod]);
+  const chartLoading = chart.loading || chart.period !== chartPeriod;
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-[#2A2A2E] border border-white/10 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-medium">{payload[0].payload.name}</p>
+          <p className="text-white font-medium">{payload[0].payload.name} UTC</p>
           <p className="text-blue-400 text-sm">Views: {payload[0].value}</p>
         </div>
       );
@@ -230,8 +205,11 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={getChartData()}>
+        {chartLoading ? <div className="h-[300px] flex items-center justify-center text-gray-400" role="status">Loading profile views…</div>
+          : chart.error ? <div className="h-[300px] flex items-center justify-center text-red-400" role="alert">Unable to load profile views. Select a period to try again.</div>
+          : chart.data.total === 0 ? <div className="h-[300px] flex items-center justify-center text-gray-400">No profile views in this UTC period.</div>
+          : <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chart.data.buckets}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis
               dataKey="name"
@@ -255,7 +233,7 @@ const Dashboard = () => {
               animationDuration={800}
             />
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
 
       {/* Recent Applicants */}
