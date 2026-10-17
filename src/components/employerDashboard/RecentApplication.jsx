@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 import { Plus, Check, X, Download, Trash2, Search } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 
 
+
+const formatAppliedDate = (value) => {
+  if (!value) return "Date unavailable";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date)
+    : "Date unavailable";
+};
 
 const RecentApplication = () => {
   const [applicants, setApplicants] = useState([]);
@@ -39,7 +48,9 @@ const RecentApplication = () => {
           availability: "Available",
           location: app.applicant?.location || "N/A",
           status: app.status || "Pending",
-          date: new Date(app.applicant.createdAt).toLocaleDateString(),
+          date: formatAppliedDate(app.appliedAt ?? app.createdAt ?? app.date),
+          cvUrl: profileImageUrl(app.resumeUrl ?? app.applicant?.resume),
+          resumeSource: app.resumeSource ?? (app.applicant?.resume ? "talent" : null),
         }));
 
         setApplicants(formatted);
@@ -108,13 +119,31 @@ const RecentApplication = () => {
     });
   };
 
-  const downloadCV = (applicant) => {
-    const link = document.createElement("a");
-    link.href = applicant.cvUrl || "/placeholder.svg";
-    link.download = `${applicant.name.replace(/\s+/g, "_")}_CV.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadCV = async (applicant) => {
+    if (!applicant.cvUrl) {
+      toast({ title: "Résumé unavailable", description: "No valid résumé is available for this application.", variant: "destructive" });
+      return;
+    }
+    let blobUrl;
+    try {
+      const response = await fetch(applicant.cvUrl, { credentials: "omit" });
+      if (!response.ok) throw new Error();
+      const blob = await response.blob();
+      blobUrl = URL.createObjectURL(blob);
+      const extension = new URL(applicant.cvUrl).pathname.match(/\.(pdf|docx?)$/i)?.[0]
+        || (blob.type === "application/pdf" ? ".pdf" : "");
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${applicant.name.replace(/\s+/g, "_")}_CV${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Allow the browser to consume the download before releasing its temporary URL.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      toast({ title: "Unable to download résumé", description: "Please try again later.", variant: "destructive" });
+    }
   };
 
   const getStatusStyle = (status) => {

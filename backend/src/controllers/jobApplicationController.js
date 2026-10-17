@@ -113,7 +113,11 @@ export const getEmployerApplications = async (req, res, next) => {
     const formatted = applications.map(app => ({
       id: app._id,
       status: app.status || "Pending",
-      date: app.createdAt,
+      date: app.createdAt, // Preserve the legacy field for existing consumers.
+      appliedAt: app.appliedAt ?? app.createdAt,
+      createdAt: app.createdAt,
+      resumeUrl: app.resumeUrl?.trim() || app.applicantId?.resume?.url || "",
+      resumeSource: app.resumeUrl?.trim() ? "application" : app.applicantId?.resume?.url ? "talent" : null,
 
       applicant: {
         id: app.applicantId?._id,
