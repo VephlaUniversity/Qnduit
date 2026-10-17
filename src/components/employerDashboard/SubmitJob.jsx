@@ -9,11 +9,33 @@ import { validateJobSalary } from "../utils/jobSalaryValidation";
 import { deadlineError, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 import { useSearchParams } from "react-router-dom";
 
+// Each mounted preview owns only its temporary URL, never a saved media URL.
+function JobMediaPreview({ media, imageOnly = false }) {
+  const [temporary, setTemporary] = useState(null);
+  const file = media instanceof File ? media : media.file instanceof File ? media.file : null;
+  useEffect(() => {
+    if (!file) return;
+    const type = /\.mp4$/i.test(file.name) ? "video/mp4"
+      : file.type || (/\.png$/i.test(file.name) ? "image/png" : "image/jpeg");
+    const url = URL.createObjectURL(file.type === type ? file : file.slice(0, file.size, type));
+    setTemporary({ file, url });
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const src = file ? (temporary?.file === file ? temporary.url : undefined) : media.preview;
+  if (!src) return null;
+  const video = !imageOnly && (media.type === "video" || (file && (file.type.startsWith("video/") || /\.mp4$/i.test(file.name))));
+  const className = "w-full h-full object-cover rounded-lg border border-white/10";
+  return video
+    ? <video key={src} src={src} controls playsInline preload="metadata" className={className} />
+    : <img src={src} alt="preview" className={className} />;
+}
+
 const SubmitJob = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const featuredImageRef = useRef(null);
   const photosRef = useRef(null);
+  const nextPhotoKey = useRef(0);
   const [saving, setSaving] = useState(false);
   const [salaryErrors, setSalaryErrors] = useState({});
   const [deadlineMessage, setDeadlineMessage] = useState("");
@@ -110,8 +132,11 @@ const SubmitJob = () => {
 
         setFeaturedImage(job.featuredImage?.url
           ? { preview: profileImageUrl(job.featuredImage.url) } : null);
-        setPhotos((job.gallery || []).map(item => ({
+        setPhotos((job.gallery || []).map((item, index) => ({
+          key: `saved-${item._id || index}`,
+          id: item._id,
           preview: profileImageUrl(item.url),
+          type: item.type,
         })));
       } catch (error) {
         if (!active) return;
@@ -144,9 +169,22 @@ const SubmitJob = () => {
 
   const handlePhotosUpload = (e) => {
     const files = Array.from(e.target.files);
+    e.target.value = ""; // Allow another selection, including the same file.
     if (!files.length) return;
-
-    setPhotos(files);
+    if (files.some(file => !/\.(png|jpe?g|mp4)$/i.test(file.name))) {
+      toast({ title: "Unsupported gallery file", description: "Choose PNG, JPG, JPEG or MP4 files.", variant: "destructive" });
+      return;
+    }
+    if (photos.filter(photo => photo.file).length + files.length > 10) {
+      toast({ title: "Too many new files", description: "Upload up to 10 new gallery files per save.", variant: "destructive" });
+      return;
+    }
+    const additions = files.map(file => ({
+      key: `new-${nextPhotoKey.current++}`,
+      file,
+      type: file.type.startsWith("video/") || /\.mp4$/i.test(file.name) ? "video" : "image",
+    }));
+    setPhotos(prev => [...prev, ...additions]);
   };
 
 
@@ -205,10 +243,10 @@ const SubmitJob = () => {
       form.append("featuredImage", featuredImage);
     }
 
+    // An explicit empty list means remove all; omission never clears saved media.
+    form.append("retainedGalleryIds", JSON.stringify(photos.filter(photo => !photo.file).map(photo => photo.id)));
     photos.forEach(photo => {
-      if(photo instanceof File){
-        form.append("photos", photo);
-      }
+      if (photo.file instanceof File) form.append("photos", photo.file);
     });
 
     try {
@@ -313,15 +351,7 @@ const SubmitJob = () => {
           </div>
           {featuredImage && (
             <div className="mt-3 relative w-32 h-20">
-              <img
-                src={
-                  featuredImage instanceof File
-                    ? URL.createObjectURL(featuredImage)
-                    : featuredImage.preview
-                }
-                alt="preview"
-                className="w-full h-full object-cover rounded-lg border border-white/10"
-              />
+              <JobMediaPreview media={featuredImage} imageOnly />
               <button
                 onClick={() => setFeaturedImage(null)}
                 className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center"
@@ -557,17 +587,14 @@ const SubmitJob = () => {
 
         {/* Photo */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Photo</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Gallery</h2>
           {photos.length > 0 && (
             <div className="flex flex-wrap gap-4 mb-4">
               {photos.map((photo, index) => (
-                <div key={index} className="relative w-44 h-28">
-                  <img
-                    src={photo instanceof File ? URL.createObjectURL(photo) : photo.preview}
-                    alt="preview"
-                    className="w-full h-full object-cover rounded-lg border border-white/10"
-                  />
+                <div key={photo.key} className="relative w-64 h-44">
+                  <JobMediaPreview media={photo} />
                   <button
+                    aria-label={`Remove gallery item ${index + 1}`}
                     onClick={() => removePhoto(index)}
                     className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center"
                   >
@@ -582,7 +609,7 @@ const SubmitJob = () => {
               ref={photosRef}
               type="file"
               name="photos"
-              accept="image/*,video/*"
+              accept=".png,.jpg,.jpeg,.mp4,image/png,image/jpeg,video/mp4"
               multiple
               onChange={handlePhotosUpload}
               className="hidden"
@@ -591,9 +618,9 @@ const SubmitJob = () => {
               onClick={() => photosRef.current?.click()}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
             >
-              Browse
+              Add gallery files
             </button>
-            <span className="text-gray-400 text-sm">Upload image, video</span>
+            <span className="text-gray-400 text-sm">PNG, JPG, JPEG or MP4. Selections append (up to 10 new files per save).</span>
           </div>
         </div>
 

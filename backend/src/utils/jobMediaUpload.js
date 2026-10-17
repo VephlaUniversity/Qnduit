@@ -37,7 +37,7 @@ export async function uploadJobMedia(files = {}) {
   if (files.photos) {
     media.gallery = [];
     for (const file of files.photos) {
-      const type = file.mimetype.startsWith("video") ? "video" : "image";
+      const type = (file.mimetype.startsWith("video") || /\.mp4$/i.test(file.originalname || "")) ? "video" : "image";
       const uploaded = await uploadBuffer(file, "qnduit/job-gallery", type);
       media.gallery.push({ ...uploaded, type });
     }
