@@ -146,3 +146,35 @@ export const getEmployerApplications = async (req, res, next) => {
     next(error);
   }
 };
+const applicationStatuses = ["pending", "reviewed", "shortlisted", "hired", "rejected"];
+const statusTransitions = {
+  pending: ["reviewed", "rejected"], reviewed: ["shortlisted", "rejected"],
+  shortlisted: ["hired", "rejected"], hired: [], rejected: [],
+};
+const savedStatus = application => ({
+  applicationId: String(application._id), talentId: String(application.applicantId),
+  jobId: String(application.jobId), status: application.status, updatedAt: application.updatedAt,
+});
+export const updateApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status, expectedStatus } = req.body || {};
+    if (!/^[a-f\d]{24}$/i.test(applicationId) || !applicationStatuses.includes(status) || !applicationStatuses.includes(expectedStatus)) {
+      return res.status(400).json({ message: "A valid application ID, status and expectedStatus are required." });
+    }
+    const filter = { _id: applicationId, employerId: req.user._id };
+    const current = await JobApplication.findOne(filter);
+    if (!current) return res.status(404).json({ message: "Application not found." });
+    if (current.status === status) return res.json({ success: true, application: savedStatus(current) });
+    if (current.status !== expectedStatus) return res.status(409).json({ message: "This application changed. Refresh before trying again.", application: savedStatus(current) });
+    if (!statusTransitions[current.status]?.includes(status)) return res.status(400).json({ message: "This status transition is not allowed.", application: savedStatus(current) });
+    const saved = await JobApplication.findOneAndUpdate({ ...filter, status: expectedStatus }, { $set: { status } }, { new: true, runValidators: true });
+    if (saved) return res.json({ success: true, application: savedStatus(saved) });
+    const latest = await JobApplication.findOne(filter);
+    if (!latest) return res.status(404).json({ message: "Application not found." });
+    if (latest.status === status) return res.json({ success: true, application: savedStatus(latest) });
+    return res.status(409).json({ message: "This application changed. Refresh before trying again.", application: savedStatus(latest) });
+  } catch {
+    return res.status(500).json({ message: "Unable to update application status. Please try again." });
+  }
+};

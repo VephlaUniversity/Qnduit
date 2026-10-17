@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
-import { Plus, Check, X, Download, Trash2, Search, Eye } from "lucide-react";
+import { Plus, X, Download, Trash2, Search, Eye } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { useToast } from "../hooks/useToast";
@@ -53,6 +53,9 @@ function ResumePreview({ applicant }) {
     </> : <p role="status">{preview.message}</p>;
 }
 
+const statusLabels = { pending: "Pending", reviewed: "Reviewed", shortlisted: "Shortlisted", rejected: "Rejected", hired: "Hired" };
+const nextStatus = { pending: "reviewed", reviewed: "shortlisted", shortlisted: "hired" };
+
 const RecentApplication = () => {
   const [applicants, setApplicants] = useState([]);
   const [resumeApplicant, setResumeApplicant] = useState(null);
@@ -63,6 +66,8 @@ const RecentApplication = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [savingId, setSavingId] = useState(null);
+  const [pendingStatuses, setPendingStatuses] = useState(new Set());
+  const statusRequests = useRef(new Set());
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -89,7 +94,7 @@ const RecentApplication = () => {
           role: app.job?.title || "Applicant",
           availability: "Available",
           location: app.applicant?.location || "N/A",
-          status: app.status || "Pending",
+          status: app.status || "pending",
           date: formatAppliedDate(app.appliedAt ?? app.createdAt ?? app.date),
           cvUrl: profileImageUrl(app.resumeUrl ?? app.applicant?.resume),
           resumeSource: app.resumeSource ?? (app.applicant?.resume ? "talent" : null),
@@ -137,19 +142,23 @@ const RecentApplication = () => {
     }
   };
 
-  const updateStatus = (id, status) => {
-    setApplicants((prev) =>
-      prev.map((a) => (a.applicationId === id ? { ...a, status } : a)),
-    );
-    const statusMessages = {
-      Approved: "Applicant approved successfully!",
-      Rejected: "Applicant rejected",
-    };
-    if (statusMessages[status]) {
-      toast({
-        title: "Success!",
-        description: statusMessages[status],
-      });
+  const updateStatus = async (applicant, status) => {
+    const id = applicant.applicationId;
+    if (statusRequests.current.has(id)) return;
+    statusRequests.current.add(id);
+    setPendingStatuses(new Set(statusRequests.current));
+    try {
+      const { data } = await axios.patch(`${API_BASE_URL}/api/applications/${encodeURIComponent(id)}/status`,
+        { status, expectedStatus: applicant.status }, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      if (!data.success || data.application?.applicationId !== id || !Object.hasOwn(statusLabels, data.application.status)) throw new Error();
+      setApplicants(previous => previous.map(row => row.applicationId === id ? { ...row, status: data.application.status } : row));
+      toast({ title: "Status updated", description: `Application is ${statusLabels[data.application.status]}.` });
+    } catch (error) {
+      toast({ title: "Unable to update status", description: error.response?.status === 409
+        ? "This application changed elsewhere. Refresh before trying again." : "Please try again. The displayed status has not changed.", variant: "destructive" });
+    } finally {
+      statusRequests.current.delete(id);
+      setPendingStatuses(new Set(statusRequests.current));
     }
   };
 
@@ -190,9 +199,11 @@ const RecentApplication = () => {
 
   const getStatusStyle = (status) => {
     switch (status) {
-      case "Approved":
+      case "reviewed":
+      case "shortlisted":
+      case "hired":
         return "bg-blue-600/20 text-blue-400";
-      case "Rejected":
+      case "rejected":
         return "bg-red-600/20 text-red-400";
       default:
         return "bg-yellow-600/20 text-yellow-400";
@@ -234,8 +245,8 @@ const RecentApplication = () => {
           Recent Applicants
         </h2>
         {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 mb-6">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -248,12 +259,10 @@ const RecentApplication = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-3 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 min-w-[150px]"
+            className={`w-full sm:w-44 max-w-full min-w-0 shrink-0 pl-4 pr-10 py-3 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2020%2020'%20fill='none'%20stroke='white'%3E%3Cpath%20d='m6%208%204%204%204-4'/%3E%3C/svg%3E")] bg-no-repeat bg-[length:1rem_1rem] bg-[position:right_0.75rem_center]`}
           >
-            <option value="all">Sort By</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
+            <option value="all">All</option>
+            {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         <div className="overflow-x-auto">
@@ -300,7 +309,7 @@ const RecentApplication = () => {
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(applicant.status)}`}
                     >
-                      {applicant.status}
+                      {statusLabels[applicant.status] || applicant.status}
                     </span>
                   </td>
                   <td className="py-4 px-4 text-gray-400 text-sm">
@@ -322,17 +331,18 @@ const RecentApplication = () => {
                       >
                         <Plus className="w-4 h-4" />
                       </button>
+                      <select value="" disabled={pendingStatuses.has(applicant.applicationId) || !nextStatus[applicant.status]}
+                        aria-label={`Status action for ${applicant.name} — ${applicant.role}`}
+                        onChange={(event) => { if (event.target.value) updateStatus(applicant, event.target.value); }}
+                        className={`w-36 max-w-full shrink-0 pl-3 pr-10 py-2 bg-blue-600 rounded text-white text-sm disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2020%2020'%20fill='none'%20stroke='white'%3E%3Cpath%20d='m6%208%204%204%204-4'/%3E%3C/svg%3E")] bg-no-repeat bg-[length:1rem_1rem] bg-[position:right_0.75rem_center]`}>
+                        <option value="">{pendingStatuses.has(applicant.applicationId) ? "Saving…" : nextStatus[applicant.status] ? "Status action" : statusLabels[applicant.status]}</option>
+                        {nextStatus[applicant.status] && <option value={nextStatus[applicant.status]}>{statusLabels[nextStatus[applicant.status]]}</option>}
+                      </select>
                       <button
-                        onClick={() => updateStatus(applicant.applicationId, "Approved")}
-                        className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
-                        title="Approve"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => updateStatus(applicant.applicationId, "Rejected")}
-                        className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
-                        title="Reject"
+                        onClick={() => updateStatus(applicant, "rejected")}
+                        disabled={pendingStatuses.has(applicant.applicationId) || !nextStatus[applicant.status]}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors disabled:opacity-50"
+                        title="Reject" aria-label={`Reject application for ${applicant.name} — ${applicant.role}`}
                       >
                         <X className="w-4 h-4" />
                       </button>

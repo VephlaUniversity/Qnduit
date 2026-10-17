@@ -3,12 +3,15 @@ import {
   applyForJob,
   getMyApplications,
   getJobApplications,
-  getEmployerApplications
+  getEmployerApplications,
+  updateApplicationStatus
 } from "../controllers/jobApplicationController.js";
 
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.patch("/:applicationId/status", protect, authorize("employer"), updateApplicationStatus);
 
 router.post("/apply", protect, applyForJob);
 
