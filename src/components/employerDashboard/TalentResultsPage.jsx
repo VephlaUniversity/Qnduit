@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import * as Slider from "@radix-ui/react-slider";
 import {
@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
+import { useToast } from "../hooks/useToast";
 import { API_BASE_URL } from "../utils/api";
 import { Link, useSearchParams } from "react-router-dom";
 
@@ -187,6 +188,56 @@ const TalentsResultsPage = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const { toast } = useToast();
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [savedReady, setSavedReady] = useState(false);
+  const [savingIds, setSavingIds] = useState(new Set());
+  const pendingSaves = useRef(new Set());
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates`, {
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        setSavedIds(new Set(data.savedCandidates.map(candidate => String(candidate._id))));
+        setSavedReady(true);
+      } catch {
+        if (!controller.signal.aborted) toast({ title: "Unable to load saved candidates", description: "Refresh to try again.", variant: "destructive" });
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [toast]);
+  const toggleSaved = async (candidate) => {
+    if (!savedReady || pendingSaves.current.has(candidate.id)) return;
+    pendingSaves.current.add(candidate.id);
+    setSavingIds(new Set(pendingSaves.current));
+    const unsave = savedIds.has(candidate.id);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates/${encodeURIComponent(candidate.id)}`, {
+        method: unsave ? "DELETE" : "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error();
+      setSavedIds(previous => {
+        const next = new Set(previous);
+        if (unsave) next.delete(candidate.id); else next.add(candidate.id);
+        return next;
+      });
+      toast({ title: "Success", description: unsave ? "Candidate removed from saved candidates." : "Candidate saved." });
+    } catch {
+      toast({ title: "Unable to update saved candidates", description: "Please try again. Your selection has not changed.", variant: "destructive" });
+    } finally {
+      pendingSaves.current.delete(candidate.id);
+      setSavingIds(new Set(pendingSaves.current));
+    }
+  };
+
   const {
     data: allCandidates,
     loading,
@@ -254,8 +305,12 @@ const TalentsResultsPage = () => {
             </div>
           </div>
         </div>
-        <button className="p-2 hover:bg-gray-700 rounded-full">
-          <Heart className="w-5 h-5 text-gray-400" />
+        <button className="p-2 hover:bg-gray-700 rounded-full"
+          aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
+          aria-pressed={savedIds.has(candidate.id)}
+          disabled={!savedReady || savingIds.has(candidate.id)}
+          onClick={() => toggleSaved(candidate)}>
+          <Heart className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
         </button>
       </div>
 
