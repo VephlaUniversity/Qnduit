@@ -1,4 +1,5 @@
 import Employer from "../models/Employer.js";
+import { employerGallerySelection } from "../utils/employerGallery.js";
 import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
@@ -215,6 +216,12 @@ export const updateEmployerProfile = async (req, res) => {
       }
     }
 
+    const existingEmployer = await Employer.findById(id);
+    if (!existingEmployer) return res.status(404).json({ success: false, message: "Employer not found" });
+    const gallery = employerGallerySelection(body, existingEmployer.gallery);
+    if (gallery.error) return res.status(400).json({ success: false, message: gallery.error });
+    if (gallery.explicit || req.files?.gallery) updates.gallery = gallery.items;
+
     if (req.files?.logo) {
       const logoFile = req.files.logo[0];
 
@@ -243,7 +250,7 @@ export const updateEmployerProfile = async (req, res) => {
     }
 
     if (req.files?.gallery) {
-      updates.gallery = [];
+      // Retained saved items precede new uploads; omission preserves existing media.
 
       for (const file of req.files.gallery) {
         const isVideo = file.mimetype.startsWith("video/");
@@ -275,16 +282,6 @@ export const updateEmployerProfile = async (req, res) => {
         });
       }
     }
-
-    const existingEmployer = await Employer.findById(id);
-
-    if (!existingEmployer) {
-      return res.status(404).json({
-        success:false,
-        message:"Employer not found"
-      });
-    }
-
 
     if (
       (updates.companyName || existingEmployer.companyName) &&
@@ -350,6 +347,7 @@ export const getEmployerProfile = async (req, res) => {
 
       gallery:
         employer.gallery?.map(item => ({
+          _id: item._id,
           url: item.url,
           type: item.type
         })) || [],

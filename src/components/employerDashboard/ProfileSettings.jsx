@@ -10,6 +10,7 @@ import TextEditor from "../TextEditor";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "../profiles/profileApi";
 import { coordinateError, employerEditableFields, employerProfileFormData, validateEmployerProfile } from "../utils/employerProfileValidation";
 
 // Fix leaflet default icon issue
@@ -51,6 +52,22 @@ const socialIcons = [
   { name: "youtube", icon: Youtube, placeholder: "http://www.youtube.com" },
 ];
 
+// A preview owns its blob URL until that particular draft file is removed/unmounted.
+function EmployerGalleryPreview({ item }) {
+  const [blobUrl, setBlobUrl] = useState("");
+  useEffect(() => {
+    if (!item.file) return;
+    const url = URL.createObjectURL(item.file);
+    setBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [item.file]);
+  const src = item.file ? blobUrl : profileImageUrl(item.url);
+  if (!src) return null;
+  return item.type === "video"
+    ? <video src={src} controls playsInline preload="metadata" className="w-full h-full object-contain" />
+    : <img src={src} alt="Gallery preview" className="w-full h-full object-cover" />;
+}
+
 const ProfileSettings = () => {
   const navigate = useNavigate();
   const [errors, setErrors] = useState({});
@@ -75,6 +92,7 @@ const ProfileSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
   const [galleryItems, setGalleryItems] = useState([]);
+  const nextGalleryKey = useRef(0);
   const [mapPosition, setMapPosition] = useState([35.6762, 139.6503]);
   const logoInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -198,7 +216,9 @@ const ProfileSettings = () => {
         if (profile.gallery && Array.isArray(profile.gallery)) {
           setGalleryItems(
             profile.gallery.map((item) => ({
-              url: /^https?:\/\//i.test(item.url) ? item.url : `${API_BASE_URL}${item.url}`,
+              id: item._id,
+              key: `saved-${item._id}`,
+              url: item.url,
               type: item.type,
             }))
           );
@@ -308,6 +328,7 @@ const ProfileSettings = () => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
+    e.target.value = "";
     const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB limit per file
     if (fileArray.some((file) => file.size > MAX_FILE_SIZE)) {
       toast({ title: "File too large", description: "Each gallery file must be less than 2MB.", variant: "destructive" });
@@ -322,22 +343,17 @@ const ProfileSettings = () => {
       return;
     }
     const items = fileArray.map((file) => ({
-      url: URL.createObjectURL(file),
+      key: `new-${nextGalleryKey.current++}`,
+      file,
       type: file.type.startsWith("video/") ? "video" : "image",
     }));
     setGalleryItems((prev) => [...prev, ...items]);
-    setFormData((prev) => ({ ...prev, gallery: [...prev.gallery, ...fileArray] }));
+
   };
 
   const handleRemoveGalleryItem = (index) => {
     setGalleryItems((prev) => prev.filter((_, i) => i !== index));
-    setFormData((prev) => {
-      const currentGallery = Array.isArray(prev.gallery) ? prev.gallery : [];
-      return {
-        ...prev,
-        gallery: currentGallery.filter((_, i) => i !== index),
-      };
-    });
+
 
     toast({
       title: "Success!",
@@ -373,7 +389,9 @@ const ProfileSettings = () => {
 
       if (!employerId) throw new Error("An error occured. Please try again.");
 
-      const data = employerProfileFormData(formData);
+      const data = employerProfileFormData({ ...formData, gallery: [] });
+      data.append("retainedGalleryIds", JSON.stringify(galleryItems.filter(item => !item.file).map(item => item.id)));
+      galleryItems.forEach(item => { if (item.file) data.append("gallery", item.file); });
 
       await axios.put(
         `${API_BASE_URL}/api/employers/update`,
@@ -407,7 +425,7 @@ const ProfileSettings = () => {
       toast({
         title: "Error",
         description: error.response?.status === 400
-          ? "Please check the highlighted fields."
+          ? (error.response.data?.errors ? "Please check the highlighted fields." : error.response.data?.message || "Please check your profile details.")
           : "Failed to save profile. Please try again later.",
         variant: "destructive",
       });
@@ -480,28 +498,17 @@ const ProfileSettings = () => {
                   Multiple files supported
                 </p>
                 {galleryItems.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))] gap-3 mb-3">
                     {galleryItems.map((item, index) => (
                       <div
-                        key={index}
-                        className="relative w-24 h-24 rounded border border-white/10 overflow-hidden group"
+                        key={item.key}
+                        className="relative min-w-0 h-32 rounded border border-white/10 overflow-hidden"
                       >
-                        {item.type === "video" ? (
-                          <video
-                            src={item.url}
-                            className="w-full h-full object-cover"
-                            muted
-                          />
-                        ) : (
-                          <img
-                            src={item.url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        )}
+                        <EmployerGalleryPreview item={item} />
                         <button
+                          aria-label={`Remove gallery item ${index + 1}`}
                           onClick={() => handleRemoveGalleryItem(index)}
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 w-11 h-11 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                         >
                           <X className="w-3 h-3 text-white" />
                         </button>
