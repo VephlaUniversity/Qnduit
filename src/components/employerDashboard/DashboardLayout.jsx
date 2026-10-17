@@ -93,6 +93,7 @@ export const DashboardLayout = ({
       clearTimeout(debounceTimer.current);
     }
 
+    const controller = new AbortController();
     const trimmed = searchQuery.trim();
 
     if (!trimmed) {
@@ -112,9 +113,10 @@ export const DashboardLayout = ({
         const searchUrl =
           userType === "talent"
             ? `${API_BASE_URL}/api/jobs?q=${encodeURIComponent(trimmed)}`
-            : `${API_BASE_URL}/api/gen/search?query=${encodeURIComponent(trimmed)}`;
+            : `${API_BASE_URL}/api/gen/search?userType=talent&query=${encodeURIComponent(trimmed)}`;
 
         const response = await fetch(searchUrl, {
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -135,9 +137,15 @@ export const DashboardLayout = ({
               ? data.data
               : [];
 
-        setSearchResults(results);
+        if (controller.signal.aborted) return;
+        setSearchResults(userType === "employer" ? results.filter(item => item.userType === "talent").map(talent => ({
+          ...talent,
+          name: talent.fullName || talent.name || [talent.firstName, talent.lastName].filter(Boolean).join(" ") || talent.email || "Talent",
+          role: talent.jobTitle || talent.title || "Talent",
+        })) : results);
         setSearchStatus("success");
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("Search error:", error);
         setSearchResults([]);
         setSearchStatus("error");
@@ -145,6 +153,7 @@ export const DashboardLayout = ({
     }, 400);
 
     return () => {
+      controller.abort();
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
@@ -162,15 +171,11 @@ export const DashboardLayout = ({
     );
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      setShowDropdown(false);
-      navigate(
-        `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(
-          searchQuery.trim(),
-        )}`,
-      );
-    }
+  const submitSearch = (event) => {
+    event.preventDefault();
+    if (!searchQuery.trim()) return;
+    setShowDropdown(false);
+    navigate(`${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   const defaultMenuItems = menuItems || [
@@ -235,12 +240,14 @@ export const DashboardLayout = ({
           <div className="flex items-center gap-3">
             {/* ── Smart Search Bar ── */}
             <div ref={searchRef} className="relative">
-              <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors">
+              <form onSubmit={submitSearch} className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors">
+                <button type="submit" aria-label="Submit search" className="min-w-8 min-h-8 flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                 {searchStatus === "loading" ? (
                   <Loader2 className="w-4 h-4 text-gray-500 flex-shrink-0 animate-spin" />
                 ) : (
                   <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
                 )}
+                </button>
                 <input
                   type="text"
                   placeholder={config.placeholder}
@@ -250,10 +257,9 @@ export const DashboardLayout = ({
                     if (searchQuery.trim() && searchStatus !== "idle")
                       setShowDropdown(true);
                   }}
-                  onKeyDown={handleKeyDown}
                   className="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full"
                 />
-              </div>
+              </form>
 
               {/* Dropdown */}
               {showDropdown && (
