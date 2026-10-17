@@ -3,12 +3,10 @@ import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { Plus, Check, X, Download, Trash2, Search } from "lucide-react";
 import { useToast } from "../hooks/useToast";
-import { useParams } from "react-router-dom";
 
 
 
 const RecentApplication = () => {
-  const { jobId } = useParams();
   const [applicants, setApplicants] = useState([]);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,7 +32,8 @@ const RecentApplication = () => {
         );
 
         const formatted = res.data.applications.map((app) => ({
-          id: app.applicant?.id,
+          applicationId: app.id,
+          talentId: app.applicant?.id,
           name: app.applicant?.name || "Unknown",
           role: app.job?.title || "Applicant",
           availability: "Available",
@@ -55,12 +54,12 @@ const RecentApplication = () => {
 
   const addToSavedCandidates = async (applicant) => {
     try {
-      setSavingId(applicant.id);
+      setSavingId(applicant.talentId);
 
       const token = localStorage.getItem("token");
 
       await axios.post(
-        `${API_BASE_URL}/api/employers/saved-candidates/${applicant.id}`,
+        `${API_BASE_URL}/api/employers/saved-candidates/${applicant.talentId}`,
         {},
         {
           headers: {
@@ -87,7 +86,7 @@ const RecentApplication = () => {
 
   const updateStatus = (id, status) => {
     setApplicants((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a)),
+      prev.map((a) => (a.applicationId === id ? { ...a, status } : a)),
     );
     const statusMessages = {
       Approved: "Applicant approved successfully!",
@@ -102,7 +101,7 @@ const RecentApplication = () => {
   };
 
   const removeApplicant = (id) => {
-    setApplicants((prev) => prev.filter((a) => a.id !== id));
+    setApplicants((prev) => prev.filter((a) => a.applicationId !== id));
     toast({
       title: "Success!",
       description: "Applicant removed",
@@ -192,7 +191,7 @@ const RecentApplication = () => {
             <tbody>
               {filteredApplicants.map((applicant) => (
                 <tr
-                  key={applicant.id}
+                  key={applicant.applicationId}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
                   <td className="py-4 px-4">
@@ -224,7 +223,7 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <button
-                        disabled={savingId === applicant.id}
+                        disabled={savingId === applicant.talentId}
                         onClick={() => addToSavedCandidates(applicant)}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                         title="Add to Saved Candidates"
@@ -232,14 +231,14 @@ const RecentApplication = () => {
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => updateStatus(applicant.id, "Approved")}
+                        onClick={() => updateStatus(applicant.applicationId, "Approved")}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                         title="Approve"
                       >
                         <Check className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => updateStatus(applicant.id, "Rejected")}
+                        onClick={() => updateStatus(applicant.applicationId, "Rejected")}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                         title="Reject"
                       >
@@ -253,7 +252,7 @@ const RecentApplication = () => {
                         <Download className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => removeApplicant(applicant.id)}
+                        onClick={() => removeApplicant(applicant.applicationId)}
                         className="px-4 py-2 bg-transparent border border-white/20 hover:bg-white/5 rounded text-white text-sm transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />

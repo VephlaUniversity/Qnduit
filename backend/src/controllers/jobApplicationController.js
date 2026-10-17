@@ -76,24 +76,23 @@ export const getMyApplications = async (req, res, next) => {
 
 
 // employer view applications for job
-export const getJobApplications = async (req, res, next) => {
+export const getJobApplications = async (req, res) => {
   try {
-
     const { jobId } = req.params;
-
-    const applications = await JobApplication.find({
-      jobId,
-    })
+    if (!/^[a-f\d]{24}$/i.test(jobId)) {
+      return res.status(400).json({ success: false, message: "Invalid job ID." });
+    }
+    const job = await Job.findById(jobId).select("employer").lean();
+    if (!job) return res.status(404).json({ success: false, message: "Job not found." });
+    if (String(job.employer) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "You are not authorized to view these applications." });
+    }
+    const applications = await JobApplication.find({ jobId, employerId: req.user._id })
       .populate("applicantId", "name email")
       .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      applications,
-    });
-
-  } catch (error) {
-    next(error);
+    res.json({ success: true, applications });
+  } catch {
+    res.status(500).json({ success: false, message: "Unable to load applications. Please try again." });
   }
 };
 // Employer Applications
