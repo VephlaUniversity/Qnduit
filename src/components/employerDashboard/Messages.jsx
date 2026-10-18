@@ -3,6 +3,7 @@ import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
 import { useSearchParams } from "react-router-dom";
+import { startMessagePolling, messagePages } from "../utils/messagePolling";
 import { messageRecipient } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
@@ -43,7 +44,15 @@ const messageTime = value => {
 const messageDayLabel = value => messageDate(value)?.toDateString() || "Date unavailable";
 
 export const Messages = () => {
-  useAuth();
+  const { user } = useAuth();
+  const sessionToken = localStorage.getItem("token");
+  const accountKey = user ? `${user.userType}:${user._id || user.id || user.email}` : "";
+  const [authExpired, setAuthExpired] = useState(false);
+  const [pollError, setPollError] = useState("");
+  const poll = useRef(null);
+  const pollRequest = useRef(null);
+  const latestTranscript = useRef(null);
+  const receiveCutoff = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [params, setParams] = useSearchParams();
   const recipient = messageRecipient(params);
@@ -69,6 +78,7 @@ export const Messages = () => {
   const composing = useRef(false);
   const mounted = useRef(true);
   const transcriptRequest = useRef(null);
+  const chatRequest = useRef(null);
   const olderRequest = useRef(null);
   const activeConversation = useRef({ key: "", version: 0 });
   const pendingScroll = useRef(null);
@@ -92,6 +102,50 @@ export const Messages = () => {
     setChats(previous => previous.map(item => chatKey(item) === key ? { ...item, ...preview } : item));
   }, []);
 
+  useLayoutEffect(() => {
+    latestTranscript.current = transcript;
+  }, [transcript]);
+
+  useLayoutEffect(() => {
+    poll.current?.stop();
+    transcriptRequest.current?.abort();
+    olderRequest.current?.abort();
+    activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+    setResolvedRecipient(null);
+    setChats([]);
+    setDrafts({});
+    previews.current.clear();
+    sendAttempts.current.clear();
+    draftRevisions.current.clear();
+    setAuthExpired(false);
+    setPollError("");
+  }, [accountKey, sessionToken]);
+
+  useEffect(() => {
+    const invalidate = event => {
+      if (event.key !== null && event.key !== "token" && event.key !== "user") return;
+      if (event.key === "token" && event.newValue === sessionToken) return;
+      if (event.key === "user" && event.newValue) {
+        try {
+          const stored = JSON.parse(event.newValue);
+          if (`${stored.userType}:${stored._id || stored.id || stored.email}` === accountKey) return;
+        } catch { /* Invalid session storage is treated as logout. */ }
+      }
+      poll.current?.stop();
+      transcriptRequest.current?.abort();
+      olderRequest.current?.abort();
+      activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+      setAuthExpired(true);
+      setResolvedRecipient(null);
+      setChats([]);
+      setDrafts({});
+      previews.current.clear();
+      sendAttempts.current.clear();
+    };
+    window.addEventListener("storage", invalidate);
+    return () => window.removeEventListener("storage", invalidate);
+  }, [accountKey, sessionToken]);
+
   const selectChat = chat => {
     const type = chat.role === "Talent" ? "talent" : chat.role === "Employer" ? "employer" : "invalid";
     const next = new URLSearchParams(params);
@@ -109,10 +163,11 @@ export const Messages = () => {
     pendingScroll.current = null;
     composing.current = false;
     setSendError("");
+    receiveCutoff.current = null;
   }, [recipient.key, recipientVersion]);
 
   useEffect(() => {
-    if (recipient.status !== "valid") return;
+    if (recipient.status !== "valid" || !accountKey || authExpired) return;
     const controller = new AbortController();
     const key = recipient.key;
     setResolvedRecipient({ key, status: "loading" });
@@ -130,43 +185,51 @@ export const Messages = () => {
         setConversationVersion(version);
         setResolvedRecipient({ key, status: "ready", chat });
       } catch (error) {
+        if (!controller.signal.aborted && error.response?.status === 401) setAuthExpired(true);
         if (!controller.signal.aborted) setResolvedRecipient({ key, status: "error", error: [400, 404].includes(error.response?.status)
           ? "Recipient unavailable. Select someone from search." : "Unable to load recipient. Select them again to retry." });
       }
     }
     resolve();
     return () => controller.abort();
-  }, [recipient.key, recipient.status, recipient.id, recipient.model, recipientVersion]);
+  }, [recipient.key, recipient.status, recipient.id, recipient.model, recipientVersion, accountKey, authExpired, sessionToken]);
 
   useEffect(() => {
+    if (!accountKey || authExpired) return;
     const controller = new AbortController();
+    chatRequest.current = controller;
     async function loadChats() {
       setListState({ query: searchQuery, status: "loading" });
       try {
         const token = localStorage.getItem("token");
         if (!token) throw new Error();
-        const { data } = await axios.get(`${API_BASE_URL}/api/messages/${searchQuery ? "search" : "chats"}`, {
-          ...(searchQuery ? { params: { query: searchQuery } } : {}),
-          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+        const results = searchQuery ? (await axios.get(`${API_BASE_URL}/api/messages/search`, {
+          params: { query: searchQuery }, headers, signal: controller.signal,
+        })).data.results : await messagePages(async before => (await axios.get(`${API_BASE_URL}/api/messages/chats`, {
+          params: { limit: 100, ...(before ? { before } : {}) }, headers, signal: controller.signal, timeout: 15000,
+        })).data, { chats: true });
         if (controller.signal.aborted) return;
-        if (!Array.isArray(data.results)) throw new Error();
-        setChats(data.results.map(chat => {
+        if (!Array.isArray(results)) throw new Error();
+        setChats(results.map(chat => {
           const cached = previews.current.get(chatKey(chat));
           return cached && (!chat.lastMessageAt || new Date(cached.lastMessageAt) > new Date(chat.lastMessageAt))
             ? { ...chat, ...cached } : chat;
         }));
         setListState({ query: searchQuery, status: "ready" });
-      } catch {
+      } catch (error) {
+        if (!controller.signal.aborted && error.response?.status === 401) setAuthExpired(true);
         if (!controller.signal.aborted) setListState({ query: searchQuery, status: "error" });
+      } finally {
+        if (chatRequest.current === controller) chatRequest.current = null;
       }
     }
     loadChats();
     return () => controller.abort();
-  }, [searchQuery, listReload]);
+  }, [searchQuery, listReload, accountKey, authExpired, sessionToken]);
 
   useEffect(() => {
-    if (!selectedChat) return;
+    if (!selectedChat || !accountKey || authExpired) return;
     const controller = new AbortController();
     transcriptRequest.current = controller;
     const key = selectedKey, version = conversationVersion;
@@ -180,11 +243,13 @@ export const Messages = () => {
         });
         if (!current()) return;
         if (!Array.isArray(data.messages)) throw new Error();
+        receiveCutoff.current = { key, date: messageDate(data.messages.at(-1)?.createdAt)?.getTime() ?? null };
         pendingScroll.current = { version, initial: true };
         setTranscript({ key, version, status: "ready", messages: data.messages, pagination: data.pagination });
         const latest = data.messages.at(-1);
         rememberPreview(selectedChat, { lastMessage: latest?.text ?? null, lastMessageAt: latest?.createdAt ?? null });
-      } catch {
+      } catch (error) {
+        if (current() && error.response?.status === 401) setAuthExpired(true);
         if (current()) setTranscript({ key, version, status: "error", messages: [] });
       }
     }
@@ -193,12 +258,72 @@ export const Messages = () => {
       controller.abort();
       if (activeConversation.current.version === version) transcriptRequest.current?.abort();
     };
-  }, [selectedChat, selectedKey, conversationVersion, rememberPreview]);
+  }, [selectedChat, selectedKey, conversationVersion, rememberPreview, accountKey, authExpired, sessionToken]);
+
+  useEffect(() => {
+    if (!accountKey || authExpired) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const key = selectedKey, version = conversationVersion;
+    const sessionCurrent = signal => !signal.aborted && localStorage.getItem("token") === token;
+    const conversationCurrent = signal => sessionCurrent(signal) && activeConversation.current.key === key && activeConversation.current.version === version;
+    const getPage = async (path, params, signal) => (await axios.get(`${API_BASE_URL}/api/messages${path}`, {
+      params, signal, timeout: 15000, headers: { Authorization: `Bearer ${token}` },
+    })).data;
+    const loop = startMessagePolling({
+      async run(signal) {
+        if (localStorage.getItem("token") !== token) { loop.stop(); return false; }
+        pollRequest.current = { abort: () => loop.cancel() };
+        const snapshot = latestTranscript.current;
+        // Initial loads, older-page loads and sends already perform their own reads.
+        if (sendPending.current || olderRequest.current || chatRequest.current || selectedChat && snapshot?.status === "loading") return false;
+        const results = await messagePages(before => getPage("/chats", { limit: 100, ...(before ? { before } : {}) }, signal), { chats: true });
+        if (!sessionCurrent(signal)) return;
+        for (const chat of results) {
+          const cached = previews.current.get(chatKey(chat));
+          if (!cached || !cached.lastMessageAt || new Date(chat.lastMessageAt) >= new Date(cached.lastMessageAt)) {
+            previews.current.set(chatKey(chat), { lastMessage: chat.lastMessage, lastMessageAt: chat.lastMessageAt });
+          }
+        }
+        setChats(previous => searchQuery ? previous.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) }))
+          : results.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) })));
+        if (!searchQuery) setListState({ query: "", status: "ready" });
+        if (!selectedChat || !conversationCurrent(signal)) return;
+        const cutoff = receiveCutoff.current?.key === key ? receiveCutoff.current.date : undefined;
+        const messages = await messagePages(before => getPage("", {
+          withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 100, ...(before ? { before } : {}),
+        }, signal), { cutoff });
+        if (!conversationCurrent(signal) || sendPending.current) return;
+        const newest = mergeMessages([], messages).at(-1);
+        receiveCutoff.current = { key, date: messageDate(newest?.createdAt)?.getTime() ?? null };
+        const existing = latestTranscript.current;
+        if (existing?.status === "ready" && messages.every(message => existing.messages.some(row => row.id === message.id))) return;
+        const target = pane.current;
+        const nearBottom = target && target.scrollHeight - target.scrollTop - target.clientHeight <= 80;
+        const rect = target?.getBoundingClientRect();
+        const anchor = target && [...target.querySelectorAll("[data-message-id]")].find(row => row.getBoundingClientRect().bottom > rect.top);
+        pendingScroll.current = { version, incoming: true, nearBottom,
+          top: target?.scrollTop || 0, anchor: anchor?.dataset.messageId, offset: anchor ? anchor.getBoundingClientRect().top - rect.top : 0 };
+        setTranscript(previous => {
+          if (previous.key !== key || previous.version !== version) return previous;
+          return { ...previous, status: "ready", messages: mergeMessages(previous.messages, messages),
+            // A retry of an initially failed load scanned the whole bounded history.
+            pagination: previous.pagination || { hasMore: false, nextCursor: null } };
+        });
+      },
+      onSuccess: () => setPollError(""),
+      onError: () => setPollError("Unable to refresh messages. Retrying automatically."),
+      onUnauthorized: () => setAuthExpired(true),
+    });
+    poll.current = loop;
+    return () => { loop.stop(); if (poll.current === loop) poll.current = null; };
+  }, [accountKey, authExpired, selectedChat, selectedKey, conversationVersion, searchQuery, listReload, sessionToken]);
 
   const loadOlder = useCallback(async () => {
-    if (!selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
+    if (!accountKey || authExpired || !selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
     const controller = new AbortController();
     olderRequest.current = controller;
+    pollRequest.current?.abort();
     const key = selectedKey, version = conversationVersion;
     const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version;
     setTranscript(previous => ({ ...previous, olderLoading: true, olderError: "" }));
@@ -212,12 +337,13 @@ export const Messages = () => {
       const target = pane.current;
       pendingScroll.current = { version, prepend: true, height: target.scrollHeight, top: target.scrollTop };
       setTranscript(previous => ({ ...previous, messages: mergeMessages(data.messages, previous.messages), pagination: data.pagination, olderLoading: false }));
-    } catch {
+    } catch (error) {
+      if (current() && error.response?.status === 401) setAuthExpired(true);
       if (current()) setTranscript(previous => ({ ...previous, olderLoading: false, olderError: "Unable to load older messages. Scroll up to retry, or reselect the conversation." }));
     } finally {
       if (olderRequest.current === controller) olderRequest.current = null;
     }
-  }, [selectedChat, currentTranscript, transcript.status, transcript.pagination, selectedKey, conversationVersion]);
+  }, [selectedChat, currentTranscript, transcript.status, transcript.pagination, selectedKey, conversationVersion, accountKey, authExpired]);
 
   useEffect(() => {
     const target = pane.current;
@@ -231,8 +357,14 @@ export const Messages = () => {
       const previousBehavior = target.style.scrollBehavior;
       // Global smooth scrolling must not animate the initial pre-paint position.
       if (pendingScroll.current.initial || pendingScroll.current.prepend) target.style.scrollBehavior = "auto";
-      target.scrollTop = pendingScroll.current.prepend
-        ? pendingScroll.current.top + target.scrollHeight - pendingScroll.current.height : target.scrollHeight;
+      const position = pendingScroll.current;
+      if (position.incoming && !position.nearBottom) {
+        const anchor = position.anchor && [...target.querySelectorAll("[data-message-id]")].find(row => row.dataset.messageId === position.anchor);
+        target.style.scrollBehavior = "auto";
+        target.scrollTop = anchor ? target.scrollTop + anchor.getBoundingClientRect().top - target.getBoundingClientRect().top - position.offset : position.top;
+      } else {
+        target.scrollTop = position.prepend ? position.top + target.scrollHeight - position.height : target.scrollHeight;
+      }
       target.style.scrollBehavior = previousBehavior;
       pendingScroll.current = null;
     }
@@ -256,7 +388,8 @@ export const Messages = () => {
 
   const handleSendMessage = async event => {
     event.preventDefault();
-    if (composing.current || sendPending.current || !messageInput.trim() || !selectedChat || transcriptLoading) return;
+    if (!accountKey || authExpired || composing.current || sendPending.current || !messageInput.trim() || !selectedChat || transcriptLoading) return;
+    pollRequest.current?.abort();
     sendPending.current = true;
     setSending(true);
     setSendError("");
@@ -307,12 +440,13 @@ export const Messages = () => {
         });
       }
     } catch (error) {
+      if (current() && error.response?.status === 401) setAuthExpired(true);
       if (current()) setSendError(error.response?.status === 409 ? "This send conflicts with an earlier request. Your draft has been kept." : saved
         ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
         : "Send not confirmed. Your text has been kept; Send retries the same unchanged draft safely.");
     } finally {
       sendPending.current = false;
-      if (mounted.current) setSending(false);
+      if (mounted.current) { setSending(false); poll.current?.wake(); }
     }
   };
 
@@ -410,6 +544,7 @@ export const Messages = () => {
 
           {/* Messages */}
           <div ref={pane} onScroll={() => { if (pane.current.scrollTop <= 80) loadOlder(); }} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+            {(authExpired || pollError) && <p className="text-sm text-red-400" role="alert">{authExpired ? "Your session has expired. Sign in again to receive messages." : pollError}</p>}
             {currentTranscript && transcript.olderLoading && <p className="text-sm text-gray-400" role="status">Loading older messages…</p>}
             {currentTranscript && transcript.olderError && <p className="text-sm text-red-400" role="alert">{transcript.olderError}</p>}
             {recipientLoading ? <p className="text-sm text-gray-400" role="status">Loading recipient…</p>
@@ -430,6 +565,7 @@ export const Messages = () => {
                   </div>
                 )}
                 <div
+                  data-message-id={message.id}
                   className={`flex min-w-0 ${
                     message.sender === "me" ? "justify-end" : "justify-start"
                   }`}
@@ -469,7 +605,7 @@ export const Messages = () => {
                 rows={1}
                 wrap="soft"
                 aria-label="Message"
-                disabled={!selectedChat || recipientLoading || Boolean(recipientError)}
+                disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
                 placeholder="Enter Message..."
                 value={messageInput}
                 onChange={(e) => {
@@ -500,7 +636,7 @@ export const Messages = () => {
               </button>
               <button
                 type="submit"
-                disabled={sending || transcriptLoading || !selectedChat || !messageInput.trim()}
+                disabled={authExpired || !accountKey || sending || transcriptLoading || !selectedChat || !messageInput.trim()}
                 className="disabled:opacity-50 shrink-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 <Send className="w-4 h-4" />
