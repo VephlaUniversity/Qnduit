@@ -143,13 +143,13 @@ export const getEmployerApplications = async (req, res) => {
       const ids = result.rows;
       rowFilter = { ...active, _id: { $in: ids.map(item => item._id) } };
     }
-    const [applications, totalApplications, seenApplications] = await Promise.all([
+    const [applications, totalApplications, reviewedApplications] = await Promise.all([
       summaryOnly === "true" ? [] : JobApplication.find(rowFilter)
         .populate({ path: "applicantId", select: "firstName lastName email phone location jobTitle experienceTime avatar resume" })
         .populate("jobId", "jobTitle").sort({ createdAt: -1, _id: -1 }),
       JobApplication.countDocuments(owner),
-      // Lifetime and legacy Review semantics deliberately do not follow active filters.
-      JobApplication.countDocuments({ ...owner, status: "Seen" }),
+      // Current reviewed status across all owner records, including archived applications.
+      JobApplication.countDocuments({ ...owner, status: "reviewed" }),
     ]);
 
     const formatted = applications.map(app => ({
@@ -183,7 +183,8 @@ export const getEmployerApplications = async (req, res) => {
       success: true,
       applications: formatted,
       totalApplications,
-      seenApplications,
+      reviewedApplications,
+      seenApplications: reviewedApplications, // Deprecated compatibility alias; no obsolete Seen status query.
       ...(paginated && summaryOnly !== "true" ? { pagination: { page: currentPage, limit: pageSize, total: matchingTotal, pages: Math.max(1, Math.ceil(matchingTotal / pageSize)) } } : {}),
     });
 

@@ -57,7 +57,7 @@ function ResumePreview({ applicant }) {
 const statusLabels = { pending: "Pending", reviewed: "Reviewed", shortlisted: "Shortlisted", rejected: "Rejected", hired: "Hired" };
 const nextStatus = { pending: "reviewed", reviewed: "shortlisted", shortlisted: "hired" };
 
-const RecentApplication = () => {
+const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
   const [applicants, setApplicants] = useState([]);
   const [resumeApplicant, setResumeApplicant] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
@@ -75,7 +75,7 @@ const RecentApplication = () => {
   const [listState, setListState] = useState({ key: "", loading: true, error: "" });
   const listRequest = useRef(null);
   const requestSequence = useRef(0);
-  const requestKey = JSON.stringify([searchQuery, filterStatus, page, reload]);
+  const requestKey = JSON.stringify([searchQuery, filterStatus, page, pageSize, reload]);
   const loading = listState.key !== requestKey || listState.loading;
   const error = listState.key === requestKey ? listState.error : "";
   const changeSearch = (patch, replace = false) => setParams(previous =>
@@ -102,7 +102,7 @@ const RecentApplication = () => {
         if (!token) throw new Error();
         const { data } = await axios.get(`${API_BASE_URL}/api/applications/employer`, {
           headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
-          params: { q: searchQuery, status: filterStatus, page, limit: 20 },
+          params: { q: searchQuery, status: filterStatus, page, limit: pageSize },
         });
         if (!current()) return;
         if (!Array.isArray(data.applications) || !data.pagination) throw new Error();
@@ -129,7 +129,7 @@ const RecentApplication = () => {
       }
     }, searchQuery ? 200 : 0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [searchQuery, filterStatus, page, reload, requestKey, setParams]);
+  }, [searchQuery, filterStatus, page, pageSize, reload, requestKey, setParams]);
 
   const addToSavedCandidates = async (applicant) => {
     try {
@@ -173,6 +173,7 @@ const RecentApplication = () => {
         { status, expectedStatus: applicant.status }, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       if (!data.success || data.application?.applicationId !== id || !Object.hasOwn(statusLabels, data.application.status)) throw new Error();
       refreshList();
+      onApplicationChange?.();
       setApplicants(previous => previous.map(row => row.applicationId === id ? { ...row, status: data.application.status } : row));
       toast({ title: "Status updated", description: `Application is ${statusLabels[data.application.status]}.` });
     } catch (error) {
@@ -193,6 +194,7 @@ const RecentApplication = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       if (!data.success || data.application?.applicationId !== archiveTarget.applicationId || !data.application.employerArchivedAt) throw new Error();
       refreshList();
+      onApplicationChange?.();
       setApplicants(previous => previous.filter(row => row.applicationId !== archiveTarget.applicationId));
       setArchiveTarget(null);
       toast({ title: "Application archived", description: "Removed from your active list. The application and its status are preserved." });
