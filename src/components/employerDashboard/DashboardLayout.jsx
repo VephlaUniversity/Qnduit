@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
+import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
+import { profileImageUrl } from "../profiles/profileApi";
 import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { useAuth } from "../hooks/useAuth";
 import { NotificationPop } from "./NotificationPop";
@@ -53,6 +55,14 @@ const SEARCH_CONFIG = {
   },
 };
 
+const OwnerAvatar = ({ image }) => {
+  const [failed, setFailed] = useState(false);
+  const url = profileImageUrl(image);
+  return <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+    {url && !failed ? <img src={url} alt="" className="w-full h-full rounded-full object-cover" onError={() => setFailed(true)} /> : <User className="w-5 h-5" />}
+  </div>;
+};
+
 export const DashboardLayout = ({
   children,
   menuItems,
@@ -62,6 +72,7 @@ export const DashboardLayout = ({
   const location = useLocation();
   const { signOut } = useAuth();
   const messaging = useMessagingCoordinator();
+  const ownerAvatar = useOwnerAvatar();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -346,9 +357,7 @@ export const DashboardLayout = ({
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-                  <User className="w-5 h-5" />
-                </div>
+                <OwnerAvatar key={`${ownerAvatar.key}:${ownerAvatar.image}`} image={ownerAvatar.image} />
                 <span className="hidden sm:block text-sm">
                   {userType === "talent" ? "Talent" : "Employer"}
                 </span>

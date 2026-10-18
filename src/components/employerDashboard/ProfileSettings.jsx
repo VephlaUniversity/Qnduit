@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import TextEditor from "../TextEditor";
+import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
@@ -88,6 +89,7 @@ const ProfileSettings = () => {
     <p id={`employer-${name}-error`} className="text-red-400 text-sm mt-2" role="alert">{errors[name]}</p>
   ) : null;
   const { toast } = useToast();
+  const { refresh: refreshOwnerAvatar } = useOwnerAvatar();
   const [categoryInput, setCategoryInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -404,7 +406,7 @@ const ProfileSettings = () => {
         }
       );
 
-
+      refreshOwnerAvatar();
 
       toast({
         title: "Success!",
