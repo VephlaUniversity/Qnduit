@@ -9,6 +9,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { employerFollowParams, employerFollowState } from "../utils/employerFollowNavigation";
+import { messageRecipientUrl } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
 const getHeaders = () => {
@@ -230,7 +231,7 @@ export const Followers = () => {
                       View Profile
                     </Link>}
                     <button
-                      onClick={() => navigate("/dashboard/messages")}
+                      onClick={() => navigate(messageRecipientUrl(talent.id))}
                       className="flex items-center gap-2 px-4 py-2 bg-[#2A2A2E] hover:bg-white/10 text-white rounded-lg font-medium text-sm"
                     >
                       <MessageSquare className="w-4 h-4" />

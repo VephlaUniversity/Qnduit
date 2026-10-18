@@ -3,6 +3,7 @@ import { Search, Eye, MessageSquare, Trash2 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { messageRecipientUrl } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
 export const SavedCandidates = () => {
@@ -47,10 +48,7 @@ export const SavedCandidates = () => {
   };
 
   const handleMessage = (candidate) => {
-    toast({
-      title: "Message",
-      description: `Opening chat with ${candidate.name}`,
-    });
+    navigate(messageRecipientUrl(candidate.id));
   };
 
   const handleRemove = async (id, name) => {

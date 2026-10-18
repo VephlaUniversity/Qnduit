@@ -103,21 +103,27 @@ export const getMessages = async (req, res) => {
 // Search users by email or name
 export const searchUsers = async (req, res) => {
   try {
-    const { query } = req.query;
-    if (typeof query !== "string" || !query.trim() || query.length > 200) {
+    const { query, recipientId, recipientModel } = req.query;
+    const resolving = recipientId !== undefined || recipientModel !== undefined;
+    if (resolving) {
+      if (!validId(recipientId) || !["Talent", "Employer"].includes(recipientModel)) {
+        return res.status(400).json({ message: "A valid recipient ID and user type are required." });
+      }
+      if (recipientId.toLowerCase() === String(req.user._id).toLowerCase()) {
+        return res.status(400).json({ message: "You cannot message yourself." });
+      }
+    } else if (typeof query !== "string" || !query.trim() || query.length > 200) {
       return res.status(400).json({ message: "Search must contain between 1 and 200 characters." });
     }
-    const literalQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    const talentResults = await Talent.find({
+    const literalQuery = resolving ? "" : query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const talentResults = resolving && recipientModel !== "Talent" ? [] : await Talent.find(resolving ? { _id: recipientId } : {
       $or: [
         { email: { $regex: literalQuery, $options: "i" } },
         { firstName: { $regex: literalQuery, $options: "i" } },
-        { lastName: { $regex: literalQuery, $options: "i" } }
+        { lastName: { $regex: literalQuery, $options: "i" } },
       ],
     }).select("_id firstName lastName email avatar");
-
-    const employerResults = await Employer.find({
+    const employerResults = resolving && recipientModel !== "Employer" ? [] : await Employer.find(resolving ? { _id: recipientId } : {
       $or: [
         { email: { $regex: literalQuery, $options: "i" } },
         { firstName: { $regex: literalQuery, $options: "i" } },
@@ -125,6 +131,9 @@ export const searchUsers = async (req, res) => {
         { companyName: { $regex: literalQuery, $options: "i" } },
       ],
     }).select("_id firstName lastName email companyName logo");
+    if (resolving && talentResults.length + employerResults.length === 0) {
+      return res.status(404).json({ message: "Recipient unavailable." });
+    }
 
     // Add `role` for frontend
     const formattedTalentResults = talentResults.map((t) => {
@@ -221,7 +230,14 @@ export const getChats = async (req, res) => {
       };
     });
 
-    res.json({ success: true, results: [...formattedTalents, ...formattedEmployers] });
+    const results = [...formattedTalents, ...formattedEmployers].sort((a, b) => {
+      const timestamp = value => value instanceof Date && Number.isFinite(value.getTime()) ? value.getTime() : -Infinity;
+      const difference = timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt);
+      if (difference && !Number.isNaN(difference)) return difference;
+      const aKey = `${a.role}:${a._id}`, bKey = `${b.role}:${b._id}`;
+      return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+    });
+    res.json({ success: true, results });
   } catch {
     return res.status(500).json({ success: false, message: "Unable to load chats. Please try again." });
   }

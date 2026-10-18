@@ -2,9 +2,17 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
+import { messageRecipient } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
 const chatKey = chat => `${chat.role}:${chat._id}`;
+const compareChats = (a, b) => {
+  const timestamp = value => messageDate(value)?.getTime() ?? -Infinity;
+  const difference = timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt);
+  if (difference && !Number.isNaN(difference)) return difference;
+  return chatKey(a) < chatKey(b) ? -1 : chatKey(a) > chatKey(b) ? 1 : 0;
+};
 // Only absolute timestamps are trustworthy across server/viewer timezones.
 const messageDate = value => {
   if (typeof value !== "string") return null;
@@ -32,9 +40,20 @@ const messageDayLabel = value => messageDate(value)?.toDateString() || "Date una
 export const Messages = () => {
   useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedChat, setSelectedChat] = useState(null);
-  const [messageInput, setMessageInput] = useState("");
+  const [params, setParams] = useSearchParams();
+  const recipient = messageRecipient(params);
+  const [resolvedRecipient, setResolvedRecipient] = useState(null);
+  const [recipientVersion, setRecipientVersion] = useState(0);
+  const selectedChat = resolvedRecipient?.key === recipient.key && resolvedRecipient.status === "ready" ? resolvedRecipient.chat : null;
+  const recipientLoading = recipient.status === "valid" && (!resolvedRecipient || resolvedRecipient.key !== recipient.key || resolvedRecipient.status === "loading");
+  const recipientError = recipient.status === "invalid" ? "Invalid recipient link. Select someone from search."
+    : resolvedRecipient?.key === recipient.key && resolvedRecipient.status === "error" ? resolvedRecipient.error : "";
+  const [drafts, setDrafts] = useState({});
+  const messageInput = drafts[recipient.key] || "";
+  const setMessageInput = value => setDrafts(previous => ({ ...previous,
+    [recipient.key]: typeof value === "function" ? value(previous[recipient.key] || "") : value }));
   const [chats, setChats] = useState([]);
+  const [listReload, setListReload] = useState(0);
   const [listState, setListState] = useState({ query: "", status: "loading" });
   const [transcript, setTranscript] = useState({ key: "", version: 0, status: "idle", messages: [] });
   const [conversationVersion, setConversationVersion] = useState(0);
@@ -66,14 +85,48 @@ export const Messages = () => {
   }, []);
 
   const selectChat = chat => {
-    transcriptRequest.current?.abort();
-    const version = activeConversation.current.version + 1;
-    activeConversation.current = { key: chatKey(chat), version };
-    pendingScroll.current = null;
-    setSelectedChat(chat);
-    setConversationVersion(version);
-    setSendError("");
+    const type = chat.role === "Talent" ? "talent" : chat.role === "Employer" ? "employer" : "invalid";
+    const next = new URLSearchParams(params);
+    next.set("recipientId", chat._id);
+    next.set("recipientType", type);
+    if (messageRecipient(next).key === recipient.key) setRecipientVersion(value => value + 1);
+    else setParams(next);
   };
+
+  useLayoutEffect(() => {
+    transcriptRequest.current?.abort();
+    activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+    pendingScroll.current = null;
+    composing.current = false;
+    setSendError("");
+  }, [recipient.key, recipientVersion]);
+
+  useEffect(() => {
+    if (recipient.status !== "valid") return;
+    const controller = new AbortController();
+    const key = recipient.key;
+    setResolvedRecipient({ key, status: "loading" });
+    async function resolve() {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/messages/search`, {
+          params: { recipientId: recipient.id, recipientModel: recipient.model }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        if (controller.signal.aborted) return;
+        const chat = data.results?.length === 1 ? data.results[0] : null;
+        if (!chat || chat._id !== recipient.id || chat.role !== recipient.model) throw new Error();
+        const version = activeConversation.current.version + 1;
+        activeConversation.current = { key, version };
+        setConversationVersion(version);
+        setResolvedRecipient({ key, status: "ready", chat });
+      } catch (error) {
+        if (!controller.signal.aborted) setResolvedRecipient({ key, status: "error", error: [400, 404].includes(error.response?.status)
+          ? "Recipient unavailable. Select someone from search." : "Unable to load recipient. Select them again to retry." });
+      }
+    }
+    resolve();
+    return () => controller.abort();
+  }, [recipient.key, recipient.status, recipient.id, recipient.model, recipientVersion]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,7 +153,7 @@ export const Messages = () => {
     }
     loadChats();
     return () => controller.abort();
-  }, [searchQuery]);
+  }, [searchQuery, listReload]);
 
   useEffect(() => {
     if (!selectedChat) return;
@@ -181,8 +234,9 @@ export const Messages = () => {
       const message = data.message;
       if (!message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
       rememberPreview(chat, { lastMessage: message.text, lastMessageAt: message.createdAt });
-      if (!current()) return;
+      setListReload(value => value + 1);
       setMessageInput(value => value === text ? "" : value);
+      if (!current()) return;
       transcriptRequest.current?.abort();
       const controller = new AbortController();
       transcriptRequest.current = controller;
@@ -238,7 +292,7 @@ export const Messages = () => {
             {listLoading ? <p className="p-4 text-sm text-gray-400" role="status">Loading conversations…</p>
               : listState.status === "error" ? <p className="p-4 text-sm text-red-400" role="alert">Unable to load conversations. Try searching again.</p>
               : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching users." : "No conversations yet."}</p> : null}
-            {!listLoading && listState.status === "ready" && chats.map((chat) => (
+            {!listLoading && listState.status === "ready" && (searchQuery ? chats : [...chats].sort(compareChats)).map((chat) => (
               <button
                 key={chatKey(chat)}
                 onClick={() => selectChat(chat)}
@@ -304,7 +358,9 @@ export const Messages = () => {
 
           {/* Messages */}
           <div ref={pane} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
-            {!selectedChat ? <p className="text-sm text-gray-400">Select a conversation.</p>
+            {recipientLoading ? <p className="text-sm text-gray-400" role="status">Loading recipient…</p>
+              : recipientError ? <p className="text-sm text-red-400" role="alert">{recipientError}</p>
+              : !selectedChat ? <p className="text-sm text-gray-400">Select a conversation.</p>
               : transcriptLoading ? <p className="text-sm text-gray-400" role="status">Loading messages…</p>
               : transcript.status === "error" ? <p className="text-sm text-red-400" role="alert">Unable to load messages. Reselect the conversation to try again.</p>
               : transcript.messages.length === 0 ? <p className="text-sm text-gray-400">No messages yet.</p> : null}
@@ -359,6 +415,7 @@ export const Messages = () => {
                 rows={1}
                 wrap="soft"
                 aria-label="Message"
+                disabled={!selectedChat || recipientLoading || Boolean(recipientError)}
                 placeholder="Enter Message..."
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
