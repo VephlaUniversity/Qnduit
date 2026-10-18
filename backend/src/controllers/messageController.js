@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { pageLimit, encodeCursor, decodeCursor } from "../utils/messageCursor.js";
 import Message from "../models/Message.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
@@ -55,9 +57,27 @@ export const getMessages = async (req, res) => {
     const senderData = await getUserRole(userId, req.user.role);
     if (!senderData) return res.status(404).json({ message: "User not found" });
 
-    const { withUserId } = req.query;
+    const { withUserId, partnerModel, limit, before } = req.query;
+    const bounded = limit !== undefined || before !== undefined;
+    if (partnerModel !== undefined && (!validId(withUserId) || !["Talent", "Employer"].includes(partnerModel))
+      || bounded && (!validId(withUserId) || !["Talent", "Employer"].includes(partnerModel))) {
+      return res.status(400).json({ message: "A valid partner ID and user type are required." });
+    }
+    const scope = `${senderData.role}:${userId}:${partnerModel}:${withUserId?.toLowerCase()}`;
+    let size, cursor;
+    try {
+      if (bounded) size = limit === undefined ? 50 : pageLimit(limit);
+      if (before !== undefined) cursor = decodeCursor(before, scope);
+    } catch {
+      return res.status(400).json({ message: "Invalid message pagination." });
+    }
     if (withUserId !== undefined && !validId(withUserId)) {
       return res.status(400).json({ message: "A valid partner ID is required." });
+    }
+
+    if (partnerModel !== undefined) {
+      const Partner = partnerModel === "Talent" ? Talent : Employer;
+      if (!await Partner.exists({ _id: withUserId })) return res.status(404).json({ message: "Recipient unavailable." });
     }
 
     let filter = {
@@ -70,16 +90,27 @@ export const getMessages = async (req, res) => {
     if (withUserId) {
       filter = {
         $or: [
-          { sender: userId, senderModel: senderData.role, recipient: withUserId },
-          { sender: withUserId, recipient: userId, recipientModel: senderData.role },
+          { sender: userId, senderModel: senderData.role, recipient: withUserId, recipientModel: partnerModel || { $in: ["Talent", "Employer"] } },
+          { sender: withUserId, senderModel: partnerModel || { $in: ["Talent", "Employer"] }, recipient: userId, recipientModel: senderData.role },
         ],
       };
     }
 
-    const messages = await Message.find(filter)
-      .sort({ createdAt: 1 })
-      .populate("sender", "firstName lastName email")
-      .populate("recipient", "firstName lastName email");
+    if (cursor) {
+      const id = new mongoose.Types.ObjectId(cursor.id);
+      const boundary = cursor.date === null ? { createdAt: null, _id: { $lt: id } } : {
+        $or: [{ createdAt: { $lt: cursor.date } }, { createdAt: null }, { createdAt: cursor.date, _id: { $lt: id } }],
+      };
+      filter = { $and: [filter, boundary] };
+    }
+    const query = Message.find(filter).select("_id text createdAt sender senderModel").sort({ createdAt: bounded ? -1 : 1, _id: bounded ? -1 : 1 });
+    if (bounded) query.limit(size + 1);
+    let messages = await query.lean();
+    const hasMore = bounded && messages.length > size;
+    if (hasMore) messages = messages.slice(0, size);
+    const oldest = bounded ? messages.at(-1) : null;
+    const nextCursor = hasMore ? encodeCursor(scope, oldest.createdAt, String(oldest._id)) : null;
+    if (bounded) messages.reverse();
 
     const formattedMessages = messages.map((m) => {
       const timestamp = m.createdAt instanceof Date && Number.isFinite(m.createdAt.getTime()) ? m.createdAt : null;
@@ -89,12 +120,12 @@ export const getMessages = async (req, res) => {
         createdAt: timestamp,
         // Legacy fields remain compatible; viewers should format the absolute timestamp.
         time: timestamp ? timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-        sender: m.sender?._id?.toString() === userId.toString() ? "me" : "them",
+        sender: m.sender?.toString() === userId.toString() && m.senderModel === senderData.role ? "me" : "them",
         date: timestamp ? timestamp.toDateString() : "",
       };
     });
 
-    res.json({ success: true, messages: formattedMessages });
+    res.json({ success: true, messages: formattedMessages, ...(bounded ? { pagination: { limit: size, hasMore, nextCursor } } : {}) });
   } catch {
     return res.status(500).json({ success: false, message: "Unable to load messages. Please try again." });
   }
@@ -175,26 +206,43 @@ export const getChats = async (req, res) => {
     const senderData = await getUserRole(userId, req.user.role);
     if (!senderData) return res.status(404).json({ message: "User not found" });
 
-    // Find messages where the user is sender or recipient
-    const messages = await Message.find({
-      $or: [
-        { sender: userId, senderModel: senderData.role },
-        { recipient: userId, recipientModel: senderData.role },
-      ],
-    }).sort({ createdAt: -1, _id: -1 });
-
-    const latestByPartner = new Map();
-    const talentIds = new Set();
-    const employerIds = new Set();
-    messages.forEach((m) => {
-      const outgoing = m.sender.toString() === userId.toString() && m.senderModel === senderData.role;
-      const partnerId = outgoing ? m.recipient : m.sender;
-      const partnerModel = outgoing ? m.recipientModel : m.senderModel;
-      const key = `${partnerModel}:${partnerId}`;
-      if (!latestByPartner.has(key)) latestByPartner.set(key, m);
-      if (partnerModel === "Talent") talentIds.add(partnerId.toString());
-      if (partnerModel === "Employer") employerIds.add(partnerId.toString());
-    });
+    const { limit, before } = req.query;
+    const bounded = limit !== undefined || before !== undefined;
+    const scope = `chats:${senderData.role}:${userId}`;
+    let size, cursor;
+    try {
+      if (bounded) size = limit === undefined ? 30 : pageLimit(limit);
+      if (before !== undefined) cursor = decodeCursor(before, scope, true);
+    } catch {
+      return res.status(400).json({ message: "Invalid chat pagination." });
+    }
+    const owner = new mongoose.Types.ObjectId(String(userId));
+    const pipeline = [
+      { $match: { $or: [{ sender: owner, senderModel: senderData.role }, { recipient: owner, recipientModel: senderData.role }] } },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $project: { text: 1, createdAt: 1, partnerId: { $cond: [{ $and: [{ $eq: ["$sender", owner] }, { $eq: ["$senderModel", senderData.role] }] }, "$recipient", "$sender"] },
+        partnerModel: { $cond: [{ $and: [{ $eq: ["$sender", owner] }, { $eq: ["$senderModel", senderData.role] }] }, "$recipientModel", "$senderModel"] } } },
+      { $match: { partnerModel: { $in: ["Talent", "Employer"] } } },
+      { $group: { _id: { id: "$partnerId", model: "$partnerModel" }, text: { $first: "$text" }, createdAt: { $first: "$createdAt" } } },
+      { $set: { key: { $concat: ["$_id.model", ":", { $toString: "$_id.id" }] }, createdAt: { $ifNull: ["$createdAt", null] } } },
+      // Exclude deleted accounts before pagination, so a page cannot disappear after hydration.
+      { $lookup: { from: Talent.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "talent" } },
+      { $lookup: { from: Employer.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "employer" } },
+      { $match: { $or: [{ "_id.model": "Talent", "talent.0": { $exists: true } }, { "_id.model": "Employer", "employer.0": { $exists: true } }] } },
+    ];
+    if (cursor) pipeline.push({ $match: cursor.date === null ? { createdAt: null, key: { $gt: cursor.id } } : {
+      $or: [{ createdAt: { $lt: cursor.date } }, { createdAt: null }, { createdAt: cursor.date, key: { $gt: cursor.id } }],
+    } });
+    pipeline.push({ $sort: { createdAt: -1, key: 1 } });
+    if (bounded) pipeline.push({ $limit: size + 1 });
+    let latest = await Message.aggregate(pipeline);
+    const hasMore = bounded && latest.length > size;
+    if (hasMore) latest = latest.slice(0, size);
+    const last = latest.at(-1);
+    const nextCursor = hasMore ? encodeCursor(scope, last.createdAt, last.key) : null;
+    const latestByPartner = new Map(latest.map(item => [item.key, item]));
+    const talentIds = latest.filter(item => item._id.model === "Talent").map(item => item._id.id);
+    const employerIds = latest.filter(item => item._id.model === "Employer").map(item => item._id.id);
 
     const talents = await Talent.find({ _id: { $in: [...talentIds] } })
       .select("_id firstName lastName email avatar");
@@ -237,7 +285,7 @@ export const getChats = async (req, res) => {
       const aKey = `${a.role}:${a._id}`, bKey = `${b.role}:${b._id}`;
       return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
     });
-    res.json({ success: true, results });
+    res.json({ success: true, results, ...(bounded ? { pagination: { limit: size, hasMore, nextCursor } } : {}) });
   } catch {
     return res.status(500).json({ success: false, message: "Unable to load chats. Please try again." });
   }

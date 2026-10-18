@@ -36,7 +36,11 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
 );
+
+// Explicit rollout only: do not build message indexes during application startup.
+messageSchema.index({ sender: 1, senderModel: 1, createdAt: -1, _id: -1, recipient: 1, recipientModel: 1 }, { name: "message_sender_timeline" });
+messageSchema.index({ recipient: 1, recipientModel: 1, createdAt: -1, _id: -1, sender: 1, senderModel: 1 }, { name: "message_recipient_timeline" });
 
 export default mongoose.model("Message", messageSchema);

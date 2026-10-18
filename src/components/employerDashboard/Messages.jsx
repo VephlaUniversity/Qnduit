@@ -6,6 +6,11 @@ import { useSearchParams } from "react-router-dom";
 import { messageRecipient } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
+const mergeMessages = (older, newer) => [...new Map([...older, ...newer].map(message => [message.id, message])).values()]
+  .sort((a, b) => {
+    const difference = (messageDate(a.createdAt)?.getTime() ?? -Infinity) - (messageDate(b.createdAt)?.getTime() ?? -Infinity);
+    return difference && !Number.isNaN(difference) ? difference : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 const chatKey = chat => `${chat.role}:${chat._id}`;
 const compareChats = (a, b) => {
   const timestamp = value => messageDate(value)?.getTime() ?? -Infinity;
@@ -64,6 +69,7 @@ export const Messages = () => {
   const composing = useRef(false);
   const mounted = useRef(true);
   const transcriptRequest = useRef(null);
+  const olderRequest = useRef(null);
   const activeConversation = useRef({ key: "", version: 0 });
   const pendingScroll = useRef(null);
   const sendPending = useRef(false);
@@ -75,7 +81,7 @@ export const Messages = () => {
 
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; transcriptRequest.current?.abort(); };
+    return () => { mounted.current = false; transcriptRequest.current?.abort(); olderRequest.current?.abort(); };
   }, []);
 
   const rememberPreview = useCallback((chat, preview) => {
@@ -95,6 +101,8 @@ export const Messages = () => {
 
   useLayoutEffect(() => {
     transcriptRequest.current?.abort();
+    olderRequest.current?.abort();
+    olderRequest.current = null;
     activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
     pendingScroll.current = null;
     composing.current = false;
@@ -165,13 +173,13 @@ export const Messages = () => {
     async function loadMessages() {
       try {
         const { data } = await axios.get(`${API_BASE_URL}/api/messages`, {
-          params: { withUserId: selectedChat._id }, signal: controller.signal,
+          params: { withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 50 }, signal: controller.signal,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         if (!current()) return;
         if (!Array.isArray(data.messages)) throw new Error();
         pendingScroll.current = { version, initial: true };
-        setTranscript({ key, version, status: "ready", messages: data.messages });
+        setTranscript({ key, version, status: "ready", messages: data.messages, pagination: data.pagination });
         const latest = data.messages.at(-1);
         rememberPreview(selectedChat, { lastMessage: latest?.text ?? null, lastMessageAt: latest?.createdAt ?? null });
       } catch {
@@ -185,14 +193,44 @@ export const Messages = () => {
     };
   }, [selectedChat, selectedKey, conversationVersion, rememberPreview]);
 
+  const loadOlder = useCallback(async () => {
+    if (!selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
+    const controller = new AbortController();
+    olderRequest.current = controller;
+    const key = selectedKey, version = conversationVersion;
+    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version;
+    setTranscript(previous => ({ ...previous, olderLoading: true, olderError: "" }));
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/messages`, {
+        params: { withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 50, before: transcript.pagination.nextCursor },
+        signal: controller.signal, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!current()) return;
+      if (!Array.isArray(data.messages) || !data.pagination) throw new Error();
+      const target = pane.current;
+      pendingScroll.current = { version, prepend: true, height: target.scrollHeight, top: target.scrollTop };
+      setTranscript(previous => ({ ...previous, messages: mergeMessages(data.messages, previous.messages), pagination: data.pagination, olderLoading: false }));
+    } catch {
+      if (current()) setTranscript(previous => ({ ...previous, olderLoading: false, olderError: "Unable to load older messages. Scroll up to retry, or reselect the conversation." }));
+    } finally {
+      if (olderRequest.current === controller) olderRequest.current = null;
+    }
+  }, [selectedChat, currentTranscript, transcript.status, transcript.pagination, selectedKey, conversationVersion]);
+
+  useEffect(() => {
+    const target = pane.current;
+    if (target && target.scrollHeight <= target.clientHeight && !transcript.olderError) loadOlder();
+  }, [transcript, loadOlder]);
+
   useLayoutEffect(() => {
     if (currentTranscript && transcript.status === "ready" && pendingScroll.current?.version === conversationVersion && pane.current) {
       // Change only the transcript scroll offset; unrelated renders never request a scroll.
       const target = pane.current;
       const previousBehavior = target.style.scrollBehavior;
       // Global smooth scrolling must not animate the initial pre-paint position.
-      if (pendingScroll.current.initial) target.style.scrollBehavior = "auto";
-      target.scrollTop = target.scrollHeight;
+      if (pendingScroll.current.initial || pendingScroll.current.prepend) target.style.scrollBehavior = "auto";
+      target.scrollTop = pendingScroll.current.prepend
+        ? pendingScroll.current.top + target.scrollHeight - pendingScroll.current.height : target.scrollHeight;
       target.style.scrollBehavior = previousBehavior;
       pendingScroll.current = null;
     }
@@ -243,16 +281,21 @@ export const Messages = () => {
       pendingScroll.current = { version, initial: false };
       const sent = { id: message._id, text: message.text, createdAt: message.createdAt,
         sender: "me", time: messageTime(message.createdAt), date: new Date(message.createdAt).toDateString() };
-      setTranscript(previous => ({ key, version, status: "ready",
+      setTranscript(previous => ({ ...previous, key, version, status: "ready",
         messages: previous.messages.some(item => item.id === sent.id) ? previous.messages : [...previous.messages, sent] }));
       const response = await axios.get(`${API_BASE_URL}/api/messages`, {
-        params: { withUserId: chat._id }, signal: controller.signal,
+        params: { withUserId: chat._id, partnerModel: chat.role, limit: 50 }, signal: controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
       if (current() && !controller.signal.aborted) {
         if (!Array.isArray(response.data.messages)) throw new Error();
         // Catch up without scrolling a user who moved up after the save.
-        setTranscript({ key, version, status: "ready", messages: response.data.messages });
+        setTranscript(previous => {
+          const overlaps = response.data.messages.some(message => message.id !== sent.id && previous.messages.some(existing => existing.id === message.id));
+          return { ...previous, key, version, status: "ready", messages: mergeMessages(previous.messages, response.data.messages),
+            // If more than a page arrived meanwhile, retain a route through the gap.
+            pagination: overlaps ? previous.pagination : response.data.pagination };
+        });
       }
     } catch {
       if (current()) setSendError(saved
@@ -357,7 +400,9 @@ export const Messages = () => {
           </div>
 
           {/* Messages */}
-          <div ref={pane} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+          <div ref={pane} onScroll={() => { if (pane.current.scrollTop <= 80) loadOlder(); }} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+            {currentTranscript && transcript.olderLoading && <p className="text-sm text-gray-400" role="status">Loading older messages…</p>}
+            {currentTranscript && transcript.olderError && <p className="text-sm text-red-400" role="alert">{transcript.olderError}</p>}
             {recipientLoading ? <p className="text-sm text-gray-400" role="status">Loading recipient…</p>
               : recipientError ? <p className="text-sm text-red-400" role="alert">{recipientError}</p>
               : !selectedChat ? <p className="text-sm text-gray-400">Select a conversation.</p>
