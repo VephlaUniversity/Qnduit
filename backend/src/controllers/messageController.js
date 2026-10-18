@@ -21,7 +21,7 @@ export const sendMessage = async (req, res) => {
     const senderData = await getUserRole(senderId, req.user.role);
     if (!senderData) return res.status(404).json({ message: "User not found" });
 
-    const { recipientId, recipientModel, text } = req.body || {};
+    const { recipientId, recipientModel, text, clientMessageId } = req.body || {};
     if (!validId(recipientId) || !["Talent", "Employer"].includes(recipientModel)) {
       return res.status(400).json({ message: "A valid recipient ID and user type are required." });
     }
@@ -31,18 +31,42 @@ export const sendMessage = async (req, res) => {
     if (recipientId.toLowerCase() === String(senderId).toLowerCase()) {
       return res.status(400).json({ message: "You cannot message yourself." });
     }
+    if (clientMessageId !== undefined && (typeof clientMessageId !== "string" || !/^[a-zA-Z0-9_-]{16,128}$/.test(clientMessageId))) {
+      return res.status(400).json({ message: "Invalid message request key." });
+    }
+    const identity = { sender: senderId, senderModel: senderData.role, clientMessageId };
+    const replay = message => {
+      if (String(message.recipient).toLowerCase() !== recipientId.toLowerCase() || message.recipientModel !== recipientModel || message.text !== text) {
+        return res.status(409).json({ success: false, message: "This message request key was already used for different content." });
+      }
+      return res.status(200).json({ success: true, message });
+    };
+    if (clientMessageId !== undefined) {
+      const existing = await Message.findOne(identity);
+      if (existing) return replay(existing);
+    }
     const recipientType = recipientModel === "Talent" ? Talent : Employer;
     if (!await recipientType.exists({ _id: recipientId })) {
       return res.status(404).json({ message: "Recipient not found for the selected user type." });
     }
 
-    const message = await Message.create({
+    let message;
+    try {
+      message = await Message.create({
       sender: senderId,
       senderModel: senderData.role,
       recipient: recipientId,
       recipientModel,
       text,
-    });
+      ...(clientMessageId !== undefined ? { clientMessageId } : {}),
+      });
+    } catch (error) {
+      if (clientMessageId !== undefined && error.code === 11000) {
+        const existing = await Message.findOne(identity);
+        if (existing) return replay(existing);
+      }
+      throw error;
+    }
 
     res.status(201).json({ success: true, message });
   } catch {

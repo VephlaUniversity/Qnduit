@@ -31,6 +31,7 @@ const messageSchema = new mongoose.Schema(
         message: "Message text is required.",
       },
     },
+    clientMessageId: { type: String, minlength: 16, maxlength: 128, match: /^[a-zA-Z0-9_-]+$/ },
     read: {
       type: Boolean,
       default: false,
@@ -42,5 +43,10 @@ const messageSchema = new mongoose.Schema(
 // Explicit rollout only: do not build message indexes during application startup.
 messageSchema.index({ sender: 1, senderModel: 1, createdAt: -1, _id: -1, recipient: 1, recipientModel: 1 }, { name: "message_sender_timeline" });
 messageSchema.index({ recipient: 1, recipientModel: 1, createdAt: -1, _id: -1, sender: 1, senderModel: 1 }, { name: "message_recipient_timeline" });
+
+messageSchema.index({ sender: 1, senderModel: 1, clientMessageId: 1 }, {
+  name: "message_sender_request_unique", unique: true,
+  partialFilterExpression: { clientMessageId: { $type: "string" } },
+});
 
 export default mongoose.model("Message", messageSchema);

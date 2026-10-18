@@ -73,6 +73,8 @@ export const Messages = () => {
   const activeConversation = useRef({ key: "", version: 0 });
   const pendingScroll = useRef(null);
   const sendPending = useRef(false);
+  const sendAttempts = useRef(new Map());
+  const draftRevisions = useRef(new Map());
   const previews = useRef(new Map());
   const selectedKey = selectedChat ? chatKey(selectedChat) : "";
   const currentTranscript = transcript.key === selectedKey && transcript.version === conversationVersion;
@@ -259,21 +261,28 @@ export const Messages = () => {
     setSending(true);
     setSendError("");
     const chat = selectedChat, text = messageInput, key = selectedKey, version = conversationVersion;
+    const revision = draftRevisions.current.get(key) || 0;
+    let attempt = sendAttempts.current.get(key);
+    if (!attempt || attempt.text !== text) {
+      attempt = { text, revision, clientMessageId: crypto.randomUUID() };
+      sendAttempts.current.set(key, attempt);
+    }
     const current = () => mounted.current && activeConversation.current.key === key && activeConversation.current.version === version;
     let saved = false;
     try {
       const token = localStorage.getItem("token");
       const { data } = await axios.post(`${API_BASE_URL}/api/messages/send`, {
-        recipientId: chat._id, recipientModel: chat.role, text,
+        recipientId: chat._id, recipientModel: chat.role, text, clientMessageId: attempt.clientMessageId,
       }, { headers: { Authorization: `Bearer ${token}` } });
       if (!data.success) throw new Error();
       saved = true;
+      if (sendAttempts.current.get(key) === attempt) sendAttempts.current.delete(key);
       if (!mounted.current) return;
+      if ((draftRevisions.current.get(key) || 0) === revision) setMessageInput(value => value === text ? "" : value);
       const message = data.message;
       if (!message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
       rememberPreview(chat, { lastMessage: message.text, lastMessageAt: message.createdAt });
       setListReload(value => value + 1);
-      setMessageInput(value => value === text ? "" : value);
       if (!current()) return;
       transcriptRequest.current?.abort();
       const controller = new AbortController();
@@ -297,10 +306,10 @@ export const Messages = () => {
             pagination: overlaps ? previous.pagination : response.data.pagination };
         });
       }
-    } catch {
-      if (current()) setSendError(saved
+    } catch (error) {
+      if (current()) setSendError(error.response?.status === 409 ? "This send conflicts with an earlier request. Your draft has been kept." : saved
         ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
-        : "Unable to send message. Your text has been kept.");
+        : "Send not confirmed. Your text has been kept; Send retries the same unchanged draft safely.");
     } finally {
       sendPending.current = false;
       if (mounted.current) setSending(false);
@@ -463,7 +472,10 @@ export const Messages = () => {
                 disabled={!selectedChat || recipientLoading || Boolean(recipientError)}
                 placeholder="Enter Message..."
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={(e) => {
+                  draftRevisions.current.set(recipient.key, (draftRevisions.current.get(recipient.key) || 0) + 1);
+                  setMessageInput(e.target.value);
+                }}
                 onCompositionStart={() => { composing.current = true; }}
                 onCompositionEnd={() => { composing.current = false; }}
                 onKeyDown={(event) => {
