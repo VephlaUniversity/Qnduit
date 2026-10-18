@@ -7,7 +7,10 @@ import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { messagePages } from "../utils/messagePolling";
 import { messageRecipient } from "../utils/messageRecipient";
 import { profileImageUrl } from "../profiles/profileApi";
+import { Popover, PopoverTrigger, PopoverContent } from "../ui/popover";
 import { API_BASE_URL } from "../utils/api";
+
+const MESSAGE_LIMIT = 10000;
 
 const mergeMessages = (older, newer) => {
   const unique = new Map();
@@ -106,6 +109,13 @@ export const Messages = () => {
   const pane = useRef(null);
   const chatListPane = useRef(null);
   const composer = useRef(null);
+  const [emojiOwner, setEmojiOwner] = useState("");
+  const [emojiError, setEmojiError] = useState("");
+  const [emojiPicker, setEmojiPicker] = useState({ status: "idle" });
+  const [emojiLoadAttempt, setEmojiLoadAttempt] = useState(0);
+  const EmojiPicker = emojiPicker.component;
+  const caret = useRef(null);
+  const insertedCaret = useRef(null);
   const composing = useRef(false);
   const mounted = useRef(true);
   const transcriptRequest = useRef(null);
@@ -145,6 +155,9 @@ export const Messages = () => {
     setResolvedRecipient(null);
     setChats([]);
     setDrafts({});
+    setEmojiOwner("");
+    caret.current = null;
+    insertedCaret.current = null;
     previews.current.clear();
     sendAttempts.current.clear();
     draftRevisions.current.clear();
@@ -193,6 +206,8 @@ export const Messages = () => {
     activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
     pendingScroll.current = null;
     composing.current = false;
+    setEmojiOwner("");
+    insertedCaret.current = null;
     setSendError("");
     receiveCutoff.current = null;
   }, [recipient.key, recipientVersion]);
@@ -504,6 +519,40 @@ export const Messages = () => {
     return () => window.removeEventListener("resize", resizeComposer);
   }, [messageInput]);
 
+  useEffect(() => {
+    if (!emojiOwner || emojiOwner !== recipient.key || !selectedChat || authExpired || EmojiPicker) return;
+    let cancelled = false;
+    setEmojiPicker({ status: "loading" });
+    // The package's English data and native renderer are bundled locally in this async chunk.
+    import("emoji-picker-react").then(module => {
+      if (!cancelled) setEmojiPicker({ status: "ready", component: module.default });
+    }).catch(() => {
+      if (!cancelled) setEmojiPicker({ status: "error" });
+    });
+    return () => { cancelled = true; };
+  }, [emojiOwner, recipient.key, selectedChat, authExpired, EmojiPicker, emojiLoadAttempt]);
+
+  const rememberCaret = () => {
+    const field = composer.current;
+    if (field) caret.current = { key: recipient.key, start: field.selectionStart, end: field.selectionEnd };
+  };
+  const insertEmoji = emoji => {
+    if (emojiOwner !== recipient.key || activeConversation.current.key !== recipient.key
+      || authExpired || !selectedChat || localStorage.getItem("token") !== sessionToken) return;
+    const selection = caret.current?.key === recipient.key ? caret.current : { start: messageInput.length, end: messageInput.length };
+    const start = Math.min(selection.start, messageInput.length);
+    const end = Math.max(start, Math.min(selection.end, messageInput.length));
+    const next = messageInput.slice(0, start) + emoji + messageInput.slice(end);
+    if (next.length > MESSAGE_LIMIT) {
+      setEmojiError("Message cannot exceed 10,000 characters.");
+      return;
+    }
+    draftRevisions.current.set(recipient.key, (draftRevisions.current.get(recipient.key) || 0) + 1);
+    insertedCaret.current = { key: recipient.key, position: start + emoji.length };
+    setMessageInput(next);
+    setEmojiOwner("");
+  };
+
   const handleSendMessage = async event => {
     event.preventDefault();
     if (!accountKey || authExpired || composing.current || sendPending.current || !messageInput.trim() || !selectedChat || transcriptLoading) return;
@@ -726,6 +775,8 @@ export const Messages = () => {
                   draftRevisions.current.set(recipient.key, (draftRevisions.current.get(recipient.key) || 0) + 1);
                   setMessageInput(e.target.value);
                 }}
+                onSelect={rememberCaret}
+                onBlur={rememberCaret}
                 onCompositionStart={() => { composing.current = true; }}
                 onCompositionEnd={() => { composing.current = false; }}
                 onKeyDown={(event) => {
@@ -742,12 +793,44 @@ export const Messages = () => {
               >
                 <Paperclip className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors"
-              >
-                <Smile className="w-5 h-5" />
-              </button>
+              <Popover open={Boolean(emojiOwner && emojiOwner === recipient.key && selectedChat && !authExpired)} onOpenChange={open => {
+                setEmojiError("");
+                if (open) rememberCaret();
+                setEmojiOwner(open ? recipient.key : "");
+              }}>
+                <PopoverTrigger asChild>
+                  <button type="button" aria-label="Choose emoji"
+                    disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
+                    className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50">
+                    <Smile className="w-5 h-5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="end" aria-label="Emoji picker"
+                  className="w-[min(350px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto border-white/10 bg-[#1A1A1E] p-0 text-white"
+                  onCloseAutoFocus={event => {
+                    const insertion = insertedCaret.current;
+                    insertedCaret.current = null;
+                    if (!insertion) return;
+                    event.preventDefault();
+                    if (activeConversation.current.key !== insertion.key || localStorage.getItem("token") !== sessionToken) return;
+                    composer.current?.focus({ preventScroll: true });
+                    composer.current?.setSelectionRange(insertion.position, insertion.position);
+                  }}>
+                  {emojiPicker.status === "error" ? <div className="p-4 text-sm">
+                    <p role="alert">Unable to load emoji picker.</p>
+                    <button type="button" className="mt-2 rounded px-2 py-1 text-blue-400 focus-visible:outline focus-visible:outline-2"
+                      onClick={() => setEmojiLoadAttempt(value => value + 1)}>Try again</button>
+                  </div> : EmojiPicker ? <EmojiPicker
+                    emojiStyle="native" theme="dark" width="100%"
+                    previewConfig={{ showPreview: false }}
+                    skinTonesDisabled={true}
+                    height="min(420px, var(--radix-popover-content-available-height, 420px))"
+                    searchPlaceholder="Search emoji" autoFocusSearch
+                    onEmojiClick={selection => insertEmoji(selection.emoji)}
+                  /> : <p role="status" className="p-4 text-sm">Loading emoji picker…</p>}
+                  {emojiError && <p role="alert" className="p-2 text-sm text-red-400">{emojiError}</p>}
+                </PopoverContent>
+              </Popover>
               <button
                 type="submit"
                 disabled={authExpired || !accountKey || sending || transcriptLoading || !selectedChat || !messageInput.trim()}
