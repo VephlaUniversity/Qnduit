@@ -1,4 +1,5 @@
 import { unreadMessages, acknowledgeMessages } from "../controllers/messageReadController.js";
+import { heartbeat, lookupPresence } from "../controllers/messagePresenceController.js";
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import {
@@ -10,6 +11,9 @@ import {
 
 const router = express.Router();
 router.use(protect, authorize("talent", "employer"));
+
+router.post("/heartbeat", heartbeat);
+router.post("/presence", lookupPresence);
 
 router.get("/unread", unreadMessages);
 router.patch("/read", acknowledgeMessages);

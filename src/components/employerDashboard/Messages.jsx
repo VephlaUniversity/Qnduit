@@ -49,6 +49,12 @@ const messageTime = value => {
 const messageDayLabel = value => messageDate(value)?.toDateString() || "Date unavailable";
 
 const avatarKey = chat => `${chat ? chatKey(chat) : "none"}:${chat?.avatar || ""}`;
+const PresenceDot = ({ presence }) => {
+  if (!presence || !["online", "offline"].includes(presence.status) || presence.validUntil <= performance.now()) return null;
+  const online = presence.status === "online";
+  return <span role="img" aria-label={online ? "Online" : "Offline"} title={online ? "Online" : "Offline"}
+    className={`absolute bottom-0 right-0 w-3 h-3 ${online ? "bg-green-500" : "bg-gray-500"} rounded-full border-2 border-[#1A1A1E]`} />;
+};
 const MessageAvatar = ({ chat, className }) => {
   const [failed, setFailed] = useState(false);
   const value = typeof chat?.avatar === "string" ? chat.avatar.trim() : "";
@@ -67,7 +73,7 @@ const MessageAvatar = ({ chat, className }) => {
 export const Messages = () => {
   const { user } = useAuth();
   const messaging = useMessagingCoordinator();
-  const { register: registerPolling, wake: refreshUnread } = messaging;
+  const { register: registerPolling, wake: refreshUnread, watchPresence } = messaging;
   const [readError, setReadError] = useState("");
   const sessionToken = localStorage.getItem("token");
   const accountKey = user ? `${user.userType}:${user._id || user.id || user.email}` : "";
@@ -98,6 +104,7 @@ export const Messages = () => {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const pane = useRef(null);
+  const chatListPane = useRef(null);
   const composer = useRef(null);
   const composing = useRef(false);
   const mounted = useRef(true);
@@ -405,6 +412,31 @@ export const Messages = () => {
     };
   }, [selectedChat, currentTranscript, transcript, authExpired, messaging.enabled, selectedKey, conversationVersion, sessionToken, refreshUnread]);
 
+  useEffect(() => {
+    const target = chatListPane.current;
+    if (!target) return;
+    const update = () => {
+      const recipients = selectedChat ? [{ id: selectedChat._id, model: selectedChat.role }] : [];
+      const rect = target.getBoundingClientRect();
+      const top = Math.max(0, rect.top), bottom = Math.min(window.innerHeight, rect.bottom);
+      for (const row of target.querySelectorAll("[data-presence-key]")) {
+        const box = row.getBoundingClientRect();
+        if (bottom <= top || box.bottom <= top || box.top >= bottom || box.right <= 0 || box.left >= window.innerWidth) continue;
+        const [model, id] = row.dataset.presenceKey.split(":");
+        recipients.push({ id, model });
+      }
+      watchPresence(recipients);
+    };
+    const observer = typeof IntersectionObserver === "function" ? new IntersectionObserver(update, { root: target }) : null;
+    target.querySelectorAll("[data-presence-key]").forEach(row => observer?.observe(row));
+    target.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    update();
+    return () => { observer?.disconnect(); target.removeEventListener("scroll", update); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+  }, [chats, selectedChat, listLoading, listState.status, watchPresence]);
+  useEffect(() => () => watchPresence([]), [watchPresence]);
+
   const loadOlder = useCallback(async () => {
     if (!accountKey || authExpired || !selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
     const controller = new AbortController();
@@ -560,13 +592,14 @@ export const Messages = () => {
               />
             </div>
           </div>
-          <div className="min-w-0 min-h-0 flex-1 overflow-y-auto">
+          <div ref={chatListPane} className="min-w-0 min-h-0 flex-1 overflow-y-auto">
             {listLoading ? <p className="p-4 text-sm text-gray-400" role="status">Loading conversations…</p>
               : listState.status === "error" ? <p className="p-4 text-sm text-red-400" role="alert">Unable to load conversations. Try searching again.</p>
               : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching users." : "No conversations yet."}</p> : null}
             {!listLoading && listState.status === "ready" && (searchQuery ? chats : [...chats].sort(compareChats)).map((chat) => (
               <button
                 key={chatKey(chat)}
+                data-presence-key={chatKey(chat)}
                 onClick={() => selectChat(chat)}
                 className={`w-full p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
                   selectedChat?._id === chat._id ? "bg-[#2A2A2E]" : ""
@@ -576,9 +609,7 @@ export const Messages = () => {
                   <div className="relative flex-shrink-0">
                     <MessageAvatar key={avatarKey(chat)} chat={chat}
                       className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`} />
-                    {chat.online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
-                    )}
+                    <PresenceDot presence={messaging.presence[chatKey(chat)]} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
@@ -608,7 +639,7 @@ export const Messages = () => {
               <div className="relative">
                 <MessageAvatar key={avatarKey(selectedChat)} chat={selectedChat}
                   className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold" />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
+                <PresenceDot presence={selectedChat ? messaging.presence[chatKey(selectedChat)] : null} />
               </div>
               <div>
                 <p className="text-white font-medium">

@@ -5,13 +5,20 @@ import { API_BASE_URL } from "../utils/api";
 import { startMessagePolling } from "../utils/messagePolling";
 
 const stores = new Map();
-const empty = { total: null, counts: {}, enabled: null, error: "", expired: false };
-const inactive = { subscribe: () => () => {}, get: () => empty, retain: () => () => {}, register: () => ({ stop() {}, wake() {}, cancel() {} }), wake() {} };
+const empty = { total: null, counts: {}, enabled: null, error: "", expired: false, presence: {} };
+const inactive = { subscribe: () => () => {}, get: () => empty, retain: () => () => {}, register: () => ({ stop() {}, wake() {}, cancel() {} }), wake() {}, watchPresence() {} };
 function createStore(token, key, actor) {
-  let snapshot = empty, refs = 0, loop, runner, started = false;
+  let snapshot = empty, refs = 0, loop, runner, started = false, nextHeartbeat = 0, targets = [], targetVersion = 0, expiryTimer;
   const listeners = new Set();
   const publish = patch => { snapshot = { ...snapshot, ...patch }; listeners.forEach(listener => listener()); };
-  const expire = () => { loop?.stop(); publish({ ...empty, expired: true, error: "Session unavailable." }); runner?.onUnauthorized(); };
+  const prunePresence = () => {
+    clearTimeout(expiryTimer);
+    const now = performance.now();
+    const entries = Object.entries(snapshot.presence).filter(([, row]) => row.validUntil > now);
+    if (entries.length !== Object.keys(snapshot.presence).length) publish({ presence: Object.fromEntries(entries) });
+    if (entries.length) expiryTimer = setTimeout(prunePresence, Math.max(0, Math.min(...entries.map(([, row]) => row.validUntil)) - now) + 1);
+  };
+  const expire = () => { loop?.stop(); clearTimeout(expiryTimer); publish({ ...empty, expired: true, error: "Session unavailable." }); runner?.onUnauthorized(); };
   const storage = event => {
     if (event.key === "token" && event.newValue === token) return;
     if (event.key === "user" && event.newValue) {
@@ -23,16 +30,42 @@ function createStore(token, key, actor) {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     get: () => snapshot,
     wake: () => loop?.wake(),
+    watchPresence(recipients) {
+      const unique = new Map();
+      for (const row of recipients) {
+        if (row && /^[a-f\d]{24}$/i.test(row.id || "") && ["Talent", "Employer"].includes(row.model)) unique.set(`${row.model}:${row.id.toLowerCase()}`, { id: row.id.toLowerCase(), model: row.model });
+        if (unique.size === 100) break;
+      }
+      const next = [...unique.values()].sort((a, b) => `${a.model}:${a.id}`.localeCompare(`${b.model}:${b.id}`));
+      if (JSON.stringify(next) === JSON.stringify(targets)) return;
+      targets = next; targetVersion++;
+      publish({ presence: Object.fromEntries(Object.entries(snapshot.presence).filter(([key]) => unique.has(key))) });
+      prunePresence();
+    },
     retain() {
       refs++;
       if (!loop) {
         window.addEventListener("storage", storage);
+        window.addEventListener("focus", prunePresence);
+        document.addEventListener("visibilitychange", prunePresence);
         loop = startMessagePolling({
           async run(signal) {
             if (localStorage.getItem("token") !== token) { expire(); return false; }
             const runMessages = started;
             started = true;
             let failure;
+            const post = async (path, body) => (await axios.post(`${API_BASE_URL}/api/messages/${path}`, body, {
+              signal, timeout: 15000, headers: { Authorization: `Bearer ${token}` },
+            })).data;
+            if (performance.now() >= nextHeartbeat) {
+              try {
+                const data = await post("heartbeat", {});
+                if (signal.aborted) return false;
+                if (!data.success || data.heartbeatAfterMs !== 20000) throw new Error("Invalid heartbeat");
+                nextHeartbeat = performance.now() + 20000;
+              } catch (error) { if (signal.aborted) return false; failure = error; }
+            }
+            if (failure?.response?.status === 401) throw failure;
             try {
               let before, total, enabled, counts = {};
               const cursors = new Set();
@@ -53,6 +86,31 @@ function createStore(token, key, actor) {
             } catch (error) { if (signal.aborted) return false; failure = error; publish({ error: "Unread counts could not be refreshed." }); }
             if (failure?.response?.status === 401) throw failure;
             try { if (runMessages) await runner?.run(signal); } catch (error) { failure = error; }
+            if (failure?.response?.status === 401) throw failure;
+            if (targets.length) {
+              const version = targetVersion, requested = targets, began = performance.now();
+              try {
+                const data = await post("presence", { recipients: requested });
+                if (signal.aborted) return false;
+                if (version === targetVersion) {
+                  if (!data.success || !Array.isArray(data.results) || data.results.length !== requested.length) throw new Error("Invalid presence");
+                  const now = performance.now(), allowed = new Set(requested.map(row => `${row.model}:${row.id}`)), seen = new Set(), presence = {};
+                  for (const row of data.results) {
+                    const key = `${row.model}:${row.id}`;
+                    if (!allowed.has(key) || seen.has(key) || !["online", "offline", "unknown"].includes(row.status)
+                      || !Number.isFinite(row.validForMs) || row.validForMs < 0 || row.validForMs > 10000) throw new Error("Invalid presence");
+                    seen.add(key);
+                    const duration = row.validForMs - (now - began);
+                    if (row.status !== "unknown" && duration > 0) presence[key] = { status: row.status, validUntil: now + duration };
+                  }
+                  publish({ presence }); prunePresence();
+                }
+              } catch (error) {
+                if (signal.aborted) return false;
+                if (version === targetVersion) { clearTimeout(expiryTimer); publish({ presence: {} }); }
+                failure = error;
+              }
+            }
             if (failure) throw failure;
           },
           onSuccess: () => runner?.onSuccess(),
@@ -64,7 +122,7 @@ function createStore(token, key, actor) {
       return () => {
         refs--;
         queueMicrotask(() => {
-          if (refs === 0) { loop?.stop(); loop = null; window.removeEventListener("storage", storage); if (stores.get(key) === store) stores.delete(key); }
+          if (refs === 0) { loop?.stop(); loop = null; window.removeEventListener("storage", storage); window.removeEventListener("focus", prunePresence); document.removeEventListener("visibilitychange", prunePresence); clearTimeout(expiryTimer); if (stores.get(key) === store) stores.delete(key); }
         });
       };
     },
@@ -87,5 +145,5 @@ export function useMessagingCoordinator() {
   }, [actor, token]);
   useEffect(() => store.retain(), [store]);
   const state = useSyncExternalStore(store.subscribe, store.get, inactive.get);
-  return useMemo(() => ({ ...state, register: store.register, wake: store.wake }), [state, store]);
+  return useMemo(() => ({ ...state, register: store.register, wake: store.wake, watchPresence: store.watchPresence }), [state, store]);
 }
