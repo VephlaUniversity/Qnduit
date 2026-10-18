@@ -4,12 +4,15 @@ import {
   getMyApplications,
   getJobApplications,
   getEmployerApplications,
-  updateApplicationStatus
+  updateApplicationStatus,
+  archiveApplication
 } from "../controllers/jobApplicationController.js";
 
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.patch("/:applicationId/archive", protect, authorize("employer"), archiveApplication);
 
 router.patch("/:applicationId/status", protect, authorize("employer"), updateApplicationStatus);
 

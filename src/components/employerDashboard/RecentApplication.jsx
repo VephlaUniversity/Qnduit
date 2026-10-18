@@ -59,6 +59,10 @@ const nextStatus = { pending: "reviewed", reviewed: "shortlisted", shortlisted: 
 const RecentApplication = () => {
   const [applicants, setApplicants] = useState([]);
   const [resumeApplicant, setResumeApplicant] = useState(null);
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [archiving, setArchiving] = useState(false);
+  const archivePending = useRef(false);
+  const archiveTrigger = useRef(null);
   const resumeTrigger = useRef(null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -162,12 +166,23 @@ const RecentApplication = () => {
     }
   };
 
-  const removeApplicant = (id) => {
-    setApplicants((prev) => prev.filter((a) => a.applicationId !== id));
-    toast({
-      title: "Success!",
-      description: "Applicant removed",
-    });
+  const archiveApplicant = async () => {
+    if (!archiveTarget || archivePending.current) return;
+    archivePending.current = true;
+    setArchiving(true);
+    try {
+      const { data } = await axios.patch(`${API_BASE_URL}/api/applications/${encodeURIComponent(archiveTarget.applicationId)}/archive`, {},
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      if (!data.success || data.application?.applicationId !== archiveTarget.applicationId || !data.application.employerArchivedAt) throw new Error();
+      setApplicants(previous => previous.filter(row => row.applicationId !== archiveTarget.applicationId));
+      setArchiveTarget(null);
+      toast({ title: "Application archived", description: "Removed from your active list. The application and its status are preserved." });
+    } catch {
+      toast({ title: "Unable to archive application", description: "Please try again. The application has not been removed from your list.", variant: "destructive" });
+    } finally {
+      archivePending.current = false;
+      setArchiving(false);
+    }
   };
 
   const downloadCV = async (applicant) => {
@@ -225,6 +240,21 @@ const RecentApplication = () => {
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
+      <Dialog open={Boolean(archiveTarget)} onOpenChange={(open) => { if (!open && !archivePending.current) setArchiveTarget(null); }}>
+        <DialogContent className="bg-[#1A1A1E] text-white border-white/10"
+          onCloseAutoFocus={(event) => { event.preventDefault(); if (archiveTrigger.current?.isConnected) archiveTrigger.current.focus(); }}>
+          <DialogHeader>
+            <DialogTitle>Archive application?</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Archive {archiveTarget?.name}’s application for {archiveTarget?.role}? This removes it from your active list without deleting it or changing its status. The Talent can still see it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-end gap-3">
+            <button disabled={archiving} onClick={() => setArchiveTarget(null)} className="px-4 py-2 rounded bg-[#2A2A2E] disabled:opacity-50">Cancel</button>
+            <button disabled={archiving} onClick={archiveApplicant} className="px-4 py-2 rounded bg-blue-600 disabled:opacity-50">{archiving ? "Archiving…" : "Archive application"}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={Boolean(resumeApplicant)} onOpenChange={(open) => { if (!open) setResumeApplicant(null); }}>
         <DialogContent className="bg-[#1A1A1E] text-white border-white/10 w-[calc(100%-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={(event) => { event.preventDefault(); resumeTrigger.current?.focus(); }}>
@@ -355,7 +385,9 @@ const RecentApplication = () => {
                         <Download className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => removeApplicant(applicant.applicationId)}
+                        onClick={(event) => { archiveTrigger.current = event.currentTarget; setArchiveTarget(applicant); }}
+                        disabled={pendingStatuses.has(applicant.applicationId)}
+                        title="Archive application" aria-label={`Archive application for ${applicant.name} — ${applicant.role}`}
                         className="px-4 py-2 bg-transparent border border-white/20 hover:bg-white/5 rounded text-white text-sm transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />

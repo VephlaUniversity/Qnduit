@@ -87,7 +87,7 @@ export const getJobApplications = async (req, res) => {
     if (String(job.employer) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: "You are not authorized to view these applications." });
     }
-    const applications = await JobApplication.find({ jobId, employerId: req.user._id })
+    const applications = await JobApplication.find({ jobId, employerId: req.user._id, employerArchivedAt: null })
       .populate("applicantId", "name email")
       .sort({ createdAt: -1 });
     res.json({ success: true, applications });
@@ -100,7 +100,8 @@ export const getEmployerApplications = async (req, res, next) => {
   try {
     const employerId = req.user._id;
 
-    const applications = await JobApplication.find({ employerId })
+    const [applications, totalApplications, seenApplications] = await Promise.all([
+      JobApplication.find({ employerId, employerArchivedAt: null })
       .populate({
         path: "applicantId",
         select: `
@@ -108,7 +109,11 @@ export const getEmployerApplications = async (req, res, next) => {
         `
       })
       .populate("jobId", "jobTitle")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 }),
+      JobApplication.countDocuments({ employerId }),
+      // Preserve the dashboard's existing legacy "Seen" calculation, not "reviewed".
+      JobApplication.countDocuments({ employerId, status: "Seen" }),
+    ]);
 
     const formatted = applications.map(app => ({
       id: app._id,
@@ -140,6 +145,8 @@ export const getEmployerApplications = async (req, res, next) => {
     res.status(200).json({
       success: true,
       applications: formatted,
+      totalApplications,
+      seenApplications,
     });
 
   } catch (error) {
@@ -165,16 +172,35 @@ export const updateApplicationStatus = async (req, res) => {
     const filter = { _id: applicationId, employerId: req.user._id };
     const current = await JobApplication.findOne(filter);
     if (!current) return res.status(404).json({ message: "Application not found." });
+    if (current.employerArchivedAt) return res.status(409).json({ message: "Application is archived. Refresh your list." });
     if (current.status === status) return res.json({ success: true, application: savedStatus(current) });
     if (current.status !== expectedStatus) return res.status(409).json({ message: "This application changed. Refresh before trying again.", application: savedStatus(current) });
     if (!statusTransitions[current.status]?.includes(status)) return res.status(400).json({ message: "This status transition is not allowed.", application: savedStatus(current) });
-    const saved = await JobApplication.findOneAndUpdate({ ...filter, status: expectedStatus }, { $set: { status } }, { new: true, runValidators: true });
+    const saved = await JobApplication.findOneAndUpdate({ ...filter, status: expectedStatus, employerArchivedAt: null }, { $set: { status } }, { new: true, runValidators: true });
     if (saved) return res.json({ success: true, application: savedStatus(saved) });
     const latest = await JobApplication.findOne(filter);
     if (!latest) return res.status(404).json({ message: "Application not found." });
+    if (latest.employerArchivedAt) return res.status(409).json({ message: "Application is archived. Refresh your list." });
     if (latest.status === status) return res.json({ success: true, application: savedStatus(latest) });
     return res.status(409).json({ message: "This application changed. Refresh before trying again.", application: savedStatus(latest) });
   } catch {
     return res.status(500).json({ message: "Unable to update application status. Please try again." });
+  }
+};
+
+export const archiveApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    if (!/^[a-f\d]{24}$/i.test(applicationId)) return res.status(400).json({ message: "Invalid application ID." });
+    const owner = { _id: applicationId, employerId: req.user._id };
+    // Missing metadata is legacy active data. Set the first archive timestamp once.
+    const saved = await JobApplication.findOneAndUpdate({ ...owner, employerArchivedAt: null },
+      { $set: { employerArchivedAt: new Date(), employerArchivedBy: req.user._id } },
+      { new: true, runValidators: true, timestamps: false });
+    const application = saved || await JobApplication.findOne(owner);
+    if (!application) return res.status(404).json({ message: "Application not found." });
+    res.json({ success: true, application: { applicationId: String(application._id), status: application.status, employerArchivedAt: application.employerArchivedAt } });
+  } catch {
+    res.status(500).json({ message: "Unable to archive application. Please try again." });
   }
 };

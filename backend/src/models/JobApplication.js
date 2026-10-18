@@ -20,6 +20,9 @@ const jobApplicationSchema = new mongoose.Schema(
       required: true,
     },
 
+    employerArchivedAt: { type: Date, default: null },
+    employerArchivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employer", default: null },
+
     status: {
       type: String,
       enum: ["pending", "reviewed", "shortlisted", "rejected", "hired"],

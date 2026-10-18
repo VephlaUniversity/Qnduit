@@ -67,13 +67,15 @@ const Dashboard = () => {
 
         setPostedJobsCount(jobs.length);
 
-        setApplicationsCount(applications.length);
+        setApplicationsCount(Number.isFinite(applicationsResponse.data?.totalApplications)
+          ? applicationsResponse.data.totalApplications : applications.length);
 
         const reviewedApplications = applications.filter(
           (application) => application.status === "Seen"
         );
 
-        setReviewCount(reviewedApplications.length);
+        setReviewCount(Number.isFinite(applicationsResponse.data?.seenApplications)
+          ? applicationsResponse.data.seenApplications : reviewedApplications.length);
 
         setWishlistCount(savedCandidates.length);
 
