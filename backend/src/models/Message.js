@@ -25,6 +25,11 @@ const messageSchema = new mongoose.Schema(
     text: {
       type: String,
       required: true,
+      maxlength: 10000,
+      validate: {
+        validator: value => typeof value === "string" && Boolean(value.trim()),
+        message: "Message text is required.",
+      },
     },
     read: {
       type: Boolean,

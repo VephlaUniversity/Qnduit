@@ -8,17 +8,18 @@ import {
 } from "../controllers/messageController.js";
 
 const router = express.Router();
+router.use(protect, authorize("talent", "employer"));
 
 // Send message
-router.post("/send", protect, sendMessage);
+router.post("/send", sendMessage);
 
 // Get messages or with a specific user
-router.get("/", protect, getMessages);
+router.get("/", getMessages);
 
 // Search users
-router.get("/search", protect, searchUsers);
+router.get("/search", searchUsers);
 
 // Chat route
-router.get("/chats", protect, getChats)
+router.get("/chats", getChats)
 
 export default router;

@@ -1,98 +1,212 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
+const chatKey = chat => `${chat.role}:${chat._id}`;
+// Only absolute timestamps are trustworthy across server/viewer timezones.
+const messageDate = value => {
+  if (typeof value !== "string") return null;
+  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i);
+  if (!parts) return null;
+  const [, year, month, day, hour, minute, second] = parts.map(Number);
+  const monthEnd = new Date(0);
+  monthEnd.setUTCFullYear(year, month, 0);
+  if (month < 1 || month > 12 || day < 1 || day > monthEnd.getUTCDate() || hour > 23 || minute > 59 || second > 59) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
+const localDay = value => {
+  const date = messageDate(value);
+  return date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : null;
+};
+const messageTime = value => {
+  const date = messageDate(value);
+  if (!date) return "";
+  const hour = date.getHours();
+  return `${String(hour % 12 || 12).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}${hour < 12 ? "am" : "pm"}`;
+};
+const messageDayLabel = value => messageDate(value)?.toDateString() || "Date unavailable";
+
 export const Messages = () => {
-  const { user } = useAuth();
+  useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [chats, setChats] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [listState, setListState] = useState({ query: "", status: "loading" });
+  const [transcript, setTranscript] = useState({ key: "", version: 0, status: "idle", messages: [] });
+  const [conversationVersion, setConversationVersion] = useState(0);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const pane = useRef(null);
+  const composer = useRef(null);
+  const composing = useRef(false);
+  const mounted = useRef(true);
+  const transcriptRequest = useRef(null);
+  const activeConversation = useRef({ key: "", version: 0 });
+  const pendingScroll = useRef(null);
+  const sendPending = useRef(false);
+  const previews = useRef(new Map());
+  const selectedKey = selectedChat ? chatKey(selectedChat) : "";
+  const currentTranscript = transcript.key === selectedKey && transcript.version === conversationVersion;
+  const transcriptLoading = Boolean(selectedChat) && (!currentTranscript || transcript.status === "loading");
+  const listLoading = listState.query !== searchQuery || listState.status === "loading";
 
-  // Fetch chats (previous chats or search results)
   useEffect(() => {
-    const fetchChats = async () => {
+    mounted.current = true;
+    return () => { mounted.current = false; transcriptRequest.current?.abort(); };
+  }, []);
+
+  const rememberPreview = useCallback((chat, preview) => {
+    const key = chatKey(chat);
+    previews.current.set(key, preview);
+    setChats(previous => previous.map(item => chatKey(item) === key ? { ...item, ...preview } : item));
+  }, []);
+
+  const selectChat = chat => {
+    transcriptRequest.current?.abort();
+    const version = activeConversation.current.version + 1;
+    activeConversation.current = { key: chatKey(chat), version };
+    pendingScroll.current = null;
+    setSelectedChat(chat);
+    setConversationVersion(version);
+    setSendError("");
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadChats() {
+      setListState({ query: searchQuery, status: "loading" });
       try {
         const token = localStorage.getItem("token");
-        if (!token) return;
-
-        let res;
-        if (!searchQuery) {
-          // Only previous chats
-          res = await axios.get(`${API_BASE_URL}/api/messages/chats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        } else {
-          // Search users
-          res = await axios.get(`${API_BASE_URL}/api/messages/search`, {
-            params: { query: searchQuery },
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-
-        setChats(res.data.results || []);
-      } catch (err) {
-        console.error("Fetch chats error:", err);
+        if (!token) throw new Error();
+        const { data } = await axios.get(`${API_BASE_URL}/api/messages/${searchQuery ? "search" : "chats"}`, {
+          ...(searchQuery ? { params: { query: searchQuery } } : {}),
+          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(data.results)) throw new Error();
+        setChats(data.results.map(chat => {
+          const cached = previews.current.get(chatKey(chat));
+          return cached && (!chat.lastMessageAt || new Date(cached.lastMessageAt) > new Date(chat.lastMessageAt))
+            ? { ...chat, ...cached } : chat;
+        }));
+        setListState({ query: searchQuery, status: "ready" });
+      } catch {
+        if (!controller.signal.aborted) setListState({ query: searchQuery, status: "error" });
       }
-    };
-
-    fetchChats();
+    }
+    loadChats();
+    return () => controller.abort();
   }, [searchQuery]);
 
-  // Fetch messages when a chat is selected
   useEffect(() => {
     if (!selectedChat) return;
-
-    const fetchMessages = async () => {
+    const controller = new AbortController();
+    transcriptRequest.current = controller;
+    const key = selectedKey, version = conversationVersion;
+    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version;
+    setTranscript({ key, version, status: "loading", messages: [] });
+    async function loadMessages() {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const res = await axios.get(`${API_BASE_URL}/api/messages`, {
-          params: { withUserId: selectedChat._id },
-          headers: { Authorization: `Bearer ${token}` },
+        const { data } = await axios.get(`${API_BASE_URL}/api/messages`, {
+          params: { withUserId: selectedChat._id }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
-
-        setMessages(res.data.messages);
-      } catch (err) {
-        console.error("Fetch messages error:", err);
+        if (!current()) return;
+        if (!Array.isArray(data.messages)) throw new Error();
+        pendingScroll.current = { version, initial: true };
+        setTranscript({ key, version, status: "ready", messages: data.messages });
+        const latest = data.messages.at(-1);
+        rememberPreview(selectedChat, { lastMessage: latest?.text ?? null, lastMessageAt: latest?.createdAt ?? null });
+      } catch {
+        if (current()) setTranscript({ key, version, status: "error", messages: [] });
       }
+    }
+    loadMessages();
+    return () => {
+      controller.abort();
+      if (activeConversation.current.version === version) transcriptRequest.current?.abort();
     };
+  }, [selectedChat, selectedKey, conversationVersion, rememberPreview]);
 
-    fetchMessages();
-  }, [selectedChat]);
+  useLayoutEffect(() => {
+    if (currentTranscript && transcript.status === "ready" && pendingScroll.current?.version === conversationVersion && pane.current) {
+      // Change only the transcript scroll offset; unrelated renders never request a scroll.
+      const target = pane.current;
+      const previousBehavior = target.style.scrollBehavior;
+      // Global smooth scrolling must not animate the initial pre-paint position.
+      if (pendingScroll.current.initial) target.style.scrollBehavior = "auto";
+      target.scrollTop = target.scrollHeight;
+      target.style.scrollBehavior = previousBehavior;
+      pendingScroll.current = null;
+    }
+  }, [transcript, currentTranscript, conversationVersion]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !selectedChat) return;
+  useLayoutEffect(() => {
+    const resizeComposer = () => {
+      const field = composer.current;
+      if (!field) return;
+      const scrollTop = field.scrollTop;
+      const cap = Math.max(32, Math.min(160, window.innerHeight / 4));
+      field.style.maxHeight = `${cap}px`;
+      field.style.height = "auto";
+      field.style.height = `${Math.max(32, Math.min(field.scrollHeight, cap))}px`;
+      field.scrollTop = scrollTop;
+    };
+    resizeComposer();
+    window.addEventListener("resize", resizeComposer);
+    return () => window.removeEventListener("resize", resizeComposer);
+  }, [messageInput]);
 
+  const handleSendMessage = async event => {
+    event.preventDefault();
+    if (composing.current || sendPending.current || !messageInput.trim() || !selectedChat || transcriptLoading) return;
+    sendPending.current = true;
+    setSending(true);
+    setSendError("");
+    const chat = selectedChat, text = messageInput, key = selectedKey, version = conversationVersion;
+    const current = () => mounted.current && activeConversation.current.key === key && activeConversation.current.version === version;
+    let saved = false;
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
-
-      await axios.post(
-        `${API_BASE_URL}/api/messages/send`,
-        {
-          recipientId: selectedChat._id,
-          recipientModel: selectedChat.role,
-          text: messageInput,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // Refetch messages to update chat window
-      const res = await axios.get(`${API_BASE_URL}/api/messages`, {
-        params: { withUserId: selectedChat._id },
+      const { data } = await axios.post(`${API_BASE_URL}/api/messages/send`, {
+        recipientId: chat._id, recipientModel: chat.role, text,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      if (!data.success) throw new Error();
+      saved = true;
+      if (!mounted.current) return;
+      const message = data.message;
+      if (!message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
+      rememberPreview(chat, { lastMessage: message.text, lastMessageAt: message.createdAt });
+      if (!current()) return;
+      setMessageInput(value => value === text ? "" : value);
+      transcriptRequest.current?.abort();
+      const controller = new AbortController();
+      transcriptRequest.current = controller;
+      pendingScroll.current = { version, initial: false };
+      const sent = { id: message._id, text: message.text, createdAt: message.createdAt,
+        sender: "me", time: messageTime(message.createdAt), date: new Date(message.createdAt).toDateString() };
+      setTranscript(previous => ({ key, version, status: "ready",
+        messages: previous.messages.some(item => item.id === sent.id) ? previous.messages : [...previous.messages, sent] }));
+      const response = await axios.get(`${API_BASE_URL}/api/messages`, {
+        params: { withUserId: chat._id }, signal: controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      setMessages(res.data.messages);
-      setMessageInput("");
-    } catch (err) {
-      console.error(err);
+      if (current() && !controller.signal.aborted) {
+        if (!Array.isArray(response.data.messages)) throw new Error();
+        // Catch up without scrolling a user who moved up after the save.
+        setTranscript({ key, version, status: "ready", messages: response.data.messages });
+      }
+    } catch {
+      if (current()) setSendError(saved
+        ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
+        : "Unable to send message. Your text has been kept.");
+    } finally {
+      sendPending.current = false;
+      if (mounted.current) setSending(false);
     }
   };
 
@@ -105,9 +219,9 @@ export const Messages = () => {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
+      <div className="grid min-w-0 min-h-0 grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
         {/* Chat List */}
-        <div className="bg-[#1A1A1E] rounded-lg border border-white/5 overflow-hidden flex flex-col">
+        <div className="min-w-0 min-h-0 bg-[#1A1A1E] rounded-lg border border-white/5 overflow-hidden flex flex-col">
           <div className="p-4 border-b border-white/10">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -120,11 +234,14 @@ export const Messages = () => {
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {chats.map((chat) => (
+          <div className="min-w-0 min-h-0 flex-1 overflow-y-auto">
+            {listLoading ? <p className="p-4 text-sm text-gray-400" role="status">Loading conversations…</p>
+              : listState.status === "error" ? <p className="p-4 text-sm text-red-400" role="alert">Unable to load conversations. Try searching again.</p>
+              : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching users." : "No conversations yet."}</p> : null}
+            {!listLoading && listState.status === "ready" && chats.map((chat) => (
               <button
-                key={chat._id}
-                onClick={() => setSelectedChat(chat)}
+                key={chatKey(chat)}
+                onClick={() => selectChat(chat)}
                 className={`w-full p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
                   selectedChat?._id === chat._id ? "bg-[#2A2A2E]" : ""
                 }`}
@@ -147,11 +264,9 @@ export const Messages = () => {
                       <p className="text-white font-medium truncate">
                         {chat.name || "Unknown"}
                       </p>
-                      <span className="text-xs text-gray-500">{chat.time}</span>
+                      <span className="text-xs text-gray-500">{messageTime(chat.lastMessageAt)}</span>
                     </div>
-                    <p className="text-sm text-gray-400 truncate">
-                      {chat.lastMessage || "No message"}
-                    </p>
+                    {typeof chat.lastMessage === "string" && <p className="text-sm text-gray-400 truncate">{chat.lastMessage}</p>}
                   </div>
                   {chat.unread > 0 && (
                     <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 flex-shrink-0"></span>
@@ -163,9 +278,9 @@ export const Messages = () => {
         </div>
 
         {/* Chat Window */}
-        <div className="lg:col-span-2 bg-[#1A1A1E] rounded-lg border border-white/5 overflow-hidden flex flex-col">
+        <div className="min-w-0 min-h-0 lg:col-span-2 bg-[#1A1A1E] rounded-lg border border-white/5 overflow-hidden flex flex-col">
           {/* Chat Header */}
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <div className="min-w-0 shrink-0 p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
@@ -188,25 +303,29 @@ export const Messages = () => {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message) => (
+          <div ref={pane} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+            {!selectedChat ? <p className="text-sm text-gray-400">Select a conversation.</p>
+              : transcriptLoading ? <p className="text-sm text-gray-400" role="status">Loading messages…</p>
+              : transcript.status === "error" ? <p className="text-sm text-red-400" role="alert">Unable to load messages. Reselect the conversation to try again.</p>
+              : transcript.messages.length === 0 ? <p className="text-sm text-gray-400">No messages yet.</p> : null}
+            {currentTranscript && transcript.status === "ready" && transcript.messages.map((message, index) => (
               <React.Fragment key={message.id}>
-                {message.date && (
+                {(index === 0 || localDay(message.createdAt) !== localDay(transcript.messages[index - 1].createdAt)) && (
                   <div className="flex items-center justify-center my-4">
                     <div className="flex-1 h-px bg-white/10"></div>
                     <span className="px-4 text-xs text-gray-500">
-                      {message.date}
+                      {messageDayLabel(message.createdAt)}
                     </span>
                     <div className="flex-1 h-px bg-white/10"></div>
                   </div>
                 )}
                 <div
-                  className={`flex ${
+                  className={`flex min-w-0 ${
                     message.sender === "me" ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
-                    className={`max-w-[70%] ${
+                    className={`min-w-0 max-w-[70%] ${
                       message.sender === "me" ? "order-2" : "order-1"
                     }`}
                   >
@@ -217,10 +336,10 @@ export const Messages = () => {
                           : "bg-[#2A2A2E] text-white rounded-bl-md"
                       }`}
                     >
-                      <p className="text-sm leading-relaxed">{message.text}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
                     </div>
                     <p className="text-xs text-gray-500 mt-1 px-2">
-                      {message.time}
+                      {messageTime(message.createdAt) || "Time unavailable"}
                     </p>
                   </div>
                 </div>
@@ -231,31 +350,44 @@ export const Messages = () => {
           {/* Message Input */}
           <form
             onSubmit={handleSendMessage}
-            className="p-4 border-t border-white/10"
+            className="min-w-0 shrink-0 p-4 border-t border-white/10"
           >
-            <div className="flex items-center gap-2 bg-[#0E0E10] rounded-lg px-4 py-2 border border-white/10">
-              <input
-                type="text"
+            {sendError && <p className="mb-2 text-sm text-red-400" role="alert">{sendError}</p>}
+            <div className="min-w-0 flex items-end gap-2 bg-[#0E0E10] rounded-lg px-4 py-2 border border-white/10">
+              <textarea
+                ref={composer}
+                rows={1}
+                wrap="soft"
+                aria-label="Message"
                 placeholder="Enter Message..."
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                className="flex-1 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm"
+                onCompositionStart={() => { composing.current = true; }}
+                onCompositionEnd={() => { composing.current = false; }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey || composing.current
+                    || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }}
+                className="min-w-0 min-h-8 flex-1 resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] py-1.5 leading-5 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm"
               />
               <button
                 type="button"
-                className="text-gray-400 hover:text-white transition-colors"
+                className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
               <button
                 type="button"
-                className="text-gray-400 hover:text-white transition-colors"
+                className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors"
               >
                 <Smile className="w-5 h-5" />
               </button>
               <button
                 type="submit"
-                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                disabled={sending || transcriptLoading || !selectedChat || !messageInput.trim()}
+                className="disabled:opacity-50 shrink-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 <Send className="w-4 h-4" />
               </button>
