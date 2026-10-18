@@ -3,15 +3,19 @@ import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
 import { useSearchParams } from "react-router-dom";
-import { startMessagePolling, messagePages } from "../utils/messagePolling";
+import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
+import { messagePages } from "../utils/messagePolling";
 import { messageRecipient } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
 
-const mergeMessages = (older, newer) => [...new Map([...older, ...newer].map(message => [message.id, message])).values()]
-  .sort((a, b) => {
+const mergeMessages = (older, newer) => {
+  const unique = new Map();
+  for (const message of [...older, ...newer]) unique.set(message.id, { ...message, read: message.read === true || unique.get(message.id)?.read === true });
+  return [...unique.values()].sort((a, b) => {
     const difference = (messageDate(a.createdAt)?.getTime() ?? -Infinity) - (messageDate(b.createdAt)?.getTime() ?? -Infinity);
     return difference && !Number.isNaN(difference) ? difference : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
+};
 const chatKey = chat => `${chat.role}:${chat._id}`;
 const compareChats = (a, b) => {
   const timestamp = value => messageDate(value)?.getTime() ?? -Infinity;
@@ -45,6 +49,9 @@ const messageDayLabel = value => messageDate(value)?.toDateString() || "Date una
 
 export const Messages = () => {
   const { user } = useAuth();
+  const messaging = useMessagingCoordinator();
+  const { register: registerPolling, wake: refreshUnread } = messaging;
+  const [readError, setReadError] = useState("");
   const sessionToken = localStorage.getItem("token");
   const accountKey = user ? `${user.userType}:${user._id || user.id || user.email}` : "";
   const [authExpired, setAuthExpired] = useState(false);
@@ -270,7 +277,7 @@ export const Messages = () => {
     const getPage = async (path, params, signal) => (await axios.get(`${API_BASE_URL}/api/messages${path}`, {
       params, signal, timeout: 15000, headers: { Authorization: `Bearer ${token}` },
     })).data;
-    const loop = startMessagePolling({
+    const loop = registerPolling({
       async run(signal) {
         if (localStorage.getItem("token") !== token) { loop.stop(); return false; }
         pollRequest.current = { abort: () => loop.cancel() };
@@ -297,7 +304,7 @@ export const Messages = () => {
         const newest = mergeMessages([], messages).at(-1);
         receiveCutoff.current = { key, date: messageDate(newest?.createdAt)?.getTime() ?? null };
         const existing = latestTranscript.current;
-        if (existing?.status === "ready" && messages.every(message => existing.messages.some(row => row.id === message.id))) return;
+        if (existing?.status === "ready" && messages.every(message => existing.messages.some(row => row.id === message.id && row.read === message.read))) return;
         const target = pane.current;
         const nearBottom = target && target.scrollHeight - target.scrollTop - target.clientHeight <= 80;
         const rect = target?.getBoundingClientRect();
@@ -317,7 +324,69 @@ export const Messages = () => {
     });
     poll.current = loop;
     return () => { loop.stop(); if (poll.current === loop) poll.current = null; };
-  }, [accountKey, authExpired, selectedChat, selectedKey, conversationVersion, searchQuery, listReload, sessionToken]);
+  }, [accountKey, authExpired, selectedChat, selectedKey, conversationVersion, searchQuery, listReload, sessionToken, registerPolling]);
+
+  useEffect(() => { if (messaging.expired) setAuthExpired(true); }, [messaging.expired]);
+
+  useEffect(() => {
+    setReadError("");
+    if (!selectedChat || !currentTranscript || transcript.status !== "ready" || authExpired || !messaging.enabled) return;
+    const target = pane.current, controller = new AbortController();
+    const key = selectedKey, version = conversationVersion;
+    let timer, pending = false, failures = 0;
+    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version && localStorage.getItem("token") === sessionToken;
+    const visibleIds = () => {
+      if (!current() || document.visibilityState === "hidden" || !document.hasFocus()) return [];
+      const rect = target.getBoundingClientRect();
+      const top = Math.max(rect.top, 0), bottom = Math.min(rect.bottom, window.innerHeight);
+      if (bottom <= top) return [];
+      const eligible = new Set(transcript.messages.filter(message => message.sender === "them" && message.readEligible && !message.read).map(message => message.id));
+      return [...target.querySelectorAll("[data-message-id]")].filter(row => {
+        if (!eligible.has(row.dataset.messageId)) return false;
+        const content = row.querySelector(".leading-relaxed")?.getBoundingClientRect();
+        const box = content?.height > 0 ? content : row.getBoundingClientRect();
+        const left = Math.max(box.left, rect.left, 0), right = Math.min(box.right, rect.right, window.innerWidth);
+        const visibleTop = Math.max(box.top, top), visibleBottom = Math.min(box.bottom, bottom);
+        if (right <= left || box.height <= 0 || visibleBottom - visibleTop < Math.min(32, box.height / 2)) return false;
+        const hit = document.elementFromPoint?.((left + right) / 2, (visibleTop + visibleBottom) / 2);
+        return !document.elementFromPoint || Boolean(hit && row.contains(hit));
+      }).slice(0, 100).map(row => row.dataset.messageId);
+    };
+    const schedule = (delay = 150) => { clearTimeout(timer); if (current()) timer = setTimeout(acknowledge, delay); };
+    async function acknowledge() {
+      if (pending) return;
+      const ids = visibleIds();
+      if (!ids.length) return;
+      pending = true;
+      try {
+        const { data } = await axios.patch(`${API_BASE_URL}/api/messages/read`, {
+          messageIds: ids, partnerId: selectedChat._id, partnerModel: selectedChat.role,
+        }, { signal: controller.signal, timeout: 15000, headers: { Authorization: `Bearer ${sessionToken}` } });
+        if (!current()) return;
+        if (!data.success || !Array.isArray(data.acknowledgedIds) || data.acknowledgedIds.length !== ids.length
+          || new Set(data.acknowledgedIds).size !== ids.length || data.acknowledgedIds.some(id => !ids.includes(id))) throw new Error();
+        const acknowledged = new Set(data.acknowledgedIds);
+        setTranscript(previous => ({ ...previous, messages: previous.messages.map(message => acknowledged.has(message.id) ? { ...message, read: true } : message) }));
+        refreshUnread();
+      } catch (error) {
+        if (!current()) return;
+        if (error.response?.status === 401) setAuthExpired(true);
+        else { failures++; setReadError("Unable to mark visible messages read. Retrying automatically."); schedule(Math.min(30000, 3000 * 2 ** Math.min(failures - 1, 4))); }
+      } finally { pending = false; }
+    }
+    const check = () => schedule();
+    target.addEventListener("scroll", check);
+    window.addEventListener("resize", check);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    schedule();
+    return () => {
+      controller.abort(); clearTimeout(timer);
+      target.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check); window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [selectedChat, currentTranscript, transcript, authExpired, messaging.enabled, selectedKey, conversationVersion, sessionToken, refreshUnread]);
 
   const loadOlder = useCallback(async () => {
     if (!accountKey || authExpired || !selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
@@ -508,8 +577,10 @@ export const Messages = () => {
                     </div>
                     {typeof chat.lastMessage === "string" && <p className="text-sm text-gray-400 truncate">{chat.lastMessage}</p>}
                   </div>
-                  {chat.unread > 0 && (
-                    <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 flex-shrink-0"></span>
+                  {(messaging.counts[chatKey(chat)] || 0) > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full min-w-5 px-1.5 text-center shrink-0" title={messaging.error || "Unread messages"} aria-label={`${messaging.counts[chatKey(chat)]} unread messages`}>
+                      {messaging.counts[chatKey(chat)]}
+                    </span>
                   )}
                 </div>
               </button>
@@ -544,6 +615,7 @@ export const Messages = () => {
 
           {/* Messages */}
           <div ref={pane} onScroll={() => { if (pane.current.scrollTop <= 80) loadOlder(); }} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+            {readError && <p className="text-sm text-red-400" role="alert">{readError}</p>}
             {(authExpired || pollError) && <p className="text-sm text-red-400" role="alert">{authExpired ? "Your session has expired. Sign in again to receive messages." : pollError}</p>}
             {currentTranscript && transcript.olderLoading && <p className="text-sm text-gray-400" role="status">Loading older messages…</p>}
             {currentTranscript && transcript.olderError && <p className="text-sm text-red-400" role="alert">{transcript.olderError}</p>}

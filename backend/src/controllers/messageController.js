@@ -1,3 +1,4 @@
+import { unreadSince } from "./messageReadController.js";
 import mongoose from "mongoose";
 import { pageLimit, encodeCursor, decodeCursor } from "../utils/messageCursor.js";
 import Message from "../models/Message.js";
@@ -127,7 +128,7 @@ export const getMessages = async (req, res) => {
       };
       filter = { $and: [filter, boundary] };
     }
-    const query = Message.find(filter).select("_id text createdAt sender senderModel").sort({ createdAt: bounded ? -1 : 1, _id: bounded ? -1 : 1 });
+    const query = Message.find(filter).select("_id text createdAt sender senderModel read").sort({ createdAt: bounded ? -1 : 1, _id: bounded ? -1 : 1 });
     if (bounded) query.limit(size + 1);
     let messages = await query.lean();
     const hasMore = bounded && messages.length > size;
@@ -136,10 +137,14 @@ export const getMessages = async (req, res) => {
     const nextCursor = hasMore ? encodeCursor(scope, oldest.createdAt, String(oldest._id)) : null;
     if (bounded) messages.reverse();
 
+    let since = null;
+    try { since = unreadSince(); } catch { /* An unread rollout error must not block existing transcript reads. */ }
     const formattedMessages = messages.map((m) => {
       const timestamp = m.createdAt instanceof Date && Number.isFinite(m.createdAt.getTime()) ? m.createdAt : null;
       return {
         id: m._id,
+        read: m.read === true,
+        readEligible: Boolean(since && m.createdAt >= since && m.senderModel !== undefined && !(m.sender?.toString() === userId.toString() && m.senderModel === senderData.role)),
         text: m.text,
         createdAt: timestamp,
         // Legacy fields remain compatible; viewers should format the absolute timestamp.

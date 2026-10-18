@@ -49,4 +49,8 @@ messageSchema.index({ sender: 1, senderModel: 1, clientMessageId: 1 }, {
   partialFilterExpression: { clientMessageId: { $type: "string" } },
 });
 
+messageSchema.index({ recipient: 1, recipientModel: 1, createdAt: -1, sender: 1, senderModel: 1 }, {
+  name: "message_unread_recipient", partialFilterExpression: { read: false },
+});
+
 export default mongoose.model("Message", messageSchema);

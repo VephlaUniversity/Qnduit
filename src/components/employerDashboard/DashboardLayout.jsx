@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
+import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { useAuth } from "../hooks/useAuth";
 import { NotificationPop } from "./NotificationPop";
 import {
@@ -60,6 +61,7 @@ export const DashboardLayout = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
+  const messaging = useMessagingCoordinator();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -405,6 +407,7 @@ export const DashboardLayout = ({
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  title={item.path.endsWith("/messages") ? messaging.error || (messaging.enabled === false ? "Unread tracking is not enabled." : undefined) : undefined}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
@@ -414,6 +417,7 @@ export const DashboardLayout = ({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{item.label}</span>
+                  {item.path.endsWith("/messages") && messaging.total > 0 && <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white" title={messaging.error || "Unread messages"} aria-label={`${messaging.total} unread messages`}>{messaging.total}</span>}
                 </NavLink>
               );
             })}
