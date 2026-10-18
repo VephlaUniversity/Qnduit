@@ -22,6 +22,6 @@ router.get("/my-applications", protect, getMyApplications);
 
 router.get("/job/:jobId", protect, authorize("employer"), getJobApplications);
 
-router.get("/employer", protect, getEmployerApplications);
+router.get("/employer", protect, authorize("employer"), getEmployerApplications);
 
 export default router;

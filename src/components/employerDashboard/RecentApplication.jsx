@@ -3,8 +3,9 @@ import axios from "axios";
 import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 import { Plus, X, Download, Trash2, Search, Eye } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { readApplicantSearch, writeApplicantSearch } from "./applicantSearch";
 import { useToast } from "../hooks/useToast";
 
 
@@ -67,52 +68,68 @@ const RecentApplication = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [params, setParams] = useSearchParams();
+  const { query: searchQuery, status: filterStatus, page } = readApplicantSearch(params);
+  const [reload, setReload] = useState(0);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
+  const [listState, setListState] = useState({ key: "", loading: true, error: "" });
+  const listRequest = useRef(null);
+  const requestSequence = useRef(0);
+  const requestKey = JSON.stringify([searchQuery, filterStatus, page, reload]);
+  const loading = listState.key !== requestKey || listState.loading;
+  const error = listState.key === requestKey ? listState.error : "";
+  const changeSearch = (patch, replace = false) => setParams(previous =>
+    writeApplicantSearch(previous, { ...readApplicantSearch(previous), page: 1, ...patch }), { replace });
+  const refreshList = () => {
+    listRequest.current?.abort();
+    requestSequence.current += 1;
+    setReload(value => value + 1);
+  };
   const [savingId, setSavingId] = useState(null);
   const [pendingStatuses, setPendingStatuses] = useState(new Set());
   const statusRequests = useRef(new Set());
 
   useEffect(() => {
-    const fetchApplications = async () => {
+    const controller = new AbortController();
+    listRequest.current = controller;
+    const sequence = ++requestSequence.current;
+    const current = () => !controller.signal.aborted && sequence === requestSequence.current;
+    // Typing updates the URL/control immediately; only the request is debounced.
+    const timer = setTimeout(async () => {
+      setListState({ key: requestKey, loading: true, error: "" });
       try {
-
-        const user = JSON.parse(localStorage.getItem("user"));
         const token = localStorage.getItem("token");
-
-        if (!user?.id) return;
-
-        const res = await axios.get(
-          `${API_BASE_URL}/api/applications/employer`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const formatted = res.data.applications.map((app) => ({
-          applicationId: app.id,
-          talentId: app.applicant?.id,
-          name: app.applicant?.name || "Unknown",
+        if (!token) throw new Error();
+        const { data } = await axios.get(`${API_BASE_URL}/api/applications/employer`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+          params: { q: searchQuery, status: filterStatus, page, limit: 20 },
+        });
+        if (!current()) return;
+        if (!Array.isArray(data.applications) || !data.pagination) throw new Error();
+        const resolvedPage = Math.min(page, Math.max(1, data.pagination.pages));
+        if (resolvedPage !== page) {
+          setParams(previous => writeApplicantSearch(previous, { ...readApplicantSearch(previous), page: resolvedPage }), { replace: true });
+          return;
+        }
+        setApplicants(data.applications.map(app => ({
+          applicationId: app.id, talentId: app.applicant?.id,
+          name: app.applicant?.name?.trim() || "Unknown",
           role: app.job?.title || "Applicant",
-          availability: "Available",
-          location: app.applicant?.location || "N/A",
-          status: app.status || "pending",
-          date: formatAppliedDate(app.appliedAt ?? app.createdAt ?? app.date),
+          availability: "Available", location: app.applicant?.location || "N/A",
+          status: app.status || "pending", date: formatAppliedDate(app.appliedAt ?? app.createdAt ?? app.date),
           cvUrl: profileImageUrl(app.resumeUrl ?? app.applicant?.resume),
           resumeSource: app.resumeSource ?? (app.applicant?.resume ? "talent" : null),
-        }));
-
-        setApplicants(formatted);
-
-      } catch (error) {
-        console.error("Failed to fetch applications", error);
+        })));
+        setPagination(data.pagination);
+        setListState({ key: requestKey, loading: false, error: "" });
+      } catch (failure) {
+        if (!current()) return;
+        setListState({ key: requestKey, loading: false, error: failure.response?.status === 401
+          ? "Your session has expired. Please sign in again." : "Unable to load applicants. Please try again." });
       }
-    };
-
-    fetchApplications();
-  }, []);
+    }, searchQuery ? 200 : 0);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [searchQuery, filterStatus, page, reload, requestKey, setParams]);
 
   const addToSavedCandidates = async (applicant) => {
     try {
@@ -155,6 +172,7 @@ const RecentApplication = () => {
       const { data } = await axios.patch(`${API_BASE_URL}/api/applications/${encodeURIComponent(id)}/status`,
         { status, expectedStatus: applicant.status }, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       if (!data.success || data.application?.applicationId !== id || !Object.hasOwn(statusLabels, data.application.status)) throw new Error();
+      refreshList();
       setApplicants(previous => previous.map(row => row.applicationId === id ? { ...row, status: data.application.status } : row));
       toast({ title: "Status updated", description: `Application is ${statusLabels[data.application.status]}.` });
     } catch (error) {
@@ -174,6 +192,7 @@ const RecentApplication = () => {
       const { data } = await axios.patch(`${API_BASE_URL}/api/applications/${encodeURIComponent(archiveTarget.applicationId)}/archive`, {},
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       if (!data.success || data.application?.applicationId !== archiveTarget.applicationId || !data.application.employerArchivedAt) throw new Error();
+      refreshList();
       setApplicants(previous => previous.filter(row => row.applicationId !== archiveTarget.applicationId));
       setArchiveTarget(null);
       toast({ title: "Application archived", description: "Removed from your active list. The application and its status are preserved." });
@@ -225,18 +244,6 @@ const RecentApplication = () => {
     }
   };
 
-  // Filter and search logic
-  const filteredApplicants = applicants.filter((applicant) => {
-    const matchesSearch =
-      applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      applicant.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      applicant.location.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesFilter =
-      filterStatus === "all" || applicant.status === filterStatus;
-
-    return matchesSearch && matchesFilter;
-  });
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -280,15 +287,16 @@ const RecentApplication = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
+              maxLength={200}
               placeholder="Search by name, role, or location..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => changeSearch({ query: e.target.value }, true)}
               className="w-full md:w-[50%] lg:w-[40%] pl-10 pr-4 py-3 bg-[#1A1A1E] border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500"
             />
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => changeSearch({ status: e.target.value })}
             className={`w-full sm:w-44 max-w-full min-w-0 shrink-0 pl-4 pr-10 py-3 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2020%2020'%20fill='none'%20stroke='white'%3E%3Cpath%20d='m6%208%204%204%204-4'/%3E%3C/svg%3E")] bg-no-repeat bg-[length:1rem_1rem] bg-[position:right_0.75rem_center]`}
           >
             <option value="all">All</option>
@@ -314,7 +322,7 @@ const RecentApplication = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredApplicants.map((applicant) => (
+              {!loading && !error && applicants.map((applicant) => (
                 <tr
                   key={applicant.applicationId}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
@@ -348,7 +356,7 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => navigate(`/dashboard/users/talent/${encodeURIComponent(applicant.talentId)}?from=applicants&origin=${pathname === "/dashboard/applicants" ? "applicants" : "dashboard"}`)}
+                        onClick={() => navigate(`/dashboard/users/talent/${encodeURIComponent(applicant.talentId)}?${writeApplicantSearch(new URLSearchParams({ from: "applicants", origin: pathname === "/dashboard/applicants" ? "applicants" : "dashboard" }), { query: searchQuery, status: filterStatus, page })}`)}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
                         title="View Profile" aria-label={`View Profile for ${applicant.name}`}>
                         <Eye className="w-4 h-4" />
@@ -396,7 +404,10 @@ const RecentApplication = () => {
                   </td>
                 </tr>
               ))}
-              {filteredApplicants.length === 0 && (
+              {(loading || error) && <tr><td colSpan={4} className="py-8 text-center text-gray-400">
+                <p role={error ? "alert" : "status"}>{loading ? "Loading applicants…" : error}</p>
+              </td></tr>}
+              {!loading && !error && applicants.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-gray-400">
                     {searchQuery || filterStatus !== "all"
@@ -407,6 +418,15 @@ const RecentApplication = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-400" aria-label="Applicants pagination">
+          <span aria-live="polite">{!loading && !error ? `Page ${page} of ${pagination.pages} · ${pagination.total} applications` : ""}</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => changeSearch({ page: page - 1 })} disabled={loading || Boolean(error) || page <= 1}
+              className="px-3 py-2 rounded border border-white/20 focus-visible:outline focus-visible:outline-blue-500 disabled:opacity-50">Previous</button>
+            <button type="button" onClick={() => changeSearch({ page: page + 1 })} disabled={loading || Boolean(error) || page >= pagination.pages}
+              className="px-3 py-2 rounded border border-white/20 focus-visible:outline focus-visible:outline-blue-500 disabled:opacity-50">Next</button>
+          </div>
         </div>
       </div>
     </div>

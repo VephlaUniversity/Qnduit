@@ -49,7 +49,7 @@ const Dashboard = () => {
           // Applications
           axios.get(
             `${API_BASE_URL}/api/applications/employer`,
-            { headers }
+            { headers, params: { summaryOnly: true } }
           ),
 
           // Saved Candidates / Wishlist

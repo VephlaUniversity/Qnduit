@@ -1,3 +1,4 @@
+import { applicantReturnQuery } from "../employerDashboard/applicantSearch";
 import { employerFollowParams, employerFollowState } from "../utils/employerFollowNavigation";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
@@ -273,7 +274,7 @@ export default function UserProfileView() {
   const fromJob = dashboard === "/talent-dashboard" && userType === "employer" &&
     params.get("from") === "job" && /^[a-f\d]{24}$/i.test(jobId);
   const returnTo = fromApplicants
-    ? applicantsReturn
+    ? applicantsReturn + applicantReturnQuery(params)
     : fromFollowing
     ? `/dashboard/followers?${followingReturn}`
     : fromSavedCandidates

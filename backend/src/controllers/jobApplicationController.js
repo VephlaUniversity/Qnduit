@@ -1,5 +1,6 @@
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
+import Talent from "../models/Talent.js";
 
 
 // Apply for job
@@ -96,23 +97,59 @@ export const getJobApplications = async (req, res) => {
   }
 };
 // Employer Applications
-export const getEmployerApplications = async (req, res, next) => {
+export const getEmployerApplications = async (req, res) => {
   try {
     const employerId = req.user._id;
 
+    const { q = "", status = "all", page, limit = "20", summaryOnly } = req.query;
+    const paginated = page !== undefined;
+    if (typeof q !== "string" || q.length > 200 || typeof status !== "string"
+      || !["all", "pending", "reviewed", "shortlisted", "rejected", "hired"].includes(status)
+      || (paginated && (typeof page !== "string" || typeof limit !== "string" || !/^[1-9]\d{0,5}$/.test(page) || !/^[1-9]\d{0,2}$/.test(limit) || Number(limit) > 100))) {
+      return res.status(400).json({ message: "Invalid application search parameters." });
+    }
+    const owner = { employerId };
+    const active = { ...owner, employerArchivedAt: null, ...(status === "all" ? {} : { status }) };
+    let matchingTotal;
+    const currentPage = paginated ? Number(page) : 1;
+    const pageSize = Number(limit);
+    let rowFilter = active;
+    if (summaryOnly !== "true" && (paginated || q.trim())) {
+      const pipeline = [{ $match: active }];
+      if (q.trim()) {
+        const regex = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        pipeline.push(
+          { $lookup: { from: Talent.collection.name, localField: "applicantId", foreignField: "_id",
+            pipeline: [{ $project: { firstName: 1, lastName: 1, location: 1 } }], as: "talent" } },
+          { $lookup: { from: Job.collection.name, localField: "jobId", foreignField: "_id",
+            pipeline: [{ $project: { jobTitle: 1 } }], as: "job" } },
+          { $match: { $or: [
+            { "talent.location": { $regex: regex, $options: "i" } },
+            { "job.jobTitle": { $regex: regex, $options: "i" } },
+            { $expr: { $regexMatch: { input: { $concat: [
+              { $ifNull: [{ $arrayElemAt: ["$talent.firstName", 0] }, ""] }, " ",
+              { $ifNull: [{ $arrayElemAt: ["$talent.lastName", 0] }, ""] },
+            ] }, regex, options: "i" } } },
+          ] } },
+        );
+      }
+      // One aggregation snapshot supplies both matching totals and the bounded page.
+      const [result] = await JobApplication.aggregate([...pipeline, { $facet: {
+        count: [{ $count: "total" }],
+        rows: [{ $sort: { createdAt: -1, _id: -1 } },
+          ...(paginated ? [{ $skip: (currentPage - 1) * pageSize }, { $limit: pageSize }] : []), { $project: { _id: 1 } }],
+      } }]);
+      matchingTotal = result.count[0]?.total || 0;
+      const ids = result.rows;
+      rowFilter = { ...active, _id: { $in: ids.map(item => item._id) } };
+    }
     const [applications, totalApplications, seenApplications] = await Promise.all([
-      JobApplication.find({ employerId, employerArchivedAt: null })
-      .populate({
-        path: "applicantId",
-        select: `
-          firstName lastName email phone location jobTitle experienceTime avatar resume
-        `
-      })
-      .populate("jobId", "jobTitle")
-      .sort({ createdAt: -1 }),
-      JobApplication.countDocuments({ employerId }),
-      // Preserve the dashboard's existing legacy "Seen" calculation, not "reviewed".
-      JobApplication.countDocuments({ employerId, status: "Seen" }),
+      summaryOnly === "true" ? [] : JobApplication.find(rowFilter)
+        .populate({ path: "applicantId", select: "firstName lastName email phone location jobTitle experienceTime avatar resume" })
+        .populate("jobId", "jobTitle").sort({ createdAt: -1, _id: -1 }),
+      JobApplication.countDocuments(owner),
+      // Lifetime and legacy Review semantics deliberately do not follow active filters.
+      JobApplication.countDocuments({ ...owner, status: "Seen" }),
     ]);
 
     const formatted = applications.map(app => ({
@@ -147,10 +184,11 @@ export const getEmployerApplications = async (req, res, next) => {
       applications: formatted,
       totalApplications,
       seenApplications,
+      ...(paginated && summaryOnly !== "true" ? { pagination: { page: currentPage, limit: pageSize, total: matchingTotal, pages: Math.max(1, Math.ceil(matchingTotal / pageSize)) } } : {}),
     });
 
-  } catch (error) {
-    next(error);
+  } catch {
+    return res.status(500).json({ message: "Unable to load applications. Please try again." });
   }
 };
 const applicationStatuses = ["pending", "reviewed", "shortlisted", "hired", "rejected"];
