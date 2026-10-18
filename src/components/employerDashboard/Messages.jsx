@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { messagePages } from "../utils/messagePolling";
 import { messageRecipient } from "../utils/messageRecipient";
+import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 
 const mergeMessages = (older, newer) => {
@@ -46,6 +47,22 @@ const messageTime = value => {
   return `${String(hour % 12 || 12).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}${hour < 12 ? "am" : "pm"}`;
 };
 const messageDayLabel = value => messageDate(value)?.toDateString() || "Date unavailable";
+
+const avatarKey = chat => `${chat ? chatKey(chat) : "none"}:${chat?.avatar || ""}`;
+const MessageAvatar = ({ chat, className }) => {
+  const [failed, setFailed] = useState(false);
+  const value = typeof chat?.avatar === "string" ? chat.avatar.trim() : "";
+  // The messaging API uses the same field for image paths and initial fallbacks.
+  const image = value.includes("/") || /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#]|$)/i.test(value);
+  const source = image ? profileImageUrl(value) : "";
+  const words = typeof chat?.name === "string" ? chat.name.trim().split(/\s+/).filter(Boolean) : [];
+  const initials = (words.length > 1 ? [words[0], words.at(-1)] : words).map(word => Array.from(word)[0]).join("").toLocaleUpperCase() || "?";
+  return (
+    <div className={className} aria-hidden="true">
+      {source && !failed ? <img src={source} alt="" className="h-full w-full rounded-full object-cover" onError={() => setFailed(true)} /> : initials}
+    </div>
+  );
+};
 
 export const Messages = () => {
   const { user } = useAuth();
@@ -557,13 +574,8 @@ export const Messages = () => {
               >
                 <div className="flex items-center gap-3">
                   <div className="relative flex-shrink-0">
-                    <div
-                      className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`}
-                    >
-                      {typeof chat.avatar === "string" && chat.avatar
-                        ? chat.avatar
-                        : chat.name ? chat.name.charAt(0) : "?"}
-                    </div>
+                    <MessageAvatar key={avatarKey(chat)} chat={chat}
+                      className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`} />
                     {chat.online && (
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
                     )}
@@ -594,9 +606,8 @@ export const Messages = () => {
           <div className="min-w-0 shrink-0 p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                  A
-                </div>
+                <MessageAvatar key={avatarKey(selectedChat)} chat={selectedChat}
+                  className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold" />
                 <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1A1A1E]"></span>
               </div>
               <div>
