@@ -26,12 +26,13 @@ export const SavedCandidates = () => {
         const formatted = res.data.savedCandidates.map((c) => ({
           id: c._id,
           name: `${c.firstName} ${c.lastName}`,
-          role: c.jobTitle,
+          role: typeof c.jobTitle === "string" ? c.jobTitle : "",
           location: c.location || "N/A",
           avatar: c.avatar?.url,
           cvUrl: c.resume?.url,
-          salary: "$8000/month",
-          salaryValue: 8000, // optional: you can fetch actual salary if stored
+          salary: c.offeredSalary != null && String(c.offeredSalary).trim() !== ""
+            ? `$${String(c.offeredSalary).trim()}${typeof c.salaryType === "string" && c.salaryType.trim() ? `/${c.salaryType.trim()}` : ""}`
+            : "Not specified",
         }));
 
         setCandidates(formatted);
@@ -91,7 +92,8 @@ export const SavedCandidates = () => {
       case "role":
         return a.role.localeCompare(b.role);
       case "salary":
-        return b.salaryValue - a.salaryValue; // Descending order
+        // No cross-period comparison contract: preserve the existing saved-list order.
+        return 0;
       default:
         return 0; // Default order
     }
