@@ -1,6 +1,7 @@
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Talent from "../models/Talent.js";
+import { applicationEvent } from "../services/notifications.js";
 
 
 // Apply for job
@@ -30,10 +31,12 @@ export const applyForJob = async (req, res, next) => {
       });
     }
 
+    const intent = req.user.role === "talent" ? applicationEvent("application", { employerId: job.employer }) : null;
     const application = await JobApplication.create({
       jobId,
       applicantId,
       employerId: job.employer,
+      ...(intent ? { notificationOutbox: [intent], notificationNextAttemptAt: intent.occurredAt } : {}),
     });
 
     await Job.findByIdAndUpdate(jobId, {
@@ -217,7 +220,11 @@ export const updateApplicationStatus = async (req, res) => {
     if (current.status === status) return res.json({ success: true, application: savedStatus(current) });
     if (current.status !== expectedStatus) return res.status(409).json({ message: "This application changed. Refresh before trying again.", application: savedStatus(current) });
     if (!statusTransitions[current.status]?.includes(status)) return res.status(400).json({ message: "This status transition is not allowed.", application: savedStatus(current) });
-    const saved = await JobApplication.findOneAndUpdate({ ...filter, status: expectedStatus, employerArchivedAt: null }, { $set: { status } }, { new: true, runValidators: true });
+    const intent = applicationEvent("application-status", current, status);
+    const saved = await JobApplication.findOneAndUpdate({ ...filter, status: expectedStatus, employerArchivedAt: null }, {
+      $set: { status, ...(intent ? { notificationNextAttemptAt: intent.occurredAt } : {}) },
+      ...(intent ? { $push: { notificationOutbox: intent } } : {}),
+    }, { new: true, runValidators: true });
     if (saved) return res.json({ success: true, application: savedStatus(saved) });
     const latest = await JobApplication.findOne(filter);
     if (!latest) return res.status(404).json({ message: "Application not found." });
