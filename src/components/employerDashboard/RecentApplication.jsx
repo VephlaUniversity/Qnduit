@@ -24,9 +24,9 @@ function ResumePreview({ applicant }) {
     const controller = new AbortController();
     let blobUrl;
     async function load() {
-      if (!applicant.cvUrl) { setPreview({ loading: false, url: "", message: "No résumé is available for this application." }); return; }
+      if (!applicant.cvUrl) { setPreview({ loading: false, url: "", message: "No Resume was provided." }); return; }
       if (/\.docx?$/i.test(new URL(applicant.cvUrl).pathname)) {
-        setPreview({ loading: false, url: "", message: "Preview unavailable for DOC/DOCX files. Use Download résumé." }); return;
+        setPreview({ loading: false, url: "", message: "Preview unavailable for DOC/DOCX files. Use Download Resume." }); return;
       }
       try {
         const response = await fetch(applicant.cvUrl, { signal: controller.signal, credentials: "omit" });
@@ -35,22 +35,22 @@ function ResumePreview({ applicant }) {
         const signature = await blob.slice(0, 5).text();
         if (controller.signal.aborted) return;
         if (signature !== "%PDF-") {
-          setPreview({ loading: false, url: "", message: "Preview unavailable for this file format. Use Download résumé." }); return;
+          setPreview({ loading: false, url: "", message: "Preview unavailable for this file format. Use Download Resume." }); return;
         }
         blobUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : blob.slice(0, blob.size, "application/pdf"));
         setPreview({ loading: false, url: blobUrl, message: "" });
       } catch {
-        if (!controller.signal.aborted) setPreview({ loading: false, url: "", message: "Unable to load résumé preview. Please try again later." });
+        if (!controller.signal.aborted) setPreview({ loading: false, url: "", message: "Unable to load Resume. Please try again." });
       }
     }
     load();
     return () => { controller.abort(); if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [applicant.cvUrl]);
-  return preview.loading ? <p role="status">Loading résumé…</p>
+  return preview.loading ? <p role="status">Loading Resume…</p>
     : preview.url ? <>
-      <iframe src={preview.url} title={`Résumé preview for ${applicant.name}`} className="w-full h-[55dvh] min-h-48 rounded border border-white/10 bg-white"
-        onError={() => setPreview({ loading: false, url: "", message: "PDF preview is unavailable in this browser. Use Download résumé." })} />
-      <p className="text-sm text-gray-400">If your browser cannot display the PDF, use Download résumé.</p>
+      <iframe src={preview.url} title={`Resume preview for ${applicant.name}`} className="w-full h-[55dvh] min-h-48 rounded border border-white/10 bg-white"
+        onError={() => setPreview({ loading: false, url: "", message: "PDF preview is unavailable in this browser. Use Download Resume." })} />
+      <p className="text-sm text-gray-400">If your browser cannot display the PDF, use Download Resume.</p>
     </> : <p role="status">{preview.message}</p>;
 }
 
@@ -221,7 +221,7 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
 
   const downloadCV = async (applicant) => {
     if (!applicant.cvUrl) {
-      toast({ title: "Résumé unavailable", description: "No valid résumé is available for this application.", variant: "destructive" });
+      toast({ title: "Resume unavailable", description: "No valid Resume is available for this application.", variant: "destructive" });
       return;
     }
     let blobUrl;
@@ -242,7 +242,7 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
-      toast({ title: "Unable to download résumé", description: "Please try again later.", variant: "destructive" });
+      toast({ title: "Unable to download Resume", description: "Please try again later.", variant: "destructive" });
     }
   };
 
@@ -281,15 +281,15 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
         <DialogContent className="bg-[#1A1A1E] text-white border-white/10 w-[calc(100%-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={(event) => { event.preventDefault(); resumeTrigger.current?.focus(); }}>
           <DialogHeader>
-            <DialogTitle>Résumé — {resumeApplicant?.name}</DialogTitle>
+            <DialogTitle>Resume — {resumeApplicant?.name}</DialogTitle>
             <DialogDescription className="text-gray-400">
-              {resumeApplicant?.resumeSource === "application" ? "Résumé saved with this application."
-                : resumeApplicant?.resumeSource === "talent" ? "Legacy application: showing the Talent’s current résumé, which may have changed since applying."
-                : "No résumé source is available."}
+              {resumeApplicant?.resumeSource === "application" ? "Resume saved with this application."
+                : resumeApplicant?.resumeSource === "talent" ? "Showing the Talent’s current Resume, which may have changed since applying."
+                : "No Resume source is available."}
             </DialogDescription>
           </DialogHeader>
           {resumeApplicant && <ResumePreview key={resumeApplicant.applicationId} applicant={resumeApplicant} />}
-          {resumeApplicant?.cvUrl && <button onClick={() => downloadCV(resumeApplicant)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white justify-self-start">Download résumé</button>}
+          {resumeApplicant?.cvUrl && <button onClick={() => downloadCV(resumeApplicant)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white justify-self-start">Download Resume</button>}
         </DialogContent>
       </Dialog>
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
@@ -402,8 +402,8 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
                       <button
                         onClick={(event) => { resumeTrigger.current = event.currentTarget; setResumeApplicant(applicant); }}
                         className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
-                        title="View résumé"
-                        aria-label={`View résumé for ${applicant.name}`}
+                        title="View Resume"
+                        aria-label={`View Resume for ${applicant.name}`}
                       >
                         <Download className="w-4 h-4" />
                       </button>
