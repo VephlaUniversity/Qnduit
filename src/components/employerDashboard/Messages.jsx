@@ -2,13 +2,14 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { messagePages } from "../utils/messagePolling";
 import { messageRecipient } from "../utils/messageRecipient";
 import { profileImageUrl } from "../profiles/profileApi";
 import { Popover, PopoverTrigger, PopoverContent } from "../ui/popover";
 import { API_BASE_URL } from "../utils/api";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 
 const MESSAGE_LIMIT = 10000;
 
@@ -86,6 +87,10 @@ export const Messages = () => {
   const pollRequest = useRef(null);
   const latestTranscript = useRef(null);
   const receiveCutoff = useRef(null);
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const manualRefresh = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [params, setParams] = useSearchParams();
   const recipient = messageRecipient(params);
@@ -131,6 +136,27 @@ export const Messages = () => {
   const currentTranscript = transcript.key === selectedKey && transcript.version === conversationVersion;
   const transcriptLoading = Boolean(selectedChat) && (!currentTranscript || transcript.status === "loading");
   const listLoading = listState.query !== searchQuery || listState.status === "loading";
+
+  useEffect(() => {
+    manualRefresh.current = null;
+    setRefreshing(false);
+    setMenuOpen(false);
+  }, [recipient.key, recipientVersion, accountKey, sessionToken, authExpired]);
+
+  const viewRecipientProfile = () => {
+    if (!selectedChat || authExpired || manualRefresh.current) return;
+    const type = selectedChat.role === "Talent" ? "talent" : selectedChat.role === "Employer" ? "employer" : "";
+    const target = messageRecipient(new URLSearchParams({ recipientId: selectedChat._id, recipientType: type }));
+    if (target.status !== "valid") return;
+    const dashboard = user.userType === "talent" ? "/talent-dashboard" : "/dashboard";
+    navigate(`${dashboard}/users/${target.type}/${target.id}?from=messages`);
+  };
+  const refreshConversation = () => {
+    if (!selectedChat || authExpired || transcriptLoading || sending || olderRequest.current || manualRefresh.current || !poll.current) return;
+    manualRefresh.current = { key: selectedKey, version: conversationVersion };
+    setRefreshing(true);
+    poll.current.wake();
+  };
 
   useEffect(() => {
     mounted.current = true;
@@ -316,11 +342,15 @@ export const Messages = () => {
     })).data;
     const loop = registerPolling({
       async run(signal) {
+        const requested = manualRefresh.current;
+        let attempted = false;
+        try {
         if (localStorage.getItem("token") !== token) { loop.stop(); return false; }
         pollRequest.current = { abort: () => loop.cancel() };
         const snapshot = latestTranscript.current;
         // Initial loads, older-page loads and sends already perform their own reads.
         if (sendPending.current || olderRequest.current || chatRequest.current || selectedChat && snapshot?.status === "loading") return false;
+        attempted = true;
         const results = await messagePages(before => getPage("/chats", { limit: 100, query: searchQuery, ...(before ? { before } : {}) }, signal), { chats: true });
         if (!sessionCurrent(signal)) return;
         for (const chat of results) {
@@ -353,9 +383,19 @@ export const Messages = () => {
             // A retry of an initially failed load scanned the whole bounded history.
             pagination: previous.pagination || { hasMore: false, nextCursor: null } };
         });
+        } finally {
+          if (attempted && requested && manualRefresh.current === requested) {
+            manualRefresh.current = null;
+            if (mounted.current) setRefreshing(false);
+          }
+        }
       },
       onSuccess: () => setPollError(""),
-      onError: () => setPollError("Unable to refresh messages. Retrying automatically."),
+      onError: () => {
+        setPollError("Unable to refresh messages. Retrying automatically.");
+        manualRefresh.current = null;
+        setRefreshing(false);
+      },
       onUnauthorized: () => setAuthExpired(true),
     });
     poll.current = loop;
@@ -696,9 +736,19 @@ export const Messages = () => {
                 </p>
               </div>
             </div>
-            <button className="text-gray-400 hover:text-white">
-              <MoreVertical className="w-5 h-5" />
-            </button>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="Conversation actions" aria-busy={refreshing} disabled={!selectedChat || authExpired}
+                  className="text-gray-400 hover:text-white">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#1A1A1E] border-white/10 text-white">
+                <DropdownMenuItem disabled={!selectedChat || authExpired || refreshing} onSelect={viewRecipientProfile}>View Profile</DropdownMenuItem>
+                <DropdownMenuItem disabled={!selectedChat || authExpired || refreshing || transcriptLoading || sending || Boolean(transcript.olderLoading)}
+                  onSelect={refreshConversation}>Refresh Conversation</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Messages */}

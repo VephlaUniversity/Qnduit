@@ -1,3 +1,4 @@
+import { messageRecipient } from "../utils/messageRecipient";
 import { applicantReturnQuery } from "../employerDashboard/applicantSearch";
 import { employerFollowParams, employerFollowState } from "../utils/employerFollowNavigation";
 import { useEffect, useState } from "react";
@@ -273,7 +274,11 @@ export default function UserProfileView() {
   const jobId = params.get("jobId") || "";
   const fromJob = dashboard === "/talent-dashboard" && userType === "employer" &&
     params.get("from") === "job" && /^[a-f\d]{24}$/i.test(jobId);
-  const returnTo = fromApplicants
+  const messageTarget = messageRecipient(new URLSearchParams({ recipientId: userId || "", recipientType: userType || "" }));
+  const fromMessages = params.getAll("from").length === 1 && params.get("from") === "messages" && messageTarget.status === "valid";
+  const returnTo = fromMessages
+    ? `${dashboard}/messages?${new URLSearchParams({ recipientId: messageTarget.id, recipientType: messageTarget.type })}`
+    : fromApplicants
     ? applicantsReturn + applicantReturnQuery(params)
     : fromFollowing
     ? `/dashboard/followers?${followingReturn}`
@@ -288,7 +293,7 @@ export default function UserProfileView() {
         : dashboard === "/talent-dashboard" && userType === "employer"
           ? `${dashboard}/following-employers`
           : dashboard;
-  const backLabel = fromApplicants ? (applicantsReturn === "/dashboard/applicants" ? "Back to applicants" : "Back to dashboard") : fromFollowing ? "Back to following" : fromSavedCandidates ? "Back to saved candidates" : fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
+  const backLabel = fromMessages ? "Back to messages" : fromApplicants ? (applicantsReturn === "/dashboard/applicants" ? "Back to applicants" : "Back to dashboard") : fromFollowing ? "Back to following" : fromSavedCandidates ? "Back to saved candidates" : fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
     `Back to ${returnTo.includes("talent-results") ? "talent results" : returnTo.includes("following-employers") ? "following employers" : "dashboard"}`;
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">
