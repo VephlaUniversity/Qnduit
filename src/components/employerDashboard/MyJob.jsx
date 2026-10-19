@@ -1,65 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { API_BASE_URL } from "../utils/api";
+import { useEmployerJobs } from "../hooks/useEmployerJobs";
 import { formatJobDeadline } from "../utils/jobDeadline";
 
 const MyJob = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [jobs, setJobs] = useState([]);
-
-  useEffect(() => {
-
-    const fetchJobs = async () => {
-      try {
-
-        const res = await fetch(
-          `${API_BASE_URL}/api/jobs/my-jobs`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`
-            }
-          }
-        );
-
-        const data = await res.json();
-
-        if (data.success) {
-          setJobs(data.jobs);
-        }
-
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    fetchJobs();
-
-  }, []);
-
-
-  const deleteJob = async (id) => {
-    try {
-
-      await axios.delete(
-        `${API_BASE_URL}/api/jobs/delete/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
-        }
-      );
-
-      setJobs(prev => prev.filter(job => job._id !== id));
-
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
+  const { jobs, deleteJob } = useEmployerJobs();
 
   const editJob = (job) => {
     navigate(`/dashboard/submit-job?edit=${job._id}`);
