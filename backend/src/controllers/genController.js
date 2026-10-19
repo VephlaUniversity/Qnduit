@@ -173,7 +173,7 @@ export const searchUsers = async (req, res, next) => {
       const sort = req.query.sort === "newest" ? { createdAt: -1, _id: -1 } : { _id: 1 };
       const [total, talents, savedLocations] = await Promise.all([
         Talent.countDocuments(filter),
-        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified createdAt experienceTime qualification")
+        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified createdAt experienceTime qualification offeredSalary salaryType")
           .sort(sort).skip((page - 1) * limit).limit(limit).lean(),
         Talent.distinct("location", visibleTalents),
       ]);

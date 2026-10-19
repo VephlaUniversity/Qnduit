@@ -16,9 +16,20 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useToast } from "../hooks/useToast";
+import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 import { Link, useSearchParams } from "react-router-dom";
 
+
+function CandidateAvatar({ url, name }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+      {url && !failed ? <img src={url} alt={`${name} profile`} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : (name || "T").charAt(0).toUpperCase()}
+    </div>
+  );
+}
 
 const useCandidates = (keyword, page, limit, location, minAge, maxAge, sort, experience, qualification) => {
   const [data, setData] = useState([]);
@@ -91,9 +102,10 @@ const useCandidates = (keyword, page, limit, location, minAge, maxAge, sort, exp
             : Array.isArray(talent.categories)
               ? talent.categories
               : [],
+          avatarUrl: profileImageUrl(typeof talent.avatar === "string" ? talent.avatar : talent.avatar?.url),
           salary:
-            talent.expectedSalary != null
-              ? String(talent.expectedSalary)
+            talent.offeredSalary != null && String(talent.offeredSalary).trim() !== ""
+              ? `$${String(talent.offeredSalary).trim()}${typeof talent.salaryType === "string" && talent.salaryType.trim() ? `/${talent.salaryType.trim()}` : ""}`
               : "Not specified",
           age: talent.age ?? "",
           availability:
@@ -277,9 +289,7 @@ const TalentsResultsPage = () => {
     <div className="bg-[#191D23] rounded-2xl p-6">
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
-          <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
-            {(candidate.name || "T").charAt(0).toUpperCase()}
-          </div>
+          <CandidateAvatar key={`${candidate.id}:${candidate.avatarUrl}`} url={candidate.avatarUrl} name={candidate.name} />
           <div>
             <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
             <h2 className="text-white font-semibold text-lg flex items-center gap-2">
