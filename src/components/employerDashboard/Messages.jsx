@@ -250,10 +250,8 @@ export const Messages = () => {
         const token = localStorage.getItem("token");
         if (!token) throw new Error();
         const headers = { Authorization: `Bearer ${token}` };
-        const results = searchQuery ? (await axios.get(`${API_BASE_URL}/api/messages/search`, {
-          params: { query: searchQuery }, headers, signal: controller.signal,
-        })).data.results : await messagePages(async before => (await axios.get(`${API_BASE_URL}/api/messages/chats`, {
-          params: { limit: 100, ...(before ? { before } : {}) }, headers, signal: controller.signal, timeout: 15000,
+        const results = await messagePages(async before => (await axios.get(`${API_BASE_URL}/api/messages/chats`, {
+          params: { limit: 100, query: searchQuery, ...(before ? { before } : {}) }, headers, signal: controller.signal, timeout: 15000,
         })).data, { chats: true });
         if (controller.signal.aborted) return;
         if (!Array.isArray(results)) throw new Error();
@@ -323,7 +321,7 @@ export const Messages = () => {
         const snapshot = latestTranscript.current;
         // Initial loads, older-page loads and sends already perform their own reads.
         if (sendPending.current || olderRequest.current || chatRequest.current || selectedChat && snapshot?.status === "loading") return false;
-        const results = await messagePages(before => getPage("/chats", { limit: 100, ...(before ? { before } : {}) }, signal), { chats: true });
+        const results = await messagePages(before => getPage("/chats", { limit: 100, query: searchQuery, ...(before ? { before } : {}) }, signal), { chats: true });
         if (!sessionCurrent(signal)) return;
         for (const chat of results) {
           const cached = previews.current.get(chatKey(chat));
@@ -331,9 +329,8 @@ export const Messages = () => {
             previews.current.set(chatKey(chat), { lastMessage: chat.lastMessage, lastMessageAt: chat.lastMessageAt });
           }
         }
-        setChats(previous => searchQuery ? previous.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) }))
-          : results.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) })));
-        if (!searchQuery) setListState({ query: "", status: "ready" });
+        setChats(results.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) })));
+        setListState({ query: searchQuery, status: "ready" });
         if (!selectedChat || !conversationCurrent(signal)) return;
         const cutoff = receiveCutoff.current?.key === key ? receiveCutoff.current.date : undefined;
         const messages = await messagePages(before => getPage("", {
@@ -644,8 +641,8 @@ export const Messages = () => {
           <div ref={chatListPane} className="min-w-0 min-h-0 flex-1 overflow-y-auto">
             {listLoading ? <p className="p-4 text-sm text-gray-400" role="status">Loading conversations…</p>
               : listState.status === "error" ? <p className="p-4 text-sm text-red-400" role="alert">Unable to load conversations. Try searching again.</p>
-              : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching users." : "No conversations yet."}</p> : null}
-            {!listLoading && listState.status === "ready" && (searchQuery ? chats : [...chats].sort(compareChats)).map((chat) => (
+              : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching conversations." : "No conversations yet."}</p> : null}
+            {!listLoading && listState.status === "ready" && [...chats].sort(compareChats).map((chat) => (
               <button
                 key={chatKey(chat)}
                 data-presence-key={chatKey(chat)}

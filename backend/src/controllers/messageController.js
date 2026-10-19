@@ -1,5 +1,6 @@
 import { unreadSince } from "./messageReadController.js";
 import mongoose from "mongoose";
+import { createHash } from "node:crypto";
 import { pageLimit, encodeCursor, decodeCursor } from "../utils/messageCursor.js";
 import Message from "../models/Message.js";
 import Talent from "../models/Talent.js";
@@ -181,8 +182,9 @@ export const searchUsers = async (req, res) => {
         { email: { $regex: literalQuery, $options: "i" } },
         { firstName: { $regex: literalQuery, $options: "i" } },
         { lastName: { $regex: literalQuery, $options: "i" } },
+        { fullName: { $regex: literalQuery, $options: "i" } },
       ],
-    }).select("_id firstName lastName email avatar");
+    }).select("_id fullName firstName lastName email avatar");
     const employerResults = resolving && recipientModel !== "Employer" ? [] : await Employer.find(resolving ? { _id: recipientId } : {
       $or: [
         { email: { $regex: literalQuery, $options: "i" } },
@@ -197,7 +199,8 @@ export const searchUsers = async (req, res) => {
 
     // Add `role` for frontend
     const formattedTalentResults = talentResults.map((t) => {
-      const name = `${t.firstName || ""} ${t.lastName || ""}`.trim();
+      const name = t.fullName?.trim() || [t.firstName, t.lastName]
+        .filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ");
 
       return {
         ...t.toObject(),
@@ -235,9 +238,13 @@ export const getChats = async (req, res) => {
     const senderData = await getUserRole(userId, req.user.role);
     if (!senderData) return res.status(404).json({ message: "User not found" });
 
-    const { limit, before } = req.query;
+    const { limit, before, query = "" } = req.query;
+    if (typeof query !== "string" || query.length > 200) {
+      return res.status(400).json({ message: "Search must contain at most 200 characters." });
+    }
+    const search = query.trim();
     const bounded = limit !== undefined || before !== undefined;
-    const scope = `chats:${senderData.role}:${userId}`;
+    const scope = `chats:${senderData.role}:${userId}${search ? `:${createHash("sha256").update(search).digest("hex")}` : ""}`;
     let size, cursor;
     try {
       if (bounded) size = limit === undefined ? 30 : pageLimit(limit);
@@ -255,10 +262,23 @@ export const getChats = async (req, res) => {
       { $group: { _id: { id: "$partnerId", model: "$partnerModel" }, text: { $first: "$text" }, createdAt: { $first: "$createdAt" } } },
       { $set: { key: { $concat: ["$_id.model", ":", { $toString: "$_id.id" }] }, createdAt: { $ifNull: ["$createdAt", null] } } },
       // Exclude deleted accounts before pagination, so a page cannot disappear after hydration.
-      { $lookup: { from: Talent.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "talent" } },
-      { $lookup: { from: Employer.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "employer" } },
+      { $lookup: { from: Talent.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1, fullName: 1, firstName: 1, lastName: 1, email: 1 } }], as: "talent" } },
+      { $lookup: { from: Employer.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1, companyName: 1, firstName: 1, lastName: 1, email: 1 } }], as: "employer" } },
       { $match: { $or: [{ "_id.model": "Talent", "talent.0": { $exists: true } }, { "_id.model": "Employer", "employer.0": { $exists: true } }] } },
     ];
+    if (search) {
+      const regex = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      pipeline.push(
+        { $set: { partner: { $arrayElemAt: [{ $cond: [{ $eq: ["$_id.model", "Talent"] }, "$talent", "$employer"] }, 0] } } },
+        { $match: { $or: [
+          ...["fullName", "companyName", "firstName", "lastName", "email"].map(field => ({ [`partner.${field}`]: { $regex: regex, $options: "i" } })),
+          { $expr: { $regexMatch: { input: { $concat: [
+            { $trim: { input: { $ifNull: ["$partner.firstName", ""] } } }, " ",
+            { $trim: { input: { $ifNull: ["$partner.lastName", ""] } } },
+          ] }, regex, options: "i" } } },
+        ] } },
+      );
+    }
     if (cursor) pipeline.push({ $match: cursor.date === null ? { createdAt: null, key: { $gt: cursor.id } } : {
       $or: [{ createdAt: { $lt: cursor.date } }, { createdAt: null }, { createdAt: cursor.date, key: { $gt: cursor.id } }],
     } });
@@ -274,7 +294,7 @@ export const getChats = async (req, res) => {
     const employerIds = latest.filter(item => item._id.model === "Employer").map(item => item._id.id);
 
     const talents = await Talent.find({ _id: { $in: [...talentIds] } })
-      .select("_id firstName lastName email avatar");
+      .select("_id fullName firstName lastName email avatar");
     const employers = await Employer.find({ _id: { $in: [...employerIds] } })
       .select("_id firstName lastName email companyName logo");
 
@@ -283,7 +303,8 @@ export const getChats = async (req, res) => {
       return latest ? { lastMessage: latest.text, lastMessageAt: latest.createdAt } : {};
     };
     const formattedTalents = talents.map((t) => {
-      const name = `${t.firstName || ""} ${t.lastName || ""}`.trim();
+      const name = t.fullName?.trim() || [t.firstName, t.lastName]
+        .filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ");
 
       return {
         ...t.toObject(),
