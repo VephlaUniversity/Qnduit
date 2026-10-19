@@ -32,7 +32,7 @@ router.put(
   updateTalentProfile
 );
 
-router.put("/:id/plan", selectTalentPlan);
+router.put("/:id/plan", protect, authorize("talent"), selectTalentPlan);
 
 router.put(
   "/update",
