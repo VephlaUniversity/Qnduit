@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
+import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
 import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import TextEditor from "../TextEditor";
@@ -9,6 +10,7 @@ import { API_BASE_URL } from "../utils/api";
 
 const TalentAbout = () => {
   const { toast } = useToast();
+  const { refresh: refreshOwnerAvatar } = useOwnerAvatar();
   const navigate = useNavigate();
   const avatarInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
@@ -239,6 +241,7 @@ const TalentAbout = () => {
           "Content-Type": "multipart/form-data",
         },
       });
+      refreshOwnerAvatar();
 
       toast({
         title: "Success!",

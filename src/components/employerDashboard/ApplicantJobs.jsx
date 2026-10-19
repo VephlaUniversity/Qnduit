@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import RecentApplication from "./RecentApplication";
 
 export const ApplicantsJobs = () => {
@@ -10,7 +10,7 @@ export const ApplicantsJobs = () => {
           Applicants Jobs
         </h1>
       </div>
-      <RecentApplication />
+      <RecentApplication pageSize={20} />
     </div>
   );
 };

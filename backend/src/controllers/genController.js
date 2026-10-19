@@ -136,6 +136,53 @@ export const searchUsers = async (req, res, next) => {
   try {
     const query = String(req.query.query || "").trim();
 
+    // Dashboard talent results use the same searchable fields and visibility rule,
+    // but paginate talents independently of mixed navbar suggestions.
+    if (req.query.userType === "talent") {
+      const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+      const limit = Math.min(24, Math.max(1, Math.floor(Number(req.query.limit) || 6)));
+      const literalRegex = value => new RegExp(String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const regex = literalRegex(query);
+      const visibleTalents = { showProfile: "show", isVerified: true, accountStatus: { $ne: "suspended" } };
+      const filter = { ...visibleTalents };
+      if (query) filter.$or = ["firstName", "lastName", "fullName", "email", "jobTitle", "location"].map(key => ({ [key]: regex }));
+      // The UI displays firstName + lastName when fullName has not been saved.
+      if (query) filter.$or.push({ $expr: { $regexMatch: {
+        input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] },
+        regex: regex.source, options: "i",
+      } } });
+      if (req.query.location) filter.location = literalRegex(req.query.location);
+      const experienceValues = {
+        "< 1 year": "Less than 1 Year", "1–3 years": "1-3 Years",
+        "3–5 years": "3-5 Years", "5+ years": "5 Years+",
+      };
+      if (req.query.experience && req.query.experience !== "Any experience") {
+        const stored = Object.hasOwn(experienceValues, req.query.experience) ? experienceValues[req.query.experience] : null;
+        if (!stored) return res.status(400).json({ message: "Invalid experience filter." });
+        filter.experienceTime = new RegExp(`^${literalRegex(stored).source}$`, "i");
+      }
+      const qualification = String(req.query.qualification || "").trim();
+      if (qualification && qualification !== "Any qualification") {
+        filter.qualification = new RegExp(`^\\s*${literalRegex(qualification).source}\\s*$`, "i");
+      }
+      const age = { $convert: { input: "$age", to: "double", onError: null, onNull: null } };
+      const minAge = Number(req.query.minAge), maxAge = Number(req.query.maxAge);
+      if (Number.isFinite(minAge) && Number.isFinite(maxAge)) filter.$expr = { $or: [
+        { $eq: [age, null] }, { $and: [{ $gte: [age, minAge] }, { $lte: [age, maxAge] }] },
+      ] };
+      const sort = req.query.sort === "newest" ? { createdAt: -1, _id: -1 } : { _id: 1 };
+      const [total, talents, savedLocations] = await Promise.all([
+        Talent.countDocuments(filter),
+        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified createdAt experienceTime qualification offeredSalary salaryType")
+          .sort(sort).skip((page - 1) * limit).limit(limit).lean(),
+        Talent.distinct("location", visibleTalents),
+      ]);
+      const locations = [...new Map(savedLocations.filter(value => typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "location not specified")
+        .map(value => [value.trim().toLowerCase(), value.trim()])).values()].sort();
+      return res.json({ success: true, page, limit, total, locations, totalPages: Math.ceil(total / limit),
+        results: talents.map(talent => ({ ...talent, userType: "talent" })) });
+    }
+
     if (!query) {
       return res.json({
         success: true,

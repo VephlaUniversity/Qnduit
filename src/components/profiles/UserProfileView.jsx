@@ -1,3 +1,6 @@
+import { messageRecipient } from "../utils/messageRecipient";
+import { applicantReturnQuery } from "../employerDashboard/applicantSearch";
+import { employerFollowParams, employerFollowState } from "../utils/employerFollowNavigation";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, MapPin } from "lucide-react";
@@ -263,10 +266,25 @@ export default function UserProfileView() {
   const params = new URLSearchParams(search);
   // Only named origins resolve to fixed dashboard routes; never use a supplied URL.
   const fromFollowers = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "followers";
+  const fromFollowing = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "following";
+  const followingReturn = employerFollowParams({ ...employerFollowState(params), tab: "following" });
+  const fromApplicants = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "applicants";
+  const applicantsReturn = params.get("origin") === "applicants" ? "/dashboard/applicants" : "/dashboard";
+  const fromSavedCandidates = dashboard === "/dashboard" && userType === "talent" && params.get("from") === "saved-candidates";
   const jobId = params.get("jobId") || "";
   const fromJob = dashboard === "/talent-dashboard" && userType === "employer" &&
     params.get("from") === "job" && /^[a-f\d]{24}$/i.test(jobId);
-  const returnTo = fromFollowers
+  const messageTarget = messageRecipient(new URLSearchParams({ recipientId: userId || "", recipientType: userType || "" }));
+  const fromMessages = params.getAll("from").length === 1 && params.get("from") === "messages" && messageTarget.status === "valid";
+  const returnTo = fromMessages
+    ? `${dashboard}/messages?${new URLSearchParams({ recipientId: messageTarget.id, recipientType: messageTarget.type })}`
+    : fromApplicants
+    ? applicantsReturn + applicantReturnQuery(params)
+    : fromFollowing
+    ? `/dashboard/followers?${followingReturn}`
+    : fromSavedCandidates
+    ? "/dashboard/saved-candidates"
+    : fromFollowers
     ? "/dashboard/followers"
     : fromJob
       ? `/talent-dashboard/job-results/details/${jobId}`
@@ -275,7 +293,7 @@ export default function UserProfileView() {
         : dashboard === "/talent-dashboard" && userType === "employer"
           ? `${dashboard}/following-employers`
           : dashboard;
-  const backLabel = fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
+  const backLabel = fromMessages ? "Back to messages" : fromApplicants ? (applicantsReturn === "/dashboard/applicants" ? "Back to applicants" : "Back to dashboard") : fromFollowing ? "Back to following" : fromSavedCandidates ? "Back to saved candidates" : fromFollowers ? "Back to followers" : fromJob ? "Back to job details" :
     `Back to ${returnTo.includes("talent-results") ? "talent results" : returnTo.includes("following-employers") ? "following employers" : "dashboard"}`;
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 lg:p-8">

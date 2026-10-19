@@ -1,5 +1,9 @@
 import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
+import { jobGallerySelection } from "../utils/jobGallery.js";
+import { uploadJobMedia } from "../utils/jobMediaUpload.js";
+import { jobDeadlineUpdate } from "../utils/jobDeadline.js";
+import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 
 
 export const jobUpload = upload.fields([
@@ -8,7 +12,7 @@ export const jobUpload = upload.fields([
 ]);
 
 
-export const createJob = async (req, res, next) => {
+export const createJob = async (req, res) => {
   try {
 
     const employerId = req.user._id;
@@ -19,18 +23,21 @@ export const createJob = async (req, res, next) => {
       category,
       jobCategory,
       jobApplyType,
-      salaryType,
-      minSalary,
-      maxSalary,
       experience,
       careerLevel,
       qualification,
-      deadlineDate,
       address,
       location,
       lat,
       lng
     } = req.body;
+
+    const gallery = jobGallerySelection(req.body);
+    if (gallery.error) return res.status(400).json({ success: false, message: gallery.error });
+    const deadline = jobDeadlineUpdate(req.body);
+    if (deadline.error) return res.status(400).json({ success: false, message: deadline.error, errors: { deadlineDate: deadline.error } });
+    const { errors, salary } = jobSalaryUpdate(req.body);
+    if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
 
     const job = new Job({
       employer: employerId,
@@ -42,14 +49,10 @@ export const createJob = async (req, res, next) => {
       experience,
       careerLevel,
       qualification,
-      deadlineDate,
+      deadlineDate: deadline.value,
       address,
       location,
-      salary: {
-        type: salaryType,
-        min: Number(minSalary),
-        max: Number(maxSalary)
-      }
+      salary
     });
 
     if (lat && lng) {
@@ -59,21 +62,9 @@ export const createJob = async (req, res, next) => {
       };
     }
 
-    if (req.files?.featuredImage) {
-      const file = req.files.featuredImage[0];
-      job.featuredImage = {
-        url: `/uploads/${file.filename}`,
-        public_id: file.filename
-      };
-    }
-
-    if (req.files?.photos) {
-      job.gallery = req.files.photos.map(file => ({
-        url: `/uploads/${file.filename}`,
-        type: file.mimetype.startsWith("video") ? "video" : "image",
-        public_id: file.filename
-      }));
-    }
+    await job.validate();
+    // Do not mutate saved media until every replacement upload has succeeded.
+    Object.assign(job, await uploadJobMedia(req.files));
 
     await job.save();
 
@@ -84,12 +75,12 @@ export const createJob = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    jobSaveError(res, error);
   }
 };
 
 
-export const updateJob = async (req, res, next) => {
+export const updateJob = async (req, res) => {
   try {
 
     const { id } = req.params;
@@ -103,23 +94,26 @@ export const updateJob = async (req, res, next) => {
     if (!job)
       return res.status(404).json({ message: "Job not found" });
 
-    Object.assign(job, req.body);
+    const gallery = jobGallerySelection(req.body, job.gallery);
+    if (gallery.error) return res.status(400).json({ success: false, message: gallery.error });
+    const deadline = jobDeadlineUpdate(req.body, job.deadlineDate);
+    if (deadline.error) return res.status(400).json({ success: false, message: deadline.error, errors: { deadlineDate: deadline.error } });
+    const { errors, salary } = jobSalaryUpdate(req.body, job.salary);
+    if (Object.keys(errors).length) return res.status(400).json({ success: false, message: "Please check the salary fields.", errors });
+    // Salary needs deliberate mapping; flat form fields are not model paths.
+    const updates = Object.fromEntries(Object.entries(req.body)
+      .filter(([key]) => !["salary", "salaryType", "minSalary", "maxSalary", "deadlineDate", "retainedGalleryIds"].includes(key) && !key.startsWith("salary.")));
+    Object.assign(job, updates);
+    if (Object.hasOwn(deadline, "value")) job.deadlineDate = deadline.value;
+    for (const [key, value] of Object.entries(salary)) job.set(`salary.${key}`, value);
 
-    if (req.files?.featuredImage) {
-      const file = req.files.featuredImage[0];
-      job.featuredImage = {
-        url: `/uploads/${file.filename}`,
-        public_id: file.filename
-      };
+    await job.validate();
+    // Do not mutate saved media until every replacement upload has succeeded.
+    const media = await uploadJobMedia(req.files);
+    if (gallery.explicit || Object.hasOwn(media, "gallery")) {
+      media.gallery = [...gallery.items, ...(media.gallery || [])];
     }
-
-    if (req.files?.photos) {
-      job.gallery = req.files.photos.map(file => ({
-        url: `/uploads/${file.filename}`,
-        type: file.mimetype.startsWith("video") ? "video" : "image",
-        public_id: file.filename
-      }));
-    }
+    Object.assign(job, media);
 
     await job.save();
 
@@ -130,7 +124,7 @@ export const updateJob = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    jobSaveError(res, error);
   }
 };
 

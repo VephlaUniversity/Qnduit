@@ -14,6 +14,7 @@ import { PaginationBar } from "./PaginationBar";
 import { Modal } from "./Modal";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { formatJobDeadline, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 
 const statusStyle = {
   Published: "bg-emerald-600/15 text-emerald-500",
@@ -42,7 +43,7 @@ const getJobStatus = (job) => {
   if (job.status === "draft") return "Draft";
   if (job.status === "closed") return "Closed";
 
-  if (job.deadlineDate && new Date(job.deadlineDate) < new Date()) {
+  if (job.deadlineDate && jobDateKey(job.deadlineDate) && jobDateKey(job.deadlineDate) < lagosDateKey()) {
     return "Expired";
   }
 
@@ -303,7 +304,7 @@ export const ManageJobs = () => {
                       </div>
 
                       <div className="text-gray-500">
-                        Expiry date: {formatDate(job.deadlineDate)}
+                        Expiry date: {formatJobDeadline(job.deadlineDate, "Not specified")}
                       </div>
                     </td>
 
@@ -416,7 +417,7 @@ export const ManageJobs = () => {
                       Expiry date
                     </span>
                     <span className="text-white font-medium">
-                      {formatDate(activeJob.deadlineDate)}
+                      {formatJobDeadline(activeJob.deadlineDate, "Not specified")}
                     </span>
                   </div>
 

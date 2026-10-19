@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Briefcase, FileText, Gift, Bookmark } from "lucide-react";
 import {
   BarChart,
@@ -20,7 +20,37 @@ const Dashboard = () => {
   const [reviewCount, setReviewCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
 
-  // Load dynamic stats from backend
+  const [summaryVersion, setSummaryVersion] = useState(0);
+  const summaryRequest = useRef(null);
+  const refreshApplicationSummary = useCallback(() => {
+    summaryRequest.current?.abort();
+    setSummaryVersion(version => version + 1);
+  }, []);
+
+  // Dashboard remounts when returning from Applicants; mutations refresh it in place.
+  useEffect(() => {
+    const controller = new AbortController();
+    summaryRequest.current = controller;
+    async function loadSummary() {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/applications/employer`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          params: { summaryOnly: true }, signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (!Number.isFinite(data.totalApplications) || !Number.isFinite(data.reviewedApplications)) throw new Error();
+        setApplicationsCount(data.totalApplications);
+        setReviewCount(data.reviewedApplications);
+      } catch {
+        // Preserve the last authoritative totals when refresh fails.
+        if (!controller.signal.aborted) console.error("Unable to refresh application totals. Reload the dashboard to retry.");
+      }
+    }
+    loadSummary();
+    return () => controller.abort();
+  }, [summaryVersion]);
+
+  // Load the independent job and wishlist stats from backend
   useEffect(() => {
     const loadStats = async () => {
       const token = localStorage.getItem("token");
@@ -37,18 +67,11 @@ const Dashboard = () => {
 
         const [
           jobsResponse,
-          applicationsResponse,
           savedCandidatesResponse,
         ] = await Promise.all([
           // Posted Jobs
           axios.get(
             `${API_BASE_URL}/api/jobs/my-jobs`,
-            { headers }
-          ),
-
-          // Applications
-          axios.get(
-            `${API_BASE_URL}/api/applications/employer`,
             { headers }
           ),
 
@@ -60,20 +83,10 @@ const Dashboard = () => {
         ]);
 
         const jobs = jobsResponse.data?.jobs || [];
-        const applications =
-          applicationsResponse.data?.applications || [];
         const savedCandidates =
           savedCandidatesResponse.data?.savedCandidates || [];
 
         setPostedJobsCount(jobs.length);
-
-        setApplicationsCount(applications.length);
-
-        const reviewedApplications = applications.filter(
-          (application) => application.status === "Seen"
-        );
-
-        setReviewCount(reviewedApplications.length);
 
         setWishlistCount(savedCandidates.length);
 
@@ -115,52 +128,27 @@ const Dashboard = () => {
     },
   ];
 
-  const getChartData = () => {
-    const monthData = [
-      { name: "Jan", views: 420 },
-      { name: "Feb", views: 380 },
-      { name: "Mar", views: 540 },
-      { name: "Apr", views: 470 },
-      { name: "May", views: 620 },
-      { name: "Jun", views: 590 },
-      { name: "Jul", views: 680 },
-      { name: "Aug", views: 720 },
-      { name: "Sep", views: 650 },
-      { name: "Oct", views: 710 },
-      { name: "Nov", views: 780 },
-      { name: "Dec", views: 820 },
-    ];
-    const weekData = [
-      { name: "Mon", views: 120 },
-      { name: "Tue", views: 150 },
-      { name: "Wed", views: 180 },
-      { name: "Thu", views: 140 },
-      { name: "Fri", views: 200 },
-      { name: "Sat", views: 90 },
-      { name: "Sun", views: 85 },
-    ];
-    const dayData = Array.from({ length: 24 }, (_, i) => ({
-      name: `${i}:00`,
-      views: Math.floor(Math.random() * 50) + 10,
-    }));
-    const yearData = [
-      { name: "2020", views: 5200 },
-      { name: "2021", views: 6100 },
-      { name: "2022", views: 7300 },
-      { name: "2023", views: 8500 },
-      { name: "2024", views: 9200 },
-    ];
-    switch (chartPeriod) {
-      case "day":
-        return dayData;
-      case "week":
-        return weekData;
-      case "year":
-        return yearData;
-      default:
-        return monthData;
+  const [chart, setChart] = useState({ period: null, loading: true, data: null, error: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    setChart({ period: chartPeriod, loading: true, data: null, error: false });
+    async function loadChart() {
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "null");
+        if (!user?.id) throw new Error();
+        const { data } = await axios.get(`${API_BASE_URL}/api/profiles/employer/${encodeURIComponent(user.id)}/views/summary`, {
+          params: { period: chartPeriod }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        if (!controller.signal.aborted) setChart({ period: chartPeriod, loading: false, data, error: false });
+      } catch {
+        if (!controller.signal.aborted) setChart({ period: chartPeriod, loading: false, data: null, error: true });
+      }
     }
-  };
+    loadChart();
+    return () => controller.abort();
+  }, [chartPeriod]);
+  const chartLoading = chart.loading || chart.period !== chartPeriod;
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -230,8 +218,11 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={getChartData()}>
+        {chartLoading ? <div className="h-[300px] flex items-center justify-center text-gray-400" role="status">Loading profile views…</div>
+          : chart.error ? <div className="h-[300px] flex items-center justify-center text-red-400" role="alert">Unable to load profile views. Select a period to try again.</div>
+          : chart.data.total === 0 ? <div className="h-[300px] flex items-center justify-center text-gray-400">No profile views in this period.</div>
+          : <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chart.data.buckets}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis
               dataKey="name"
@@ -255,11 +246,11 @@ const Dashboard = () => {
               animationDuration={800}
             />
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
 
       {/* Recent Applicants */}
-      <RecentApplication />
+      <RecentApplication pageSize={6} onApplicationChange={refreshApplicationSummary} />
     </div>
   );
 };

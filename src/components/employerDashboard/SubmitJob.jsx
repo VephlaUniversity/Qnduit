@@ -4,15 +4,44 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "../profiles/profileApi";
+import { validateJobSalary } from "../utils/jobSalaryValidation";
+import { deadlineError, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 import { useSearchParams } from "react-router-dom";
+
+// Each mounted preview owns only its temporary URL, never a saved media URL.
+function JobMediaPreview({ media, imageOnly = false }) {
+  const [temporary, setTemporary] = useState(null);
+  const file = media instanceof File ? media : media.file instanceof File ? media.file : null;
+  useEffect(() => {
+    if (!file) return;
+    const type = /\.mp4$/i.test(file.name) ? "video/mp4"
+      : file.type || (/\.png$/i.test(file.name) ? "image/png" : "image/jpeg");
+    const url = URL.createObjectURL(file.type === type ? file : file.slice(0, file.size, type));
+    setTemporary({ file, url });
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const src = file ? (temporary?.file === file ? temporary.url : undefined) : media.preview;
+  if (!src) return null;
+  const video = !imageOnly && (media.type === "video" || (file && (file.type.startsWith("video/") || /\.mp4$/i.test(file.name))));
+  const className = "w-full h-full object-cover rounded-lg border border-white/10";
+  return video
+    ? <video key={src} src={src} controls playsInline preload="metadata" className={className} />
+    : <img src={src} alt="preview" className={className} />;
+}
 
 const SubmitJob = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const featuredImageRef = useRef(null);
   const photosRef = useRef(null);
+  const nextPhotoKey = useRef(0);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [salaryErrors, setSalaryErrors] = useState({});
+  const [deadlineMessage, setDeadlineMessage] = useState("");
+  const [savedDeadline, setSavedDeadline] = useState("");
+  const [loadingJob, setLoadingJob] = useState(true);
+  const [jobError, setJobError] = useState("");
   const [editingJobId, setEditingJobId] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -36,10 +65,29 @@ const SubmitJob = () => {
   const [photos, setPhotos] = useState([]);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("edit");
+  const isEditing = searchParams.has("edit");
 
   useEffect(() => {
 
-    if (!id) return;
+    setEditingJobId(null);
+    setJobError("");
+    setDeadlineMessage("");
+    setSavedDeadline("");
+    if (!isEditing) {
+      setFormData(prev => Object.fromEntries(Object.keys(prev).map(key => [key, ""])));
+      setFeaturedImage(null);
+      setPhotos([]);
+      setLoadingJob(false);
+      return;
+    }
+    if (!/^[a-f\d]{24}$/i.test(id || "")) {
+      setJobError("Invalid or missing job ID.");
+      setLoadingJob(false);
+      return;
+    }
+    let active = true;
+    const controller = new AbortController();
+    setLoadingJob(true);
 
     const fetchJob = async () => {
       try {
@@ -47,17 +95,22 @@ const SubmitJob = () => {
         const { data } = await axios.get(
           `${API_BASE_URL}/api/jobs/${id}`,
           {
+            signal: controller.signal,
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`
             }
           }
         );
 
+        if (!active) return;
         const job = data.job;
+        if (!job?._id || job._id.toLowerCase() !== id.toLowerCase()) {
+          setJobError("Job not found.");
+          return;
+        }
 
-        // activate edit mode using your frontend setup
-        setIsEditing(true);
         setEditingJobId(job._id);
+        setSavedDeadline(jobDateKey(job.deadlineDate));
 
         // map DB structure → your form structure
         setFormData({
@@ -67,42 +120,39 @@ const SubmitJob = () => {
           jobCategory: job.jobCategory || "",
           jobApplyType: job.jobApplyType || "",
           salaryType: job.salary?.type || "",
-          minSalary: job.salary?.min || "",
-          maxSalary: job.salary?.max || "",
+          minSalary: job.salary?.min ?? "",
+          maxSalary: job.salary?.max ?? "",
           experience: job.experience || "",
           careerLevel: job.careerLevel || "",
           qualification: job.qualification || "",
-          deadlineDate: job.deadlineDate
-            ? job.deadlineDate.split("T")[0]
-            : "",
+          deadlineDate: jobDateKey(job.deadlineDate),
           address: job.address || "",
           location: job.location || "",
         });
 
-        // Featured Image Preview (important for your UI)
-        if (job.featuredImage?.url) {
-          setFeaturedImage({
-            preview: `${API_BASE_URL}${job.featuredImage.url}`
-          });
-        }
-
-        // Gallery Preview
-        if (job.gallery?.length > 0) {
-          setPhotos(
-            job.gallery.map(item => ({
-              preview: `${API_BASE_URL}${item.url}`
-            }))
-          );
-        }
-
+        setFeaturedImage(job.featuredImage?.url
+          ? { preview: profileImageUrl(job.featuredImage.url) } : null);
+        setPhotos((job.gallery || []).map((item, index) => ({
+          key: `saved-${item._id || index}`,
+          id: item._id,
+          preview: profileImageUrl(item.url),
+          type: item.type,
+        })));
       } catch (error) {
-        console.log(error);
+        if (!active) return;
+        const status = error.response?.status;
+        setJobError(status === 401 ? "Your session expired. Please sign in again."
+          : status === 403 ? "You are not authorized to edit this job."
+          : status === 404 ? "Job not found."
+          : "Unable to load this job. Please try again.");
+      } finally {
+        if (active) setLoadingJob(false);
       }
     };
 
     fetchJob();
-
-  }, [id]);
+    return () => { active = false; controller.abort(); };
+  }, [id, isEditing]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -119,9 +169,22 @@ const SubmitJob = () => {
 
   const handlePhotosUpload = (e) => {
     const files = Array.from(e.target.files);
+    e.target.value = ""; // Allow another selection, including the same file.
     if (!files.length) return;
-
-    setPhotos(files);
+    if (files.some(file => !/\.(png|jpe?g|mp4)$/i.test(file.name))) {
+      toast({ title: "Unsupported gallery file", description: "Choose PNG, JPG, JPEG or MP4 files.", variant: "destructive" });
+      return;
+    }
+    if (photos.filter(photo => photo.file).length + files.length > 10) {
+      toast({ title: "Too many new files", description: "Upload up to 10 new gallery files per save.", variant: "destructive" });
+      return;
+    }
+    const additions = files.map(file => ({
+      key: `new-${nextPhotoKey.current++}`,
+      file,
+      type: file.type.startsWith("video/") || /\.mp4$/i.test(file.name) ? "video" : "image",
+    }));
+    setPhotos(prev => [...prev, ...additions]);
   };
 
 
@@ -130,7 +193,23 @@ const SubmitJob = () => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const reportSalaryErrors = (errors) => {
+    setSalaryErrors(errors);
+    requestAnimationFrame(() => {
+      const field = errors.minSalary ? "minSalary" : "maxSalary";
+      document.getElementById(`job-${field}`)?.focus();
+    });
+    toast({ title: "Check salary", description: Object.values(errors)[0], variant: "destructive" });
+  };
+
+  const reportDeadlineError = (message) => {
+    setDeadlineMessage(message);
+    requestAnimationFrame(() => document.getElementById("job-deadlineDate")?.focus());
+    toast({ title: "Check deadline", description: message, variant: "destructive" });
+  };
+
   const handleSubmit = async () => {
+    if (saving || loadingJob || jobError || (isEditing && !editingJobId)) return;
 
     if (!formData.jobTitle.trim()) {
       toast({
@@ -146,6 +225,14 @@ const SubmitJob = () => {
       return;
     }
 
+    const errors = validateJobSalary(formData);
+    if (Object.keys(errors).length) { reportSalaryErrors(errors); return; }
+    setSalaryErrors({});
+
+    const message = deadlineError(formData.deadlineDate, savedDeadline);
+    if (message) { reportDeadlineError(message); return; }
+    setDeadlineMessage("");
+
     const form = new FormData();
 
     Object.keys(formData).forEach(key => {
@@ -156,10 +243,10 @@ const SubmitJob = () => {
       form.append("featuredImage", featuredImage);
     }
 
+    // An explicit empty list means remove all; omission never clears saved media.
+    form.append("retainedGalleryIds", JSON.stringify(photos.filter(photo => !photo.file).map(photo => photo.id)));
     photos.forEach(photo => {
-      if(photo instanceof File){
-        form.append("photos", photo);
-      }
+      if (photo.file instanceof File) form.append("photos", photo.file);
     });
 
     try {
@@ -192,10 +279,17 @@ const SubmitJob = () => {
 
     } catch (err) {
 
-      toast({
-        title:"Error",
-        description:err.response?.data?.message || err.message,
-        variant:"destructive"
+      const errors = err.response?.data?.errors;
+      if (errors?.deadlineDate) reportDeadlineError(errors.deadlineDate);
+      else if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
+      else toast({
+        title: "Error",
+        description: err.response?.status === 401 ? "Your session expired. Please sign in again."
+          : err.response?.status === 403 ? "You are not authorized to save this job."
+          : err.response?.status === 404 ? "Job not found. Return to My Jobs and try again."
+          : err.response?.status === 400 ? "Please check the job details and try again."
+          : "Unable to save this job. Please try again.",
+        variant: "destructive",
       });
 
     }
@@ -207,6 +301,19 @@ const SubmitJob = () => {
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
   const selectClass =
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 appearance-none";
+
+  if (loadingJob || jobError) {
+    return (
+      <div className="min-h-screen bg-[#0E0E10] p-4 md:p-8 text-white">
+        <h1 className="text-2xl font-semibold mb-4">{isEditing ? "Edit Job" : "Submit Job"}</h1>
+        <p role={jobError ? "alert" : "status"}>{jobError || "Loading job…"}</p>
+        <button onClick={() => navigate("/dashboard/my-job")}
+          className="mt-4 min-h-[44px] px-4 border border-blue-500 rounded-lg focus-visible:outline focus-visible:outline-2">
+          Back to My Jobs
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -244,15 +351,7 @@ const SubmitJob = () => {
           </div>
           {featuredImage && (
             <div className="mt-3 relative w-32 h-20">
-              <img
-                src={
-                  featuredImage instanceof File
-                    ? URL.createObjectURL(featuredImage)
-                    : featuredImage.preview
-                }
-                alt="preview"
-                className="w-full h-full object-cover rounded-lg border border-white/10"
-              />
+              <JobMediaPreview media={featuredImage} imageOnly />
               <button
                 onClick={() => setFeaturedImage(null)}
                 className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center"
@@ -370,28 +469,38 @@ const SubmitJob = () => {
         {/* Min & Max Salary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-minSalary" className="block text-gray-400 text-sm mb-2">
               Min. Salary
             </label>
             <input
               type="text"
               name="minSalary"
+              id="job-minSalary"
+              inputMode="decimal"
+              aria-invalid={Boolean(salaryErrors.minSalary)}
+              aria-describedby={salaryErrors.minSalary ? "job-minSalary-error" : undefined}
               value={formData.minSalary}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {salaryErrors.minSalary && <p id="job-minSalary-error" className="text-red-400 text-sm mt-2">{salaryErrors.minSalary}</p>}
           </div>
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-maxSalary" className="block text-gray-400 text-sm mb-2">
               Max. Salary
             </label>
             <input
               type="text"
               name="maxSalary"
+              id="job-maxSalary"
+              inputMode="decimal"
+              aria-invalid={Boolean(salaryErrors.maxSalary)}
+              aria-describedby={salaryErrors.maxSalary ? "job-maxSalary-error" : undefined}
               value={formData.maxSalary}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {salaryErrors.maxSalary && <p id="job-maxSalary-error" className="text-red-400 text-sm mt-2">{salaryErrors.maxSalary}</p>}
           </div>
         </div>
 
@@ -457,32 +566,35 @@ const SubmitJob = () => {
             </select>
           </div>
           <div>
-            <label className="block text-gray-400 text-sm mb-2">
+            <label htmlFor="job-deadlineDate" className="block text-gray-400 text-sm mb-2">
               Applicant Deadline Date
             </label>
             <input
               type="date"
               name="deadlineDate"
+              id="job-deadlineDate"
+              min={lagosDateKey()}
+              aria-invalid={Boolean(deadlineMessage)}
+              aria-describedby={deadlineMessage ? "job-deadlineDate-error" : undefined}
               value={formData.deadlineDate}
               onChange={handleInputChange}
               className={inputClass}
             />
+            {deadlineMessage && <p id="job-deadlineDate-error" className="text-red-400 text-sm mt-2">{deadlineMessage}</p>}
+            {savedDeadline && savedDeadline < lagosDateKey() && <p className="text-gray-400 text-sm mt-2">You may keep the existing expired deadline unchanged.</p>}
           </div>
         </div>
 
         {/* Photo */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Photo</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">Gallery</h2>
           {photos.length > 0 && (
             <div className="flex flex-wrap gap-4 mb-4">
               {photos.map((photo, index) => (
-                <div key={index} className="relative w-44 h-28">
-                  <img
-                    src={URL.createObjectURL(photo)}
-                    alt="preview"
-                    className="w-full h-full object-cover rounded-lg border border-white/10"
-                  />
+                <div key={photo.key} className="relative w-64 h-44">
+                  <JobMediaPreview media={photo} />
                   <button
+                    aria-label={`Remove gallery item ${index + 1}`}
                     onClick={() => removePhoto(index)}
                     className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center"
                   >
@@ -497,7 +609,7 @@ const SubmitJob = () => {
               ref={photosRef}
               type="file"
               name="photos"
-              accept="image/*,video/*"
+              accept=".png,.jpg,.jpeg,.mp4,image/png,image/jpeg,video/mp4"
               multiple
               onChange={handlePhotosUpload}
               className="hidden"
@@ -506,9 +618,9 @@ const SubmitJob = () => {
               onClick={() => photosRef.current?.click()}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
             >
-              Browse
+              Add gallery files
             </button>
-            <span className="text-gray-400 text-sm">Upload image, video</span>
+            <span className="text-gray-400 text-sm">PNG, JPG, JPEG or MP4. Selections append (up to 10 new files per save).</span>
           </div>
         </div>
 
@@ -554,7 +666,11 @@ const SubmitJob = () => {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <button onClick={() => navigate("/dashboard/my-job")} disabled={saving}
+            className="min-h-[44px] px-6 py-3 border border-white/20 text-white rounded-lg focus-visible:outline focus-visible:outline-2 disabled:opacity-70">
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
             disabled={saving}

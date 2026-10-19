@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import * as Slider from "@radix-ui/react-slider";
 import {
@@ -15,17 +15,33 @@ import {
   Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
+import { useToast } from "../hooks/useToast";
+import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 
-const useCandidates = (keyword = "") => {
+function CandidateAvatar({ url, name }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+      {url && !failed ? <img src={url} alt={`${name} profile`} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : (name || "T").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+const useCandidates = (keyword, page, limit, location, minAge, maxAge, sort, experience, qualification) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [locations, setLocations] = useState([]);
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setError(null);
 
     const timer = setTimeout(async () => {
       try {
@@ -34,7 +50,9 @@ const useCandidates = (keyword = "") => {
 
         const token = localStorage.getItem("token");
         const query = new URLSearchParams({
-          query: keyword.trim(),
+          query: keyword.trim(), userType: "talent", page: String(page), limit: String(limit),
+          location: location === "all" ? "" : location, minAge: String(minAge), maxAge: String(maxAge), sort,
+          experience, qualification,
         });
 
         const response = await fetch(
@@ -84,9 +102,10 @@ const useCandidates = (keyword = "") => {
             : Array.isArray(talent.categories)
               ? talent.categories
               : [],
+          avatarUrl: profileImageUrl(typeof talent.avatar === "string" ? talent.avatar : talent.avatar?.url),
           salary:
-            talent.expectedSalary != null
-              ? String(talent.expectedSalary)
+            talent.offeredSalary != null && String(talent.offeredSalary).trim() !== ""
+              ? `$${String(talent.offeredSalary).trim()}${typeof talent.salaryType === "string" && talent.salaryType.trim() ? `/${talent.salaryType.trim()}` : ""}`
               : "Not specified",
           age: talent.age ?? "",
           availability:
@@ -94,9 +113,12 @@ const useCandidates = (keyword = "") => {
           verified: Boolean(talent.isVerified),
         }));
 
+        if (controller.signal.aborted) return;
+        setLocations(Array.isArray(result.locations) ? result.locations : []);
+        setTotal(result.total || 0);
         setData(formattedTalents);
       } catch (err) {
-        if (err.name !== "AbortError") {
+        if (!controller.signal.aborted) {
           console.error("Failed to fetch talents:", err);
           setError(err.message || "Unable to load talent profiles.");
           setData([]);
@@ -112,100 +134,132 @@ const useCandidates = (keyword = "") => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [keyword]);
+  }, [keyword, page, limit, location, minAge, maxAge, sort, experience, qualification]);
 
-  return { data, loading, error };
+  return { data, loading, error, total, locations };
 };
 
 
-const TalentsResultsPage = ({ searchParams }) => {
-  const location = useLocation();
+const searchDefaults = {
+  jobTitle: "", location: "all", minAge: 18, maxAge: 65,
+  experience: "Any experience", qualification: "Any qualification", workType: "all",
+  sort: "default", limit: 6, page: 1,
+};
+const searchChoices = {
+  experience: ["Any experience", "< 1 year", "1–3 years", "3–5 years", "5+ years"],
+  qualification: ["Any qualification", "Certificate", "Bachelor Degree", "Master Degree", "PhD"],
+  workType: ["all", "full-time", "part-time", "contract"],
+  sort: ["default", "newest", "salary"],
+};
+function readSearch(params) {
+  const state = { ...searchDefaults };
+  for (const key of ["jobTitle", "location"]) {
+    if (params.has(key)) state[key] = params.get(key) || searchDefaults[key];
+  }
+  state.location = state.location.trim().toLowerCase() || "all";
+  for (const [key, choices] of Object.entries(searchChoices)) {
+    if (choices.includes(params.get(key))) state[key] = params.get(key);
+  }
+  for (const key of ["minAge", "maxAge", "limit", "page"]) {
+    const raw = params.get(key);
+    const value = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
+    if (Number.isSafeInteger(value) && (key === "limit" ? [6, 12, 24].includes(value)
+      : key === "page" ? value >= 1 : value >= 18 && value <= 65)) state[key] = value;
+  }
+  if (state.minAge >= state.maxAge) { state.minAge = 18; state.maxAge = 65; }
+  return state;
+}
+function writeSearch(params, state) {
+  const next = new URLSearchParams(params);
+  for (const key of Object.keys(searchDefaults)) {
+    next.delete(key);
+    if (state[key] !== searchDefaults[key]) next.set(key, String(state[key]));
+  }
+  return next;
+}
 
-  const urlKeyword =
-    searchParams?.jobTitle ??
-    new URLSearchParams(location.search).get("jobTitle") ??
-    "";
-
+const TalentsResultsPage = () => {
+  const [params, setParams] = useSearchParams();
+  const search = readSearch(params);
+  const canonical = writeSearch(params, search).toString();
+  const queryString = params.toString();
+  // Canonicalize invalid/default URL values without a second state synchronization effect.
+  useEffect(() => {
+    if (canonical !== queryString) setParams(canonical, { replace: true });
+  }, [canonical, queryString, setParams]);
+  const updateSearch = (changes, { pagination = false, replace = false } = {}) => {
+    setParams(writeSearch(params, { ...search, ...changes, ...(!pagination ? { page: 1 } : {}) }), { replace });
+  };
+  const keywordSearch = search.jobTitle;
+  const locationFilter = search.location;
+  const workTypeFilter = search.workType;
+  const ageRange = [search.minAge, search.maxAge];
+  const currentPage = search.page;
+  const itemsPerPage = search.limit;
+  const sortBy = search.sort;
   const [viewMode, setViewMode] = useState("grid");
-  const [ageRange, setAgeRange] = useState([18, 65]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(6);
-  const [sortBy, setSortBy] = useState("default");
-  const [keywordSearch, setKeywordSearch] = useState(urlKeyword);
-  const [locationFilter, setLocationFilter] = useState("all");
-  const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const { toast } = useToast();
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [savedReady, setSavedReady] = useState(false);
+  const [savingIds, setSavingIds] = useState(new Set());
+  const pendingSaves = useRef(new Set());
   useEffect(() => {
-    setKeywordSearch(urlKeyword);
-    setCurrentPage(1);
-  }, [urlKeyword]);
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates`, {
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (controller.signal.aborted) return;
+        setSavedIds(new Set(data.savedCandidates.map(candidate => String(candidate._id))));
+        setSavedReady(true);
+      } catch {
+        if (!controller.signal.aborted) toast({ title: "Unable to load saved candidates", description: "Refresh to try again.", variant: "destructive" });
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [toast]);
+  const toggleSaved = async (candidate) => {
+    if (!savedReady || pendingSaves.current.has(candidate.id)) return;
+    pendingSaves.current.add(candidate.id);
+    setSavingIds(new Set(pendingSaves.current));
+    const unsave = savedIds.has(candidate.id);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates/${encodeURIComponent(candidate.id)}`, {
+        method: unsave ? "DELETE" : "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error();
+      setSavedIds(previous => {
+        const next = new Set(previous);
+        if (unsave) next.delete(candidate.id); else next.add(candidate.id);
+        return next;
+      });
+      toast({ title: "Success", description: unsave ? "Candidate removed from saved candidates." : "Candidate saved." });
+    } catch {
+      toast({ title: "Unable to update saved candidates", description: "Please try again. Your selection has not changed.", variant: "destructive" });
+    } finally {
+      pendingSaves.current.delete(candidate.id);
+      setSavingIds(new Set(pendingSaves.current));
+    }
+  };
 
   const {
     data: allCandidates,
     loading,
-    error,
-  } = useCandidates(keywordSearch);
+    error, total, locations,
+  } = useCandidates(keywordSearch, currentPage, itemsPerPage, locationFilter, ageRange[0], ageRange[1], sortBy, search.experience, search.qualification);
 
-  // Unique locations derived from data
-  const locations = [...new Set(allCandidates.map((c) => c.location))].sort();
-
-  // Filter
-  const filteredCandidates = allCandidates.filter((candidate) => {
-    if (keywordSearch.trim()) {
-      const q = keywordSearch.toLowerCase();
-
-      const match =
-        (candidate.name || "").toLowerCase().includes(q) ||
-        (candidate.title || "").toLowerCase().includes(q) ||
-        (candidate.location || "").toLowerCase().includes(q) ||
-        (candidate.skills || []).some((skill) =>
-          skill.toLowerCase().includes(q),
-        );
-
-      if (!match) return false;
-    }
-
-    if (locationFilter !== "all") {
-      if (
-        !(candidate.location || "")
-          .toLowerCase()
-          .includes(locationFilter.toLowerCase())
-      ) {
-        return false;
-      }
-    }
-
-    const ageNum = parseInt(candidate.age, 10);
-
-    if (
-      !Number.isNaN(ageNum) &&
-      (ageNum < ageRange[0] || ageNum > ageRange[1])
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Sort
-  const sortedCandidates = [...filteredCandidates].sort((a, b) => {
-    if (sortBy === "newest") return b.id - a.id;
-    if (sortBy === "salary") {
-      return (
-        parseInt(b.salary.replace(/[^0-9]/g, "")) -
-        parseInt(a.salary.replace(/[^0-9]/g, ""))
-      );
-    }
-    return 0;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(sortedCandidates.length / itemsPerPage);
-  const paginatedCandidates = sortedCandidates.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+  // Matching and pagination belong to the server; do not filter away API matches.
+  const filteredCandidates = allCandidates;
+  const paginatedCandidates = allCandidates;
+  const totalPages = Math.ceil(total / itemsPerPage);
 
   const getPageNumbers = () => {
     const pages = [];
@@ -222,16 +276,12 @@ const TalentsResultsPage = ({ searchParams }) => {
   };
 
   const handlePageChange = (page) => {
-    setCurrentPage(page);
+    updateSearch({ page }, { pagination: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const resetFilters = () => {
-    setKeywordSearch(searchParams?.jobTitle || "");
-    setLocationFilter("all");
-    setWorkTypeFilter("all");
-    setAgeRange([18, 65]);
-    setCurrentPage(1);
+    setParams(writeSearch(params, searchDefaults));
     setSidebarOpen(false);
   };
 
@@ -239,9 +289,7 @@ const TalentsResultsPage = ({ searchParams }) => {
     <div className="bg-[#191D23] rounded-2xl p-6">
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
-          <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
-            {(candidate.name || "T").charAt(0).toUpperCase()}
-          </div>
+          <CandidateAvatar key={`${candidate.id}:${candidate.avatarUrl}`} url={candidate.avatarUrl} name={candidate.name} />
           <div>
             <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
             <h2 className="text-white font-semibold text-lg flex items-center gap-2">
@@ -267,8 +315,12 @@ const TalentsResultsPage = ({ searchParams }) => {
             </div>
           </div>
         </div>
-        <button className="p-2 hover:bg-gray-700 rounded-full">
-          <Heart className="w-5 h-5 text-gray-400" />
+        <button className="p-2 hover:bg-gray-700 rounded-full"
+          aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
+          aria-pressed={savedIds.has(candidate.id)}
+          disabled={!savedReady || savingIds.has(candidate.id)}
+          onClick={() => toggleSaved(candidate)}>
+          <Heart className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
         </button>
       </div>
 
@@ -288,40 +340,10 @@ const TalentsResultsPage = ({ searchParams }) => {
         </span>
       </div>
       <hr className="border-gray-700 mb-3" />
-      <Link className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-500 px-6 text-blue-400 focus-visible:outline focus-visible:outline-2" to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?jobTitle=${encodeURIComponent(keywordSearch)}`}>View Profile</Link>
+      <Link className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-500 px-6 text-blue-400 focus-visible:outline focus-visible:outline-2" to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?${params.toString()}`}>View Profile</Link>
     </div>
   );
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-400 text-sm">Loading candidates...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <div className="text-center">
-          <p className="text-red-400 mb-4">
-            Failed to load candidates: {error}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -375,8 +397,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                       placeholder="Keyword"
                       value={keywordSearch}
                       onChange={(e) => {
-                        setKeywordSearch(e.target.value);
-                        setCurrentPage(1);
+                        updateSearch({ jobTitle: e.target.value }, { replace: true });
                       }}
                       className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3B82F6]"
                     />
@@ -390,8 +411,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                     <select
                       value={locationFilter}
                       onChange={(e) => {
-                        setLocationFilter(e.target.value);
-                        setCurrentPage(1);
+                        updateSearch({ location: e.target.value });
                         setSidebarOpen(false);
                       }}
                       className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]"
@@ -414,8 +434,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                     <select
                       value={workTypeFilter}
                       onChange={(e) => {
-                        setWorkTypeFilter(e.target.value);
-                        setCurrentPage(1);
+                        updateSearch({ workType: e.target.value });
                       }}
                       className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]"
                     >
@@ -437,8 +456,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                     className="relative flex items-center select-none touch-none w-full h-5"
                     value={ageRange}
                     onValueChange={(v) => {
-                      setAgeRange(v);
-                      setCurrentPage(1);
+                      updateSearch({ minAge: v[0], maxAge: v[1] });
                     }}
                     max={65}
                     min={18}
@@ -463,7 +481,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                 <div>
                   <h3 className="text-white font-semibold mb-4">Experience</h3>
                   <div className="relative">
-                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
+                    <select value={search.experience} onChange={(e) => updateSearch({ experience: e.target.value })} className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
                       <option>Any experience</option>
                       <option>&lt; 1 year</option>
                       <option>1–3 years</option>
@@ -480,7 +498,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                     Qualification
                   </h3>
                   <div className="relative">
-                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
+                    <select value={search.qualification} onChange={(e) => updateSearch({ qualification: e.target.value })} className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
                       <option>Any qualification</option>
                       <option>Certificate</option>
                       <option>Bachelor Degree</option>
@@ -523,16 +541,15 @@ const TalentsResultsPage = ({ searchParams }) => {
                     <Grid className="w-5 h-5" />
                   </button>
                   <span className="text-gray-400 text-sm">
-                    {filteredCandidates.length} candidate
-                    {filteredCandidates.length !== 1 ? "s" : ""} found
+                    {total} candidate
+                    {total !== 1 ? "s" : ""} found
                   </span>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
-                      setItemsPerPage(parseInt(e.target.value));
-                      setCurrentPage(1);
+                      updateSearch({ limit: Number(e.target.value) });
                     }}
                     className="bg-[#f1f1f1] border border-gray-700 rounded-sm px-4 py-2 text-sm text-black"
                   >
@@ -543,8 +560,7 @@ const TalentsResultsPage = ({ searchParams }) => {
                   <select
                     value={sortBy}
                     onChange={(e) => {
-                      setSortBy(e.target.value);
-                      setCurrentPage(1);
+                      updateSearch({ sort: e.target.value });
                     }}
                     className="bg-[#f1f1f1] border border-gray-700 rounded-sm px-4 py-2 text-sm text-black"
                   >
@@ -556,7 +572,28 @@ const TalentsResultsPage = ({ searchParams }) => {
               </div>
 
               {/* No Results */}
-              {filteredCandidates.length === 0 ? (
+              {loading ? (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-400 text-sm">Loading candidates...</p>
+        </div>
+      </div>
+              ) : error ? (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">
+            Failed to load candidates: {error}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+              ) : filteredCandidates.length === 0 ? (
                 <Motion.div
                   className="p-12 text-center"
                   initial={{ opacity: 0, y: 24 }}

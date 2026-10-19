@@ -22,6 +22,7 @@ import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import followRoutes from "./routes/followRoutes.js";
 import supportRoutes from "./routes/supportRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
@@ -73,6 +74,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/follows", followRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/profiles", profileRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Error Handler
 app.use(errorHandler);

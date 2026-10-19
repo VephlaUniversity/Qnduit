@@ -29,7 +29,13 @@ const employerFields =
   "companyName displayName email location companyIndustry categories tags logo profileURL accountType";
 
 const talentFields =
-  "firstName lastName fullName email jobTitle location categories tags avatar qualification experienceTime aboutMe";
+  "firstName lastName fullName email jobTitle location categories tags avatar qualification experienceTime aboutMe showProfile accountStatus isVerified";
+
+// Preserve relationships and public row fields; only indicate whether navigation is available.
+const talentListFields = (talent) => {
+  const { showProfile, accountStatus, isVerified, ...fields } = talent;
+  return { ...fields, profileAvailable: Boolean(isVerified) && accountStatus !== "suspended" && showProfile !== "hidden" };
+};
 
 const employerName = (employer) =>
   employer.displayName || employer.companyName || "Employer";
@@ -343,7 +349,7 @@ export const getEmployerFollowers = async (req, res) => {
       data: follows
         .filter((item) => item.talent)
         .map((item) => ({
-          ...item.talent,
+          ...talentListFields(item.talent),
           id: String(item.talent._id),
           name: talentName(item.talent),
           followedAt: item.createdAt,
@@ -475,7 +481,7 @@ export const getEmployerFollowingTalents = async (req, res) => {
       data: follows
         .filter((item) => item.talent)
         .map((item) => ({
-          ...item.talent,
+          ...talentListFields(item.talent),
           id: String(item.talent._id),
           name: talentName(item.talent),
           isFollowing: true,

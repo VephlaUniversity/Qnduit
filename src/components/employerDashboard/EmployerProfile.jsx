@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   MapPin,
   Edit,
@@ -15,7 +15,10 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { formatJobDeadline } from "../utils/jobDeadline";
+import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
+import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -36,6 +39,7 @@ const getYouTubeVideoId = (url) => {
 export const EmployerProfile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const aboutCompanyHtml = useMemo(() => sanitizeEmployerAbout(profile?.aboutCompany), [profile?.aboutCompany]);
   const [availableJobs] = useState([]);
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
@@ -83,6 +87,16 @@ export const EmployerProfile = () => {
     : [];
 
   const youtubeVideoId = getYouTubeVideoId(profile?.introVideo);
+  const website = typeof profile?.companyWebsite === "string" ? profile.companyWebsite.trim() : "";
+  let websiteHref = "";
+  try {
+    const url = new URL(website);
+    if (website.toLowerCase().startsWith("https://") && url.protocol === "https:"
+      && url.hostname && !url.username && !url.password
+      && !Array.from(website).some(char => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)) {
+      websiteHref = website;
+    }
+  } catch { /* Missing or invalid websites remain plain text. */ }
 
   const galleryItems = profile?.gallery || [];
   const hasGallery = galleryItems.length > 0;
@@ -119,7 +133,7 @@ export const EmployerProfile = () => {
             <div className="w-20 h-20 rounded-lg bg-gray-600 flex-shrink-0 overflow-hidden">
               {profile?.logo ? (
                 <img
-                  src={`${API_BASE_URL}${profile.logo}`}
+                  src={profileImageUrl(profile.logo)}
                   alt="Logo"
                   className="w-full h-full object-cover"
                 />
@@ -192,16 +206,18 @@ export const EmployerProfile = () => {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Website</span>
-                <a
-                  href={`https://${profile?.website}`}
+                {websiteHref ? <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
-                  {profile?.companyWebsite || "N/A"}
-                </a>
+                  {website}
+                </a> : <span className="text-white">{website || "N/A"}</span>}
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Email</span>
-                <span className="text-white">{profile?.email || "N/A"}</span>
+                <span className="text-white">{profile?.companyEmail || "N/A"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Industry</span>
@@ -262,10 +278,10 @@ export const EmployerProfile = () => {
               <h3 className="text-xl font-semibold text-white mb-4">
                 About Company
               </h3>
-              {profile?.aboutCompany ? (
+              {aboutCompanyHtml ? (
                 <div
                   className="text-gray-400 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: profile.aboutCompany }}
+                  dangerouslySetInnerHTML={{ __html: aboutCompanyHtml }}
                 />
               ) : (
                 <p className="text-gray-400 leading-relaxed">
@@ -289,7 +305,7 @@ export const EmployerProfile = () => {
                   galleryItems[currentGalleryIndex].type === "video" ? (
                     <video
                       key={galleryItems[currentGalleryIndex].url}
-                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
+                      src={profileImageUrl(galleryItems[currentGalleryIndex].url)}
                       className="w-full h-full object-cover"
                       controls
                       autoPlay
@@ -299,7 +315,7 @@ export const EmployerProfile = () => {
                   ) : (
                     <img
                       key={galleryItems[currentGalleryIndex].url}
-                      src={`${API_BASE_URL}${galleryItems[currentGalleryIndex].url}`}
+                      src={profileImageUrl(galleryItems[currentGalleryIndex].url)}
                       alt={`Gallery ${currentGalleryIndex + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -350,14 +366,14 @@ export const EmployerProfile = () => {
                       >
                         {item.type === "video" ? (
                           <video
-                            src={`${API_BASE_URL}${item.url}`}
+                            src={profileImageUrl(item.url)}
                             className="w-full h-full object-cover"
                             muted
                           />
 
                         ) : (
                           <img
-                            src={`${API_BASE_URL}${item.url}`}
+                            src={profileImageUrl(item.url)}
                             alt={`Thumbnail ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -404,7 +420,7 @@ export const EmployerProfile = () => {
                           <div className="w-16 h-16 rounded bg-gray-600 flex-shrink-0 overflow-hidden">
                             {profile?.logo ? (
                               <img
-                                src={`${API_BASE_URL}${profile.logo}`}
+                                src={profileImageUrl(profile.logo)}
                                 alt="Company"
                                 className="w-full h-full object-cover"
                               />
@@ -479,7 +495,7 @@ export const EmployerProfile = () => {
                         </div>
                         <span className="text-gray-400 text-sm">
                           {job.deadlineDate
-                            ? `Expires: ${job.deadlineDate}`
+                            ? `Expires: ${formatJobDeadline(job.deadlineDate)}`
                             : "No deadline set"}
                         </span>
                       </div>

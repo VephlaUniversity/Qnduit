@@ -1,4 +1,5 @@
 import Employer from "../models/Employer.js";
+import { employerGallerySelection } from "../utils/employerGallery.js";
 import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
@@ -215,6 +216,12 @@ export const updateEmployerProfile = async (req, res) => {
       }
     }
 
+    const existingEmployer = await Employer.findById(id);
+    if (!existingEmployer) return res.status(404).json({ success: false, message: "Employer not found" });
+    const gallery = employerGallerySelection(body, existingEmployer.gallery);
+    if (gallery.error) return res.status(400).json({ success: false, message: gallery.error });
+    if (gallery.explicit || req.files?.gallery) updates.gallery = gallery.items;
+
     if (req.files?.logo) {
       const logoFile = req.files.logo[0];
 
@@ -243,7 +250,7 @@ export const updateEmployerProfile = async (req, res) => {
     }
 
     if (req.files?.gallery) {
-      updates.gallery = [];
+      // Retained saved items precede new uploads; omission preserves existing media.
 
       for (const file of req.files.gallery) {
         const isVideo = file.mimetype.startsWith("video/");
@@ -275,16 +282,6 @@ export const updateEmployerProfile = async (req, res) => {
         });
       }
     }
-
-    const existingEmployer = await Employer.findById(id);
-
-    if (!existingEmployer) {
-      return res.status(404).json({
-        success:false,
-        message:"Employer not found"
-      });
-    }
-
 
     if (
       (updates.companyName || existingEmployer.companyName) &&
@@ -350,6 +347,7 @@ export const getEmployerProfile = async (req, res) => {
 
       gallery:
         employer.gallery?.map(item => ({
+          _id: item._id,
           url: item.url,
           type: item.type
         })) || [],
@@ -377,63 +375,41 @@ export const getEmployerProfile = async (req, res) => {
   }
 };
 
-export const addSavedCandidate = async (req, res, next) => {
+export const addSavedCandidate = async (req, res) => {
   try {
-    const employerId = req.user._id;
     const candidateId = req.params.id;
-
-    const employer = await Employer.findById(employerId);
-
-    if (!employer) return res.status(404).json({ message: "Employer not found" });
-
-    if (employer.savedCandidates.includes(candidateId)) {
-      return res.status(400).json({ message: "Candidate already saved" });
-    }
-
-    employer.savedCandidates.push(candidateId);
-    await employer.save();
-
-    res.status(200).json({ success: true, message: "Candidate saved successfully" });
-  } catch (error) {
-    next(error);
+    if (!/^[a-f\d]{24}$/i.test(candidateId)) return res.status(400).json({ message: "Invalid Talent ID." });
+    if (!await Talent.exists({ _id: candidateId })) return res.status(404).json({ message: "Talent not found." });
+    // Atomic and idempotent, including concurrent application/search saves.
+    const result = await Employer.updateOne({ _id: req.user._id }, { $addToSet: { savedCandidates: candidateId } });
+    if (!result.matchedCount) return res.status(404).json({ message: "Employer not found" });
+    res.json({ success: true, message: "Candidate saved successfully" });
+  } catch {
+    res.status(500).json({ message: "Unable to save candidate. Please try again." });
   }
 };
 
-export const getSavedCandidates = async (req, res, next) => {
+export const getSavedCandidates = async (req, res) => {
   try {
-    const employerId = req.user._id;
-
-    const employer = await Employer.findById(employerId).populate({
+    const employer = await Employer.findById(req.user._id).populate({
       path: "savedCandidates",
-      select: "firstName lastName location jobTitle avatar resume"
+      select: "firstName lastName fullName location jobTitle avatar resume offeredSalary salaryType"
     });
-
-    res.status(200).json({ savedCandidates: employer.savedCandidates });
-  } catch (error) {
-    next(error);
+    if (!employer) return res.status(404).json({ message: "Employer not found" });
+    res.json({ savedCandidates: employer.savedCandidates.filter(Boolean) });
+  } catch {
+    res.status(500).json({ message: "Unable to load saved candidates. Please try again." });
   }
 };
 
-export const removeSavedCandidate = async (req, res, next) => {
+export const removeSavedCandidate = async (req, res) => {
   try {
-    const employerId = req.user._id;
     const candidateId = req.params.id;
-
-    const employer = await Employer.findById(employerId);
-
-    if (!employer) {
-      return res.status(404).json({ success: false, message: "Employer not found" });
-    }
-
-    employer.savedCandidates = employer.savedCandidates.filter(
-      (candidate) => candidate._id.toString() !== candidateId
-    );
-
-    await employer.save();
-
-    res.status(200).json({ success: true, message: "Candidate removed successfully" });
-  } catch (error) {
-    next(error);
+    if (!/^[a-f\d]{24}$/i.test(candidateId)) return res.status(400).json({ message: "Invalid Talent ID." });
+    const result = await Employer.updateOne({ _id: req.user._id }, { $pull: { savedCandidates: candidateId } });
+    if (!result.matchedCount) return res.status(404).json({ message: "Employer not found" });
+    res.json({ success: true, message: "Candidate removed successfully" });
+  } catch {
+    res.status(500).json({ message: "Unable to remove candidate. Please try again." });
   }
 };
-

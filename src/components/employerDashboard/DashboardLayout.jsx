@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
+import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
+import { profileImageUrl } from "../profiles/profileApi";
+import { useMessagingCoordinator } from "../hooks/useMessagingCoordinator";
 import { useAuth } from "../hooks/useAuth";
 import { NotificationPop } from "./NotificationPop";
 import {
@@ -52,6 +55,14 @@ const SEARCH_CONFIG = {
   },
 };
 
+const OwnerAvatar = ({ image }) => {
+  const [failed, setFailed] = useState(false);
+  const url = profileImageUrl(image);
+  return <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+    {url && !failed ? <img src={url} alt="" className="w-full h-full rounded-full object-cover" onError={() => setFailed(true)} /> : <User className="w-5 h-5" />}
+  </div>;
+};
+
 export const DashboardLayout = ({
   children,
   menuItems,
@@ -60,6 +71,8 @@ export const DashboardLayout = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
+  const messaging = useMessagingCoordinator();
+  const ownerAvatar = useOwnerAvatar();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -93,6 +106,7 @@ export const DashboardLayout = ({
       clearTimeout(debounceTimer.current);
     }
 
+    const controller = new AbortController();
     const trimmed = searchQuery.trim();
 
     if (!trimmed) {
@@ -112,9 +126,10 @@ export const DashboardLayout = ({
         const searchUrl =
           userType === "talent"
             ? `${API_BASE_URL}/api/jobs?q=${encodeURIComponent(trimmed)}`
-            : `${API_BASE_URL}/api/gen/search?query=${encodeURIComponent(trimmed)}`;
+            : `${API_BASE_URL}/api/gen/search?userType=talent&query=${encodeURIComponent(trimmed)}`;
 
         const response = await fetch(searchUrl, {
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -135,9 +150,15 @@ export const DashboardLayout = ({
               ? data.data
               : [];
 
-        setSearchResults(results);
+        if (controller.signal.aborted) return;
+        setSearchResults(userType === "employer" ? results.filter(item => item.userType === "talent").map(talent => ({
+          ...talent,
+          name: talent.fullName || talent.name || [talent.firstName, talent.lastName].filter(Boolean).join(" ") || talent.email || "Talent",
+          role: talent.jobTitle || talent.title || "Talent",
+        })) : results);
         setSearchStatus("success");
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("Search error:", error);
         setSearchResults([]);
         setSearchStatus("error");
@@ -145,6 +166,7 @@ export const DashboardLayout = ({
     }, 400);
 
     return () => {
+      controller.abort();
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
@@ -162,15 +184,11 @@ export const DashboardLayout = ({
     );
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && searchQuery.trim()) {
-      setShowDropdown(false);
-      navigate(
-        `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(
-          searchQuery.trim(),
-        )}`,
-      );
-    }
+  const submitSearch = (event) => {
+    event.preventDefault();
+    if (!searchQuery.trim()) return;
+    setShowDropdown(false);
+    navigate(`${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`);
   };
 
   const defaultMenuItems = menuItems || [
@@ -235,12 +253,14 @@ export const DashboardLayout = ({
           <div className="flex items-center gap-3">
             {/* ── Smart Search Bar ── */}
             <div ref={searchRef} className="relative">
-              <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors">
+              <form onSubmit={submitSearch} className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors">
+                <button type="submit" aria-label="Submit search" className="min-w-8 min-h-8 flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                 {searchStatus === "loading" ? (
                   <Loader2 className="w-4 h-4 text-gray-500 flex-shrink-0 animate-spin" />
                 ) : (
                   <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
                 )}
+                </button>
                 <input
                   type="text"
                   placeholder={config.placeholder}
@@ -250,10 +270,9 @@ export const DashboardLayout = ({
                     if (searchQuery.trim() && searchStatus !== "idle")
                       setShowDropdown(true);
                   }}
-                  onKeyDown={handleKeyDown}
                   className="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full"
                 />
-              </div>
+              </form>
 
               {/* Dropdown */}
               {showDropdown && (
@@ -327,9 +346,8 @@ export const DashboardLayout = ({
               <HelpCircle className="w-5 h-5" />
             </button>
             <NotificationPop>
-              <button className="text-gray-400 hover:text-white transition-colors relative">
+              <button type="button" aria-label="Notifications" className="text-gray-400 hover:text-white transition-colors relative">
                 <BellRing className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
               </button>
             </NotificationPop>
 
@@ -338,9 +356,7 @@ export const DashboardLayout = ({
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-                  <User className="w-5 h-5" />
-                </div>
+                <OwnerAvatar key={`${ownerAvatar.key}:${ownerAvatar.image}`} image={ownerAvatar.image} />
                 <span className="hidden sm:block text-sm">
                   {userType === "talent" ? "Talent" : "Employer"}
                 </span>
@@ -399,6 +415,7 @@ export const DashboardLayout = ({
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  title={item.path.endsWith("/messages") ? messaging.error || (messaging.enabled === false ? "Unread tracking is not enabled." : undefined) : undefined}
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
@@ -408,6 +425,7 @@ export const DashboardLayout = ({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{item.label}</span>
+                  {item.path.endsWith("/messages") && messaging.total > 0 && <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white" title={messaging.error || "Unread messages"} aria-label={`${messaging.total} unread messages`}>{messaging.total}</span>}
                 </NavLink>
               );
             })}

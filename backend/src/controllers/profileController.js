@@ -1,3 +1,4 @@
+import { profileViewSummaryRange } from "../utils/profileViewSummary.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 import ProfileView, {
@@ -243,4 +244,23 @@ export const getProfileViews = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export const getProfileViewSummary = async (req, res, next) => {
+  try {
+    if (!isSelf(req)) return res.status(403).json({ message: "Only the profile owner can view this summary" });
+    const period = req.query.period ?? "month";
+    const range = profileViewSummaryRange(period);
+    if (!range) return res.status(400).json({ message: "Period must be day, week, month or year." });
+    if (!(await findTarget(req, res))) return;
+    const counts = await ProfileView.aggregate([
+      { $match: { targetType: req.params.userType, targetId: req.user._id, viewedAt: { $gte: range.start, $lt: range.end } } },
+      { $group: { _id: { $dateToString: { date: "$viewedAt", format: range.format, timezone: "UTC" } }, views: { $sum: 1 } } },
+    ]);
+    const byKey = new Map(counts.map(row => [row._id, row.views]));
+    const buckets = range.buckets.map(({ key, ...bucket }) => ({ ...bucket, views: byKey.get(key) || 0 }));
+    res.json({ period, timezone: "UTC", range: { start: range.start.toISOString(), end: range.end.toISOString(), endExclusive: true },
+      buckets, total: buckets.reduce((sum, bucket) => sum + bucket.views, 0),
+      repeatPolicy: "One first qualifying visit per viewer and profile per UTC calendar day; self-views excluded." });
+  } catch (error) { next(error); }
 };

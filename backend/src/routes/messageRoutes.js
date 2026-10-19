@@ -1,3 +1,5 @@
+import { unreadMessages, acknowledgeMessages } from "../controllers/messageReadController.js";
+import { heartbeat, lookupPresence } from "../controllers/messagePresenceController.js";
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import {
@@ -8,17 +10,24 @@ import {
 } from "../controllers/messageController.js";
 
 const router = express.Router();
+router.use(protect, authorize("talent", "employer"));
+
+router.post("/heartbeat", heartbeat);
+router.post("/presence", lookupPresence);
+
+router.get("/unread", unreadMessages);
+router.patch("/read", acknowledgeMessages);
 
 // Send message
-router.post("/send", protect, sendMessage);
+router.post("/send", sendMessage);
 
 // Get messages or with a specific user
-router.get("/", protect, getMessages);
+router.get("/", getMessages);
 
 // Search users
-router.get("/search", protect, searchUsers);
+router.get("/search", searchUsers);
 
 // Chat route
-router.get("/chats", protect, getChats)
+router.get("/chats", getChats)
 
 export default router;

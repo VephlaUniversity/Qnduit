@@ -3,6 +3,7 @@ import { Search, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { formatJobDeadline } from "../utils/jobDeadline";
 
 const MyJob = () => {
   const navigate = useNavigate();
@@ -67,9 +68,9 @@ const MyJob = () => {
   const filteredAndSorted = useMemo(() => {
     let result = jobs.filter(
       (job) =>
-        job.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.category.toLowerCase().includes(searchTerm.toLowerCase()),
+        (job.jobTitle || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (job.location || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (job.category || "").toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
     switch (sortBy) {
@@ -85,7 +86,7 @@ const MyJob = () => {
         );
         break;
       case "applicants":
-        result = [...result].sort((a, b) => b.applicants - a.applicants);
+        result = [...result].sort((a, b) => (b.applicantsCount ?? 0) - (a.applicantsCount ?? 0));
         break;
       default:
         break;
@@ -211,7 +212,7 @@ const MyJob = () => {
                     </td>
                     <td className="p-4">
                       <span className="text-white">
-                        {job.applicants} Applicants
+                        {job.applicantsCount ?? 0} Applicants
                       </span>
                     </td>
                     <td className="p-4">
@@ -219,7 +220,7 @@ const MyJob = () => {
                         Created: {new Date(job.createdAt).toLocaleDateString()}
                       </p>
                       <p className="text-gray-400 text-sm">
-                        Expiry: {job.deadlineDate || "N/A"}
+                        Expiry: {formatJobDeadline(job.deadlineDate)}
                       </p>
                     </td>
                     <td className="p-4">
