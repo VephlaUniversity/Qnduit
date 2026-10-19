@@ -1,3 +1,5 @@
+import MessageAttachment from "./MessageAttachment";
+import { MESSAGE_FILE_ACCEPT, validateMessageFiles, messageSendBody, sameMessageFiles, messagePreview } from "../utils/messageAttachments";
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -100,6 +102,11 @@ export const Messages = () => {
   const recipientLoading = recipient.status === "valid" && (!resolvedRecipient || resolvedRecipient.key !== recipient.key || resolvedRecipient.status === "loading");
   const recipientError = recipient.status === "invalid" ? "Invalid recipient link. Select someone from search."
     : resolvedRecipient?.key === recipient.key && resolvedRecipient.status === "error" ? resolvedRecipient.error : "";
+  const [fileDrafts, setFileDrafts] = useState({});
+  const selectedFiles = fileDrafts[recipient.key] || [];
+  const fileInput = useRef(null);
+  const fileInputOwner = useRef("");
+  const accountSession = useRef("");
   const [drafts, setDrafts] = useState({});
   const messageInput = drafts[recipient.key] || "";
   const setMessageInput = value => setDrafts(previous => ({ ...previous,
@@ -174,6 +181,7 @@ export const Messages = () => {
   }, [transcript]);
 
   useLayoutEffect(() => {
+    accountSession.current = `${accountKey}:${sessionToken}`;
     poll.current?.stop();
     transcriptRequest.current?.abort();
     olderRequest.current?.abort();
@@ -181,6 +189,8 @@ export const Messages = () => {
     setResolvedRecipient(null);
     setChats([]);
     setDrafts({});
+    setFileDrafts({});
+    fileInputOwner.current = "";
     setEmojiOwner("");
     caret.current = null;
     insertedCaret.current = null;
@@ -209,6 +219,8 @@ export const Messages = () => {
       setResolvedRecipient(null);
       setChats([]);
       setDrafts({});
+      setFileDrafts({});
+      accountSession.current = "";
       previews.current.clear();
       sendAttempts.current.clear();
     };
@@ -232,6 +244,7 @@ export const Messages = () => {
     activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
     pendingScroll.current = null;
     composing.current = false;
+    fileInputOwner.current = "";
     setEmojiOwner("");
     insertedCaret.current = null;
     setSendError("");
@@ -317,7 +330,7 @@ export const Messages = () => {
         pendingScroll.current = { version, initial: true };
         setTranscript({ key, version, status: "ready", messages: data.messages, pagination: data.pagination });
         const latest = data.messages.at(-1);
-        rememberPreview(selectedChat, { lastMessage: latest?.text ?? null, lastMessageAt: latest?.createdAt ?? null });
+        rememberPreview(selectedChat, { lastMessage: latest ? messagePreview(latest) : null, lastMessageAt: latest?.createdAt ?? null });
       } catch (error) {
         if (current() && error.response?.status === 401) setAuthExpired(true);
         if (current()) setTranscript({ key, version, status: "error", messages: [] });
@@ -592,40 +605,45 @@ export const Messages = () => {
 
   const handleSendMessage = async event => {
     event.preventDefault();
-    if (!accountKey || authExpired || composing.current || sendPending.current || !messageInput.trim() || !selectedChat || transcriptLoading) return;
+    if (!accountKey || authExpired || composing.current || sendPending.current || (!messageInput.trim() && !selectedFiles.length) || !selectedChat || transcriptLoading) return;
+    const validation = messageInput.length > MESSAGE_LIMIT ? "Message must be no longer than 10,000 characters."
+      : validateMessageFiles(selectedFiles.map(entry => entry.file));
+    if (validation) { setSendError(validation); return; }
     pollRequest.current?.abort();
     sendPending.current = true;
     setSending(true);
     setSendError("");
     const chat = selectedChat, text = messageInput, key = selectedKey, version = conversationVersion;
+    const session = `${accountKey}:${sessionToken}`;
+    const files = selectedFiles;
     const revision = draftRevisions.current.get(key) || 0;
     let attempt = sendAttempts.current.get(key);
-    if (!attempt || attempt.text !== text) {
-      attempt = { text, revision, clientMessageId: crypto.randomUUID() };
+    if (!attempt || attempt.text !== text || !sameMessageFiles(attempt.files, files)) {
+      attempt = { text, files, revision, clientMessageId: crypto.randomUUID() };
       sendAttempts.current.set(key, attempt);
     }
-    const current = () => mounted.current && activeConversation.current.key === key && activeConversation.current.version === version;
+    const sameSession = () => mounted.current && accountSession.current === session && localStorage.getItem("token") === sessionToken;
+    const current = () => sameSession() && activeConversation.current.key === key && activeConversation.current.version === version;
     let saved = false;
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.post(`${API_BASE_URL}/api/messages/send`, {
-        recipientId: chat._id, recipientModel: chat.role, text, clientMessageId: attempt.clientMessageId,
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      if (!data.success) throw new Error();
+      const { data } = await axios.post(`${API_BASE_URL}/api/messages/send`, messageSendBody(chat, attempt), { headers: { Authorization: `Bearer ${token}` } });
+      const message = data.message;
+      if (!data.success || !message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
       saved = true;
       if (sendAttempts.current.get(key) === attempt) sendAttempts.current.delete(key);
-      if (!mounted.current) return;
+      if (!sameSession()) return;
       if ((draftRevisions.current.get(key) || 0) === revision) setMessageInput(value => value === text ? "" : value);
-      const message = data.message;
-      if (!message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
-      rememberPreview(chat, { lastMessage: message.text, lastMessageAt: message.createdAt });
+      const sentFiles = new Set(files.map(entry => entry.id));
+      setFileDrafts(previous => ({ ...previous, [key]: (previous[key] || []).filter(entry => !sentFiles.has(entry.id)) }));
+      rememberPreview(chat, { lastMessage: messagePreview(message), lastMessageAt: message.createdAt });
       setListReload(value => value + 1);
       if (!current()) return;
       transcriptRequest.current?.abort();
       const controller = new AbortController();
       transcriptRequest.current = controller;
       pendingScroll.current = { version, initial: false };
-      const sent = { id: message._id, text: message.text, createdAt: message.createdAt,
+      const sent = { id: message._id, text: message.text, attachments: message.attachments, createdAt: message.createdAt,
         sender: "me", time: messageTime(message.createdAt), date: new Date(message.createdAt).toDateString() };
       setTranscript(previous => ({ ...previous, key, version, status: "ready",
         messages: previous.messages.some(item => item.id === sent.id) ? previous.messages : [...previous.messages, sent] }));
@@ -645,9 +663,12 @@ export const Messages = () => {
       }
     } catch (error) {
       if (current() && error.response?.status === 401) setAuthExpired(true);
-      if (current()) setSendError(error.response?.status === 409 ? "This send conflicts with an earlier request. Your draft has been kept." : saved
+      if (current()) setSendError(files.length && [400, 413].includes(error.response?.status)
+        ? "Attachments were rejected. Check file formats and sizes; your draft and files have been kept."
+        : files.length && error.response?.status === 503 ? "Attachments are unavailable. Your draft and files have been kept."
+        : error.response?.status === 409 ? "This send conflicts with an earlier request. Your draft has been kept." : saved
         ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
-        : "Send not confirmed. Your text has been kept; Send retries the same unchanged draft safely.");
+        : "Send not confirmed. Your draft and attachments have been kept; Send retries the same unchanged selection safely.");
     } finally {
       sendPending.current = false;
       if (mounted.current) { setSending(false); poll.current?.wake(); }
@@ -792,7 +813,8 @@ export const Messages = () => {
                           : "bg-[#2A2A2E] text-white rounded-bl-md"
                       }`}
                     >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+                      {message.text && <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>}
+                      {message.attachments?.map(attachment => <MessageAttachment key={attachment.id} messageId={message.id} attachment={attachment} token={sessionToken} />)}
                     </div>
                     <p className="text-xs text-gray-500 mt-1 px-2">
                       {messageTime(message.createdAt) || "Time unavailable"}
@@ -809,6 +831,13 @@ export const Messages = () => {
             className="min-w-0 shrink-0 p-4 border-t border-white/10"
           >
             {sendError && <p className="mb-2 text-sm text-red-400" role="alert">{sendError}</p>}
+            {selectedFiles.length > 0 && <ul className="mb-2 flex flex-wrap gap-2" aria-label="Selected attachments">
+              {selectedFiles.map(entry => <li key={entry.id} className="flex min-w-0 max-w-full items-center gap-2 rounded border border-white/10 px-2 text-sm text-gray-300">
+                <span className="[overflow-wrap:anywhere]">{entry.file.name}</span>
+                <button type="button" aria-label={`Remove ${entry.file.name}`} className="min-h-9 shrink-0 px-2 focus-visible:outline focus-visible:outline-2"
+                  onClick={() => setFileDrafts(previous => ({ ...previous, [recipient.key]: (previous[recipient.key] || []).filter(item => item.id !== entry.id) }))}>×</button>
+              </li>)}
+            </ul>}
             <div className="min-w-0 flex items-end gap-2 bg-[#0E0E10] rounded-lg px-4 py-2 border border-white/10">
               <textarea
                 ref={composer}
@@ -834,9 +863,21 @@ export const Messages = () => {
                 }}
                 className="min-w-0 min-h-8 flex-1 resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] py-1.5 leading-5 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm"
               />
+              <input ref={fileInput} type="file" multiple accept={MESSAGE_FILE_ACCEPT} className="hidden" aria-label="Choose message attachments"
+                onChange={event => {
+                  const owner = fileInputOwner.current;
+                  const chosen = Array.from(event.target.files || []); event.target.value = "";
+                  if (owner !== recipient.key || !selectedChat || authExpired) return;
+                  const current = fileDrafts[owner] || [];
+                  const error = validateMessageFiles([...current.map(entry => entry.file), ...chosen]);
+                  if (error) { setSendError(error); return; }
+                  setSendError("");
+                  setFileDrafts(previous => ({ ...previous, [owner]: [...(previous[owner] || []), ...chosen.map(file => ({ id: crypto.randomUUID(), file }))] }));
+                }} />
               <button
-                type="button"
-                className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors"
+                type="button" aria-label="Add attachments" disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
+                onClick={() => { fileInputOwner.current = recipient.key; fileInput.current?.click(); }}
+                className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
@@ -880,7 +921,7 @@ export const Messages = () => {
               </Popover>
               <button
                 type="submit"
-                disabled={authExpired || !accountKey || sending || transcriptLoading || !selectedChat || !messageInput.trim()}
+                disabled={authExpired || !accountKey || sending || transcriptLoading || !selectedChat || (!messageInput.trim() && !selectedFiles.length)}
                 className="disabled:opacity-50 shrink-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 <Send className="w-4 h-4" />
