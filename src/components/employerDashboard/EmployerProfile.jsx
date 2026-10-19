@@ -87,6 +87,16 @@ export const EmployerProfile = () => {
     : [];
 
   const youtubeVideoId = getYouTubeVideoId(profile?.introVideo);
+  const website = typeof profile?.companyWebsite === "string" ? profile.companyWebsite.trim() : "";
+  let websiteHref = "";
+  try {
+    const url = new URL(website);
+    if (website.toLowerCase().startsWith("https://") && url.protocol === "https:"
+      && url.hostname && !url.username && !url.password
+      && !Array.from(website).some(char => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)) {
+      websiteHref = website;
+    }
+  } catch { /* Missing or invalid websites remain plain text. */ }
 
   const galleryItems = profile?.gallery || [];
   const hasGallery = galleryItems.length > 0;
@@ -196,12 +206,14 @@ export const EmployerProfile = () => {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Website</span>
-                <a
-                  href={`https://${profile?.website}`}
+                {websiteHref ? <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
-                  {profile?.companyWebsite || "N/A"}
-                </a>
+                  {website}
+                </a> : <span className="text-white">{website || "N/A"}</span>}
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Email</span>
