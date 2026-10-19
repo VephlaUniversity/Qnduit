@@ -393,7 +393,7 @@ export const getSavedCandidates = async (req, res) => {
   try {
     const employer = await Employer.findById(req.user._id).populate({
       path: "savedCandidates",
-      select: "firstName lastName location jobTitle avatar resume offeredSalary salaryType"
+      select: "firstName lastName fullName location jobTitle avatar resume offeredSalary salaryType"
     });
     if (!employer) return res.status(404).json({ message: "Employer not found" });
     res.json({ savedCandidates: employer.savedCandidates.filter(Boolean) });

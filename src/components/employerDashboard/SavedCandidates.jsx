@@ -1,48 +1,97 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Search, Eye, MessageSquare, Trash2 } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { messageRecipientUrl } from "../utils/messageRecipient";
 import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "../profiles/profileApi";
+
+const SavedCandidateAvatar = ({ name, imageUrl }) => {
+  const [failed, setFailed] = useState(false);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+  return (
+    <div className="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center text-white" aria-label={name}>
+      {imageUrl && !failed
+        ? <img src={imageUrl} alt={name} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : <span aria-hidden="true">{initials}</span>}
+    </div>
+  );
+};
 
 export const SavedCandidates = () => {
+  const { user } = useAuth();
+  const token = localStorage.getItem("token");
+  const owner = user ? `${user.userType}:${user.id || user._id}` : "";
+  const scope = JSON.stringify([owner, token]);
+  const session = useRef(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [candidates, setCandidates] = useState([]);
+  const [result, setResult] = useState({ scope: "", status: "loading", rows: [] });
+  // Render-time gating prevents even one frame of another account's rows.
+  const current = result.scope === scope;
+  const status = current ? result.status : "loading";
+  const candidates = current && status === "ready" ? result.rows : [];
 
-  // Load saved candidates from localStorage on mount
+  useLayoutEffect(() => {
+    if (session.current?.scope !== scope) session.current?.controller.abort();
+  }, [scope]);
+
   useEffect(() => {
+    const controller = new AbortController();
+    const request = { scope, controller };
+    session.current = request;
+    const active = () => !controller.signal.aborted && session.current === request && localStorage.getItem("token") === token;
+    setResult({ scope, status: "loading", rows: [] });
+    const invalidate = event => {
+      if (event.key !== null && event.key !== "token" && event.key !== "user") return;
+      if (event.key === "token" && event.newValue === token) return;
+      if (event.key === "user" && event.newValue) {
+        try { const stored = JSON.parse(event.newValue); if (`${stored.userType}:${stored.id || stored._id}` === owner) return; } catch { /* Invalid account storage invalidates these rows. */ }
+      }
+      controller.abort();
+      setResult({ scope, status: "error", rows: [], error: "Session changed. Please sign in again." });
+    };
+    window.addEventListener("storage", invalidate);
     const fetchSavedCandidates = async () => {
       try {
-        const token = localStorage.getItem("token");
+        if (!token || !owner.startsWith("employer:")) {
+          setResult({ scope, status: "error", rows: [], error: "Sign in as an Employer to view saved candidates." });
+          return;
+        }
         const res = await axios.get(
           `${API_BASE_URL}/api/employers/saved-candidates`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { signal: controller.signal, timeout: 15000, headers: { Authorization: `Bearer ${token}` } }
         );
 
+        if (!active()) return;
+        if (!Array.isArray(res.data.savedCandidates)) throw new Error();
         const formatted = res.data.savedCandidates.map((c) => ({
           id: c._id,
-          name: `${c.firstName} ${c.lastName}`,
+          name: (typeof c.fullName === "string" ? c.fullName.trim() : "") ||
+            [c.firstName, c.lastName].filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ") || "Talent",
           role: typeof c.jobTitle === "string" ? c.jobTitle : "",
           location: c.location || "N/A",
-          avatar: c.avatar?.url,
+          avatar: profileImageUrl(typeof c.avatar === "string" ? c.avatar : c.avatar?.url),
           cvUrl: c.resume?.url,
           salary: c.offeredSalary != null && String(c.offeredSalary).trim() !== ""
             ? `$${String(c.offeredSalary).trim()}${typeof c.salaryType === "string" && c.salaryType.trim() ? `/${c.salaryType.trim()}` : ""}`
             : "Not specified",
         }));
 
-        setCandidates(formatted);
+        if (active()) setResult({ scope, status: "ready", rows: formatted });
       } catch (error) {
-        console.error(error);
+        if (active()) setResult({ scope, status: "error", rows: [], error: error.response?.status === 401
+          ? "Session expired. Please sign in again." : "Unable to load saved candidates. Refresh to retry." });
       }
     };
 
     fetchSavedCandidates();
-  }, []);
+    return () => { controller.abort(); window.removeEventListener("storage", invalidate); };
+  }, [scope, token, owner]);
 
   const handleViewProfile = (candidate) => {
     navigate(`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?from=saved-candidates`);
@@ -53,19 +102,24 @@ export const SavedCandidates = () => {
   };
 
   const handleRemove = async (id, name) => {
+    const request = session.current;
+    const active = () => request?.scope === scope && session.current === request && !request.controller.signal.aborted && localStorage.getItem("token") === token;
+    if (!active()) return;
     try {
-      const token = localStorage.getItem("token");
       await axios.delete(`${API_BASE_URL}/api/employers/saved-candidates/${id}`, {
+        signal: request.controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setCandidates((prev) => prev.filter((c) => c.id !== id));
+      if (!active()) return;
+      setResult(previous => previous.scope === scope ? { ...previous, rows: previous.rows.filter(c => c.id !== id) } : previous);
 
       toast({
         title: "Success!",
         description: `${name} removed from saved candidates`,
       });
     } catch {
+      if (!active()) return;
       toast({
         title: "Error",
         description: "Failed to remove candidate",
@@ -147,7 +201,11 @@ export const SavedCandidates = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedCandidates.length > 0 ? (
+              {status === "loading" || status === "error" ? (
+                <tr><td colSpan={2} className={`py-8 text-center ${status === "error" ? "text-red-400" : "text-gray-400"}`}>
+                  <p role={status === "error" ? "alert" : "status"}>{status === "loading" ? "Loading saved candidates…" : result.error}</p>
+                </td></tr>
+              ) : sortedCandidates.length > 0 ? (
                 sortedCandidates.map((candidate) => (
                   <tr
                     key={candidate.id}
@@ -155,7 +213,7 @@ export const SavedCandidates = () => {
                   >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0"></div>
+                        <SavedCandidateAvatar key={`${candidate.id}:${candidate.avatar}`} name={candidate.name} imageUrl={candidate.avatar} />
                         <div>
                           <p className="text-blue-400 text-sm mb-1">
                             {candidate.role}
@@ -202,9 +260,9 @@ export const SavedCandidates = () => {
               ) : (
                 <tr>
                   <td colSpan={2} className="py-8 text-center text-gray-400">
-                    {searchQuery
-                      ? "No candidates found matching your search"
-                      : "No saved candidates"}
+                    {candidates.length === 0
+                      ? "No saved candidates"
+                      : "No candidates found matching your search"}
                   </td>
                 </tr>
               )}
