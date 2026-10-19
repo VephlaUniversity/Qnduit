@@ -16,7 +16,15 @@ import {
   X,
 } from "lucide-react";
 import axios from "axios";
+import { toast } from "sonner";
 import { API_BASE_URL } from "../utils/api";
+import {
+  daysLeftLabel,
+  formatSalary,
+  formatPosted,
+  normalizeList,
+  postedWithin,
+} from "../utils/jobDisplay";
 
 export const TalentJobs = () => {
   const [searchParams] = useSearchParams();
@@ -26,7 +34,9 @@ export const TalentJobs = () => {
   const location = searchParams.get("location") || "";
   const workType = searchParams.get("workType") || "";
   const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Sidebar filter state
   const [searchKeyword, setSearchKeyword] = useState(jobTitle);
@@ -49,21 +59,28 @@ export const TalentJobs = () => {
 
   // Fetch jobs from API
   useEffect(() => {
+    const controller = new AbortController();
     const fetchJobs = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(
-          `${API_BASE_URL}/api/jobs/search?jobTitle=${jobTitle}&location=${location}&workType=${workType}`,
-        );
-        setJobs(res.data.jobs);
+        setLoadError("");
+        const res = await axios.get(`${API_BASE_URL}/api/jobs/search`, {
+          params: { q: jobTitle, location, workType },
+          signal: controller.signal,
+        });
+        setJobs(Array.isArray(res.data.jobs) ? res.data.jobs : []);
       } catch (err) {
+        if (axios.isCancel(err) || err.name === "CanceledError") return;
         console.error("Job search failed", err);
+        setJobs([]);
+        setLoadError("We couldn't load jobs right now. Please try again.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchJobs();
-  }, [jobTitle, location, workType]);
+    return () => controller.abort();
+  }, [jobTitle, location, workType, reloadKey]);
 
   // Sync URL params into filter inputs when URL changes
   useEffect(() => {
@@ -72,10 +89,19 @@ export const TalentJobs = () => {
     setWorkTypeFilter(workType);
   }, [jobTitle, location, workType]);
 
+  const companyOptions = [
+    ...new Set(
+      (Array.isArray(jobs) ? jobs : [])
+        .map((job) => job.employer?.companyName)
+        .filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
   // Apply all active filters (sidebar + dropdown) to fetched jobs
   const filteredJobs = (Array.isArray(jobs) ? jobs : []).filter((job) => {
-    // Keyword
-    if (searchKeyword) {
+    // Keyword: the server already matched the URL keyword (title, company, location,
+    // category), so only re-filter locally once the user edits the sidebar box.
+    if (searchKeyword && searchKeyword !== jobTitle) {
       const q = searchKeyword.toLowerCase();
       const match =
         job.jobTitle?.toLowerCase().includes(q) ||
@@ -90,23 +116,20 @@ export const TalentJobs = () => {
         return false;
     }
 
-    // Work type (sidebar)
+    // Work type (Remote / On-site / Hybrid) lives in job.workType
     if (workTypeFilter) {
-      if (
-        !job.jobApplyType?.some((t) =>
-          t.toLowerCase().includes(workTypeFilter.toLowerCase()),
-        )
-      )
+      const wanted = workTypeFilter.toLowerCase().replace(/[- ]/g, "");
+      if ((job.workType || "").toLowerCase().replace(/[- ]/g, "") !== wanted)
         return false;
     }
 
-    // Job type (sidebar)
+    // Job type (Full Time / Part Time / ...) lives in job.jobApplyType
     if (jobTypeFilter) {
-      if (
-        !job.jobApplyType?.some((t) =>
-          t.toLowerCase().includes(jobTypeFilter.toLowerCase()),
-        )
-      )
+      const wanted = jobTypeFilter.toLowerCase().replace(/[- ]/g, "");
+      const types = normalizeList(job.jobApplyType).map((t) =>
+        String(t).toLowerCase().replace(/[- ]/g, ""),
+      );
+      if (!types.some((t) => t.includes(wanted) || wanted.includes(t)))
         return false;
     }
 
@@ -120,10 +143,21 @@ export const TalentJobs = () => {
         return false;
     }
 
-    // Salary range (sidebar slider)
-    if (job.salary?.min !== undefined) {
-      if (job.salary.min < salaryRange[0] || job.salary.max > salaryRange[1])
-        return false;
+    // Salary range (sidebar slider): keep jobs whose range overlaps the selection
+    if (job.salary?.min != null || job.salary?.max != null) {
+      const jobMin = Number(job.salary.min ?? job.salary.max);
+      const jobMax = Number(job.salary.max ?? job.salary.min);
+      if (jobMax < salaryRange[0] || jobMin > salaryRange[1]) return false;
+    }
+
+    // Posted window
+    if (!postedWithin(job.createdAt, postedAnytime)) return false;
+
+    // Seniority (career level)
+    if (seniorityLevel !== "all") {
+      const level = String(job.careerLevel || "").toLowerCase();
+      const wanted = { entry: "entry", mid: "mid", senior: "senior", lead: "lead", executive: "exec" }[seniorityLevel] || seniorityLevel;
+      if (!level.includes(wanted)) return false;
     }
 
     return true;
@@ -164,17 +198,47 @@ export const TalentJobs = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const toggleFavorite = (jobId) => {
-    setFavorites((prev) =>
-      prev.includes(jobId)
-        ? prev.filter((id) => id !== jobId)
-        : [...prev, jobId],
-    );
-  };
+  // Load which jobs the talent already saved so hearts reflect real state
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    let active = true;
+    axios
+      .get(`${API_BASE_URL}/api/saved-jobs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (active) setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const handleFindJobs = () => {
-    setCurrentPage(1);
-    setSidebarOpen(false);
+  const toggleFavorite = async (jobId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please sign in to save jobs");
+      return;
+    }
+    const id = String(jobId);
+    const saved = favorites.includes(id);
+    const headers = { Authorization: `Bearer ${token}` };
+    // optimistic update, rolled back on failure
+    setFavorites((prev) => (saved ? prev.filter((x) => x !== id) : [...prev, id]));
+    try {
+      if (saved) {
+        await axios.post(`${API_BASE_URL}/api/saved-jobs/remove-job`, { jobId: id }, { headers });
+      } else {
+        await axios.post(`${API_BASE_URL}/api/saved-jobs`, { jobId: id }, { headers });
+      }
+    } catch (error) {
+      if (!/already saved/i.test(error.response?.data?.message || "")) {
+        setFavorites((prev) => (saved ? [...prev, id] : prev.filter((x) => x !== id)));
+        toast.error(error.response?.data?.message || "Failed to update saved jobs");
+      }
+    }
   };
 
   const resetFilters = () => {
@@ -234,7 +298,7 @@ export const TalentJobs = () => {
                 {job.location}
               </span>
               <span className="text-gray-500 text-xs">
-                {new Date(job.createdAt).toLocaleDateString()}
+                {formatPosted(job.createdAt)}
               </span>
             </div>
           </div>
@@ -248,7 +312,7 @@ export const TalentJobs = () => {
         >
           <Heart
             className={`w-5 h-5 ${
-              favorites.includes(job._id)
+              favorites.includes(String(job._id))
                 ? "fill-red-500 text-red-500"
                 : "text-gray-400"
             }`}
@@ -258,8 +322,7 @@ export const TalentJobs = () => {
 
       <div className="flex justify-between flex-wrap gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
-          {Array.isArray(job.jobApplyType) &&
-            job.jobApplyType.map((type, idx) => (
+          {[...normalizeList(job.jobApplyType), ...(job.workType ? [job.workType] : [])].map((type, idx) => (
               <span
                 key={idx}
                 className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
@@ -268,29 +331,14 @@ export const TalentJobs = () => {
               </span>
             ))}
         </div>
-        <div className="flex items-center gap-1">
-          {[...Array(5)].map((_, i) => (
-            <span
-              key={i}
-              className={i < job.rating ? "text-yellow-400" : "text-gray-600"}
-            >
-              ★
-            </span>
-          ))}
         </div>
-      </div>
 
       <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between">
         <span className="text-[#f1f1f1] flex items-center gap-1 text-sm">
           <DollarSign className="w-4 h-4" />
-          {typeof job.salary === "object" && job.salary?.min && job.salary?.max
-            ? `$${job.salary.min} - $${job.salary.max}`
-            : job.salary || "Salary not specified"}
-          {job.salaryPeriod && (
-            <span className="text-gray-500">/{job.salaryPeriod}</span>
-          )}
+          {formatSalary(job.salary)}
         </span>
-        <span className="text-gray-400 text-sm">{job.daysLeft} days left</span>
+        <span className="text-gray-400 text-sm">{daysLeftLabel(job.deadlineDate)}</span>
       </div>
     </div>
   );
@@ -519,10 +567,11 @@ export const TalentJobs = () => {
                     className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
                   >
                     <option value="">All Companies</option>
-                    <option value="google">Google</option>
-                    <option value="microsoft">Microsoft</option>
-                    <option value="amazon">Amazon</option>
-                    <option value="rockstar">Rockstar Games</option>
+                    {companyOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
@@ -557,6 +606,8 @@ export const TalentJobs = () => {
                 <span className="text-gray-400 text-sm">
                   {loading
                     ? "Loading..."
+                    : loadError
+                    ? "Unable to load jobs"
                     : `${filteredJobs.length} job${filteredJobs.length !== 1 ? "s" : ""} found`}
                 </span>
               </div>
@@ -595,6 +646,19 @@ export const TalentJobs = () => {
                   <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                   <p className="text-gray-400 text-sm">Loading jobs...</p>
                 </div>
+              </div>
+            ) : loadError ? (
+              <div className="p-12 text-center" role="alert">
+                <h2 className="text-xl font-semibold text-white mb-2">
+                  Something went wrong
+                </h2>
+                <p className="text-gray-400 mb-6">{loadError}</p>
+                <button
+                  onClick={() => setReloadKey((value) => value + 1)}
+                  className="bg-[#3B82F6] hover:bg-[#3077e8] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
+                  Try again
+                </button>
               </div>
             ) : paginatedJobs.length === 0 ? (
               <div className="p-12 text-center">

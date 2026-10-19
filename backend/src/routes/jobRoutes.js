@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
-import { createJob, updateJob, jobUpload, getEmployerJobs, getSingleJob, deleteJob, searchJobs, getPublicJobDetails, getRelatedJobs } from "../controllers/jobController.js";
+import { createJob, updateJob, jobUpload, getEmployerJobs, getSingleJob, deleteJob, searchJobs, quickSearchJobs, getPublicJobDetails, getRelatedJobs } from "../controllers/jobController.js";
 
 const router = express.Router();
 
@@ -28,6 +28,8 @@ router.get(
   getEmployerJobs
 );
 
+
+router.get("/", quickSearchJobs); // no auth: search-bar suggestions
 
 router.get(
   "/search",

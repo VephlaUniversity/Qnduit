@@ -1,10 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { JobSearchForm } from "./JobsSearchForm";
 import { motion } from "framer-motion";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 export const LogoSection = () => {
   const scrollContainerRef = useRef(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [stats, setStats] = useState(null);
+
+  // Real registered counts; the badge simply stays hidden if this fails.
+  useEffect(() => {
+    const controller = new AbortController();
+    axios
+      .get(`${API_BASE_URL}/api/gen/stats`, { signal: controller.signal })
+      .then(({ data }) => {
+        if (Number.isFinite(data.talents) && Number.isFinite(data.employers))
+          setStats(data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const companyLogos = [
     "/images/vis.png",
@@ -105,21 +121,25 @@ export const LogoSection = () => {
 
         {/* Section Heading */}
       <div className="flex flex-col items-center">
-      {/* Members online badge */}
-      <motion.div
-        className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-white/5 border border-white/10"
-        initial={{ opacity: 0, y: -10 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.5 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-        </span>
-        <span className="text-sm text-white/80">458 members online</span>
-      </motion.div>
- 
+      {/* Members badge: talents + employers from the API */}
+      {stats && stats.total > 0 && (
+        <motion.div
+          className="flex items-center gap-2 mb-6 px-4 py-2 rounded-full bg-white/5 border border-white/10"
+          initial={{ opacity: 0, y: -10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+          </span>
+          <span className="text-sm text-white/80">
+            {(stats.talents + stats.employers).toLocaleString()} members online
+          </span>
+        </motion.div>
+      )}
+
       {/* Heading */}
       <motion.h2
         className="text-4xl lg:text-5xl text-center mb-16"

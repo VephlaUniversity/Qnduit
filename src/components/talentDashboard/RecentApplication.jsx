@@ -5,6 +5,8 @@ import { API_BASE_URL } from "../utils/api";
 
 const RecentApplication = () => {
   const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -20,7 +22,7 @@ const RecentApplication = () => {
           }
         );
 
-        const formatted = res.data.applications.map((app) => ({
+        const formatted = (res.data.applications || []).map((app) => ({
           id: app._id,
           title: app.jobId?.jobTitle || "Unknown Role",
           location: app.jobId?.location || "N/A",
@@ -33,6 +35,9 @@ const RecentApplication = () => {
         setApplications(formatted);
       } catch (error) {
         console.error("Failed to fetch applications", error);
+        setError(true);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -86,9 +91,28 @@ const RecentApplication = () => {
               </tr>
             </thead>
             <tbody>
-              {applications.map((app, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="py-8 px-4 text-center text-gray-400" role="status">
+                    Loading applications…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={3} className="py-8 px-4 text-center text-red-400" role="alert">
+                    Unable to load your applications.
+                  </td>
+                </tr>
+              ) : applications.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-8 px-4 text-center text-gray-400">
+                    You haven't applied for any jobs yet.
+                  </td>
+                </tr>
+              ) : null}
+              {!loading && !error && applications.map((app, index) => (
                 <tr
-                  key={index}
+                  key={app.id || index}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
                   <td className="py-4 px-4">
@@ -101,11 +125,11 @@ const RecentApplication = () => {
                         <div className="flex items-center gap-3 text-sm text-gray-400">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-4 h-4" />
-                            {app.company}
+                            {app.location}
                           </span>
                           <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            {app.timeAgo}
+                            {app.category}
                           </span>
                         </div>
                       </div>
