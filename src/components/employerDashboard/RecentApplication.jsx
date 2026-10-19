@@ -57,6 +57,18 @@ function ResumePreview({ applicant }) {
 const statusLabels = { pending: "Pending", reviewed: "Reviewed", shortlisted: "Shortlisted", rejected: "Rejected", hired: "Hired" };
 const nextStatus = { pending: "reviewed", reviewed: "shortlisted", shortlisted: "hired" };
 
+function ApplicantAvatar({ name, imageUrl }) {
+  const [failed, setFailed] = useState(false);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+  return (
+    <div className="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center text-white" aria-label={name}>
+      {imageUrl && !failed
+        ? <img src={imageUrl} alt={name} className="w-full h-full object-cover" onError={() => setFailed(true)} />
+        : <span aria-hidden="true">{initials}</span>}
+    </div>
+  );
+}
+
 const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
   const [applicants, setApplicants] = useState([]);
   const [resumeApplicant, setResumeApplicant] = useState(null);
@@ -114,6 +126,7 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
         setApplicants(data.applications.map(app => ({
           applicationId: app.id, talentId: app.applicant?.id,
           name: app.applicant?.name?.trim() || "Unknown",
+          avatar: profileImageUrl(typeof app.applicant?.avatar === "string" ? app.applicant.avatar : app.applicant?.avatar?.url),
           role: app.job?.title || "Applicant",
           availability: "Available", location: app.applicant?.location || "N/A",
           status: app.status || "pending", date: formatAppliedDate(app.appliedAt ?? app.createdAt ?? app.date),
@@ -331,7 +344,7 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
                 >
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0"></div>
+                      <ApplicantAvatar key={`${applicant.talentId}:${applicant.avatar}`} name={applicant.name} imageUrl={applicant.avatar} />
                       <div>
                         <p className="text-blue-500 text-sm font-medium">
                           {applicant.role}

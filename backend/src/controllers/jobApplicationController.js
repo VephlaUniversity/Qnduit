@@ -89,7 +89,7 @@ export const getJobApplications = async (req, res) => {
       return res.status(403).json({ success: false, message: "You are not authorized to view these applications." });
     }
     const applications = await JobApplication.find({ jobId, employerId: req.user._id, employerArchivedAt: null })
-      .populate("applicantId", "name email")
+      .populate("applicantId", "name fullName firstName lastName avatar email")
       .sort({ createdAt: -1 });
     res.json({ success: true, applications });
   } catch {
@@ -120,10 +120,11 @@ export const getEmployerApplications = async (req, res) => {
         const regex = q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         pipeline.push(
           { $lookup: { from: Talent.collection.name, localField: "applicantId", foreignField: "_id",
-            pipeline: [{ $project: { firstName: 1, lastName: 1, location: 1 } }], as: "talent" } },
+            pipeline: [{ $project: { fullName: 1, firstName: 1, lastName: 1, location: 1 } }], as: "talent" } },
           { $lookup: { from: Job.collection.name, localField: "jobId", foreignField: "_id",
             pipeline: [{ $project: { jobTitle: 1 } }], as: "job" } },
           { $match: { $or: [
+            { "talent.fullName": { $regex: regex, $options: "i" } },
             { "talent.location": { $regex: regex, $options: "i" } },
             { "job.jobTitle": { $regex: regex, $options: "i" } },
             { $expr: { $regexMatch: { input: { $concat: [
@@ -145,7 +146,7 @@ export const getEmployerApplications = async (req, res) => {
     }
     const [applications, totalApplications, reviewedApplications] = await Promise.all([
       summaryOnly === "true" ? [] : JobApplication.find(rowFilter)
-        .populate({ path: "applicantId", select: "firstName lastName email phone location jobTitle experienceTime avatar resume" })
+        .populate({ path: "applicantId", select: "fullName firstName lastName email phone location jobTitle experienceTime avatar resume" })
         .populate("jobId", "jobTitle").sort({ createdAt: -1, _id: -1 }),
       JobApplication.countDocuments(owner),
       // Current reviewed status across all owner records, including archived applications.
@@ -163,13 +164,14 @@ export const getEmployerApplications = async (req, res) => {
 
       applicant: {
         id: app.applicantId?._id,
-        name: `${app.applicantId?.firstName || ""} ${app.applicantId?.lastName || ""}`,
+        name: app.applicantId?.fullName?.trim() ||
+          [app.applicantId?.firstName, app.applicantId?.lastName].filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ") || "Unknown",
         email: app.applicantId?.email,
         phone: app.applicantId?.phone,
         location: app.applicantId?.location,
         jobTitle: app.applicantId?.jobTitle,
         experience: app.applicantId?.experienceTime,
-        avatar: app.applicantId?.avatar?.url,
+        avatar: typeof app.applicantId?.avatar === "string" ? app.applicantId.avatar : app.applicantId?.avatar?.url,
         resume: app.applicantId?.resume?.url,
       },
 
