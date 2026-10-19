@@ -2,7 +2,7 @@ import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
 import { uploadJobMedia } from "../utils/jobMediaUpload.js";
-import { jobDeadlineUpdate } from "../utils/jobDeadline.js";
+import { jobDeadlineUpdate, lagosDateKey } from "../utils/jobDeadline.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 
 
@@ -205,119 +205,141 @@ export const deleteJob = async (req, res, next) => {
   }
 };
 
+const escapeRegex = (value) =>
+  String(value).trim().slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const queryText = (value) => (typeof value === "string" ? value : "");
+
+// Published, not deleted, and not past its (Africa/Lagos) deadline.
+const openJobFilter = () => ({
+  status: "published",
+  isDeleted: false,
+  $or: [
+    { deadlineDate: null },
+    { deadlineDate: { $exists: false } },
+    { deadlineDate: { $gte: new Date(`${lagosDateKey()}T00:00:00.000Z`) } },
+  ],
+});
+
+const searchPipeline = ({ jobTitle, location, workType, q }, extraStages = []) => {
+  const matchStage = openJobFilter();
+  if (jobTitle) matchStage.jobTitle = { $regex: escapeRegex(jobTitle), $options: "i" };
+  if (location) matchStage.location = { $regex: escapeRegex(location), $options: "i" };
+  if (workType) {
+    // workType (Remote / On-site / Hybrid) is its own field, separate from jobApplyType (Full Time, ...)
+    matchStage.workType = {
+      $regex: `^${escapeRegex(workType).replace(/-/g, "[- ]")}$`,
+      $options: "i",
+    };
+  }
+
+  const pipeline = [
+    { $match: matchStage },
+    { $lookup: { from: "employers", localField: "employer", foreignField: "_id", as: "employer" } },
+    { $unwind: "$employer" },
+  ];
+
+  if (q) {
+    const rx = { $regex: escapeRegex(q), $options: "i" };
+    pipeline.push({
+      $match: {
+        $or: [
+          { jobTitle: rx },
+          { location: rx },
+          { category: rx },
+          { jobCategory: rx },
+          { "employer.companyName": rx },
+        ],
+      },
+    });
+  }
+
+  pipeline.push(
+    {
+      $addFields: {
+        planPriority: {
+          $switch: {
+            branches: [
+              { case: { $eq: ["$employer.selectedPlan", "platinum"] }, then: 1 },
+              { case: { $eq: ["$employer.selectedPlan", "silver"] }, then: 2 },
+              { case: { $eq: ["$employer.selectedPlan", "bronze"] }, then: 3 },
+            ],
+            default: 4,
+          },
+        },
+      },
+    },
+    { $sort: { planPriority: 1, createdAt: -1 } },
+    ...extraStages,
+  );
+  return pipeline;
+};
+
 export const searchJobs = async (req, res, next) => {
   try {
-    const { jobTitle, location, workType } = req.query;
-
-    let matchStage = {
-      status: "published",
-      isDeleted: false
+    const params = {
+      jobTitle: queryText(req.query.jobTitle),
+      location: queryText(req.query.location),
+      workType: queryText(req.query.workType),
+      q: queryText(req.query.q),
     };
 
-    if (jobTitle) {
-      matchStage.jobTitle = {
-        $regex: jobTitle,
-        $options: "i"
-      };
-    }
+    const jobs = await Job.aggregate(
+      searchPipeline(params, [
+        {
+          $project: {
+            _id: 1,
+            jobTitle: 1,
+            jobDescription: 1,
+            location: 1,
+            jobCategory: 1,
+            jobApplyType: 1,
+            workType: 1,
+            experience: 1,
+            careerLevel: 1,
+            qualification: 1,
+            deadlineDate: 1,
+            salary: 1,
+            featuredImage: 1,
+            gallery: 1,
+            createdAt: 1,
+            "employer._id": 1,
+            "employer.companyName": 1,
+            "employer.selectedPlan": 1,
+            planPriority: 1,
+          },
+        },
+      ]),
+    );
 
-    if (location) {
-      matchStage.location = {
-        $regex: location,
-        $options: "i"
-      };
-    }
+    res.json({ success: true, count: jobs.length, jobs });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (workType) {
-      const normalizedWorkType = workType.replace("-", " ");
+// Lightweight suggestions for the dashboard search bar: GET /api/jobs?q=...
+export const quickSearchJobs = async (req, res, next) => {
+  try {
+    const q = queryText(req.query.q).trim();
+    if (!q) return res.json({ success: true, count: 0, jobs: [] });
 
-      matchStage.jobApplyType = {
-        $regex: normalizedWorkType,
-        $options: "i"
-      };
-    }
+    const jobs = await Job.aggregate(
+      searchPipeline({ q }, [
+        { $limit: 8 },
+        {
+          $project: {
+            _id: 1,
+            id: "$_id",
+            jobTitle: 1,
+            location: 1,
+            companyName: "$employer.companyName",
+          },
+        },
+      ]),
+    );
 
-    const jobs = await Job.aggregate([
-      {
-        $match: matchStage
-      },
-
-      // JOIN employer collection
-      {
-        $lookup: {
-          from: "employers",
-          localField: "employer",
-          foreignField: "_id",
-          as: "employer"
-        }
-      },
-
-      {
-        $unwind: "$employer"
-      },
-
-      // PLAN PRIORITY 
-      {
-        $addFields: {
-          planPriority: {
-            $switch: {
-              branches: [
-                {
-                  case: { $eq: ["$employer.selectedPlan", "platinum"] },
-                  then: 1
-                },
-                {
-                  case: { $eq: ["$employer.selectedPlan", "silver"] },
-                  then: 2
-                },
-                {
-                  case: { $eq: ["$employer.selectedPlan", "bronze"] },
-                  then: 3
-                }
-              ],
-              default: 4
-            }
-          }
-        }
-      },
-
-      // SORT 
-      {
-        $sort: {
-          planPriority: 1,
-          createdAt: -1
-        }
-      },
-
-      {
-        $project: {
-          _id: 1,
-          jobTitle: 1,
-          jobDescription: 1,
-          location: 1,
-          jobCategory: 1,
-          jobApplyType: 1,
-          experience: 1,
-          careerLevel: 1,
-          qualification: 1,
-          deadlineDate: 1,
-          salary: 1,
-          featuredImage: 1,
-          gallery: 1,
-          createdAt: 1,
-          "employer.companyName": 1,
-          "employer.selectedPlan": 1,
-          planPriority: 1
-        }
-      }
-    ]);
-
-    res.json({
-      success: true,
-      count: jobs.length,
-      jobs
-    });
-
+    res.json({ success: true, count: jobs.length, jobs });
   } catch (error) {
     next(error);
   }

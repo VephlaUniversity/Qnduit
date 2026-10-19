@@ -5,7 +5,8 @@ import { protect } from "../middleware/authMiddleware.js";
 import {
   changePassword,
   deleteAccount,
-  searchUsers
+  searchUsers,
+  getPublicStats
 } from "../controllers/genController.js";
 
 const router = express.Router();
@@ -23,5 +24,8 @@ router.delete(
 );
 
 router.get("/search", protect, searchUsers);
+
+// Public: registered member counts for the landing page (no auth, counts only)
+router.get("/stats", getPublicStats);
 
 export default router;

@@ -223,7 +223,7 @@ export const Footer = () => (
             Terms & Service
           </Link>
           <Link
-            to="privacy-policy"
+            to="/privacy-policy"
             className="hover:text-white transition-colors"
           >
             Privacy Policy

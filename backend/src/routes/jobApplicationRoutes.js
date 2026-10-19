@@ -16,7 +16,7 @@ router.patch("/:applicationId/archive", protect, authorize("employer"), archiveA
 
 router.patch("/:applicationId/status", protect, authorize("employer"), updateApplicationStatus);
 
-router.post("/apply", protect, applyForJob);
+router.post("/apply", protect, authorize("talent"), applyForJob);
 
 router.get("/my-applications", protect, getMyApplications);
 

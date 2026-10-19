@@ -1,4 +1,5 @@
 import { Header } from "./components/Header";
+import { HowItWorksSection } from "./components/pages/HowItWorks";
 import { QnduitLanding } from "./components/pages/QnduitLanding";
 import { Footer } from "./components/Footer";
 import { ScrollToTop } from "./components/ScrollToTop";
@@ -128,6 +129,7 @@ const AppContent = () => {
           <Route path="/talents" element={<ForTalents />} />
           <Route path="/employers" element={<ForEmployers />} />
           <Route path="/pricing" element={<PrincinPage />} />
+          <Route path="/how-it-works" element={<HowItWorksSection />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about-us" element={<About />} />
           <Route path="/blog" element={<Blog />} />

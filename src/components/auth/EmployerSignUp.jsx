@@ -87,7 +87,7 @@ export const EmployerSignup = () => {
         );
 
         if (res.data?.free) {
-          navigate("/employer/dashboard");
+          navigate("/dashboard");
           return;
         }
 
