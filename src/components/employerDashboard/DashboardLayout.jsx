@@ -346,9 +346,8 @@ export const DashboardLayout = ({
               <HelpCircle className="w-5 h-5" />
             </button>
             <NotificationPop>
-              <button className="text-gray-400 hover:text-white transition-colors relative">
+              <button type="button" aria-label="Notifications" className="text-gray-400 hover:text-white transition-colors relative">
                 <BellRing className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
               </button>
             </NotificationPop>
 
