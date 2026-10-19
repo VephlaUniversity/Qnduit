@@ -18,6 +18,7 @@ import { SignIn } from "./components/auth/SignIn";
 import { ForgotPassword } from "./components/auth/ForgotPassword";
 import { Payment } from "./components/auth/Payment";
 import { PaymentSuccess } from "./components/auth/PaymentSuccess";
+import PaymentCancelled from "./components/auth/PaymentCancelled";
 import DashboardLayout from "./components/employerDashboard/DashboardLayout";
 import DeleteProfile from "./components/employerDashboard/DeleteProfile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -113,7 +114,9 @@ const AppContent = () => {
     ].includes(location.pathname) ||
     location.pathname.startsWith("/talent-dashboard/") ||
     location.pathname.startsWith("/dashboard/") ||
-    location.pathname.startsWith("/admin-dashboard/");
+    location.pathname.startsWith("/admin-dashboard/") ||
+    location.pathname.startsWith("/payment/") ||
+    location.pathname.startsWith("/employer/payment/");
 
   return (
     <div className="min-h-screen bg-[#0E0E10] text-white">
@@ -142,6 +145,13 @@ const AppContent = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
+          {/* Talent payment results */}
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/cancelled" element={<PaymentCancelled />} />
+
+          {/* Employer payment results */}
+          <Route path="/employer/payment/success" element={<PaymentSuccess />} />
+          <Route path="/employer/payment/cancelled" element={<PaymentCancelled />} />
 
           {/* Protected routes */}
           <Route
