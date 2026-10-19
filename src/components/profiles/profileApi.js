@@ -1,19 +1,27 @@
 import { API_BASE_URL } from "../utils/api";
+import { OFFLINE_ERROR, SERVER_ERROR, safeText } from "../utils/userMessage";
 
 export async function profileRequest(path, options = {}) {
   const token =
     localStorage.getItem("token") || localStorage.getItem("authToken");
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (networkError) {
+    if (networkError.name === "AbortError") throw networkError;
+    throw new Error(OFFLINE_ERROR); // never show "Failed to fetch"
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success === false) {
+    const fallback = "Unable to load profile information. Please try again.";
     const error = new Error(
-      data.message || "Unable to load profile information. Please try again.",
+      response.status >= 500 ? SERVER_ERROR : safeText(data.message, fallback),
     );
     error.status = response.status;
     throw error;

@@ -66,3 +66,43 @@ export const sendVerificationEmail = async (
     throw error;
   }
 };
+
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+// Sends a Contact-page message to the team inbox. Replies go to the visitor.
+export const sendContactEmail = async ({
+  to,
+  fullName,
+  email,
+  roleLabel,
+  subjectLabel,
+  message,
+}) => {
+  await sgMail.send({
+    to,
+    from: {
+      email: process.env.SENDGRID_FROM_EMAIL,
+      name: "Qnduit Contact Form",
+    },
+    replyTo: { email, name: fullName },
+    subject: `[Contact] ${subjectLabel} - ${fullName}`,
+    text: `New message from the Qnduit contact page\n\nName: ${fullName}\nEmail: ${email}\nContacting as: ${roleLabel}\nSubject: ${subjectLabel}\n\n${message}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #0d6efd;">New contact message</h2>
+        <p><strong>Name:</strong> ${escapeHtml(fullName)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Contacting as:</strong> ${escapeHtml(roleLabel)}</p>
+        <p><strong>Subject:</strong> ${escapeHtml(subjectLabel)}</p>
+        <hr/>
+        <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
+      </div>
+    `,
+  });
+};

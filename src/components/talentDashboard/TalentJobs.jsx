@@ -18,6 +18,7 @@ import {
 import axios from "axios";
 import { toast } from "sonner";
 import { API_BASE_URL } from "../utils/api";
+import { friendlyError, safeText } from "../utils/userMessage";
 import {
   daysLeftLabel,
   formatSalary,
@@ -236,7 +237,9 @@ export const TalentJobs = () => {
     } catch (error) {
       if (!/already saved/i.test(error.response?.data?.message || "")) {
         setFavorites((prev) => (saved ? [...prev, id] : prev.filter((x) => x !== id)));
-        toast.error(error.response?.data?.message || "Failed to update saved jobs");
+        toast.error(
+          friendlyError(error, "We couldn't update your saved jobs. Please try again."),
+        );
       }
     }
   };
