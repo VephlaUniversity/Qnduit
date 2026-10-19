@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 export const TalentSignup = () => {
@@ -134,11 +135,7 @@ export const TalentSignup = () => {
     } catch (error) {
       console.error("Talent payment error:", error);
 
-      alert(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to process payment"
-      );
+      alert(friendlyError(error, "We couldn't process your payment. Please try again."));
     }
   };
 
@@ -163,7 +160,7 @@ export const TalentSignup = () => {
       }
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Registration failed");
+      alert(friendlyError(error, "We couldn't complete your registration. Please try again."));
     }
   };
 
@@ -258,10 +255,7 @@ export const TalentSignup = () => {
       console.error("Profile update error:", error);
       console.error("Response:", error.response?.data);
 
-      alert(
-        error.response?.data?.message ||
-          "Profile update failed"
-      );
+      alert(friendlyError(error, "We couldn't update your profile. Please try again."));
     }
   };
 

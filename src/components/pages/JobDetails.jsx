@@ -19,6 +19,7 @@ import { CTA } from "../home/CTA";
 import { AnimatedPage } from "../AnimatedPage";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { friendlyError, safeText } from "../utils/userMessage";
 import {
   daysLeftLabel,
   formatSalary,
@@ -146,14 +147,16 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     } catch (error) {
       const message = error.response?.data?.message;
       if (error.response?.status === 401) {
-        toast.error("Session expired. Please sign in again");
+        toast.error("Your session has expired. Please sign in again.");
       } else if (/already applied/i.test(message || "")) {
         setApplied(true);
         toast.info("You have already applied for this job");
       } else if (error.response?.status === 403) {
         toast.error("Only talent accounts can apply for jobs");
       } else {
-        toast.error(message || "Failed to apply for job");
+        toast.error(
+          friendlyError(error, "We couldn't submit your application. Please try again."),
+        );
       }
     } finally {
       setApplying(false);
@@ -184,7 +187,9 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
       if (/already saved/i.test(error.response?.data?.message || "")) {
         setIsFavorite(true);
       } else {
-        toast.error(error.response?.data?.message || "Failed to update favorites");
+        toast.error(
+          friendlyError(error, "We couldn't update your saved jobs. Please try again."),
+        );
       }
     } finally {
       setSavingFavorite(false);

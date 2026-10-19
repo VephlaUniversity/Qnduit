@@ -6,6 +6,7 @@ import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import TextEditor from "../TextEditor";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 const TalentAbout = () => {
@@ -253,7 +254,10 @@ const TalentAbout = () => {
       console.error("UPDATE ERROR:", error.response?.data);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to save profile",
+        description: friendlyError(
+          error,
+          "We couldn't save your profile. Please try again.",
+        ),
         variant: "destructive",
       });
     } finally {

@@ -3,6 +3,7 @@ import { FileText, X, Plus, ChevronDown, ChevronUp, Calendar, Loader2 } from "lu
 import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 const TalentResumes = () => {
@@ -167,8 +168,10 @@ const TalentResumes = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description:
-          error.response?.data?.message || error.message,
+        description: friendlyError(
+          error,
+          "We couldn't save your resume. Please try again.",
+        ),
         variant: "destructive",
       });
     } finally {
