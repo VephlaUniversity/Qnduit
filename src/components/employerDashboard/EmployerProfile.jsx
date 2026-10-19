@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   MapPin,
   Edit,
@@ -18,6 +18,7 @@ import { API_BASE_URL } from "../utils/api";
 import { formatJobDeadline } from "../utils/jobDeadline";
 import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
+import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -38,6 +39,7 @@ const getYouTubeVideoId = (url) => {
 export const EmployerProfile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const aboutCompanyHtml = useMemo(() => sanitizeEmployerAbout(profile?.aboutCompany), [profile?.aboutCompany]);
   const [availableJobs] = useState([]);
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
@@ -264,10 +266,10 @@ export const EmployerProfile = () => {
               <h3 className="text-xl font-semibold text-white mb-4">
                 About Company
               </h3>
-              {profile?.aboutCompany ? (
+              {aboutCompanyHtml ? (
                 <div
                   className="text-gray-400 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: profile.aboutCompany }}
+                  dangerouslySetInnerHTML={{ __html: aboutCompanyHtml }}
                 />
               ) : (
                 <p className="text-gray-400 leading-relaxed">
