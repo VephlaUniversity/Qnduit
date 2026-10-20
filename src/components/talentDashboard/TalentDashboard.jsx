@@ -15,7 +15,7 @@ import {
   Trash2,
   LogOut,
   LifeBuoy,
-  CreditCard,
+  Package
 } from "lucide-react";
 import Meeting from "./TalentMeeting";
 import ChangePassword from "../employerDashboard/ChangePassword";
@@ -34,7 +34,7 @@ import { TalentJobDetails } from "./TalentJobDetails";
 import UserSupport from "../support/UserSupport";
 import UserProfileView from "../profiles/UserProfileView";
 import ProfileViewHistory from "../profiles/ProfileViewHistory";
-import TalentMyPlan from "./TalentMyPlan";
+import TalentPackages from "./TalentPackages";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
@@ -62,8 +62,12 @@ const menuItems = [
     label: "Following Employers",
     path: "/talent-dashboard/following-employers",
   },
+  {
+    icon: Package,
+    label: "My Packages",
+    path: "/talent-dashboard/packages",
+  },
   { icon: Video, label: "Meeting", path: "/talent-dashboard/meeting" },
-  { icon: CreditCard, label: "My Plan", path: "/talent-dashboard/my-plan" },
   { icon: LifeBuoy, label: "Support", path: "/talent-dashboard/support" },
   {
     icon: Lock,
@@ -96,12 +100,12 @@ export const TalentDashboard = () => {
           element={<TalentFollowingEmployers />}
         />
         <Route path="meeting" element={<Meeting />} />
-        <Route path="my-plan" element={<TalentMyPlan />} />
         <Route path="support" element={<UserSupport />} />
         <Route path="change-passwords" element={<ChangePassword />} />
         <Route path="delete-profile" element={<DeleteProfile />} />
         <Route path="job-results" element={<TalentJobs />} />
         <Route path="job-results/details/:id" element={<TalentJobDetails />} />
+        <Route path="packages" element={<TalentPackages />} />
       </Routes>
     </DashboardLayout>
   );

@@ -13,12 +13,6 @@ import {
   Building,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { planFromUrl, PLAN_AUDIENCE } from "../utils/planChoice";
-
-const employerPlanFromUrl = () => {
-  const plan = planFromUrl();
-  return PLAN_AUDIENCE[plan] === "employer" ? plan : "";
-};
 import axios from "axios";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
@@ -40,7 +34,7 @@ export const EmployerSignup = () => {
     location: "",
     displayName: "",
     aboutYou: "",
-    selectedPlan: employerPlanFromUrl(),
+    selectedPlan: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -62,7 +56,12 @@ export const EmployerSignup = () => {
         alert("Email verified successfully!");
         setCurrentStep(3);
       } else {
-        alert(safeText(res.data.message, "We couldn't complete that step. Please try again."));
+        alert(
+          safeText(
+            res.data.message,
+            "We couldn't complete that step. Please try again.",
+          ),
+        );
       }
     } catch (err) {
       console.error("Verification failed:", err);
@@ -72,46 +71,30 @@ export const EmployerSignup = () => {
   const handlePlanSelection = async (planType, actionType) => {
     const token = localStorage.getItem("token");
 
+    if (!token) {
+      alert("Missing authentication token. Please verify your email first.");
+      return;
+    }
+
     if (!planType) {
       alert("Please select a plan first");
       return;
     }
 
-    try {
-      setLoading(true);
+    if (actionType === "payNow") {
+      navigate(
+        `/payment?plan=${encodeURIComponent(planType)}&userType=employer`
+      );
+      return;
+    }
 
-      if (actionType === "payNow") {
-        const res = await axios.post(
-          `${API_BASE_URL}/api/payments/employer/create-checkout`,
-          {
-            plan: planType,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+    if (actionType === "payLater") {
+      try {
+        setLoading(true);
 
-        if (res.data?.free) {
-          navigate("/dashboard");
-          return;
-        }
-
-        if (res.data?.checkoutUrl) {
-          window.location.href = res.data.checkoutUrl;
-          return;
-        }
-
-        throw new Error("Stripe checkout link not received");
-      }
-
-      if (actionType === "payLater") {
-        const res = await axios.post(
+        const response = await axios.post(
           `${API_BASE_URL}/api/payments/employer/pay-later`,
-          {
-            plan: planType,
-          },
+          { plan: planType },
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -119,23 +102,26 @@ export const EmployerSignup = () => {
           }
         );
 
-        if (res.data?.success) {
+        if (response.data?.success) {
           alert("Your plan has been saved. You can complete payment later.");
           navigate("/dashboard");
           return;
         }
 
         throw new Error(
-          res.data?.message || "Unable to save your plan"
+          response.data?.message || "Unable to save your plan"
         );
+      } catch (error) {
+        console.error("Employer plan action error:", error);
+
+        alert(
+          error.response?.data?.message ||
+            error.message ||
+            "Something went wrong. Please try again."
+        );
+      } finally {
+        setLoading(false);
       }
-
-    } catch (err) {
-      console.error("Plan action error:", err);
-
-      alert(friendlyError(err, "Something went wrong. Please try again."));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -148,23 +134,25 @@ export const EmployerSignup = () => {
         {
           updateContext: "account-details",
           accountType: formData.accountType,
-          ...(formData.accountType === "institutional" ? {
-            companyName: formData.companyName,
-            aboutCompany: formData.aboutCompany,
-            companyWebsite: formData.companyWebsite,
-            companyIndustry: formData.companyIndustry,
-            location: formData.location,
-          } : {
-            displayName: formData.displayName,
-            aboutYou: formData.aboutYou,
-          }),
+          ...(formData.accountType === "institutional"
+            ? {
+                companyName: formData.companyName,
+                aboutCompany: formData.aboutCompany,
+                companyWebsite: formData.companyWebsite,
+                companyIndustry: formData.companyIndustry,
+                location: formData.location,
+              }
+            : {
+                displayName: formData.displayName,
+                aboutYou: formData.aboutYou,
+              }),
         },
         {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (res.data.success) {
@@ -196,7 +184,12 @@ export const EmployerSignup = () => {
         alert("Verification code sent to your email");
         setCurrentStep(2);
       } else {
-        alert(safeText(res.data.message, "We couldn't complete that step. Please try again."));
+        alert(
+          safeText(
+            res.data.message,
+            "We couldn't complete that step. Please try again.",
+          ),
+        );
       }
     } catch (err) {
       console.error("Signup error:", err);
@@ -914,7 +907,6 @@ export const EmployerSignup = () => {
             <EmployerPlans
               selectedPlan={formData.selectedPlan}
               onSelectPlan={(plan) => handleInputChange("selectedPlan", plan)}
-              alwaysActive
               onPlanAction={handlePlanSelection}
             />
           </div>
