@@ -115,12 +115,16 @@ export const verifyTalentEmail = async (req, res, next) => {
 export const updateTalentProfile = async (req, res, next) => {
   try {
     const id = req.user._id;
-    const updates = { ...req.body };
-
-    delete updates.password;
-    delete updates.email;
-    delete updates.isVerified;
-    delete updates.selectedPlan;
+    // Owner editors may resend account metadata; only profile fields are editable.
+    const editableFields = [
+      "firstName", "lastName", "fullName", "dateOfBirth", "phone", "gender", "age",
+      "jobTitle", "qualification", "experienceTime", "language", "location", "address",
+      "aboutMe", "showProfile", "offeredSalary", "salaryType", "categories", "tags",
+      "skills", "socialNetworks", "avatar", "introVideo", "geoLocation", "lat", "lng",
+    ];
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const updates = Object.fromEntries(editableFields
+      .filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]]));
 
     const parseArrayField = (field) => {
       if (Array.isArray(field)) {
@@ -142,7 +146,7 @@ export const updateTalentProfile = async (req, res, next) => {
           if (typeof parsed === "string") {
             return parseArrayField(parsed);
           }
-        } catch {}
+        } catch { /* Non-JSON array input is handled as plain text below. */ }
 
         if (value.includes(",")) {
           return value
@@ -168,6 +172,17 @@ export const updateTalentProfile = async (req, res, next) => {
         ];
       }
     });
+
+    // Suggestions are not an enum: keep custom and previously saved values valid.
+    for (const field of ["categories", "tags"]) {
+      if (updates[field] && (updates[field].length > 50 ||
+        updates[field].some(value => value.length > 200))) {
+        return res.status(400).json({
+          success: false,
+          message: `${field === "tags" ? "Skills" : "Categories"} must contain at most 50 values of 200 characters each.`,
+        });
+      }
+    }
 
     if (updates.socialNetworks) {
       try {
@@ -345,24 +360,31 @@ export const uploadResume = async (req, res, next) => {
 };
 
 
-export const selectTalentPlan = async (req, res, next) => {
+export const selectTalentPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { selectedPlan } = req.body;
-
-    const talent = await Talent.findById(id);
+    if (!/^[a-f\d]{24}$/i.test(id)) {
+      return res.status(400).json({ message: "Invalid Talent ID." });
+    }
+    if (String(req.user._id).toLowerCase() !== id.toLowerCase()) {
+      return res.status(403).json({ message: "You can only select your own plan." });
+    }
+    const { selectedPlan } = req.body || {};
+    if (!["free", "public"].includes(selectedPlan)) {
+      return res.status(400).json({ message: "Select a valid Talent plan." });
+    }
+    // Selection is intent only; payment activation remains in paymentController.
+    const talent = await Talent.findByIdAndUpdate(id, { $set: { selectedPlan } }, {
+      new: true, runValidators: true,
+    }).select("_id selectedPlan");
     if (!talent) return res.status(404).json({ message: "Talent not found" });
-
-    talent.selectedPlan = selectedPlan;
-    await talent.save();
-
     res.json({
       success: true,
       message: `Plan '${selectedPlan}' selected successfully`,
-      talent,
+      talent: { _id: talent._id, selectedPlan: talent.selectedPlan },
     });
-  } catch (error) {
-    next(error);
+  } catch {
+    res.status(500).json({ message: "Unable to select your plan. Please try again." });
   }
 };
 

@@ -32,7 +32,7 @@ export const HeroSection = () => {
   return (
     <section className="relative min-h-screen flex items-center">
       {/* Background */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
         <img
           src="/images/hero-bg.png"
           alt=""
@@ -77,16 +77,20 @@ export const HeroSection = () => {
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col sm:flex-row gap-4 justify-center pb-6"
           >
-            <button className="bg-[#3B82F6] text-white px-8 py-3 rounded-full hover:bg-[#5F8DD7] transition-colors cursor-pointer">
-              {isAuthenticated ? (
-                <span onClick={handleDashboardClick}>Go to your Dashboard</span>
-              ) : (
-                <Link to="/talent-signup">Join as Talent</Link>
-              )}
-            </button>
+            {isAuthenticated ? (
+              <button type="button" onClick={handleDashboardClick}
+                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-[#3B82F6] text-white px-8 py-3 rounded-full hover:bg-[#5F8DD7] transition-colors cursor-pointer">
+                Go to your Dashboard
+              </button>
+            ) : (
+              <Link to="/talent-signup"
+                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-[#3B82F6] text-white px-8 py-3 rounded-full hover:bg-[#5F8DD7] transition-colors cursor-pointer">
+                Join as Talent
+              </Link>
+            )}
             <Link
-              to="/employers"
-              className="bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-block"
+              to="/employer-signup"
+              className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
             >
               Hire Talent
             </Link>

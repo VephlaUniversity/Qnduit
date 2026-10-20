@@ -1,4 +1,5 @@
 import { PlanCard } from "./PlanCards";
+import { usePlanAction } from "./hooks/usePlanAction";
 
 export const EmployerPlans = ({
   selectedPlan,
@@ -6,6 +7,8 @@ export const EmployerPlans = ({
   onPlanAction,
   alwaysActive = false,
 }) => {
+  const { pending, submit } = usePlanAction(onPlanAction);
+
   const bronzeIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -79,7 +82,8 @@ export const EmployerPlans = ({
         ctaText="Post My Jobs Now →"
         isSelected={selectedPlan === "bronze"}
         onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onCTAClick={submit}
+        pending={pending}
         variant="default"
         alwaysActive={alwaysActive}
       />
@@ -98,7 +102,8 @@ export const EmployerPlans = ({
         ctaText="Start Contacting Talent →"
         isSelected={selectedPlan === "silver"}
         onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onCTAClick={submit}
+        pending={pending}
         variant="highlighted"
         alwaysActive={alwaysActive}
       />
@@ -117,7 +122,8 @@ export const EmployerPlans = ({
         ctaText="Get Full Access Now →"
         isSelected={selectedPlan === "platinum"}
         onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onCTAClick={submit}
+        pending={pending}
         variant="default"
         alwaysActive={alwaysActive}
       />

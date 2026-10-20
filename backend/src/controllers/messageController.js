@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { createHash } from "node:crypto";
 import { pageLimit, encodeCursor, decodeCursor } from "../utils/messageCursor.js";
 import Message from "../models/Message.js";
+import { attachmentFingerprint, publicAttachment } from "../utils/messageAttachments/validate.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 
@@ -23,11 +24,13 @@ export const sendMessage = async (req, res) => {
     const senderData = await getUserRole(senderId, req.user.role);
     if (!senderData) return res.status(404).json({ message: "User not found" });
 
-    const { recipientId, recipientModel, text, clientMessageId } = req.body || {};
+    const { recipientId, recipientModel, clientMessageId } = req.body || {};
+    const attachments = req.messageAttachments || [];
+    const text = req.body?.text === undefined && attachments.length ? "" : req.body?.text;
     if (!validId(recipientId) || !["Talent", "Employer"].includes(recipientModel)) {
       return res.status(400).json({ message: "A valid recipient ID and user type are required." });
     }
-    if (typeof text !== "string" || !text.trim() || text.length > 10000) {
+    if (typeof text !== "string" || (!text.trim() && !attachments.length) || text.length > 10000) {
       return res.status(400).json({ message: "Message must contain text and be no longer than 10,000 characters." });
     }
     if (recipientId.toLowerCase() === String(senderId).toLowerCase()) {
@@ -38,13 +41,13 @@ export const sendMessage = async (req, res) => {
     }
     const identity = { sender: senderId, senderModel: senderData.role, clientMessageId };
     const replay = message => {
-      if (String(message.recipient).toLowerCase() !== recipientId.toLowerCase() || message.recipientModel !== recipientModel || message.text !== text) {
+      if (String(message.recipient).toLowerCase() !== recipientId.toLowerCase() || message.recipientModel !== recipientModel || message.text !== text || attachmentFingerprint(message.attachments) !== attachmentFingerprint(attachments)) {
         return res.status(409).json({ success: false, message: "This message request key was already used for different content." });
       }
       return res.status(200).json({ success: true, message });
     };
     if (clientMessageId !== undefined) {
-      const existing = await Message.findOne(identity);
+      const existing = await Message.findOne(identity).select("+attachments.sha256");
       if (existing) return replay(existing);
     }
     const recipientType = recipientModel === "Talent" ? Talent : Employer;
@@ -52,9 +55,12 @@ export const sendMessage = async (req, res) => {
       return res.status(404).json({ message: "Recipient not found for the selected user type." });
     }
 
+    if (req.attachmentUpload && (req.attachmentUpload.controller.signal.aborted || res.destroyed)) return;
     let message;
     try {
+      if (attachments.length) req.attachmentUpload.attempted = true;
       message = await Message.create({
+      ...(attachments.length ? { _id: req.attachmentUpload.messageId, attachments } : {}),
       sender: senderId,
       senderModel: senderData.role,
       recipient: recipientId,
@@ -64,8 +70,8 @@ export const sendMessage = async (req, res) => {
       });
     } catch (error) {
       if (clientMessageId !== undefined && error.code === 11000) {
-        const existing = await Message.findOne(identity);
-        if (existing) return replay(existing);
+        const existing = await Message.findOne(identity).select("+attachments.sha256");
+        if (existing) { if (req.attachmentUpload) req.attachmentUpload.attempted = false; return replay(existing); }
       }
       throw error;
     }
@@ -129,7 +135,7 @@ export const getMessages = async (req, res) => {
       };
       filter = { $and: [filter, boundary] };
     }
-    const query = Message.find(filter).select("_id text createdAt sender senderModel read").sort({ createdAt: bounded ? -1 : 1, _id: bounded ? -1 : 1 });
+    const query = Message.find(filter).select("_id text createdAt sender senderModel read attachments").sort({ createdAt: bounded ? -1 : 1, _id: bounded ? -1 : 1 });
     if (bounded) query.limit(size + 1);
     let messages = await query.lean();
     const hasMore = bounded && messages.length > size;
@@ -147,6 +153,7 @@ export const getMessages = async (req, res) => {
         read: m.read === true,
         readEligible: Boolean(since && m.createdAt >= since && m.senderModel !== undefined && !(m.sender?.toString() === userId.toString() && m.senderModel === senderData.role)),
         text: m.text,
+        ...(m.attachments?.length ? { attachments: m.attachments.map(publicAttachment) } : {}),
         createdAt: timestamp,
         // Legacy fields remain compatible; viewers should format the absolute timestamp.
         time: timestamp ? timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
@@ -256,10 +263,10 @@ export const getChats = async (req, res) => {
     const pipeline = [
       { $match: { $or: [{ sender: owner, senderModel: senderData.role }, { recipient: owner, recipientModel: senderData.role }] } },
       { $sort: { createdAt: -1, _id: -1 } },
-      { $project: { text: 1, createdAt: 1, partnerId: { $cond: [{ $and: [{ $eq: ["$sender", owner] }, { $eq: ["$senderModel", senderData.role] }] }, "$recipient", "$sender"] },
+      { $project: { text: 1, createdAt: 1, attachmentCount: { $size: { $ifNull: ["$attachments", []] } }, attachmentName: { $arrayElemAt: ["$attachments.name", 0] }, partnerId: { $cond: [{ $and: [{ $eq: ["$sender", owner] }, { $eq: ["$senderModel", senderData.role] }] }, "$recipient", "$sender"] },
         partnerModel: { $cond: [{ $and: [{ $eq: ["$sender", owner] }, { $eq: ["$senderModel", senderData.role] }] }, "$recipientModel", "$senderModel"] } } },
       { $match: { partnerModel: { $in: ["Talent", "Employer"] } } },
-      { $group: { _id: { id: "$partnerId", model: "$partnerModel" }, text: { $first: "$text" }, createdAt: { $first: "$createdAt" } } },
+      { $group: { _id: { id: "$partnerId", model: "$partnerModel" }, text: { $first: "$text" }, attachmentCount: { $first: "$attachmentCount" }, attachmentName: { $first: "$attachmentName" }, createdAt: { $first: "$createdAt" } } },
       { $set: { key: { $concat: ["$_id.model", ":", { $toString: "$_id.id" }] }, createdAt: { $ifNull: ["$createdAt", null] } } },
       // Exclude deleted accounts before pagination, so a page cannot disappear after hydration.
       { $lookup: { from: Talent.collection.name, localField: "_id.id", foreignField: "_id", pipeline: [{ $project: { _id: 1, fullName: 1, firstName: 1, lastName: 1, email: 1 } }], as: "talent" } },
@@ -300,7 +307,10 @@ export const getChats = async (req, res) => {
 
     const preview = (model, id) => {
       const latest = latestByPartner.get(`${model}:${id}`);
-      return latest ? { lastMessage: latest.text, lastMessageAt: latest.createdAt } : {};
+      return latest ? { lastMessage: latest.text?.trim() ? latest.text
+        : latest.attachmentCount === 1 ? `Attachment: ${latest.attachmentName}`
+          : latest.attachmentCount > 1 ? `${latest.attachmentCount} attachments` : latest.text,
+        lastMessageAt: latest.createdAt } : {};
     };
     const formattedTalents = talents.map((t) => {
       const name = t.fullName?.trim() || [t.firstName, t.lastName]

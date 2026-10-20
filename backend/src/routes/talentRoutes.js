@@ -30,14 +30,16 @@ router.post(
 router.put(
   "/:id/profile",
   protect,
+  authorize("talent"),
   updateTalentProfile
 );
 
-router.put("/:id/plan", selectTalentPlan);
+router.put("/:id/plan", protect, authorize("talent"), selectTalentPlan);
 
 router.put(
   "/update",
   protect,
+  authorize("talent"),
   talentUpload.fields([
     { name: "avatar", maxCount: 1 },
     { name: "introVideo", maxCount: 1 }

@@ -1,16 +1,23 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE_URL } from "../utils/api";
+import { usePlanAction } from "../hooks/usePlanAction";
+
+const paymentToken = userType => userType === "talent"
+  ? localStorage.getItem("authToken") || localStorage.getItem("token")
+  : localStorage.getItem("token");
 
 export const Payment = () => {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const { plan, planName, price, userType } = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = searchParams;
 
     const selectedPlan = params.get("plan") || "";
     const selectedUserType = params.get("userType") || "employer";
@@ -30,7 +37,7 @@ export const Payment = () => {
       price: selected?.price ?? null,
       userType: selectedUserType,
     };
-  }, []);
+  }, [searchParams]);
 
   const validate = () => {
     if (!plan || price === null) {
@@ -46,9 +53,7 @@ export const Payment = () => {
       return "The selected plan is invalid for this account type.";
     }
 
-    const tokenKey = userType === "talent" ? "authToken" : "token";
-
-    if (!localStorage.getItem(tokenKey)) {
+    if (!paymentToken(userType)) {
       return "Your session has expired. Please log in again.";
     }
 
@@ -67,8 +72,6 @@ export const Payment = () => {
     setLoading(true);
 
     try {
-      const tokenKey = userType === "talent" ? "authToken" : "token";
-
       const endpoint =
         userType === "talent"
           ? "/api/payments/create-checkout"
@@ -79,7 +82,7 @@ export const Payment = () => {
         { plan },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem(tokenKey)}`,
+            Authorization: `Bearer ${paymentToken(userType)}`,
           },
         }
       );
@@ -103,6 +106,8 @@ export const Payment = () => {
       setLoading(false);
     }
   };
+
+  const { pending, submit } = usePlanAction(handlePayment);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0d0d0d] to-[#1a1a1a] flex items-center justify-center p-4">
@@ -195,8 +200,10 @@ export const Payment = () => {
             )}
 
             <motion.button
-              onClick={handlePayment}
-              disabled={loading}
+              type="button"
+              onClick={() => submit(plan, "payNow")}
+              disabled={loading || pending}
+              aria-busy={loading || pending}
               className="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               whileTap={{ scale: loading ? 1 : 0.98 }}
             >

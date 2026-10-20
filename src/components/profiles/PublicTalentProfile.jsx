@@ -10,24 +10,40 @@ import {
   Globe,
 } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE_URL } from "../utils/api";
+import { profileImageUrl } from "./profileApi";
+
+const safeExternalUrl = (value) => {
+  if (typeof value !== "string") return "";
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+};
 
 const PublicTalentProfile = () => {
   const { username } = useParams();
   const [talent, setTalent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchProfile = async () => {
       setLoading(true);
       setNotFound(false);
+      setLoadError(false);
+      setTalent(null);
 
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/talents/public/${encodeURIComponent(username)}`
+          `${API_BASE_URL}/api/talents/public/${encodeURIComponent(username)}`,
+          { signal: controller.signal }
         );
 
         if (!cancelled) {
@@ -35,6 +51,7 @@ const PublicTalentProfile = () => {
         }
       } catch (error) {
         if (!cancelled) {
+          setLoadError(true);
           setNotFound(
             error.response?.status === 404 ||
             error.response?.status === 403
@@ -49,6 +66,7 @@ const PublicTalentProfile = () => {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [username]);
 
@@ -67,7 +85,9 @@ const PublicTalentProfile = () => {
           Profile unavailable
         </h1>
         <p className="text-gray-400 mb-6">
-          This public listing does not exist or is not currently available.
+          {loadError && !notFound
+            ? "We couldn’t load this profile. Please try again."
+            : "This public listing does not exist or is not currently available."}
         </p>
         <Link
           to="/"
@@ -79,7 +99,12 @@ const PublicTalentProfile = () => {
     );
   }
 
-  const skills = Array.isArray(talent.skills) ? talent.skills : [];
+  const displayName = talent.fullName?.trim() ||
+    [talent.firstName, talent.lastName].filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ") || "Talent";
+  const avatar = profileImageUrl(talent.avatar);
+  const portfolioUrl = safeExternalUrl(talent.portfolioUrl);
+  const linkedinUrl = safeExternalUrl(talent.socialNetworks?.linkedin);
+  const skills = Array.isArray(talent.tags) ? talent.tags : [];
   const experience = Array.isArray(talent.experience)
     ? talent.experience
     : [];
@@ -96,15 +121,15 @@ const PublicTalentProfile = () => {
           animate={{ opacity: 1, y: 0 }}
         >
           <div className="flex flex-col sm:flex-row gap-6 items-start">
-            {talent.profilePicture ? (
+            {avatar ? (
               <img
-                src={talent.profilePicture}
-                alt={talent.name}
+                src={avatar}
+                alt={displayName}
                 className="w-24 h-24 rounded-2xl object-cover"
               />
             ) : (
               <div className="w-24 h-24 rounded-2xl bg-blue-600 flex items-center justify-center text-3xl font-bold">
-                {talent.name?.charAt(0)?.toUpperCase() || "T"}
+                {displayName?.charAt(0)?.toUpperCase() || "T"}
               </div>
             )}
 
@@ -113,11 +138,11 @@ const PublicTalentProfile = () => {
                 Talent on QNDUIT
               </p>
               <h1 className="text-3xl md:text-4xl font-bold">
-                {talent.name}
+                {displayName}
               </h1>
-              {talent.title && (
+              {talent.jobTitle && (
                 <p className="text-lg text-gray-300 mt-2">
-                  {talent.title}
+                  {talent.jobTitle}
                 </p>
               )}
 
@@ -138,11 +163,11 @@ const PublicTalentProfile = () => {
             </div>
           </div>
 
-          {talent.about && (
+          {talent.aboutMe && (
             <section className="mt-10">
               <h2 className="text-xl font-bold mb-3">About</h2>
               <p className="text-gray-300 leading-7 whitespace-pre-line">
-                {talent.about}
+                {talent.aboutMe}
               </p>
             </section>
           )}
@@ -199,9 +224,9 @@ const PublicTalentProfile = () => {
                     key={item._id || index}
                     className="bg-[#0F1419] border border-gray-800 rounded-xl overflow-hidden"
                   >
-                    {item.image && (
+                    {item.imageUrl && (
                       <img
-                        src={item.image}
+                        src={profileImageUrl(item.imageUrl)}
                         alt={item.title || "Portfolio project"}
                         className="w-full h-48 object-cover"
                         loading="lazy"
@@ -216,9 +241,9 @@ const PublicTalentProfile = () => {
                           {item.description}
                         </p>
                       )}
-                      {item.url && (
+                      {safeExternalUrl(item.projectUrl) && (
                         <a
-                          href={item.url}
+                          href={safeExternalUrl(item.projectUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-blue-400 mt-4 text-sm"
@@ -233,9 +258,9 @@ const PublicTalentProfile = () => {
             </section>
           )}
 
-          {talent.portfolioUrl && (
+          {portfolioUrl && (
             <a
-              href={talent.portfolioUrl}
+              href={portfolioUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 mt-8 text-blue-400 hover:text-blue-300"
@@ -244,9 +269,9 @@ const PublicTalentProfile = () => {
             </a>
           )}
 
-          {talent.linkedinUrl && (
+          {linkedinUrl && (
             <a
-              href={talent.linkedinUrl}
+              href={linkedinUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 mt-5 ml-5 text-blue-400 hover:text-blue-300"

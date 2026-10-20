@@ -35,6 +35,7 @@ import UserSupport from "../support/UserSupport";
 import UserProfileView from "../profiles/UserProfileView";
 import ProfileViewHistory from "../profiles/ProfileViewHistory";
 import TalentPackages from "./TalentPackages";
+import TalentMyPlan from "./TalentMyPlan";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
@@ -106,6 +107,7 @@ export const TalentDashboard = () => {
         <Route path="job-results" element={<TalentJobs />} />
         <Route path="job-results/details/:id" element={<TalentJobDetails />} />
         <Route path="packages" element={<TalentPackages />} />
+        <Route path="my-plan" element={<TalentMyPlan />} />
       </Routes>
     </DashboardLayout>
   );

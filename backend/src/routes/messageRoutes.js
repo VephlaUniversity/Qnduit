@@ -1,3 +1,5 @@
+import { ingestMessageAttachments } from "../utils/messageAttachments/ingest.js";
+import { downloadMessageAttachment } from "../controllers/messageAttachmentController.js";
 import { unreadMessages, acknowledgeMessages } from "../controllers/messageReadController.js";
 import { heartbeat, lookupPresence } from "../controllers/messagePresenceController.js";
 import express from "express";
@@ -19,7 +21,8 @@ router.get("/unread", unreadMessages);
 router.patch("/read", acknowledgeMessages);
 
 // Send message
-router.post("/send", sendMessage);
+router.post("/send", ingestMessageAttachments, sendMessage);
+router.get("/:messageId/attachments/:attachmentId", downloadMessageAttachment);
 
 // Get messages or with a specific user
 router.get("/", getMessages);

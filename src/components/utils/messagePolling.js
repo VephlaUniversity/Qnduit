@@ -1,5 +1,5 @@
 // One cycle at a time; timers start after completion, not at fixed intervals.
-export function startMessagePolling({ run, onError, onSuccess, onUnauthorized }) {
+export function startMessagePolling({ run, onError, onSuccess, onUnauthorized, intervalMs = 3000, maxDelayMs = 30000 }) {
   let timer, controller, running = false, stopped = false, expired = false, immediate = false, failures = 0;
   const available = () => document.visibilityState !== "hidden" && navigator.onLine !== false;
   const schedule = delay => {
@@ -21,7 +21,7 @@ export function startMessagePolling({ run, onError, onSuccess, onUnauthorized })
       }
     } finally {
       running = false;
-      schedule(immediate ? 0 : Math.min(30000, 3000 * 2 ** Math.min(failures, 4)));
+      schedule(immediate ? 0 : Math.min(maxDelayMs, intervalMs * 2 ** Math.min(failures, 4)));
     }
   }
   const wake = () => {
@@ -34,7 +34,7 @@ export function startMessagePolling({ run, onError, onSuccess, onUnauthorized })
   window.addEventListener("focus", wake);
   window.addEventListener("online", wake);
   window.addEventListener("offline", wake);
-  schedule(3000);
+  schedule(intervalMs);
   return {
     wake,
     cancel() { controller?.abort(); },

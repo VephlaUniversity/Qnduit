@@ -12,6 +12,11 @@ const TalentPackages = () => {
       return;
     }
 
+    if (planType === "free") {
+      navigate("/talent-dashboard/my-plan?plan=free");
+      return;
+    }
+
     if (actionType === "payNow") {
       navigate(
         `/payment?plan=${encodeURIComponent(planType)}&userType=talent`

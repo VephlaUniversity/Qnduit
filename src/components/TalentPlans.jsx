@@ -1,4 +1,5 @@
 import { PlanCard } from "./PlanCards";
+import { usePlanAction } from "./hooks/usePlanAction";
 
 export const TalentPlans = ({
   selectedPlan,
@@ -9,6 +10,9 @@ export const TalentPlans = ({
   freeCtaText = "Create My Free Account →",
   publicCtaText = "List My Profile Here →",
 }) => {
+
+  const { pending, submit } = usePlanAction(onPlanAction);
+
   const freeIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -63,7 +67,8 @@ export const TalentPlans = ({
         ctaText={freeCtaText}
         isSelected={selectedPlan === "free"}
         onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onCTAClick={submit}
+        pending={pending}
         variant="default"
         disableWhenNotSelected={false}
         alwaysActive={alwaysActive}
@@ -84,7 +89,8 @@ export const TalentPlans = ({
         ctaText={publicCtaText}
         isSelected={selectedPlan === "public"}
         onSelect={onSelectPlan}
-        onCTAClick={onPlanAction}
+        onCTAClick={submit}
+        pending={pending}
         variant="highlighted"
         disableWhenNotSelected={false}
         alwaysActive={alwaysActive}
