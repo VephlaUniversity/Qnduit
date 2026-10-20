@@ -12,12 +12,6 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { planFromUrl, PLAN_AUDIENCE } from "../utils/planChoice";
-
-const talentPlanFromUrl = () => {
-  const plan = planFromUrl();
-  return PLAN_AUDIENCE[plan] === "talent" ? plan : "";
-};
 import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
@@ -26,13 +20,74 @@ const OTHER_ROLE = "__other__";
 
 // Grouped so the list stays scannable; anything not listed can be typed under "Other".
 const ROLE_GROUPS = [
-  { label: "Design", roles: ["Product Designer", "UI Designer", "UX Designer", "Graphic Designer", "Motion Designer", "Brand Designer"] },
-  { label: "Engineering", roles: ["Frontend Developer", "Backend Developer", "Full-Stack Developer", "Mobile Developer", "DevOps Engineer", "QA / Test Engineer", "Data Engineer", "Software Engineer"] },
-  { label: "Data & AI", roles: ["Data Analyst", "Data Scientist", "Machine Learning Engineer"] },
-  { label: "Product & Management", roles: ["Product Manager", "Project Manager", "Business Analyst", "Scrum Master"] },
-  { label: "Marketing & Content", roles: ["Digital Marketer", "SEO Specialist", "Content Writer", "Copywriter", "Social Media Manager", "Video Editor"] },
-  { label: "Business & Operations", roles: ["Sales Representative", "Customer Support", "Accountant", "HR / Recruiter", "Virtual Assistant", "Operations Manager"] },
-  { label: "Cybersecurity & IT", roles: ["Cybersecurity Analyst", "IT Support", "Network Engineer", "Cloud Engineer"] },
+  {
+    label: "Design",
+    roles: [
+      "Product Designer",
+      "UI Designer",
+      "UX Designer",
+      "Graphic Designer",
+      "Motion Designer",
+      "Brand Designer",
+    ],
+  },
+  {
+    label: "Engineering",
+    roles: [
+      "Frontend Developer",
+      "Backend Developer",
+      "Full-Stack Developer",
+      "Mobile Developer",
+      "DevOps Engineer",
+      "QA / Test Engineer",
+      "Data Engineer",
+      "Software Engineer",
+    ],
+  },
+  {
+    label: "Data & AI",
+    roles: ["Data Analyst", "Data Scientist", "Machine Learning Engineer"],
+  },
+  {
+    label: "Product & Management",
+    roles: [
+      "Product Manager",
+      "Project Manager",
+      "Business Analyst",
+      "Scrum Master",
+    ],
+  },
+  {
+    label: "Marketing & Content",
+    roles: [
+      "Digital Marketer",
+      "SEO Specialist",
+      "Content Writer",
+      "Copywriter",
+      "Social Media Manager",
+      "Video Editor",
+    ],
+  },
+  {
+    label: "Business & Operations",
+    roles: [
+      "Sales Representative",
+      "Customer Support",
+      "Accountant",
+      "HR / Recruiter",
+      "Virtual Assistant",
+      "Operations Manager",
+    ],
+  },
+  {
+    label: "Cybersecurity & IT",
+    roles: [
+      "Cybersecurity Analyst",
+      "IT Support",
+      "Network Engineer",
+      "Cloud Engineer",
+    ],
+  },
 ];
 
 export const TalentSignup = () => {
@@ -51,7 +106,7 @@ export const TalentSignup = () => {
     resume: null,
     bio: "",
     linkedin: "",
-    selectedPlan: talentPlanFromUrl(),
+    selectedPlan: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -102,17 +157,15 @@ export const TalentSignup = () => {
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) {
-      return alert("Missing authentication token");
+      alert("Missing authentication token. Please verify your email first.");
+      return;
     }
 
     try {
-      // FREE PLAN
       if (planType === "free") {
         const response = await axios.post(
           `${API_BASE_URL}/api/payments/create-checkout`,
-          {
-            plan: "free",
-          },
+          { plan: "free" },
           {
             headers: {
               Authorization: `Bearer ${authToken}`,
@@ -121,7 +174,7 @@ export const TalentSignup = () => {
         );
 
         if (response.data?.free) {
-          navigate("/talent-dashboard");
+          navigate("/dashboard");
           return;
         }
 
@@ -130,32 +183,18 @@ export const TalentSignup = () => {
         );
       }
 
-      // PAID PLAN
-      const response = await axios.post(
-        `${API_BASE_URL}/api/payments/create-checkout`,
-        {
-          plan: planType,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
-
-      if (response.data?.checkoutUrl) {
-        window.location.href = response.data.checkoutUrl;
-        return;
-      }
-
-      throw new Error(
-        response.data?.message ||
-          "Flutterwave checkout link not received"
+      // Navigate for paid plans.
+      navigate(
+        `/payment?plan=${encodeURIComponent(planType)}&userType=talent`
       );
     } catch (error) {
-      console.error("Talent payment error:", error);
+      console.error("Talent plan selection error:", error);
 
-      alert(friendlyError(error, "We couldn't process your payment. Please try again."));
+      alert(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to select plan"
+      );
     }
   };
 
@@ -180,7 +219,12 @@ export const TalentSignup = () => {
       }
     } catch (error) {
       console.error(error);
-      alert(friendlyError(error, "We couldn't complete your registration. Please try again."));
+      alert(
+        friendlyError(
+          error,
+          "We couldn't complete your registration. Please try again.",
+        ),
+      );
     }
   };
 
@@ -236,15 +280,11 @@ export const TalentSignup = () => {
         const resumeData = new FormData();
         resumeData.append("resume", formData.resume);
 
-        await axios.post(
-          `${API_BASE_URL}/api/talents/resume`,
-          resumeData,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
+        await axios.post(`${API_BASE_URL}/api/talents/resume`, resumeData, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
       }
 
       // Update the rest of the profile
@@ -268,7 +308,7 @@ export const TalentSignup = () => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
@@ -278,7 +318,12 @@ export const TalentSignup = () => {
       console.error("Profile update error:", error);
       console.error("Response:", error.response?.data);
 
-      alert(friendlyError(error, "We couldn't update your profile. Please try again."));
+      alert(
+        friendlyError(
+          error,
+          "We couldn't update your profile. Please try again.",
+        ),
+      );
     }
   };
 
@@ -524,9 +569,17 @@ export const TalentSignup = () => {
                     Select your role
                   </option>
                   {ROLE_GROUPS.map((group) => (
-                    <optgroup key={group.label} label={group.label} className="bg-[#1a2942]">
+                    <optgroup
+                      key={group.label}
+                      label={group.label}
+                      className="bg-[#1a2942]"
+                    >
                       {group.roles.map((role) => (
-                        <option key={role} value={role} className="bg-[#1a2942]">
+                        <option
+                          key={role}
+                          value={role}
+                          className="bg-[#1a2942]"
+                        >
                           {role}
                         </option>
                       ))}
@@ -541,7 +594,9 @@ export const TalentSignup = () => {
                     type="text"
                     maxLength={60}
                     value={formData.roleOther}
-                    onChange={(e) => handleInputChange("roleOther", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("roleOther", e.target.value)
+                    }
                     placeholder="e.g. Podcast Producer, Welder, Legal Assistant"
                     className="mt-3 w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                   />
@@ -749,7 +804,6 @@ export const TalentSignup = () => {
             <TalentPlans
               selectedPlan={formData.selectedPlan}
               onSelectPlan={(plan) => handleInputChange("selectedPlan", plan)}
-              alwaysActive
               onPlanAction={handlePlanSelection}
             />
           </div>
