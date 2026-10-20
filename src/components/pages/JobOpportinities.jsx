@@ -175,7 +175,14 @@ export const JobOpportunities = () => {
     // Seniority (career level)
     if (seniorityLevel !== "all") {
       const level = String(job.careerLevel || "").toLowerCase();
-      const wanted = { entry: "entry", mid: "mid", senior: "senior", lead: "lead", executive: "exec" }[seniorityLevel] || seniorityLevel;
+      const wanted =
+        {
+          entry: "entry",
+          mid: "mid",
+          senior: "senior",
+          lead: "lead",
+          executive: "exec",
+        }[seniorityLevel] || seniorityLevel;
       if (!level.includes(wanted)) return false;
     }
 
@@ -183,7 +190,9 @@ export const JobOpportunities = () => {
 
     // Work location from dropdown (only applies once the user changes it)
     if (dropdownFilters.workLocation !== "Remote") {
-      const wanted = dropdownFilters.workLocation.toLowerCase().replace(/[- ]/g, "");
+      const wanted = dropdownFilters.workLocation
+        .toLowerCase()
+        .replace(/[- ]/g, "");
       if ((job.workType || "").toLowerCase().replace(/[- ]/g, "") !== wanted)
         return false;
     }
@@ -194,15 +203,9 @@ export const JobOpportunities = () => {
       .map(([key]) => key.toLowerCase().replace(/-/g, " "));
 
     if (selectedJobTypes.length > 0) {
-      const jobApplyType = job.jobApplyType
-        ?.toLowerCase()
-        .replace(/-/g, " ");
+      const jobApplyType = job.jobApplyType?.toLowerCase().replace(/-/g, " ");
 
-      if (
-        !selectedJobTypes.some((type) =>
-          jobApplyType?.includes(type)
-        )
-      ) {
+      if (!selectedJobTypes.some((type) => jobApplyType?.includes(type))) {
         return false;
       }
     }
@@ -322,9 +325,7 @@ export const JobOpportunities = () => {
   const JobCard = ({ job }) => (
     <div
       className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
-      onClick={() =>
-        navigate(`/jobs/${job._id}`)
-      }
+      onClick={() => navigate(`/jobs/${job._id}`)}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
@@ -387,7 +388,10 @@ export const JobOpportunities = () => {
       <div className="flex justify-between flex-wrap gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
           {normalizeList(job.jobApplyType).map((type) => (
-            <span key={type} className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm">
+            <span
+              key={type}
+              className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
+            >
               {type}
             </span>
           ))}
@@ -405,7 +409,9 @@ export const JobOpportunities = () => {
           <DollarSign className="w-4 h-4" />
           {formatSalary(job.salary)}
         </span>
-        <span className="text-gray-400 text-sm">{daysLeftLabel(job.deadlineDate)}</span>
+        <span className="text-gray-400 text-sm">
+          {daysLeftLabel(job.deadlineDate)}
+        </span>
       </div>
     </div>
   );
@@ -439,7 +445,7 @@ export const JobOpportunities = () => {
             <div className="relative">
               <div className="bg-white rounded-lg p-2 flex items-center gap-2 md:gap-4">
                 {/* Job title input */}
-                <div className="flex-1 flex items-center gap-3">
+                <div className="flex-1 min-w-0 flex items-center gap-3">
                   <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   <input
                     type="text"
@@ -498,7 +504,7 @@ export const JobOpportunities = () => {
 
                 <button
                   onClick={handleFindJobs}
-                  className="px-5 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-md transition-colors text-sm whitespace-nowrap"
+                  className="px-3 md:px-5 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-md transition-colors text-sm whitespace-nowrap flex-shrink-0"
                 >
                   Find Jobs
                 </button>

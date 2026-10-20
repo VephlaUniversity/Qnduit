@@ -71,67 +71,57 @@ export const EmployerSignup = () => {
   const handlePlanSelection = async (planType, actionType) => {
     const token = localStorage.getItem("token");
 
+    if (!token) {
+      alert("Missing authentication token. Please verify your email first.");
+      return;
+    }
+
     if (!planType) {
       alert("Please select a plan first");
       return;
     }
 
-    try {
-      setLoading(true);
+    if (actionType === "payNow") {
+      navigate(
+        `/payment?plan=${encodeURIComponent(planType)}&userType=employer`
+      );
+      return;
+    }
 
-      if (actionType === "payNow") {
-        const res = await axios.post(
-          `${API_BASE_URL}/api/payments/employer/create-checkout`,
-          {
-            plan: planType,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
+    if (actionType === "payLater") {
+      try {
+        setLoading(true);
 
-        if (res.data?.free) {
-          navigate("/dashboard");
-          return;
-        }
-
-        if (res.data?.checkoutUrl) {
-          window.location.href = res.data.checkoutUrl;
-          return;
-        }
-
-        throw new Error("Stripe checkout link not received");
-      }
-
-      if (actionType === "payLater") {
-        const res = await axios.post(
+        const response = await axios.post(
           `${API_BASE_URL}/api/payments/employer/pay-later`,
-          {
-            plan: planType,
-          },
+          { plan: planType },
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          },
+          }
         );
 
-        if (res.data?.success) {
+        if (response.data?.success) {
           alert("Your plan has been saved. You can complete payment later.");
           navigate("/dashboard");
           return;
         }
 
-        throw new Error(res.data?.message || "Unable to save your plan");
-      }
-    } catch (err) {
-      console.error("Plan action error:", err);
+        throw new Error(
+          response.data?.message || "Unable to save your plan"
+        );
+      } catch (error) {
+        console.error("Employer plan action error:", error);
 
-      alert(friendlyError(err, "Something went wrong. Please try again."));
-    } finally {
-      setLoading(false);
+        alert(
+          error.response?.data?.message ||
+            error.message ||
+            "Something went wrong. Please try again."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

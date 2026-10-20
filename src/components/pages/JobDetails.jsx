@@ -344,9 +344,9 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         {/* Header Banner */}
         <div className="bg-[#262C36] px-6 py-8">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-start justify-between">
-              <div className="flex gap-6">
-                <div className="w-24 h-24 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              <div className="flex gap-4 md:gap-6 min-w-0">
+                <div className="w-16 h-16 md:w-24 md:h-24 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
                   {job.employer?.logo?.url && !logoFailed ? (
                     <img
                       src={job.employer.logo.url}
@@ -365,7 +365,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                   <div className="text-[#3B82F6] text-sm mb-2">
                     {job.employer?.companyName}
                   </div>
-                  <h1 className="text-3xl font-bold text-white mb-3">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white mb-3 break-words">
                     {job.jobTitle}{" "}
                     {job.verified && (
                       <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2">
@@ -408,7 +408,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                 </div>
               </div>
 
-              <div className="flex flex-col items-end ">
+              <div className="flex flex-col md:items-end w-full md:w-auto">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleShare}
@@ -486,7 +486,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         {/* Tabs */}
         <div className="border-b border-[#1A1F2E]">
           <div className="max-w-7xl mx-auto px-6">
-            <div className="flex gap-8">
+            <div className="flex gap-4 md:gap-8 overflow-x-auto whitespace-nowrap">
               <button
                 onClick={() => setActiveTab("about")}
                 className={`py-4 px-2 border-b-2 transition-colors ${
@@ -523,12 +523,12 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex gap-8">
+          <div className="flex flex-col lg:flex-row gap-8">
             {/* Left Content */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {activeTab === "about" && (
                 <div className="space-y-8">
-                  <section className="rounded-xl p-8">
+                  <section className="rounded-xl p-5 md:p-8">
                     <h2 className="text-2xl font-bold text-white mb-6">
                       Full Job Description
                     </h2>
@@ -573,7 +573,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
                   {/* Portfolio Section: only when the employer added media */}
                   {portfolioItems.length > 0 && (
-                    <section className="bg-[#1A1F2E] rounded-xl p-8">
+                    <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8">
                       <h2 className="text-2xl font-bold text-white mb-6">
                         Portfolio
                       </h2>
@@ -660,7 +660,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
               {activeTab === "jobs" && (
                 <div className="space-y-8">
                   {/* Similar Jobs */}
-                  <section className="bg-[#1A1F2E] rounded-xl p-8">
+                  <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8">
                     <h2 className="text-2xl font-bold text-white mb-6">
                       Related Jobs
                     </h2>
@@ -744,7 +744,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
               )}
 
               {activeTab === "reviews" && (
-                <section className="bg-[#1A1F2E] rounded-xl p-8 text-center">
+                <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8 text-center">
                   <h2 className="text-2xl font-bold text-white mb-2">
                     Reviews
                   </h2>
@@ -756,7 +756,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
             </div>
 
             {/* Right Sidebar */}
-            <div className="w-85 flex-shrink-0 space-y-6">
+            <div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
               <div className="bg-[#191D23] rounded-xl p-6 space-y-4">
                 <div className="flex justify-between">
                   <h3 className=" text-[#64666C] text-sm">Website</h3>

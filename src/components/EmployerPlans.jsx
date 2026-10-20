@@ -1,7 +1,12 @@
 import { PlanCard } from "./PlanCards";
 import { usePlanAction } from "./hooks/usePlanAction";
 
-export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
+export const EmployerPlans = ({
+  selectedPlan,
+  onSelectPlan,
+  onPlanAction,
+  alwaysActive = false,
+}) => {
   const { pending, submit } = usePlanAction(onPlanAction);
 
   const bronzeIcon = (
@@ -80,6 +85,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onCTAClick={submit}
         pending={pending}
         variant="default"
+        alwaysActive={alwaysActive}
       />
 
       <PlanCard
@@ -99,6 +105,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onCTAClick={submit}
         pending={pending}
         variant="highlighted"
+        alwaysActive={alwaysActive}
       />
 
       <PlanCard
@@ -118,6 +125,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onCTAClick={submit}
         pending={pending}
         variant="default"
+        alwaysActive={alwaysActive}
       />
     </div>
   );

@@ -23,7 +23,13 @@ export const PlanCard = ({
   variant = "default",
   disableWhenNotSelected = false,
   pending = false,
+  alwaysActive = false,
+  showPayLater = true,
 }) => {
+  const buttonsDisabled =
+    pending || (disableWhenNotSelected && !isSelected && !alwaysActive);
+  const primaryLabel = alwaysActive && ctaText ? ctaText : "Subscribe Now →";
+  const hidePayLater = !showPayLater || (alwaysActive && price === 0);
   const getBackground = () => {
     if (variant === "highlighted") {
       return isSelected ? "#1a2942" : "#182232";
@@ -199,28 +205,30 @@ export const PlanCard = ({
             e.stopPropagation();
             onCTAClick?.(planType, "payNow");
           }}
-          disabled={pending || (disableWhenNotSelected && !isSelected)}
+          disabled={buttonsDisabled}
           aria-busy={pending}
           className={getButtonClasses()}
         >
-          Subscribe Now →
+          {primaryLabel}
         </motion.button>
 
         {/* PAY LATER */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCTAClick?.(planType, "payLater");
-          }}
-          disabled={pending || (disableWhenNotSelected && !isSelected)}
-          aria-busy={pending}
-          className="w-full py-4 rounded-full font-semibold border border-gray-500 text-gray-300 hover:bg-gray-700 transition-all duration-300"
-        >
-          Subscribe Later
-        </motion.button>
+        {!hidePayLater && (
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCTAClick?.(planType, "payLater");
+            }}
+            disabled={buttonsDisabled}
+            aria-busy={pending}
+            className="w-full py-4 rounded-full font-semibold border border-gray-500 text-gray-300 hover:bg-gray-700 transition-all duration-300"
+          >
+            Subscribe Later
+          </motion.button>
+        )}
       </div>
     </motion.div>
   );
