@@ -97,7 +97,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     checkFavorite();
   }, [id]);*/
 
-  // Is this job already saved?
+  // Is this job already saved? (uses the existing saved-jobs list endpoint)
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -111,6 +111,29 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
           setIsFavorite(
             (res.data.jobs || []).some((saved) => String(saved.id) === id),
           );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // Has this user already applied? Show "Applied"
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    let active = true;
+    axios
+      .get(`${API_BASE_URL}/api/applications/my-applications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (!active) return;
+        const hasApplied = (res.data?.applications || []).some(
+          (application) =>
+            String(application.jobId?._id || application.jobId) === String(id),
+        );
+        if (hasApplied) setApplied(true);
       })
       .catch(() => {});
     return () => {
