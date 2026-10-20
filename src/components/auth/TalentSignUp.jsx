@@ -86,7 +86,11 @@ export const TalentSignup = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlanSelection = async (planType) => {
+  const handlePlanSelection = async (planType, actionType) => {
+    if (actionType === "payLater") {
+      navigate("/talent-dashboard");
+      return;
+    }
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) {
