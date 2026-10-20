@@ -1,3 +1,6 @@
+import TalentSelect from "../talentDashboard/TalentSelect";
+import { TALENT_OPTION_GROUPS } from "../data/talentOptions";
+import TalentOptionPicker from "../talentDashboard/TalentOptionPicker";
 import { useState } from "react";
 import { AuthHeader } from "./AuthHeader";
 import { TalentPlans } from "../TalentPlans";
@@ -15,6 +18,9 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
+const OTHER_ROLE = "__other__";
+const ROLE_GROUPS = TALENT_OPTION_GROUPS;
+
 export const TalentSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -24,9 +30,11 @@ export const TalentSignup = () => {
     password: "",
     verificationCode: "",
     role: "",
+    roleOther: "",
     experience: "",
     location: "",
     skills: [],
+    categories: [],
     resume: null,
     bio: "",
     linkedin: "",
@@ -232,7 +240,9 @@ export const TalentSignup = () => {
 
       // Update the rest of the profile
       const profileData = {
-        jobTitle: formData.role,
+        jobTitle: formData.role === OTHER_ROLE ? formData.roleOther.trim() : formData.role,
+        categories: formData.categories,
+        tags: formData.skills,
         experienceTime: formData.experience,
         location: formData.location,
         aboutMe: formData.bio,
@@ -266,7 +276,7 @@ export const TalentSignup = () => {
   };
 
   return (
-    <div className="min-h-screen  bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10] relative overflow-hidden">
+    <div className="min-h-screen  bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.20)] to-[#0E0E10] relative overflow-x-clip">
       <AuthHeader />
       {currentStep > 1 && (
         <button
@@ -498,39 +508,59 @@ export const TalentSignup = () => {
             <div className="space-y-5">
               <div>
                 <label className="text-sm text-gray-400 block mb-2">Role</label>
-                <select
+                <TalentSelect
                   value={formData.role}
                   onChange={(e) => handleInputChange("role", e.target.value)}
-                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
-                    Product Designer
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your role
                   </option>
-                  <option value="product-designer" className="bg-[#1a2942]">
-                    Product Designer
+                  {ROLE_GROUPS.map((group) => (
+                    <optgroup
+                      key={group.label}
+                      label={group.label}
+                      className="bg-[#1a2942]"
+                    >
+                      {group.roles.map((role) => (
+                        <option
+                          key={role.value}
+                          value={role.value}
+                          className="bg-[#1a2942]"
+                        >
+                          {role.value}{role.aliases.length ? ` (${role.aliases.join(", ")})` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <option value={OTHER_ROLE} className="bg-[#1a2942]">
+                    Other (type your own)
                   </option>
-                  <option value="ui-designer" className="bg-[#1a2942]">
-                    UI Designer
-                  </option>
-                  <option value="ux-designer" className="bg-[#1a2942]">
-                    UX Designer
-                  </option>
-                  <option value="developer" className="bg-[#1a2942]">
-                    Developer
-                  </option>
-                </select>
+                </TalentSelect>
+                {formData.role === OTHER_ROLE && (
+                  <input
+                    type="text"
+                    maxLength={60}
+                    value={formData.roleOther}
+                    onChange={(e) =>
+                      handleInputChange("roleOther", e.target.value)
+                    }
+                    placeholder="e.g. Podcast Producer, Welder, Legal Assistant"
+                    className="mt-3 w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
+                  />
+                )}
               </div>
 
               <div>
                 <label className="text-sm text-gray-400 block mb-2">
                   Experience
                 </label>
-                <select
+                <TalentSelect
                   value={formData.experience}
                   onChange={(e) =>
                     handleInputChange("experience", e.target.value)
                   }
-                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg focus:outline-none focus:border-blue-600"
                 >
                   <option value="" className="bg-[#1a2942]">
                     Beginner (0-1) years
@@ -544,19 +574,19 @@ export const TalentSignup = () => {
                   <option value="5+" className="bg-[#1a2942]">
                     Expert (5+) years
                   </option>
-                </select>
+                </TalentSelect>
               </div>
 
               <div>
                 <label className="text-sm text-gray-400 block mb-2">
                   Location
                 </label>
-                <select
+                <TalentSelect
                   value={formData.location}
                   onChange={(e) =>
                     handleInputChange("location", e.target.value)
                   }
-                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
+                  className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg focus:outline-none focus:border-blue-600"
                 >
                   <option value="" className="bg-[#1a2942]">
                     United Kingdom
@@ -570,34 +600,13 @@ export const TalentSignup = () => {
                   <option value="ca" className="bg-[#1a2942]">
                     Canada
                   </option>
-                </select>
+                </TalentSelect>
               </div>
 
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">
-                  Add Skills
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search Skills here"
-                  className="w-full bg-transparent border border-gray-700 text-white placeholder:text-gray-600 focus:border-blue-600 h-12 rounded-lg transition-colors px-4 focus:outline-none"
-                />
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {[
-                    "UI/UX Design",
-                    "Prototyping",
-                    "Wireframing",
-                    "UI Design",
-                  ].map((skill) => (
-                    <span
-                      key={skill}
-                      className="px-4 py-1.5 bg-blue-600/20 border border-blue-600 text-white text-sm rounded-full"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <TalentOptionPicker label="Categories" kind="categories"
+                value={formData.categories} onChange={value => handleInputChange("categories", value)} />
+              <TalentOptionPicker label="Skills" kind="skills"
+                value={formData.skills} onChange={value => handleInputChange("skills", value)} />
 
               <button
                 onClick={nextStep}

@@ -172,6 +172,17 @@ export const updateTalentProfile = async (req, res, next) => {
       }
     });
 
+    // Suggestions are not an enum: keep custom and previously saved values valid.
+    for (const field of ["categories", "tags"]) {
+      if (updates[field] && (updates[field].length > 50 ||
+        updates[field].some(value => value.length > 200))) {
+        return res.status(400).json({
+          success: false,
+          message: `${field === "tags" ? "Skills" : "Categories"} must contain at most 50 values of 200 characters each.`,
+        });
+      }
+    }
+
     if (updates.socialNetworks) {
       try {
         updates.socialNetworks =

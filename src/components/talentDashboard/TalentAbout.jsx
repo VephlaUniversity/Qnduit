@@ -1,3 +1,5 @@
+import TalentSelect from "./TalentSelect";
+import TalentOptionPicker from "./TalentOptionPicker";
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
 import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react";
@@ -8,6 +10,25 @@ import TextEditor from "../TextEditor";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 
+// Only these text fields are edited on this page. Sending anything else back will be ignored
+const EDITABLE_FIELDS = [
+  "fullName",
+  "dateOfBirth",
+  "phone",
+  "gender",
+  "age",
+  "offeredSalary",
+  "salaryType",
+  "experienceTime",
+  "qualification",
+  "location",
+  "language",
+  "jobTitle",
+  "showProfile",
+  "aboutMe",
+  "address",
+];
+
 const TalentAbout = () => {
   const { toast } = useToast();
   const { refresh: refreshOwnerAvatar } = useOwnerAvatar();
@@ -17,7 +38,6 @@ const TalentAbout = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatar, setAvatar] = useState(null);
-  const [tagInput, setTagInput] = useState("");
   const [skills, setSkills] = useState([]);
   const [latValue, setLatValue] = useState("");
   const [lngValue, setLngValue] = useState("");
@@ -183,20 +203,6 @@ const TalentAbout = () => {
     fetchTalentProfile();
   }, []);
 
-  const handleRemoveTag = (tagToRemove) => {
-    setTags(tags.filter((tag) => tag !== tagToRemove));
-  };
-
-  const handleTagKeyDown = (e) => {
-    if (e.key === "Enter" && tagInput.trim()) {
-      e.preventDefault();
-      if (!tags.includes(tagInput.trim())) {
-        setTags([...tags, tagInput.trim()]);
-      }
-      setTagInput("");
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
 
@@ -204,17 +210,13 @@ const TalentAbout = () => {
       const token = localStorage.getItem("token");
       const data = new FormData();
 
-      Object.keys(formData).forEach((key) => {
-        if (
-          key !== "avatar" &&
-          key !== "socialNetworks" &&
-          key !== "categories" &&
-          key !== "skills" &&
-          key !== "resume"
-        ) {
-          data.append(key, formData[key]);
-        }
+      EDITABLE_FIELDS.forEach((key) => {
+        const value = formData[key];
+        if (value !== undefined && value !== null) data.append(key, value);
       });
+
+      const introVideoUrl = String(formData.introVideo || "").trim();
+      if (introVideoUrl) data.append("introVideo[url]", introVideoUrl);
 
       data.append("socialNetworks", JSON.stringify(formData.socialNetworks));
       data.append("categories", JSON.stringify(formData.categories));
@@ -264,7 +266,7 @@ const TalentAbout = () => {
   const inputClass =
     "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
   const selectClass =
-    "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
+    "w-full py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
 
   const socialIcons = [
     {
@@ -396,7 +398,7 @@ const TalentAbout = () => {
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">Gender</label>
-              <select
+              <TalentSelect
                 name="gender"
                 value={formData.gender}
                 onChange={handleInputChange}
@@ -405,11 +407,11 @@ const TalentAbout = () => {
                 <option value="">Select Gender</option>
                 <option>Male</option>
                 <option>Female</option>
-              </select>
+              </TalentSelect>
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">Age</label>
-              <select
+              <TalentSelect
                 name="age"
                 value={formData.age}
                 onChange={handleInputChange}
@@ -420,7 +422,7 @@ const TalentAbout = () => {
                 <option>25 - 34</option>
                 <option>35 - 44</option>
                 <option>45+</option>
-              </select>
+              </TalentSelect>
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">
@@ -438,7 +440,7 @@ const TalentAbout = () => {
               <label className="block text-gray-400 text-sm mb-2">
                 Salary Type
               </label>
-              <select
+              <TalentSelect
                 name="salaryType"
                 value={formData.salaryType}
                 onChange={handleInputChange}
@@ -451,13 +453,13 @@ const TalentAbout = () => {
                 <option>Month</option>
                 <option>Year</option>
                 <option>Project</option>
-              </select>
+              </TalentSelect>
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">
                 Experience time
               </label>
-              <select
+              <TalentSelect
                 name="experienceTime"
                 value={formData.experienceTime}
                 onChange={handleInputChange}
@@ -467,7 +469,7 @@ const TalentAbout = () => {
                 <option>3-5 Years</option>
                 <option>1-3 Years</option>
                 <option>Less than 1 Year</option>
-              </select>
+              </TalentSelect>
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">
@@ -519,22 +521,9 @@ const TalentAbout = () => {
                 className={inputClass}
               />
             </div>
-            <div>
-              <label className="block text-gray-400 text-sm mb-2">
-                Categories
-              </label>
-              <input
-                type="text"
-                value={formData.categories.join(", ")}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    categories: e.target.value.split(",").map((c) => c.trim()),
-                  }))
-                }
-                className={inputClass}
-              />
-            </div>
+            <TalentOptionPicker label="Categories" kind="categories"
+              value={formData.categories}
+              onChange={categories => setFormData(previous => ({ ...previous, categories }))} />
           </div>
 
           {/* Show my profile */}
@@ -568,37 +557,8 @@ const TalentAbout = () => {
             </div>
           </div>
 
-          {/* Tag Skill */}
           <div className="mt-6">
-            <label className="block text-gray-400 text-sm mb-3">
-              Tag Skill
-            </label>
-            <div className="flex flex-wrap items-center gap-2 w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg min-h-[48px]">
-              {tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 text-sm"
-                >
-                  {tag}
-                  <button
-                    onClick={() => handleRemoveTag(tag)}
-                    className="hover:text-gray-300 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKeyDown}
-                placeholder={
-                  tags.length === 0 ? "Type a skill and press Enter" : ""
-                }
-                className="flex-1 min-w-[120px] bg-transparent text-white focus:outline-none placeholder:text-gray-500"
-              />
-            </div>
+            <TalentOptionPicker label="Skills" kind="skills" value={tags} onChange={setTags} />
           </div>
         </div>
 
