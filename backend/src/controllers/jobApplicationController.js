@@ -1,6 +1,7 @@
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Talent from "../models/Talent.js";
+import { jobDateKey, lagosDateKey } from "../utils/jobDeadline.js";
 import { applicationEvent } from "../services/notifications.js";
 
 
@@ -10,12 +11,23 @@ export const applyForJob = async (req, res, next) => {
     const applicantId = req.user._id;
     const { jobId } = req.body;
 
+    if (typeof jobId !== "string" || !/^[a-f\d]{24}$/i.test(jobId)) {
+      return res.status(400).json({ success: false, message: "Invalid job ID." });
+    }
+
     const job = await Job.findById(jobId);
 
     if (!job || job.isDeleted || job.status !== "published") {
       return res.status(404).json({
         success: false,
         message: "Job not found or no longer available",
+      });
+    }
+
+    if (job.deadlineDate && jobDateKey(job.deadlineDate) < lagosDateKey()) {
+      return res.status(400).json({
+        success: false,
+        message: "The application deadline for this job has passed",
       });
     }
 
@@ -32,12 +44,21 @@ export const applyForJob = async (req, res, next) => {
     }
 
     const intent = req.user.role === "talent" ? applicationEvent("application", { employerId: job.employer }) : null;
-    const application = await JobApplication.create({
-      jobId,
-      applicantId,
-      employerId: job.employer,
-      ...(intent ? { notificationOutbox: [intent], notificationNextAttemptAt: intent.occurredAt } : {}),
-    });
+    let application;
+    try {
+      application = await JobApplication.create({
+        jobId,
+        applicantId,
+        employerId: job.employer,
+        ...(intent ? { notificationOutbox: [intent], notificationNextAttemptAt: intent.occurredAt } : {}),
+      });
+    } catch (error) {
+      // Double-click / concurrent request: the unique (jobId, applicantId) index won the race.
+      if (error.code === 11000) {
+        return res.status(400).json({ success: false, message: "You already applied for this job" });
+      }
+      throw error;
+    }
 
     await Job.findByIdAndUpdate(jobId, {
       $inc: { applicantsCount: 1 },

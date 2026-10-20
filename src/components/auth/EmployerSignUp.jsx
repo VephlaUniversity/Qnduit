@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 export const EmployerSignup = () => {
@@ -55,7 +56,12 @@ export const EmployerSignup = () => {
         alert("Email verified successfully!");
         setCurrentStep(3);
       } else {
-        alert(res.data.message);
+        alert(
+          safeText(
+            res.data.message,
+            "We couldn't complete that step. Please try again.",
+          ),
+        );
       }
     } catch (err) {
       console.error("Verification failed:", err);
@@ -83,11 +89,11 @@ export const EmployerSignup = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (res.data?.free) {
-          navigate("/employer/dashboard");
+          navigate("/dashboard");
           return;
         }
 
@@ -109,7 +115,7 @@ export const EmployerSignup = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (res.data?.success) {
@@ -118,19 +124,12 @@ export const EmployerSignup = () => {
           return;
         }
 
-        throw new Error(
-          res.data?.message || "Unable to save your plan"
-        );
+        throw new Error(res.data?.message || "Unable to save your plan");
       }
-
     } catch (err) {
       console.error("Plan action error:", err);
 
-      alert(
-        err?.response?.data?.message ||
-          err.message ||
-          "Something went wrong. Please try again."
-      );
+      alert(friendlyError(err, "Something went wrong. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -145,23 +144,25 @@ export const EmployerSignup = () => {
         {
           updateContext: "account-details",
           accountType: formData.accountType,
-          ...(formData.accountType === "institutional" ? {
-            companyName: formData.companyName,
-            aboutCompany: formData.aboutCompany,
-            companyWebsite: formData.companyWebsite,
-            companyIndustry: formData.companyIndustry,
-            location: formData.location,
-          } : {
-            displayName: formData.displayName,
-            aboutYou: formData.aboutYou,
-          }),
+          ...(formData.accountType === "institutional"
+            ? {
+                companyName: formData.companyName,
+                aboutCompany: formData.aboutCompany,
+                companyWebsite: formData.companyWebsite,
+                companyIndustry: formData.companyIndustry,
+                location: formData.location,
+              }
+            : {
+                displayName: formData.displayName,
+                aboutYou: formData.aboutYou,
+              }),
         },
         {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (res.data.success) {
@@ -193,7 +194,12 @@ export const EmployerSignup = () => {
         alert("Verification code sent to your email");
         setCurrentStep(2);
       } else {
-        alert(res.data.message);
+        alert(
+          safeText(
+            res.data.message,
+            "We couldn't complete that step. Please try again.",
+          ),
+        );
       }
     } catch (err) {
       console.error("Signup error:", err);

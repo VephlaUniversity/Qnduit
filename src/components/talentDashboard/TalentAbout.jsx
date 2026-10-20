@@ -8,6 +8,7 @@ import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import TextEditor from "../TextEditor";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 // Only these text fields are edited on this page. Sending anything else back will be ignored
@@ -35,9 +36,11 @@ const TalentAbout = () => {
   const navigate = useNavigate();
   const avatarInputRef = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [avatar, setAvatar] = useState(null);
   const [skills, setSkills] = useState([]);
   const [latValue, setLatValue] = useState("");
   const [lngValue, setLngValue] = useState("");
@@ -161,7 +164,11 @@ const TalentAbout = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchTalentProfile = async () => {
+      setLoading(true);
+      setLoadError("");
       try {
         const token = localStorage.getItem("token");
 
@@ -173,35 +180,61 @@ const TalentAbout = () => {
             },
           },
         );
+        if (cancelled) return;
 
         const profile = data.profile;
 
-        if (!profile) return;
+        if (profile) {
+          setIsUpdating(true);
 
-        setIsUpdating(true);
+          setFormData((prev) => ({
+            ...prev,
+            ...profile,
+            categories: normalizeArray(profile.categories),
+            socialNetworks: {
+              ...prev.socialNetworks,
+              ...(profile.socialNetworks || {}),
+            },
+            // The API stores the intro video as { url, public_id }; the form edits the url.
+            introVideo:
+              typeof profile.introVideo === "string"
+                ? profile.introVideo
+                : profile.introVideo?.url || "",
+          }));
 
-        setFormData((prev) => ({
-          ...prev,
-          ...profile,
-          categories: normalizeArray(profile.categories),
-          socialNetworks: profile.socialNetworks || prev.socialNetworks,
-        }));
+          setTags(normalizeArray(profile.tags));
+          setSkills(normalizeArray(profile.skills));
+          const coords = profile.geoLocation?.coordinates;
+          setLatValue(
+            profile.lat ?? (Array.isArray(coords) ? (coords[1] ?? "") : ""),
+          );
+          setLngValue(
+            profile.lng ?? (Array.isArray(coords) ? (coords[0] ?? "") : ""),
+          );
 
-        setTags(normalizeArray(profile.tags));
-        setSkills(normalizeArray(profile.skills));
-        setLatValue(profile.lat || "");
-        setLngValue(profile.lng || "");
-
-        if (profile.avatar) {
-          setAvatarPreview(profile.avatar);
+          if (profile.avatar) {
+            setAvatarPreview(profile.avatar);
+          }
         }
       } catch (error) {
-        console.error(error);
+        if (!cancelled) {
+          setLoadError(
+            friendlyError(
+              error,
+              "We couldn't load your profile. Please try again.",
+            ),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchTalentProfile();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -255,7 +288,10 @@ const TalentAbout = () => {
       console.error("UPDATE ERROR:", error.response?.data);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to save profile",
+        description: friendlyError(
+          error,
+          "We couldn't save your profile. Please try again.",
+        ),
         variant: "destructive",
       });
     } finally {
@@ -287,6 +323,37 @@ const TalentAbout = () => {
     },
     { name: "youtube", icon: Youtube, placeholder: "http://www.youtube.com" },
   ];
+
+  if (loading || loadError) {
+    return (
+      <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 bg-blue-600 rounded-full" />
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            Profile Setting
+          </h1>
+        </div>
+        <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-10 max-w-5xl flex flex-col items-center justify-center gap-4 text-gray-400">
+          {loading ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Loading your profile...</span>
+            </>
+          ) : (
+            <>
+              <p>{loadError}</p>
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="px-6 py-2 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -331,7 +398,11 @@ const TalentAbout = () => {
                 Choose File
               </button>
               <span className="px-4 py-2 bg-transparent border border-white/10 text-gray-400 rounded-lg text-sm">
-                {avatar ? "File selected" : "No file chosen"}
+                {formData.avatar instanceof File
+                  ? "File selected"
+                  : avatarPreview
+                    ? "Current avatar"
+                    : "No file chosen"}
               </span>
             </div>
           </div>

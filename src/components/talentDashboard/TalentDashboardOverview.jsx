@@ -29,30 +29,43 @@ export const TalentDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
   const [meetings, setMeetings] = useState([]);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [chart, setChart] = useState({
+    period: null,
+    loading: true,
+    data: null,
+    error: false,
+  });
+  const [chartReload, setChartReload] = useState(0);
 
   const stats = [
     {
       icon: FileText,
       label: "Applications Sent",
-      value: applications.length,
+      value: statsLoading ? "…" : applications.length,
       color: "bg-blue-600",
     },
     {
       icon: Eye,
-      label: "Profile Views",
-      value: "1,248",
+      label: `Profile Views (${chartPeriod})`,
+      value:
+        chart.loading || chart.period !== chartPeriod
+          ? "…"
+          : chart.error
+            ? "–"
+            : (chart.data?.total ?? 0).toLocaleString(),
       color: "bg-green-600",
     },
     {
       icon: Heart,
       label: "Saved Jobs",
-      value: savedJobs.length,
+      value: statsLoading ? "…" : savedJobs.length,
       color: "bg-red-500",
     },
     {
       icon: Briefcase,
       label: "Interview Invites",
-      value: meetings.length,
+      value: statsLoading ? "…" : meetings.length,
       color: "bg-yellow-500",
     },
   ];
@@ -62,7 +75,10 @@ export const TalentDashboard = () => {
       try {
         const token = localStorage.getItem("token");
 
-        if (!token) return;
+        if (!token) {
+          setStatsLoading(false);
+          return;
+        }
 
         const headers = {
           Authorization: `Bearer ${token}`,
@@ -85,63 +101,43 @@ export const TalentDashboard = () => {
         setMeetings(meetingsRes.data.meetings || []);
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
+      } finally {
+        setStatsLoading(false);
       }
     };
 
     fetchDashboardData();
   }, []);
 
-  // Chart data based on period
-  const getChartData = () => {
-    const monthData = [
-      { name: "Jan", views: 320 },
-      { name: "Feb", views: 280 },
-      { name: "Mar", views: 440 },
-      { name: "Apr", views: 370 },
-      { name: "May", views: 520 },
-      { name: "Jun", views: 490 },
-      { name: "Jul", views: 580 },
-      { name: "Aug", views: 620 },
-      { name: "Sep", views: 550 },
-      { name: "Oct", views: 610 },
-      { name: "Nov", views: 680 },
-      { name: "Dec", views: 720 },
-    ];
-
-    const weekData = [
-      { name: "Mon", views: 95 },
-      { name: "Tue", views: 120 },
-      { name: "Wed", views: 150 },
-      { name: "Thu", views: 110 },
-      { name: "Fri", views: 170 },
-      { name: "Sat", views: 60 },
-      { name: "Sun", views: 55 },
-    ];
-
-    const dayData = Array.from({ length: 24 }, (_, i) => ({
-      name: `${i}:00`,
-      views: Math.floor(Math.random() * 40) + 5,
-    }));
-
-    const yearData = [
-      { name: "2020", views: 3200 },
-      { name: "2021", views: 4100 },
-      { name: "2022", views: 5300 },
-      { name: "2023", views: 6500 },
-      { name: "2024", views: 7200 },
-    ];
-
-    switch (chartPeriod) {
-      case "day":
-        return dayData;
-      case "week":
-        return weekData;
-      case "year":
-        return yearData;
-      default:
-        return monthData;
-    }
-  };
+  // Real profile-view counts from the API (UTC buckets, self-views excluded)
+  const userId = user?.id || user?._id;
+  useEffect(() => {
+    const controller = new AbortController();
+    setChart({ period: chartPeriod, loading: true, data: null, error: false });
+    const loadChart = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!userId || !token) throw new Error("Not signed in");
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/profiles/talent/${encodeURIComponent(userId)}/views/summary`,
+          {
+            params: { period: chartPeriod },
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+          },
+        );
+        if (!Array.isArray(data.buckets)) throw new Error("Bad response");
+        if (!controller.signal.aborted)
+          setChart({ period: chartPeriod, loading: false, data, error: false });
+      } catch {
+        if (!controller.signal.aborted)
+          setChart({ period: chartPeriod, loading: false, data: null, error: true });
+      }
+    };
+    loadChart();
+    return () => controller.abort();
+  }, [chartPeriod, userId, chartReload]);
+  const chartLoading = chart.loading || chart.period !== chartPeriod;
 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload }) => {
@@ -202,6 +198,7 @@ export const TalentDashboard = () => {
                 <button
                   key={period}
                   onClick={() => setChartPeriod(period)}
+                  aria-pressed={chartPeriod === period}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     chartPeriod === period
                       ? "bg-blue-600 text-white"
@@ -213,8 +210,34 @@ export const TalentDashboard = () => {
               ))}
             </div>
           </div>
+          {chartLoading ? (
+            <div
+              className="h-[300px] flex items-center justify-center gap-3 text-gray-400"
+              role="status"
+            >
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              Loading profile views…
+            </div>
+          ) : chart.error ? (
+            <div
+              className="h-[300px] flex flex-col items-center justify-center gap-3 text-red-400"
+              role="alert"
+            >
+              Unable to load profile views.
+              <button
+                onClick={() => setChartReload((value) => value + 1)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          ) : chart.data.total === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-gray-400">
+              No profile views in this period.
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={getChartData()}>
+            <BarChart data={chart.data.buckets}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
               <XAxis
                 dataKey="name"
@@ -239,6 +262,7 @@ export const TalentDashboard = () => {
               />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 

@@ -1,8 +1,11 @@
 import { useState } from "react";
+import axios from "axios";
 import { ChevronDown, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { CTA } from "../home/CTA";
 import { useToast } from "../hooks/useToast";
+import { API_BASE_URL } from "../utils/api";
+import { friendlyError } from "../utils/userMessage";
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -67,32 +70,27 @@ const Contact = () => {
     if (validateForm()) {
       setIsLoading(true);
       try {
-        const response = await fetch("", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+        await axios.post(`${API_BASE_URL}/api/contact`, formData);
+        toast({
+          title: "Message sent successfully!",
+          description: "We'll get back to you within 24-48 hours.",
+          variant: "success",
         });
-        if (response.ok) {
-          toast({
-            title: "Message sent successfully!",
-            description: "We'll get back to you within 24-48 hours.",
-            variant: "success",
-          });
-          setFormData({
-            fullName: "",
-            email: "",
-            contactingAs: "",
-            subject: "",
-            message: "",
-          });
-          setTouched({});
-        } else {
-          throw new Error("Failed to send message");
-        }
+        setFormData({
+          fullName: "",
+          email: "",
+          contactingAs: "",
+          subject: "",
+          message: "",
+        });
+        setTouched({});
       } catch (error) {
         toast({
           title: "Failed to send message",
-          description: "Please try again or contact us directly.",
+          description: friendlyError(
+            error,
+            "Please try again or contact us directly.",
+          ),
           variant: "error",
         });
       } finally {

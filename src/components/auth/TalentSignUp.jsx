@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
 const OTHER_ROLE = "__other__";
@@ -104,7 +105,7 @@ export const TalentSignup = () => {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
-          }
+          },
         );
 
         if (response.data?.free) {
@@ -112,9 +113,7 @@ export const TalentSignup = () => {
           return;
         }
 
-        throw new Error(
-          response.data?.message || "Unable to select free plan"
-        );
+        throw new Error(response.data?.message || "Unable to select free plan");
       }
 
       // PAID PLAN
@@ -127,7 +126,7 @@ export const TalentSignup = () => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
 
       if (response.data?.checkoutUrl) {
@@ -136,16 +135,16 @@ export const TalentSignup = () => {
       }
 
       throw new Error(
-        response.data?.message ||
-          "Flutterwave checkout link not received"
+        response.data?.message || "Flutterwave checkout link not received",
       );
     } catch (error) {
       console.error("Talent payment error:", error);
 
       alert(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to process payment"
+        friendlyError(
+          error,
+          "We couldn't process your payment. Please try again.",
+        ),
       );
     }
   };
@@ -171,7 +170,12 @@ export const TalentSignup = () => {
       }
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Registration failed");
+      alert(
+        friendlyError(
+          error,
+          "We couldn't complete your registration. Please try again.",
+        ),
+      );
     }
   };
 
@@ -227,15 +231,11 @@ export const TalentSignup = () => {
         const resumeData = new FormData();
         resumeData.append("resume", formData.resume);
 
-        await axios.post(
-          `${API_BASE_URL}/api/talents/resume`,
-          resumeData,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
+        await axios.post(`${API_BASE_URL}/api/talents/resume`, resumeData, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
       }
 
       // Update the rest of the profile
@@ -258,7 +258,7 @@ export const TalentSignup = () => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
@@ -269,8 +269,10 @@ export const TalentSignup = () => {
       console.error("Response:", error.response?.data);
 
       alert(
-        error.response?.data?.message ||
-          "Profile update failed"
+        friendlyError(
+          error,
+          "We couldn't update your profile. Please try again.",
+        ),
       );
     }
   };
@@ -562,17 +564,20 @@ export const TalentSignup = () => {
                   }
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
-                    Beginner (0-1) years
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your experience
                   </option>
-                  <option value="0-1" className="bg-[#1a2942]">
-                    Beginner (0-1) years
+                  <option value="Less than 1 Year" className="bg-[#1a2942]">
+                    Less than 1 year
                   </option>
-                  <option value="2-5" className="bg-[#1a2942]">
-                    Intermediate (2-5) years
+                  <option value="1-3 Years" className="bg-[#1a2942]">
+                    1-3 years
                   </option>
-                  <option value="5+" className="bg-[#1a2942]">
-                    Expert (5+) years
+                  <option value="3-5 Years" className="bg-[#1a2942]">
+                    3-5 years
+                  </option>
+                  <option value="5 Years+" className="bg-[#1a2942]">
+                    5+ years
                   </option>
                 </TalentSelect>
               </div>
@@ -588,16 +593,19 @@ export const TalentSignup = () => {
                   }
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your location
+                  </option>
+                  <option value="Nigeria" className="bg-[#1a2942]">
+                    Nigeria
+                  </option>
+                  <option value="United Kingdom" className="bg-[#1a2942]">
                     United Kingdom
                   </option>
-                  <option value="uk" className="bg-[#1a2942]">
-                    United Kingdom
-                  </option>
-                  <option value="us" className="bg-[#1a2942]">
+                  <option value="United States" className="bg-[#1a2942]">
                     United States
                   </option>
-                  <option value="ca" className="bg-[#1a2942]">
+                  <option value="Canada" className="bg-[#1a2942]">
                     Canada
                   </option>
                 </TalentSelect>

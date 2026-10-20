@@ -263,3 +263,18 @@ export const searchUsers = async (req, res, next) => {
     next(error);
   }
 };
+
+// Public landing-page counts: verified, non-suspended accounts only.
+export const getPublicStats = async (req, res, next) => {
+  try {
+    const filter = { isVerified: true, accountStatus: { $ne: "suspended" } };
+    const [talents, employers] = await Promise.all([
+      Talent.countDocuments(filter),
+      Employer.countDocuments(filter),
+    ]);
+    res.set("Cache-Control", "public, max-age=300");
+    res.json({ success: true, talents, employers, total: talents + employers });
+  } catch (error) {
+    next(error);
+  }
+};

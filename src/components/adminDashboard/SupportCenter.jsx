@@ -248,10 +248,10 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
 
 export const SupportCenter = () => {
   const [tickets, setTickets] = useState([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTickets, setTotalTickets] = useState(0);
-  const [, setRequestError] = useState("");
+  const [requestError, setRequestError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Requests");
   const [pageSize, setPageSize] = useState(8);
