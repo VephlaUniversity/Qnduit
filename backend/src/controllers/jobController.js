@@ -35,18 +35,22 @@ export const createJob = async (req, res) => {
       return res.status(400).json({ success: false, message: gallery.error });
     const deadline = jobDeadlineUpdate(req.body);
     if (deadline.error)
-      return res.status(400).json({
-        success: false,
-        message: deadline.error,
-        errors: { deadlineDate: deadline.error },
-      });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: deadline.error,
+          errors: { deadlineDate: deadline.error },
+        });
     const { errors, salary } = jobSalaryUpdate(req.body);
     if (Object.keys(errors).length)
-      return res.status(400).json({
-        success: false,
-        message: "Please check the salary fields.",
-        errors,
-      });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please check the salary fields.",
+          errors,
+        });
 
     const job = new Job({
       employer: employerId,
@@ -104,18 +108,22 @@ export const updateJob = async (req, res) => {
       return res.status(400).json({ success: false, message: gallery.error });
     const deadline = jobDeadlineUpdate(req.body, job.deadlineDate);
     if (deadline.error)
-      return res.status(400).json({
-        success: false,
-        message: deadline.error,
-        errors: { deadlineDate: deadline.error },
-      });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: deadline.error,
+          errors: { deadlineDate: deadline.error },
+        });
     const { errors, salary } = jobSalaryUpdate(req.body, job.salary);
     if (Object.keys(errors).length)
-      return res.status(400).json({
-        success: false,
-        message: "Please check the salary fields.",
-        errors,
-      });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Please check the salary fields.",
+          errors,
+        });
     // Salary needs deliberate mapping; flat form fields are not model paths.
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(
@@ -343,6 +351,7 @@ export const searchJobs = async (req, res, next) => {
             createdAt: 1,
             "employer._id": 1,
             "employer.companyName": 1,
+            "employer.logo": 1,
             "employer.selectedPlan": 1,
             planPriority: 1,
           },
@@ -391,7 +400,7 @@ export const getPublicJobDetails = async (req, res, next) => {
       isDeleted: false,
     }).populate(
       "employer",
-      "companyName selectedPlan companyWebsite companyEmail companyIndustry companySize location foundedYear socialNetworks",
+      "companyName logo selectedPlan companyWebsite companyEmail companyIndustry companySize location foundedYear socialNetworks",
     );
 
     if (!job) {
