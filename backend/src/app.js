@@ -30,6 +30,7 @@ import {
 
 dotenv.config();
 connectDB();
+await fixEmployerSubscriptionIndex();
 
 const app = express();
 
