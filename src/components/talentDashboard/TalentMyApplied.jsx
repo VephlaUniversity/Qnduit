@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { Search, MapPin, Briefcase, MoreVertical } from "lucide-react";
+import { Search, MapPin, Briefcase, MoreVertical, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { friendlyError } from "../utils/userMessage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,70 +12,21 @@ import { useEffect } from "react";
 import { API_BASE_URL } from "../utils/api";
 import axios from "axios";
 
-const mockApplications = [
-  {
-    id: 1,
-    title: "UI UX Designer",
-    location: "Las Vegas, NV 89107, USA",
-    category: "Design & Creative",
-    status: "Seen",
-    statusColor: "text-blue-500",
-    dateApplied: "December 18, 2023",
-  },
-  {
-    id: 2,
-    title: "Human Resource",
-    location: "Las Vegas, NV 89107, USA",
-    category: "Advertesting",
-    status: "Responded",
-    statusColor: "text-blue-500",
-    dateApplied: "December 18, 2023",
-  },
-  {
-    id: 3,
-    title: "Python Developer",
-    location: "Las Vegas, NV 89107, USA",
-    category: "IT & development",
-    status: "Pending",
-    statusColor: "text-yellow-500",
-    dateApplied: "December 18, 2023",
-  },
-  {
-    id: 4,
-    title: "PHP Developer",
-    location: "Las Vegas, NV 89107, USA",
-    category: "Delivery Driver",
-    status: "Pending",
-    statusColor: "text-yellow-500",
-    dateApplied: "December 18, 2023",
-  },
-  {
-    id: 5,
-    title: "Project Manager",
-    location: "Las Vegas, NV 89107, USA",
-    category: "Sales & Marketing",
-    status: "Pending",
-    statusColor: "text-yellow-500",
-    dateApplied: "December 18, 2023",
-  },
-  {
-    id: 6,
-    title: "Developer",
-    location: "Las Vegas, NV 89107, USA",
-    category: "Engineering",
-    status: "Responded",
-    statusColor: "text-blue-500",
-    dateApplied: "December 18, 2023",
-  },
-];
-
 export const TalentMyApplied = () => {
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("(Default)");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchApplications = async () => {
+      setLoading(true);
+      setLoadError("");
       try {
         const token = localStorage.getItem("token");
 
@@ -83,27 +36,42 @@ export const TalentMyApplied = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
+        if (cancelled) return;
 
-        const formatted = res.data.applications.map((app) => ({
+        const formatted = (res.data?.applications || []).map((app) => ({
           id: app._id,
-          title: app.jobId?.jobTitle || "Unknown Role",
+          jobId: app.jobId?._id,
+          title: app.jobId?.jobTitle || "Job no longer available",
           location: app.jobId?.location || "N/A",
-          category: app.jobId?.category || "General",
+          category: app.jobId?.jobCategory || app.jobId?.category || "General",
           status: mapStatus(app.status),
           statusColor: getStatusColor(mapStatus(app.status)),
+          appliedAt: app.createdAt,
           dateApplied: new Date(app.createdAt).toLocaleDateString(),
         }));
 
         setApplications(formatted);
       } catch (error) {
-        console.error("Failed to fetch applications", error);
+        if (!cancelled) {
+          setLoadError(
+            friendlyError(
+              error,
+              "We couldn't load your applications. Please try again.",
+            ),
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchApplications();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const mapStatus = (status) => {
     switch (status) {
@@ -144,7 +112,10 @@ export const TalentMyApplied = () => {
   const sortedApplications = [...filteredApplications].sort((a, b) => {
     switch (sortBy) {
       case "Date Applied":
-        return new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime();
+        return (
+          new Date(b.appliedAt || 0).getTime() -
+          new Date(a.appliedAt || 0).getTime()
+        );
       case "Status":
         return a.status.localeCompare(b.status);
       case "Title A-Z":
@@ -153,11 +124,6 @@ export const TalentMyApplied = () => {
         return 0;
     }
   });
-
-  // Handle remove job
-  const handleRemoveJob = (id) => {
-    setApplications(applications.filter((app) => app.id !== id));
-  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -204,9 +170,28 @@ export const TalentMyApplied = () => {
 
       {/* Applications List */}
       <div className="bg-[#1A1A1E] rounded-b-lg border border-t-0 border-white/5">
-        {sortedApplications.length === 0 ? (
+        {loading ? (
+          <div className="px-6 py-12 flex items-center justify-center gap-2 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading your applications...</span>
+          </div>
+        ) : loadError ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-gray-400">No applications found</p>
+            <p className="text-gray-400 mb-4">{loadError}</p>
+            <button
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="px-6 py-2 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors"
+            >
+              Try again
+            </button>
+          </div>
+        ) : sortedApplications.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-gray-400">
+              {applications.length === 0
+                ? "You haven't applied to any jobs yet"
+                : "No applications match your search"}
+            </p>
           </div>
         ) : (
           sortedApplications.map((application, index) => (
@@ -248,7 +233,9 @@ export const TalentMyApplied = () => {
 
                 {/* Date Applied */}
                 <div className="col-span-3">
-                  <span className="text-gray-400">{application.dateApplied}</span>
+                  <span className="text-gray-400">
+                    {application.dateApplied}
+                  </span>
                 </div>
 
                 {/* Action */}
@@ -263,14 +250,16 @@ export const TalentMyApplied = () => {
                       align="end"
                       className="bg-[#2A2A2E] border-white/10"
                     >
-                      <DropdownMenuItem className="text-white hover:bg-white/10 cursor-pointer">
-                        View Job
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleRemoveJob(application.id)}
-                        className="text-red-400 hover:bg-white/10 cursor-pointer"
+                      <DropdownMenuItem
+                        disabled={!application.jobId}
+                        onClick={() =>
+                          navigate(
+                            `/talent-dashboard/job-results/details/${application.jobId}`,
+                          )
+                        }
+                        className="text-white hover:bg-white/10 cursor-pointer"
                       >
-                        Remove Job
+                        View Job
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

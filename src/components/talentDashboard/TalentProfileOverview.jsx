@@ -9,41 +9,72 @@ import {
   Instagram,
   Youtube,
   X,
+  Loader2,
 } from "lucide-react";
 import RecentApplication from "./RecentApplication";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { friendlyError } from "../utils/userMessage";
 
 const TalentProfileOverview = () => {
   const navigate = useNavigate();
   const [resumeData, setResumeData] = useState(null);
   const [aboutData, setAboutData] = useState(null);
   const [showEditPopup, setShowEditPopup] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem("token");
+      setLoading(true);
+      setLoadError("");
+      const headers = {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      };
 
-        const { data } = await axios.get(
-          `${API_BASE_URL}/api/talents/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+      const [profileRes, resumeRes] = await Promise.allSettled([
+        axios.get(`${API_BASE_URL}/api/talents/profile`, { headers }),
+        axios.get(`${API_BASE_URL}/api/resume`, { headers }),
+      ]);
+      if (cancelled) return;
+
+      if (profileRes.status === "fulfilled") {
+        setAboutData(profileRes.value.data.profile || null);
+      } else {
+        setLoadError(
+          friendlyError(
+            profileRes.reason,
+            "We couldn't load your profile. Please try again.",
+          ),
         );
-
-        if (data.profile) {
-          setAboutData(data.profile);
-        }
-      } catch (error) {
-        console.error("PROFILE FETCH ERROR:", error);
       }
+
+      if (resumeRes.status === "fulfilled") {
+        setResumeData(resumeRes.value.data.resume || null);
+      } else if (
+        resumeRes.reason?.response?.status !== 404 &&
+        profileRes.status === "fulfilled"
+      ) {
+        // A missing resume (404) is normal for a new talent; other failures are not.
+        setLoadError(
+          friendlyError(
+            resumeRes.reason,
+            "We couldn't load your resume details. Please try again.",
+          ),
+        );
+      }
+
+      setLoading(false);
     };
 
     fetchProfile();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const displayName = aboutData?.fullName || "";
   const jobTitle = aboutData?.jobTitle || "";
@@ -85,6 +116,37 @@ const TalentProfileOverview = () => {
     },
     { name: "youtube", icon: Youtube, url: aboutData?.socialNetworks?.youtube },
   ];
+
+  if (loading || loadError) {
+    return (
+      <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 bg-blue-600 rounded-full" />
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            Overview
+          </h1>
+        </div>
+        <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-10 flex flex-col items-center justify-center gap-4 text-gray-400">
+          {loading ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Loading your profile...</span>
+            </>
+          ) : (
+            <>
+              <p>{loadError}</p>
+              <button
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="px-6 py-2 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -128,7 +190,7 @@ const TalentProfileOverview = () => {
                     {tag}
                   </span>
                 ))}
-                {resumeData?.skills.map((skill, i) => (
+                {(resumeData?.skills || []).map((skill, i) => (
                   <span
                     key={`skill-${i}`}
                     className="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-full font-medium"
@@ -247,14 +309,14 @@ const TalentProfileOverview = () => {
           </div>
 
           {/* Education */}
-          {resumeData && resumeData.education.length > 0 && (
+          {resumeData?.education?.length > 0 && (
             <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
               <h3 className="text-xl font-semibold text-white mb-4">
                 Education
               </h3>
               <div className="space-y-6">
-                {resumeData.education.map((edu) => (
-                  <div key={edu.id}>
+                {resumeData.education.map((edu, i) => (
+                  <div key={edu._id || i}>
                     <div className="flex items-center gap-3 mb-1">
                       <span className="text-white font-semibold text-sm">
                         {edu.academy}
@@ -276,14 +338,14 @@ const TalentProfileOverview = () => {
           )}
 
           {/* Experience */}
-          {resumeData && resumeData.experience.length > 0 && (
+          {resumeData?.experience?.length > 0 && (
             <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
               <h3 className="text-xl font-semibold text-white mb-4">
                 Experience
               </h3>
               <div className="space-y-6">
-                {resumeData.experience.map((exp) => (
-                  <div key={exp.id}>
+                {resumeData.experience.map((exp, i) => (
+                  <div key={exp._id || i}>
                     <div className="flex items-center gap-3 mb-1">
                       <span className="text-white font-semibold text-sm">
                         {exp.company}
@@ -305,7 +367,7 @@ const TalentProfileOverview = () => {
           )}
 
           {/* Skills */}
-          {resumeData && resumeData.skills.length > 0 && (
+          {resumeData?.skills?.length > 0 && (
             <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Skills</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">

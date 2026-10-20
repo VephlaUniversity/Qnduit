@@ -1,37 +1,16 @@
 import express from "express";
 import { submitContactMessage } from "../controllers/contactController.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 
 const router = express.Router();
 
-// Resets on restart and is per-instance
-const WINDOW_MS = 15 * 60 * 1000;
-const MAX_PER_WINDOW = 5;
-const hits = new Map();
-
-const contactLimiter = (req, res, next) => {
-  const forwarded = req.headers["x-forwarded-for"];
-  const ip =
-    (typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "") ||
-    req.ip ||
-    "unknown";
-  const now = Date.now();
-  const recent = (hits.get(ip) || []).filter((time) => now - time < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    return res.status(429).json({
-      success: false,
-      message:
-        "You've sent several messages recently. Please try again in a little while.",
-    });
-  }
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) {
-    for (const [key, times] of hits) {
-      if (!times.some((time) => now - time < WINDOW_MS)) hits.delete(key);
-    }
-  }
-  next();
-};
+// 5 messages / 15 minutes per IP.
+const contactLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message:
+    "You've sent several messages recently. Please try again in a little while.",
+});
 
 router.post("/", contactLimiter, submitContactMessage);
 

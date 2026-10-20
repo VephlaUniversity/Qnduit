@@ -5,6 +5,34 @@ import cloudinary from "../utils/cloudinary.js";
 
 const storage = multer.memoryStorage();
 
+const MAX_CV_FILES = 5;
+const MAX_PORTFOLIO_IMAGES = 10;
+
+// Parses a JSON array of public_ids sent by the client; returns null if absent/invalid.
+const parseKeepList = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed.map(String) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Best-effort removal from Cloudinary
+const removeFromCloudinary = async (items, resourceType) => {
+  for (const item of items) {
+    if (!item?.public_id) continue;
+    try {
+      await cloudinary.uploader.destroy(item.public_id, {
+        resource_type: resourceType,
+      });
+    } catch (error) {
+      console.error("Cloudinary delete failed:", item.public_id, error.message);
+    }
+  }
+};
+
 export const uploadResumeFiles = multer({
   storage,
   fileFilter: (req, file, cb) => {
@@ -29,7 +57,6 @@ export const uploadResumeFiles = multer({
   { name: "portfolioImages", maxCount: 10 },
 ]);
 
-
 // Save or update resume
 export const saveResume = async (req, res, next) => {
   try {
@@ -41,105 +68,128 @@ export const saveResume = async (req, res, next) => {
       resume = new Resume({ talent: talentId });
     }
 
-
     // =========================
     // CV FILES
     // =========================
 
-    if (req.files?.cvFiles) {
-      const uploadedCVs = [];
+    // The client sends the public_ids of files it wants to keep. Everything else
+    // is removed, and newly uploaded files are added. If the list is missing
+    // (older client) existing files are kept and new ones are appended.
+    const keepCv = parseKeepList(req.body.keepCvIds);
+    const existingCv = resume.cvFiles || [];
+    const keptCv = keepCv
+      ? existingCv.filter((f) => keepCv.includes(String(f.public_id)))
+      : existingCv;
+    const removedCv = existingCv.filter((f) => !keptCv.includes(f));
+    const newCvFiles = req.files?.cvFiles || [];
 
-      for (const file of req.files.cvFiles) {
-        const extension = path
-          .extname(file.originalname)
-          .toLowerCase();
-
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "qnduit/resumes/cv",
-              resource_type: "raw",
-              public_id: `${talentId}-${Date.now()}-${path.basename(
-                file.originalname,
-                extension
-              )}`,
-            },
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
-              }
-            }
-          );
-
-          stream.end(file.buffer);
-        });
-
-        uploadedCVs.push({
-          url: uploadResult.secure_url,
-          public_id: uploadResult.public_id,
-          type: extension === ".pdf" ? "PDF" : "Doc",
-        });
-      }
-
-      resume.cvFiles = uploadedCVs;
+    if (keptCv.length + newCvFiles.length > MAX_CV_FILES) {
+      return res.status(400).json({
+        success: false,
+        message: `You can keep up to ${MAX_CV_FILES} CV files.`,
+      });
     }
 
+    const uploadedCVs = [];
+
+    for (const file of newCvFiles) {
+      const extension = path.extname(file.originalname).toLowerCase();
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "qnduit/resumes/cv",
+            resource_type: "raw",
+            public_id: `${talentId}-${Date.now()}-${path.basename(
+              file.originalname,
+              extension,
+            )}`,
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          },
+        );
+
+        stream.end(file.buffer);
+      });
+
+      uploadedCVs.push({
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+        type: extension === ".pdf" ? "PDF" : "Doc",
+        name: file.originalname,
+      });
+    }
+
+    resume.cvFiles = [...keptCv, ...uploadedCVs];
 
     // =========================
     // PORTFOLIO IMAGES
     // =========================
 
-    if (req.files?.portfolioImages) {
-      const uploadedImages = [];
+    const keepPortfolio = parseKeepList(req.body.keepPortfolioIds);
+    const existingPortfolio = resume.portfolioImages || [];
+    const keptPortfolio = keepPortfolio
+      ? existingPortfolio.filter((f) =>
+          keepPortfolio.includes(String(f.public_id)),
+        )
+      : existingPortfolio;
+    const removedPortfolio = existingPortfolio.filter(
+      (f) => !keptPortfolio.includes(f),
+    );
+    const newImages = req.files?.portfolioImages || [];
 
-      for (const file of req.files.portfolioImages) {
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder: "qnduit/resumes/portfolio",
-              resource_type: "image",
-            },
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
-              }
-            }
-          );
-
-          stream.end(file.buffer);
-        });
-
-        uploadedImages.push({
-          url: uploadResult.secure_url,
-          public_id: uploadResult.public_id,
-        });
-      }
-
-      resume.portfolioImages = uploadedImages;
+    if (keptPortfolio.length + newImages.length > MAX_PORTFOLIO_IMAGES) {
+      return res.status(400).json({
+        success: false,
+        message: `You can keep up to ${MAX_PORTFOLIO_IMAGES} portfolio images.`,
+      });
     }
 
+    const uploadedImages = [];
+
+    for (const file of newImages) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "qnduit/resumes/portfolio",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          },
+        );
+
+        stream.end(file.buffer);
+      });
+
+      uploadedImages.push({
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+      });
+    }
+
+    resume.portfolioImages = [...keptPortfolio, ...uploadedImages];
 
     // =========================
     // OTHER DATA
     // =========================
 
-    const {
-      aboutMe,
-      videoUrl,
-      education,
-      experience,
-      skills,
-    } = req.body;
+    const { aboutMe, videoUrl, education, experience, skills } = req.body;
 
-    if (aboutMe) {
+    if (aboutMe !== undefined) {
       resume.aboutMe = aboutMe;
     }
 
-    if (videoUrl) {
+    if (videoUrl !== undefined) {
       resume.introVideo = {
         url: videoUrl,
         public_id: "",
@@ -158,8 +208,11 @@ export const saveResume = async (req, res, next) => {
       resume.skills = JSON.parse(skills);
     }
 
-
     await resume.save();
+
+    // Only after the save succeeded: delete files the user removed.
+    await removeFromCloudinary(removedCv, "raw");
+    await removeFromCloudinary(removedPortfolio, "image");
 
     res.json({
       success: true,
@@ -170,7 +223,6 @@ export const saveResume = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // Get resume
 export const getResume = async (req, res, next) => {

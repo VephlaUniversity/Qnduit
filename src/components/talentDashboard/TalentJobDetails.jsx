@@ -17,9 +17,11 @@ import {
   UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { JobContactForm } from "../pages/JobContactForm";
+import { shareLink } from "../utils/jobDisplay";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import { friendlyError, safeText } from "../utils/userMessage";
+import { friendlyError } from "../utils/userMessage";
 import {
   daysLeftLabel,
   formatSalary,
@@ -252,11 +254,40 @@ export const TalentJobDetails = () => {
   // Filter similar jobs dynamically based on job type and location
   const similarJobs = relatedJobs;
 
-  const portfolioItems = [
-    { type: "video" },
-    { type: "image" },
-    { type: "image" },
-  ];
+  // Only media the employer actually added to this job.
+  const portfolioItems = (
+    Array.isArray(job?.gallery) ? job.gallery : []
+  ).filter((item) => item && typeof item.url === "string" && item.url);
+  const activePortfolioIndex = Math.min(
+    currentPortfolioIndex,
+    Math.max(portfolioItems.length - 1, 0),
+  );
+  const activePortfolioItem = portfolioItems[activePortfolioIndex];
+
+  // Employer social links: only the networks that have a link, as real URLs.
+  const socialLinks = [
+    ["facebook", Facebook],
+    ["linkedin", Linkedin],
+    ["twitter", Twitter],
+    ["instagram", Instagram],
+    ["youtube", Youtube],
+  ]
+    .map(([name, Icon]) => {
+      const raw = String(job?.employer?.socialNetworks?.[name] || "").trim();
+      if (!raw) return null;
+      return {
+        name,
+        Icon,
+        href: /^https?:\/\//i.test(raw) ? raw : `https://${raw}`,
+      };
+    })
+    .filter(Boolean);
+  const websiteRaw = String(job?.employer?.companyWebsite || "").trim();
+  const websiteHref = websiteRaw
+    ? /^https?:\/\//i.test(websiteRaw)
+      ? websiteRaw
+      : `https://${websiteRaw}`
+    : "";
 
   const handleApply = async () => {
     if (applying || applied) return;
@@ -288,12 +319,32 @@ export const TalentJobDetails = () => {
         toast.error("Only talent accounts can apply for jobs");
       } else {
         toast.error(
-          friendlyError(error, "We couldn't submit your application. Please try again."),
+          friendlyError(
+            error,
+            "We couldn't submit your application. Please try again.",
+          ),
         );
       }
     } finally {
       setApplying(false);
     }
+  };
+
+  const handleShare = async () => {
+    const result = await shareLink({
+      title: job?.jobTitle,
+      text: job?.jobTitle
+        ? `${job.jobTitle}${job.employer?.companyName ? " at " + job.employer.companyName : ""}`
+        : undefined,
+      url: job?._id
+        ? `${window.location.origin}/jobs/${job._id}`
+        : window.location.href,
+    });
+    if (result === "copied") toast.success("Link copied to clipboard");
+    else if (result === "failed")
+      toast.error(
+        "We couldn't share this job. Please copy the link from your browser.",
+      );
   };
 
   const handleFavorite = async () => {
@@ -309,10 +360,18 @@ export const TalentJobDetails = () => {
     setSavingFavorite(true);
     try {
       if (!isFavorite) {
-        await axios.post(`${API_BASE_URL}/api/saved-jobs`, { jobId: id }, { headers });
+        await axios.post(
+          `${API_BASE_URL}/api/saved-jobs`,
+          { jobId: id },
+          { headers },
+        );
         toast.success("Job added to favorites!");
       } else {
-        await axios.post(`${API_BASE_URL}/api/saved-jobs/remove-job`, { jobId: id }, { headers });
+        await axios.post(
+          `${API_BASE_URL}/api/saved-jobs/remove-job`,
+          { jobId: id },
+          { headers },
+        );
         toast.success("Job removed from favorites!");
       }
       setIsFavorite(!isFavorite);
@@ -321,7 +380,10 @@ export const TalentJobDetails = () => {
         setIsFavorite(true);
       } else {
         toast.error(
-          friendlyError(error, "We couldn't update your saved jobs. Please try again."),
+          friendlyError(
+            error,
+            "We couldn't update your saved jobs. Please try again.",
+          ),
         );
       }
     } finally {
@@ -330,20 +392,27 @@ export const TalentJobDetails = () => {
   };
 
   const nextPortfolio = () => {
-    setCurrentPortfolioIndex((prev) =>
-      prev === portfolioItems.length - 1 ? 0 : prev + 1,
+    setCurrentPortfolioIndex(
+      activePortfolioIndex >= portfolioItems.length - 1
+        ? 0
+        : activePortfolioIndex + 1,
     );
   };
 
   const prevPortfolio = () => {
-    setCurrentPortfolioIndex((prev) =>
-      prev === 0 ? portfolioItems.length - 1 : prev - 1,
+    setCurrentPortfolioIndex(
+      activePortfolioIndex <= 0
+        ? portfolioItems.length - 1
+        : activePortfolioIndex - 1,
     );
   };
 
   if (loadError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-white" role="alert">
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4 text-white"
+        role="alert"
+      >
         <p>{loadError}</p>
         <button
           onClick={() => navigate(-1)}
@@ -357,7 +426,10 @@ export const TalentJobDetails = () => {
 
   if (!job) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white" role="status">
+      <div
+        className="min-h-screen flex items-center justify-center text-white"
+        role="status"
+      >
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           Loading job...
@@ -419,27 +491,35 @@ export const TalentJobDetails = () => {
                   <span>⏰ {formatPosted(job.createdAt)}</span>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  {normalizeList(job.jobApplyType).concat(job.workType ? [job.workType] : []).map((type, idx) => (
-                    <span
-                      key={idx}
-                      className="px-4 py-2 bg-[#f1f1f1] text-black rounded-full text-sm"
-                    >
-                      {type}
-                    </span>
-                  ))}
+                  {normalizeList(job.jobApplyType)
+                    .concat(job.workType ? [job.workType] : [])
+                    .map((type, idx) => (
+                      <span
+                        key={idx}
+                        className="px-4 py-2 bg-[#f1f1f1] text-black rounded-full text-sm"
+                      >
+                        {type}
+                      </span>
+                    ))}
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col items-end ">
               <div className="flex items-center gap-3">
-                <button className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors">
+                <button
+                  onClick={handleShare}
+                  aria-label="Share job"
+                  className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors"
+                >
                   <Share2 className="w-5 h-5" />
                 </button>
                 <button
                   onClick={handleFavorite}
                   disabled={savingFavorite}
-                  aria-label={isFavorite ? "Remove from saved jobs" : "Save job"}
+                  aria-label={
+                    isFavorite ? "Remove from saved jobs" : "Save job"
+                  }
                   className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors"
                 >
                   <Heart
@@ -518,7 +598,7 @@ export const TalentJobDetails = () => {
                   : "border-transparent text-muted-foreground"
               }`}
             >
-              Jobs (2)
+              Related Jobs ({similarJobs.length})
             </button>
             <button
               onClick={() => setActiveTab("reviews")}
@@ -582,71 +662,79 @@ export const TalentJobDetails = () => {
                       ))}
                     </ul>
                   </div>
-
-                  <div className="mt-8 pt-8 border-t border-[#2A3142]">
-                    <h3 className="text-lg font-semibold text-white mb-4">
-                      Social Profiles:
-                    </h3>
-                    <div className="flex gap-3">
-                      {[Facebook, Linkedin, Twitter, Instagram, Youtube].map(
-                        (Icon, idx) => (
-                          <button
-                            key={idx}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 transition-colors"
-                          >
-                            <Icon className="w-5 h-5 text-gray-800" />
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
                 </section>
 
-                {/* Portfolio Section */}
-                <section className="bg-[#1A1F2E] rounded-xl p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6">
-                    Portfolio
-                  </h2>
-                  <div className="relative">
-                    <div className="aspect-video bg-muted rounded-xl mb-4 flex items-center justify-center">
-                      {portfolioItems[currentPortfolioIndex].type ===
-                      "video" ? (
-                        <button className="w-16 h-16 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 transition-colors">
-                          <Play className="w-8 h-8 text-white ml-1" />
-                        </button>
-                      ) : (
-                        <div className="text-muted-foreground">
-                          Portfolio Image
+                {/* Portfolio Section: only when the employer added media */}
+                {portfolioItems.length > 0 && (
+                  <section className="bg-[#1A1F2E] rounded-xl p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6">
+                      Portfolio
+                    </h2>
+                    <div className="relative">
+                      <div className="aspect-video bg-muted rounded-xl mb-4 flex items-center justify-center overflow-hidden">
+                        {activePortfolioItem.type === "video" ? (
+                          <video
+                            key={activePortfolioItem.url}
+                            src={activePortfolioItem.url}
+                            controls
+                            preload="metadata"
+                            className="w-full h-full object-contain bg-black"
+                          />
+                        ) : (
+                          <img
+                            src={activePortfolioItem.url}
+                            alt={`Portfolio ${activePortfolioIndex + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      {portfolioItems.length > 1 && (
+                        <div className="flex gap-4 items-center">
+                          <button
+                            onClick={prevPortfolio}
+                            aria-label="Previous"
+                            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 transition-colors"
+                          >
+                            <ChevronLeft className="w-5 h-5 text-gray-800" />
+                          </button>
+                          <div className="flex flex-1 gap-4 overflow-x-auto">
+                            {portfolioItems.map((item, idx) => (
+                              <button
+                                key={`${item.url}-${idx}`}
+                                onClick={() => setCurrentPortfolioIndex(idx)}
+                                aria-label={`Show item ${idx + 1}`}
+                                className={`relative w-28 shrink-0 aspect-video rounded-lg bg-muted overflow-hidden ${
+                                  activePortfolioIndex === idx
+                                    ? "ring-2 ring-[#3B82F6]"
+                                    : ""
+                                }`}
+                              >
+                                {item.type === "video" ? (
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/60">
+                                    <Play className="w-5 h-5 text-white" />
+                                  </span>
+                                ) : (
+                                  <img
+                                    src={item.url}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={nextPortfolio}
+                            aria-label="Next"
+                            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 transition-colors"
+                          >
+                            <ChevronRight className="w-5 h-5 text-gray-800" />
+                          </button>
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-4">
-                      <button
-                        onClick={prevPortfolio}
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 transition-colors"
-                      >
-                        <ChevronLeft className="w-5 h-5 text-gray-800" />
-                      </button>
-                      {portfolioItems.slice(0, 3).map((item, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentPortfolioIndex(idx)}
-                          className={`flex-1 aspect-video rounded-lg bg-muted ${
-                            currentPortfolioIndex === idx
-                              ? "ring-2 ring-[#3B82F6]"
-                              : ""
-                          }`}
-                        />
-                      ))}
-                      <button
-                        onClick={nextPortfolio}
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100 transition-colors"
-                      >
-                        <ChevronRight className="w-5 h-5 text-gray-800" />
-                      </button>
-                    </div>
-                  </div>
-                </section>
+                  </section>
+                )}
               </div>
             )}
 
@@ -655,7 +743,7 @@ export const TalentJobDetails = () => {
                 {/* Similar Jobs */}
                 <section className="bg-[#1A1F2E] rounded-xl p-8">
                   <h2 className="text-2xl font-bold text-white mb-6">
-                    Similar Jobs
+                    Related Jobs
                   </h2>
                   {similarJobs.length > 0 ? (
                     <div className="space-y-6">
@@ -671,7 +759,9 @@ export const TalentJobDetails = () => {
                                 <div className="text-[#3B82F6] text-sm mb-1">
                                   {relatedJob.employer?.companyName}
                                 </div>
-                                <Link to={`/talent-dashboard/job-results/details/${relatedJob._id}`}>
+                                <Link
+                                  to={`/talent-dashboard/job-results/details/${relatedJob._id}`}
+                                >
                                   <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors">
                                     {relatedJob.jobTitle}{" "}
                                     {relatedJob.verified && (
@@ -684,7 +774,9 @@ export const TalentJobDetails = () => {
                                     <MapPin className="w-4 h-4" />
                                     {relatedJob.location}
                                   </span>
-                                  <span>⏰ {formatPosted(relatedJob.createdAt)}</span>
+                                  <span>
+                                    ⏰ {formatPosted(relatedJob.createdAt)}
+                                  </span>
                                 </div>
                                 <div className="flex gap-2">
                                   {relatedJob.jobApplyType?.map((type, idx) => (
@@ -705,8 +797,11 @@ export const TalentJobDetails = () => {
 
                           <div className="flex items-center justify-between mt-6 pt-6 border-t border-[#2A3142]">
                             <span className="text-muted-foreground text-sm">
-                                {daysLeftLabel(relatedJob.deadlineDate, "left to apply")}
-                              </span>
+                              {daysLeftLabel(
+                                relatedJob.deadlineDate,
+                                "left to apply",
+                              )}
+                            </span>
                           </div>
 
                           <div className="mt-4">
@@ -720,7 +815,7 @@ export const TalentJobDetails = () => {
                     </div>
                   ) : (
                     <div className="text-center text-muted-foreground py-12">
-                      No similar jobs found at the moment.
+                      No related jobs found at the moment.
                     </div>
                   )}
                 </section>
@@ -744,12 +839,18 @@ export const TalentJobDetails = () => {
             <div className="bg-[#191D23] rounded-xl p-6 space-y-4">
               <div className="flex justify-between">
                 <h3 className=" text-[#64666C] text-sm">Website</h3>
-                <a
-                  href={job.employer?.companyWebsite}
-                  className="text-[#3B82F6] hover:underline"
-                >
-                  {job.employer?.companyWebsite}
-                </a>
+                {websiteHref ? (
+                  <a
+                    href={websiteHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#3B82F6] hover:underline break-all text-right"
+                  >
+                    {websiteRaw}
+                  </a>
+                ) : (
+                  <span className="text-white text-sm">Not provided</span>
+                )}
               </div>
               <hr className="text-[#64666C]" />
               <div className="flex justify-between">
@@ -786,52 +887,33 @@ export const TalentJobDetails = () => {
                   {job.employer?.foundedYear}
                 </div>
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className="text-muted-foreground text-[1rem] ">Socials:</h3>
-                <div className="flex gap-1">
-                  {[Facebook, Linkedin, Twitter, Instagram, Youtube].map(
-                    (Icon, idx) => (
-                      <button
-                        key={idx}
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-[#262C36] hover:bg-[#202630] transition-colors"
-                      >
-                        <Icon className="w-4 h-4 text-white" />
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
+              {socialLinks.length > 0 && (
+                <>
+                  <hr className="text-[#64666C]" />
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-muted-foreground text-[1rem] ">
+                      Socials:
+                    </h3>
+                    <div className="flex gap-1">
+                      {socialLinks.map((social) => (
+                        <a
+                          key={social.name}
+                          href={social.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={social.name}
+                          className="w-8 h-8 flex items-center justify-center rounded-full bg-[#262C36] hover:bg-[#202630] transition-colors"
+                        >
+                          <social.Icon className="w-4 h-4 text-white" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="bg-[#191D23] rounded-xl p-6">
-              <h3 className="text-white font-semibold mb-4">Contact Us</h3>
-              <form className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Subject"
-                  className="w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#3B82F6]"
-                />
-                <input
-                  type="text"
-                  placeholder="Name"
-                  className="w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#3B82F6]"
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#3B82F6]"
-                />
-                <textarea
-                  placeholder="Message"
-                  rows={4}
-                  className="w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#3B82F6] resize-none"
-                />
-                <button className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold rounded-sm py-2 transition-colors cursor-pointer">
-                  Send Message
-                </button>
-              </form>
-            </div>
+            <JobContactForm jobId={id} />
           </div>
         </div>
       </div>

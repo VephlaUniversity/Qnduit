@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { HashLink } from "react-router-hash-link";
 import { motion } from "framer-motion";
 
 const staggerContainer = {
@@ -69,13 +68,12 @@ export const CTA = () => (
         <button className="bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors">
           <Link to="/talent-signup">Join as Talent</Link>
         </button>
-        <HashLink
-          smooth
-          to="/#source-talents"
+        <Link
+          to="/employers"
           className="bg-white text-black px-8 py-4 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-block"
         >
           Hire Talent
-        </HashLink>
+        </Link>
       </motion.div>
     </motion.div>
   </section>
