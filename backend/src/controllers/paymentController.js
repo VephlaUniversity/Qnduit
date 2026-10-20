@@ -48,6 +48,22 @@ const TALENT_PLANS = {
   },
 };
 
+const createTalentUsername = (talent) => {
+  const name =
+    talent.fullName ||
+    `${talent.firstName || ""} ${talent.lastName || ""}`.trim() ||
+    "talent";
+
+  const slug = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return `${slug || "talent"}-${talent._id.toString().slice(-6)}`;
+};
+
 // CREATE TALENT CHECKOUT
 
 export const createCheckoutSession = async (
@@ -427,13 +443,18 @@ export const activateTalentPayment = async (
     }
   );
 
-  talent.selectedPlan =
-    payment.plan;
+    talent.selectedPlan = payment.plan;
+    talent.paymentStatus = "active";
 
-  talent.paymentStatus =
-    "active";
+    if (payment.plan === "public") {
+      if (!talent.username) {
+        talent.username = createTalentUsername(talent);
+      }
 
-  await talent.save();
+      talent.publicProfileEnabled = true;
+    }
+
+    await talent.save();
 };
 
 // Get Talent Subscription
