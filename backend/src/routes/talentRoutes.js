@@ -6,6 +6,7 @@ import {
   selectTalentPlan,
   getTalentDashboard,
   getTalentProfile,
+  getPublicTalentProfile,
   upload,
   talentUpload,
   searchTalentByEmail,
@@ -56,5 +57,7 @@ router.get(
   authorize("employer"),
   searchTalentByEmail
 );
+
+router.get("/public/:username", getPublicTalentProfile);
 
 export default router;
