@@ -64,6 +64,8 @@ import UserSupport from "./components/support/UserSupport";
 import UserProfileView from "./components/profiles/UserProfileView";
 import ProfileViewHistory from "./components/profiles/ProfileViewHistory";
 
+import PublicTalentProfile from "./components/profiles/PublicTalentProfile";
+
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage =
@@ -141,6 +143,10 @@ const AppContent = () => {
           <Route path="/find-talents" element={<TalentsSearchManager />} />
           <Route path="/jobs" element={<JobManager />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
+          <Route
+            path="/:username"
+            element={<PublicTalentProfile />}
+          />
           {/* SignIn/SignUp */}
           <Route path="/talent-signup" element={<TalentSignup />} />
           <Route path="/employer-signup" element={<EmployerSignup />} />

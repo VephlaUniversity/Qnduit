@@ -118,7 +118,46 @@ const talentSchema = new mongoose.Schema(
     ],
     default: "none",
   },
-},
+
+    // Public talent profile
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+
+    publicProfileEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    portfolioUrl: {
+      type: String,
+      trim: true,
+    },
+
+    experience: [
+      {
+        title: String,
+        company: String,
+        description: String,
+        startDate: String,
+        endDate: String,
+      },
+    ],
+
+    portfolio: [
+      {
+        title: String,
+        description: String,
+        imageUrl: String,
+        projectUrl: String,
+      },
+    ],
+  },
 { timestamps: true }
 );
 

@@ -4,6 +4,7 @@ import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
+import TalentSubscription from "../models/TalentSubscription.js";
 
 
 /*const storage = multer.diskStorage({
@@ -399,6 +400,75 @@ export const getTalentProfile = async (req, res, next) => {
       profile,
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+export const getPublicTalentProfile = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+
+    const talent = await Talent.findOne({
+      username: username.toLowerCase(),
+      isVerified: true,
+      accountStatus: "active",
+      showProfile: "show",
+      selectedPlan: "public",
+      paymentStatus: "active",
+      publicProfileEnabled: true,
+    }).select(
+      [
+        "username",
+        "fullName",
+        "firstName",
+        "lastName",
+        "jobTitle",
+        "qualification",
+        "experienceTime",
+        "location",
+        "aboutMe",
+        "categories",
+        "tags",
+        "avatar",
+        "introVideo",
+        "socialNetworks",
+        "portfolioUrl",
+        "portfolio",
+        "experience",
+        "profileUpdatedAt",
+      ].join(" ")
+    );
+
+    if (!talent) {
+      return res.status(404).json({
+        success: false,
+        message: "Public profile not found.",
+      });
+    }
+
+    const subscription = await TalentSubscription.findOne({
+      talent: talent._id,
+      status: "active",
+      currentPeriodEnd: { $gt: new Date() },
+    }).select("_id");
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "Public profile not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      talent: {
+        ...talent.toObject(),
+        avatar: talent.avatar?.url || "",
+        introVideo: talent.introVideo?.url || "",
+      },
+    });
   } catch (error) {
     next(error);
   }
