@@ -27,6 +27,7 @@ import contactRoutes from "./routes/contactRoutes.js";
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
+import { fixEmployerSubscriptionIndex } from "./scripts/fixEmployerSubscriptionIndex.js";
 
 dotenv.config();
 connectDB();
