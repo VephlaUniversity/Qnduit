@@ -22,7 +22,13 @@ export const PlanCard = ({
   onCTAClick,
   variant = "default",
   disableWhenNotSelected = true,
+  alwaysActive = false,
+  showPayLater = true,
 }) => {
+  const buttonsDisabled =
+    disableWhenNotSelected && !isSelected && !alwaysActive;
+  const primaryLabel = alwaysActive && ctaText ? ctaText : "Subscribe Now →";
+  const hidePayLater = !showPayLater || (alwaysActive && price === 0);
   const getBackground = () => {
     if (variant === "highlighted") {
       return isSelected ? "#1a2942" : "#182232";
@@ -197,25 +203,27 @@ export const PlanCard = ({
             e.stopPropagation();
             onCTAClick?.(planType, "payNow");
           }}
-          disabled={disableWhenNotSelected && !isSelected}
+          disabled={buttonsDisabled}
           className={getButtonClasses()}
         >
-          Subscribe Now →
+          {primaryLabel}
         </motion.button>
 
         {/* PAY LATER */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCTAClick?.(planType, "payLater");
-          }}
-          disabled={disableWhenNotSelected && !isSelected}
-          className="w-full py-4 rounded-full font-semibold border border-gray-500 text-gray-300 hover:bg-gray-700 transition-all duration-300"
-        >
-          Subscribe Later
-        </motion.button>
+        {!hidePayLater && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCTAClick?.(planType, "payLater");
+            }}
+            disabled={buttonsDisabled}
+            className="w-full py-4 rounded-full font-semibold border border-gray-500 text-gray-300 hover:bg-gray-700 transition-all duration-300"
+          >
+            Subscribe Later
+          </motion.button>
+        )}
       </div>
     </motion.div>
   );

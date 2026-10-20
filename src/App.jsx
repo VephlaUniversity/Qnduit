@@ -39,6 +39,7 @@ import { AuthProvider } from "./components/context/AuthContext";
 import TalentDashboard from "./components/talentDashboard/TalentDashboard";
 import Contact from "./components/pages/Contact";
 import { Toaster } from "./components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import About from "./components/pages/About";
 import TermsOfService from "./components/pages/TermsOfService";
 import PrivacyPolicy from "./components/pages/PrivacyPolicy";
@@ -152,8 +153,14 @@ const AppContent = () => {
           <Route path="/payment/cancelled" element={<PaymentCancelled />} />
 
           {/* Employer payment results */}
-          <Route path="/employer/payment/success" element={<PaymentSuccess />} />
-          <Route path="/employer/payment/cancelled" element={<PaymentCancelled />} />
+          <Route
+            path="/employer/payment/success"
+            element={<PaymentSuccess />}
+          />
+          <Route
+            path="/employer/payment/cancelled"
+            element={<PaymentCancelled />}
+          />
 
           {/* Protected routes */}
           <Route
@@ -435,6 +442,7 @@ const AppContent = () => {
       </AnimatePresence>
       {!isAuthPage && <Footer />}
       <Toaster />
+      <SonnerToaster theme="dark" position="top-right" richColors closeButton />
     </div>
   );
 };

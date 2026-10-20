@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { EmployerPlans } from "../EmployerPlans";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { routeForPlan } from "../utils/planChoice";
 import { useState } from "react";
 
 export const EmployerPricing = () => {
@@ -8,13 +10,9 @@ export const EmployerPricing = () => {
   const navigate = useNavigate();
 
   const handlePlanAction = (planType) => {
-    if (planType === "bronze") {
-      navigate("/payment", { state: { plan: planType, price: 6.99 } });
-    } else if (planType === "silver") {
-      navigate("/payment", { state: { plan: planType, price: 8.99 } });
-    } else if (planType === "platinum") {
-      navigate("/payment", { state: { plan: planType, price: 12.99 } });
-    }
+    const result = routeForPlan(planType);
+    if (result.to) navigate(result.to);
+    else toast.error(result.message);
   };
 
   return (
@@ -43,6 +41,7 @@ export const EmployerPricing = () => {
           selectedPlan={selectedPlan}
           onSelectPlan={setSelectedPlan}
           onPlanAction={handlePlanAction}
+          alwaysActive
         />
       </motion.div>
     </section>

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { routeForPlan } from "../utils/planChoice";
 import { motion } from "framer-motion";
 import { TalentPlans } from "../TalentPlans";
 
@@ -8,11 +10,9 @@ export const TalentPricing = () => {
   const navigate = useNavigate();
 
   const handlePlanAction = (planType) => {
-    if (planType === "free") {
-      navigate("/talent-signup");
-    } else {
-      navigate("/payment", { state: { plan: planType, price: 1.99 } });
-    }
+    const result = routeForPlan(planType);
+    if (result.to) navigate(result.to);
+    else toast.error(result.message);
   };
 
   return (
@@ -35,6 +35,7 @@ export const TalentPricing = () => {
         selectedPlan={selectedPlan}
         onSelectPlan={setSelectedPlan}
         onPlanAction={handlePlanAction}
+            alwaysActive
       />
     </section>
   );
