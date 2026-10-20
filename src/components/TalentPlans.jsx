@@ -4,8 +4,11 @@ export const TalentPlans = ({
   selectedPlan,
   onSelectPlan,
   onPlanAction,
+  alwaysActive = false,
+  showPayLater = true,
+  freeCtaText = "Create My Free Account →",
+  publicCtaText = "List My Profile Here →",
 }) => {
-
   const freeIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -57,12 +60,14 @@ export const TalentPlans = ({
         price={0.0}
         icon={freeIcon}
         features={["Apply to jobs", "View jobs details", "Build your profile"]}
-        ctaText="Create My Free Account →"
+        ctaText={freeCtaText}
         isSelected={selectedPlan === "free"}
         onSelect={onSelectPlan}
         onCTAClick={onPlanAction}
         variant="default"
         disableWhenNotSelected={false}
+        alwaysActive={alwaysActive}
+        showPayLater={showPayLater}
       />
 
       <PlanCard
@@ -76,12 +81,14 @@ export const TalentPlans = ({
           "Stand out with a premium placement",
           "Showcase your skills to the right audience",
         ]}
-        ctaText="List My Profile Here →"
+        ctaText={publicCtaText}
         isSelected={selectedPlan === "public"}
         onSelect={onSelectPlan}
         onCTAClick={onPlanAction}
         variant="highlighted"
         disableWhenNotSelected={false}
+        alwaysActive={alwaysActive}
+        showPayLater={showPayLater}
       />
     </div>
   );

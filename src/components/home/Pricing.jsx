@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { EmployerPlans } from "../EmployerPlans";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { routeForPlan } from "../utils/planChoice";
 import { TalentPlans } from "../TalentPlans";
 
 export const PricingSection = () => {
@@ -8,17 +10,9 @@ export const PricingSection = () => {
   const [selectedPlan, setSelectedPlan] = useState("");
   const navigate = useNavigate();
   const handlePlanAction = (planType) => {
-    if (planType === "free") {
-      navigate("/talent-signup");
-    } else if (planType === "public") {
-      navigate("/payment", { state: { plan: planType, price: 1.99 } });
-    } else if (planType === "bronze") {
-      navigate("/payment", { state: { plan: planType, price: 6.99 } });
-    } else if (planType === "silver") {
-      navigate("/payment", { state: { plan: planType, price: 8.99 } });
-    } else if (planType === "platinum") {
-      navigate("/payment", { state: { plan: planType, price: 12.99 } });
-    }
+    const result = routeForPlan(planType);
+    if (result.to) navigate(result.to);
+    else toast.error(result.message);
   };
 
   return (
@@ -66,6 +60,7 @@ export const PricingSection = () => {
             selectedPlan={selectedPlan}
             onSelectPlan={setSelectedPlan}
             onPlanAction={handlePlanAction}
+            alwaysActive
           />
         ) : (
           // For Employers Pricing
@@ -73,6 +68,7 @@ export const PricingSection = () => {
             selectedPlan={selectedPlan}
             onSelectPlan={setSelectedPlan}
             onPlanAction={handlePlanAction}
+            alwaysActive
           />
         )}
       </div>

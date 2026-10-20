@@ -1,6 +1,11 @@
 import { PlanCard } from "./PlanCards";
 
-export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
+export const EmployerPlans = ({
+  selectedPlan,
+  onSelectPlan,
+  onPlanAction,
+  alwaysActive = false,
+}) => {
   const bronzeIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -76,6 +81,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onSelect={onSelectPlan}
         onCTAClick={onPlanAction}
         variant="default"
+        alwaysActive={alwaysActive}
       />
 
       <PlanCard
@@ -94,6 +100,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onSelect={onSelectPlan}
         onCTAClick={onPlanAction}
         variant="highlighted"
+        alwaysActive={alwaysActive}
       />
 
       <PlanCard
@@ -112,6 +119,7 @@ export const EmployerPlans = ({ selectedPlan, onSelectPlan, onPlanAction }) => {
         onSelect={onSelectPlan}
         onCTAClick={onPlanAction}
         variant="default"
+        alwaysActive={alwaysActive}
       />
     </div>
   );
