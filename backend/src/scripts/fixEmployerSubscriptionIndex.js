@@ -1,21 +1,31 @@
-
 import mongoose from "mongoose";
 
-export async function fixEmployerSubscriptionIndex() {
-  const collection = mongoose.connection.collection(
-    "employersubscriptions"
-  );
+export async function fixSubscriptionIndexes() {
+  const collections = [
+    "talentsubscriptions",
+    "employersubscriptions",
+  ];
 
-  const indexes = await collection.indexes();
+  for (const collectionName of collections) {
+    const collection =
+      mongoose.connection.collection(collectionName);
 
-  const obsoleteIndex = indexes.find(
-    (index) => index.name === "stripeSubscriptionId_1"
-  );
+    const indexes = await collection.indexes();
 
-  if (obsoleteIndex) {
-    await collection.dropIndex("stripeSubscriptionId_1");
-    console.log("Removed obsolete Stripe subscription index.");
-  } else {
-    console.log("Obsolete Stripe index does not exist.");
+    const obsoleteIndex = indexes.find(
+      (index) => index.name === "stripeSubscriptionId_1"
+    );
+
+    if (obsoleteIndex) {
+      await collection.dropIndex("stripeSubscriptionId_1");
+
+      console.log(
+        `Removed obsolete Stripe index from ${collectionName}.`
+      );
+    } else {
+      console.log(
+        `No obsolete Stripe index found in ${collectionName}.`
+      );
+    }
   }
 }
