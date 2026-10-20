@@ -169,6 +169,8 @@ export const TalentJobDetails = () => {
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("about");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
+  const [brokenMedia, setBrokenMedia] = useState({});
+  const [logoFailed, setLogoFailed] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [applying, setApplying] = useState(false);
@@ -251,13 +253,42 @@ export const TalentJobDetails = () => {
     };
   }, [id]);
 
+  // Has this user already applied? Show "Applied"
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    let active = true;
+    axios
+      .get(`${API_BASE_URL}/api/applications/my-applications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (!active) return;
+        const hasApplied = (res.data?.applications || []).some(
+          (application) =>
+            String(application.jobId?._id || application.jobId) === String(id),
+        );
+        if (hasApplied) setApplied(true);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
   // Filter similar jobs dynamically based on job type and location
   const similarJobs = relatedJobs;
 
   // Only media the employer actually added to this job.
   const portfolioItems = (
     Array.isArray(job?.gallery) ? job.gallery : []
-  ).filter((item) => item && typeof item.url === "string" && item.url);
+  ).filter(
+    (item) =>
+      item &&
+      typeof item.url === "string" &&
+      item.url &&
+      !brokenMedia[item.url],
+  );
   const activePortfolioIndex = Math.min(
     currentPortfolioIndex,
     Math.max(portfolioItems.length - 1, 0),
@@ -454,7 +485,21 @@ export const TalentJobDetails = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-start justify-between">
             <div className="flex gap-6">
-              <div className="w-24 h-24 bg-muted rounded-lg flex-shrink-0" />
+              <div className="w-24 h-24 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
+                {job.employer?.logo?.url && !logoFailed ? (
+                  <img
+                    src={job.employer.logo.url}
+                    alt={`${job.employer?.companyName || "Company"} logo`}
+                    onError={() => setLogoFailed(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (job.employer?.companyName || "?")
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()
+                )}
+              </div>
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-[#3B82F6] text-sm">
@@ -684,6 +729,12 @@ export const TalentJobDetails = () => {
                           <img
                             src={activePortfolioItem.url}
                             alt={`Portfolio ${activePortfolioIndex + 1}`}
+                            onError={() =>
+                              setBrokenMedia((b) => ({
+                                ...b,
+                                [activePortfolioItem.url]: true,
+                              }))
+                            }
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -717,6 +768,12 @@ export const TalentJobDetails = () => {
                                   <img
                                     src={item.url}
                                     alt=""
+                                    onError={() =>
+                                      setBrokenMedia((b) => ({
+                                        ...b,
+                                        [item.url]: true,
+                                      }))
+                                    }
                                     className="w-full h-full object-cover"
                                   />
                                 )}
