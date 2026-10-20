@@ -157,22 +157,20 @@ export const TalentSignup = () => {
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) {
-      return alert("Missing authentication token");
+      alert("Missing authentication token. Please verify your email first.");
+      return;
     }
 
     try {
-      // FREE PLAN
       if (planType === "free") {
         const response = await axios.post(
           `${API_BASE_URL}/api/payments/create-checkout`,
-          {
-            plan: "free",
-          },
+          { plan: "free" },
           {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
-          },
+          }
         );
 
         if (response.data?.free) {
@@ -180,38 +178,22 @@ export const TalentSignup = () => {
           return;
         }
 
-        throw new Error(response.data?.message || "Unable to select free plan");
+        throw new Error(
+          response.data?.message || "Unable to select free plan"
+        );
       }
 
-      // PAID PLAN
-      const response = await axios.post(
-        `${API_BASE_URL}/api/payments/create-checkout`,
-        {
-          plan: planType,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        },
-      );
-
-      if (response.data?.checkoutUrl) {
-        window.location.href = response.data.checkoutUrl;
-        return;
-      }
-
-      throw new Error(
-        response.data?.message || "Flutterwave checkout link not received",
+      // Navigate for paid plans.
+      navigate(
+        `/payment?plan=${encodeURIComponent(planType)}&userType=talent`
       );
     } catch (error) {
-      console.error("Talent payment error:", error);
+      console.error("Talent plan selection error:", error);
 
       alert(
-        friendlyError(
-          error,
-          "We couldn't process your payment. Please try again.",
-        ),
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to select plan"
       );
     }
   };
