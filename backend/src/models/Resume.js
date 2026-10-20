@@ -11,6 +11,7 @@ const resumeSchema = new mongoose.Schema(
       {
         url: String,
         public_id: String,
+        name: String,
         type: {
           type: String,
           enum: ["PDF", "Doc", "Docx"],
@@ -53,7 +54,7 @@ const resumeSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Resume", resumeSchema);

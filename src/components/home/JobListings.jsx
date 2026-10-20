@@ -10,7 +10,10 @@ const MAX_JOBS = 6;
 
 const stripHtml = (value) =>
   typeof value === "string"
-    ? value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    ? value
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
     : "";
 
 export const JobListings = () => {
@@ -29,10 +32,14 @@ export const JobListings = () => {
         const res = await axios.get(`${API_BASE_URL}/api/jobs/search`, {
           signal: controller.signal,
         });
-        setJobs(Array.isArray(res.data?.jobs) ? res.data.jobs.slice(0, MAX_JOBS) : []);
+        setJobs(
+          Array.isArray(res.data?.jobs) ? res.data.jobs.slice(0, MAX_JOBS) : [],
+        );
       } catch (err) {
         if (axios.isCancel(err) || err?.code === "ERR_CANCELED") return;
-        setError(friendlyError(err, "We couldn't load the latest jobs right now."));
+        setError(
+          friendlyError(err, "We couldn't load the latest jobs right now."),
+        );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -92,7 +99,9 @@ export const JobListings = () => {
 
               <h3 className="text-xl font-semibold mb-1">{job.jobTitle}</h3>
               {job.employer?.companyName && (
-                <p className="text-gray-300 text-sm mb-1">{job.employer.companyName}</p>
+                <p className="text-gray-300 text-sm mb-1">
+                  {job.employer.companyName}
+                </p>
               )}
               <p className="text-gray-400 text-sm mb-4">
                 {[job.location, job.workType].filter(Boolean).join(" · ")}
@@ -101,11 +110,13 @@ export const JobListings = () => {
                 {stripHtml(job.jobDescription)}
               </p>
 
-              <div className="mt-auto flex justify-between flex-col md:flex-row gap-4 items-start md:items-center">
-                <span className="text-lg">{formatSalary(job.salary)}</span>
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">
+                <span className="text-sm font-semibold text-gray-100">
+                  {formatSalary(job.salary)}
+                </span>
                 <Link
                   to={`/jobs/${job._id}`}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                  className="bg-blue-500 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-600 transition-colors whitespace-nowrap"
                 >
                   Apply Now →
                 </Link>

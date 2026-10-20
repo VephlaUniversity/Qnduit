@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { friendlyError } from "../utils/userMessage";
 import { Link } from "react-router-dom";
 import { Search, MapPin, Briefcase, Star } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
@@ -146,11 +147,7 @@ export const TalentFollowingEmployers = () => {
 
       setEmployers((response.data.data || []).map(normalizeEmployer));
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to load employers.",
-      );
+      setError(friendlyError(err, "Unable to load employers."));
       setEmployers([]);
     } finally {
       setLoading(false);
@@ -227,9 +224,7 @@ export const TalentFollowingEmployers = () => {
 
       await loadEmployers();
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Unable to update follow status.",
-      );
+      setError(friendlyError(err, "Unable to update follow status."));
     } finally {
       setActionId(null);
     }

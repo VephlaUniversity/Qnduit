@@ -16,6 +16,80 @@ import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 
+const OTHER_ROLE = "__other__";
+
+// Grouped so the list stays scannable; anything not listed can be typed under "Other".
+const ROLE_GROUPS = [
+  {
+    label: "Design",
+    roles: [
+      "Product Designer",
+      "UI Designer",
+      "UX Designer",
+      "Graphic Designer",
+      "Motion Designer",
+      "Brand Designer",
+    ],
+  },
+  {
+    label: "Engineering",
+    roles: [
+      "Frontend Developer",
+      "Backend Developer",
+      "Full-Stack Developer",
+      "Mobile Developer",
+      "DevOps Engineer",
+      "QA / Test Engineer",
+      "Data Engineer",
+      "Software Engineer",
+    ],
+  },
+  {
+    label: "Data & AI",
+    roles: ["Data Analyst", "Data Scientist", "Machine Learning Engineer"],
+  },
+  {
+    label: "Product & Management",
+    roles: [
+      "Product Manager",
+      "Project Manager",
+      "Business Analyst",
+      "Scrum Master",
+    ],
+  },
+  {
+    label: "Marketing & Content",
+    roles: [
+      "Digital Marketer",
+      "SEO Specialist",
+      "Content Writer",
+      "Copywriter",
+      "Social Media Manager",
+      "Video Editor",
+    ],
+  },
+  {
+    label: "Business & Operations",
+    roles: [
+      "Sales Representative",
+      "Customer Support",
+      "Accountant",
+      "HR / Recruiter",
+      "Virtual Assistant",
+      "Operations Manager",
+    ],
+  },
+  {
+    label: "Cybersecurity & IT",
+    roles: [
+      "Cybersecurity Analyst",
+      "IT Support",
+      "Network Engineer",
+      "Cloud Engineer",
+    ],
+  },
+];
+
 export const TalentSignup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -25,6 +99,7 @@ export const TalentSignup = () => {
     password: "",
     verificationCode: "",
     role: "",
+    roleOther: "",
     experience: "",
     location: "",
     skills: [],
@@ -97,7 +172,7 @@ export const TalentSignup = () => {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
-          }
+          },
         );
 
         if (response.data?.free) {
@@ -105,9 +180,7 @@ export const TalentSignup = () => {
           return;
         }
 
-        throw new Error(
-          response.data?.message || "Unable to select free plan"
-        );
+        throw new Error(response.data?.message || "Unable to select free plan");
       }
 
       // PAID PLAN
@@ -120,7 +193,7 @@ export const TalentSignup = () => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
 
       if (response.data?.checkoutUrl) {
@@ -129,13 +202,17 @@ export const TalentSignup = () => {
       }
 
       throw new Error(
-        response.data?.message ||
-          "Flutterwave checkout link not received"
+        response.data?.message || "Flutterwave checkout link not received",
       );
     } catch (error) {
       console.error("Talent payment error:", error);
 
-      alert(friendlyError(error, "We couldn't process your payment. Please try again."));
+      alert(
+        friendlyError(
+          error,
+          "We couldn't process your payment. Please try again.",
+        ),
+      );
     }
   };
 
@@ -160,7 +237,12 @@ export const TalentSignup = () => {
       }
     } catch (error) {
       console.error(error);
-      alert(friendlyError(error, "We couldn't complete your registration. Please try again."));
+      alert(
+        friendlyError(
+          error,
+          "We couldn't complete your registration. Please try again.",
+        ),
+      );
     }
   };
 
@@ -216,20 +298,19 @@ export const TalentSignup = () => {
         const resumeData = new FormData();
         resumeData.append("resume", formData.resume);
 
-        await axios.post(
-          `${API_BASE_URL}/api/talents/resume`,
-          resumeData,
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-            },
-          }
-        );
+        await axios.post(`${API_BASE_URL}/api/talents/resume`, resumeData, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
       }
 
       // Update the rest of the profile
       const profileData = {
-        jobTitle: formData.role,
+        jobTitle:
+          formData.role === OTHER_ROLE
+            ? formData.roleOther.trim()
+            : formData.role,
         experienceTime: formData.experience,
         location: formData.location,
         aboutMe: formData.bio,
@@ -245,7 +326,7 @@ export const TalentSignup = () => {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
@@ -255,7 +336,12 @@ export const TalentSignup = () => {
       console.error("Profile update error:", error);
       console.error("Response:", error.response?.data);
 
-      alert(friendlyError(error, "We couldn't update your profile. Please try again."));
+      alert(
+        friendlyError(
+          error,
+          "We couldn't update your profile. Please try again.",
+        ),
+      );
     }
   };
 
@@ -497,22 +583,42 @@ export const TalentSignup = () => {
                   onChange={(e) => handleInputChange("role", e.target.value)}
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
-                    Product Designer
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your role
                   </option>
-                  <option value="product-designer" className="bg-[#1a2942]">
-                    Product Designer
-                  </option>
-                  <option value="ui-designer" className="bg-[#1a2942]">
-                    UI Designer
-                  </option>
-                  <option value="ux-designer" className="bg-[#1a2942]">
-                    UX Designer
-                  </option>
-                  <option value="developer" className="bg-[#1a2942]">
-                    Developer
+                  {ROLE_GROUPS.map((group) => (
+                    <optgroup
+                      key={group.label}
+                      label={group.label}
+                      className="bg-[#1a2942]"
+                    >
+                      {group.roles.map((role) => (
+                        <option
+                          key={role}
+                          value={role}
+                          className="bg-[#1a2942]"
+                        >
+                          {role}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  <option value={OTHER_ROLE} className="bg-[#1a2942]">
+                    Other (type your own)
                   </option>
                 </select>
+                {formData.role === OTHER_ROLE && (
+                  <input
+                    type="text"
+                    maxLength={60}
+                    value={formData.roleOther}
+                    onChange={(e) =>
+                      handleInputChange("roleOther", e.target.value)
+                    }
+                    placeholder="e.g. Podcast Producer, Welder, Legal Assistant"
+                    className="mt-3 w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
+                  />
+                )}
               </div>
 
               <div>
@@ -526,17 +632,20 @@ export const TalentSignup = () => {
                   }
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
-                    Beginner (0-1) years
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your experience
                   </option>
-                  <option value="0-1" className="bg-[#1a2942]">
-                    Beginner (0-1) years
+                  <option value="Less than 1 Year" className="bg-[#1a2942]">
+                    Less than 1 year
                   </option>
-                  <option value="2-5" className="bg-[#1a2942]">
-                    Intermediate (2-5) years
+                  <option value="1-3 Years" className="bg-[#1a2942]">
+                    1-3 years
                   </option>
-                  <option value="5+" className="bg-[#1a2942]">
-                    Expert (5+) years
+                  <option value="3-5 Years" className="bg-[#1a2942]">
+                    3-5 years
+                  </option>
+                  <option value="5 Years+" className="bg-[#1a2942]">
+                    5+ years
                   </option>
                 </select>
               </div>
@@ -552,16 +661,19 @@ export const TalentSignup = () => {
                   }
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your location
+                  </option>
+                  <option value="Nigeria" className="bg-[#1a2942]">
+                    Nigeria
+                  </option>
+                  <option value="United Kingdom" className="bg-[#1a2942]">
                     United Kingdom
                   </option>
-                  <option value="uk" className="bg-[#1a2942]">
-                    United Kingdom
-                  </option>
-                  <option value="us" className="bg-[#1a2942]">
+                  <option value="United States" className="bg-[#1a2942]">
                     United States
                   </option>
-                  <option value="ca" className="bg-[#1a2942]">
+                  <option value="Canada" className="bg-[#1a2942]">
                     Canada
                   </option>
                 </select>

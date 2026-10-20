@@ -18,11 +18,14 @@ export function daysLeftLabel(deadlineDate, suffix = "days left") {
 export function formatSalary(salary) {
   if (!salary || typeof salary !== "object") return "Salary not specified";
   const { min, max, type } = salary;
-  const hasMin = Number.isFinite(Number(min)) && min !== null && min !== undefined;
-  const hasMax = Number.isFinite(Number(max)) && max !== null && max !== undefined;
+  const hasMin =
+    Number.isFinite(Number(min)) && min !== null && min !== undefined;
+  const hasMax =
+    Number.isFinite(Number(max)) && max !== null && max !== undefined;
   if (!hasMin && !hasMax) return "Salary not specified";
   const fmt = (n) => `$${Number(n).toLocaleString()}`;
-  const range = hasMin && hasMax ? `${fmt(min)} - ${fmt(max)}` : fmt(hasMin ? min : max);
+  const range =
+    hasMin && hasMax ? `${fmt(min)} - ${fmt(max)}` : fmt(hasMin ? min : max);
   return type && typeof type === "string" ? `${range} / ${type}` : range;
 }
 
@@ -43,4 +46,31 @@ export function postedWithin(createdAt, window) {
   if (!Number.isFinite(created)) return false;
   const limits = { today: 1, week: 7, month: 30 };
   return Date.now() - created <= (limits[window] ?? Infinity) * 86400000;
+}
+
+// Opens the device share sheet when available, otherwise copies the link.
+export async function shareLink({ title, text, url }) {
+  const link =
+    url || (typeof window !== "undefined" ? window.location.href : "");
+  if (!link) return "failed";
+
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function"
+  ) {
+    try {
+      await navigator.share({ title, text, url: link });
+      return "shared";
+    } catch (error) {
+      if (error?.name === "AbortError") return "cancelled";
+      // fall through to copying
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(link);
+    return "copied";
+  } catch {
+    return "failed";
+  }
 }

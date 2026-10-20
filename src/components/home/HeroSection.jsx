@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { HashLink } from "react-router-hash-link";
 import { motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -85,13 +84,12 @@ export const HeroSection = () => {
                 <Link to="/talent-signup">Join as Talent</Link>
               )}
             </button>
-            <HashLink
-              smooth
-              to="/#source-talents"
+            <Link
+              to="/employers"
               className="bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-block"
             >
               Hire Talent
-            </HashLink>
+            </Link>
           </motion.div>
 
           {/* Popular Titles */}

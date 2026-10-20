@@ -1,3 +1,4 @@
+// Turns API/network failures into text that is safe and readable for end users.
 // Never exposes status codes, "Network Error", Mongo/JWT/stack text, etc.
 
 const TECHNICAL =
