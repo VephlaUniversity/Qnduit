@@ -159,7 +159,7 @@ export const TalentMyApplied = () => {
       </div>
 
       {/* Table Header */}
-      <div className="bg-[#1A1A1E] rounded-t-lg border border-white/5 px-6 py-4">
+      <div className="hidden md:block bg-[#1A1A1E] rounded-t-lg border border-white/5 px-6 py-4">
         <div className="grid grid-cols-12 gap-4 text-sm text-gray-400 uppercase">
           <div className="col-span-5">JOBS</div>
           <div className="col-span-2">STATUS</div>
@@ -169,7 +169,7 @@ export const TalentMyApplied = () => {
       </div>
 
       {/* Applications List */}
-      <div className="bg-[#1A1A1E] rounded-b-lg border border-t-0 border-white/5">
+      <div className="bg-[#1A1A1E] rounded-lg md:rounded-b-lg md:rounded-t-none border md:border-t-0 border-white/5">
         {loading ? (
           <div className="px-6 py-12 flex items-center justify-center gap-2 text-gray-400">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -203,9 +203,9 @@ export const TalentMyApplied = () => {
                   : ""
               } hover:bg-white/5 transition-colors`}
             >
-              <div className="grid grid-cols-12 gap-4 items-center">
+              <div className="grid grid-cols-2 md:grid-cols-12 gap-4 items-center">
                 {/* Job Info */}
-                <div className="col-span-5 flex items-center gap-4">
+                <div className="col-span-2 md:col-span-5 flex items-center gap-4 min-w-0">
                   <div className="w-14 h-14 bg-gray-400 rounded-lg flex-shrink-0"></div>
                   <div className="min-w-0">
                     <h3 className="text-white font-semibold mb-1">
@@ -225,21 +225,21 @@ export const TalentMyApplied = () => {
                 </div>
 
                 {/* Status */}
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <span className={`font-medium ${application.statusColor}`}>
                     {application.status}
                   </span>
                 </div>
 
                 {/* Date Applied */}
-                <div className="col-span-3">
+                <div className="md:col-span-3">
                   <span className="text-gray-400">
                     {application.dateApplied}
                   </span>
                 </div>
 
                 {/* Action */}
-                <div className="col-span-2 flex justify-end">
+                <div className="col-span-2 md:col-span-2 flex justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">

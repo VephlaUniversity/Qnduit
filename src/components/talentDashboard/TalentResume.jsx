@@ -339,7 +339,7 @@ const TalentResumes = () => {
   };
 
   const inputClass =
-    "flex-1 px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors";
+    "flex-1 min-w-0 w-full px-4 py-2 bg-[#1A1A1E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors";
 
   if (loading || loadError) {
     return (
@@ -389,14 +389,14 @@ const TalentResumes = () => {
             {existingCv.map((file) => (
               <div
                 key={file.public_id}
-                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10"
+                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10 max-w-full"
               >
-                <div>
+                <div className="min-w-0">
                   <a
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white text-sm font-medium hover:underline"
+                    className="block truncate text-white text-sm font-medium hover:underline"
                   >
                     {cvLabel(file)}
                   </a>
@@ -422,10 +422,12 @@ const TalentResumes = () => {
             {newCvFiles.map((file, index) => (
               <div
                 key={`new-${index}`}
-                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10"
+                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10 max-w-full"
               >
-                <div>
-                  <p className="text-white text-sm font-medium">{file.name}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-white text-sm font-medium">
+                    {file.name}
+                  </p>
                   <p className="text-gray-400 text-xs">
                     Will upload when you save
                   </p>
@@ -584,8 +586,8 @@ const TalentResumes = () => {
               </div>
               {expandedEducation.has(edu.id) && (
                 <div className="space-y-4 pl-1 mt-4">
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Academy
                     </label>
                     <input
@@ -597,8 +599,8 @@ const TalentResumes = () => {
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Title
                     </label>
                     <input
@@ -610,8 +612,8 @@ const TalentResumes = () => {
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Dates Attended
                     </label>
                     <div className="flex items-center gap-3">
@@ -695,8 +697,8 @@ const TalentResumes = () => {
               </div>
               {expandedExperience.has(exp.id) && (
                 <div className="space-y-4 pl-1 mt-4">
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Company
                     </label>
                     <input
@@ -708,8 +710,8 @@ const TalentResumes = () => {
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Title
                     </label>
                     <input
@@ -721,8 +723,8 @@ const TalentResumes = () => {
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <label className="text-gray-400 text-sm w-28 shrink-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
                       Dates
                     </label>
                     <div className="flex items-center gap-3">
