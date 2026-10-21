@@ -29,7 +29,8 @@ export function useTalentSubscription(enabled = true) {
       signal: controller.signal,
       headers: { Authorization: `Bearer ${token}` },
     }).then(({ data }) => {
-      if (current) setResult({ token, loading: false, subscription: data?.subscription || null });
+      if (current) setResult({ token, loading: false, subscription: data?.subscription || null,
+        subscriptionStatus: data?.subscriptionStatus, publicProfile: data?.publicProfile });
     }).catch(error => {
       if (current) setResult({ token, loading: false,
         error: friendlyError(error, "We couldn't load your plan. Please try again.") });

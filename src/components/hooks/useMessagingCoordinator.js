@@ -1,3 +1,4 @@
+import { useEmployerMessagingAccess } from "./useEmployerMessagingAccess";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import axios from "axios";
 import { useAuth } from "./useAuth";
@@ -121,6 +122,7 @@ function createStore(token, key, actor) {
       }
       return () => {
         refs--;
+        if (!refs && actor.startsWith("employer:")) { loop?.stop(); loop = null; clearTimeout(expiryTimer); snapshot = empty; }
         queueMicrotask(() => {
           if (refs === 0) { loop?.stop(); loop = null; window.removeEventListener("storage", storage); window.removeEventListener("focus", prunePresence); document.removeEventListener("visibilitychange", prunePresence); clearTimeout(expiryTimer); if (stores.get(key) === store) stores.delete(key); }
         });
@@ -135,14 +137,15 @@ function createStore(token, key, actor) {
 }
 export function useMessagingCoordinator() {
   const { user } = useAuth();
+  const access = useEmployerMessagingAccess();
   const token = localStorage.getItem("token");
   const actor = user ? `${user.userType}:${user._id || user.id || user.email}` : "";
   const store = useMemo(() => {
-    if (!actor || !token) return inactive;
+    if (!actor || !token || access.status !== "allowed") return inactive;
     const key = `${actor}:${token}`;
     if (!stores.has(key)) stores.set(key, createStore(token, key, actor));
     return stores.get(key);
-  }, [actor, token]);
+  }, [actor, token, access.status]);
   useEffect(() => store.retain(), [store]);
   const state = useSyncExternalStore(store.subscribe, store.get, inactive.get);
   return useMemo(() => ({ ...state, register: store.register, wake: store.wake, watchPresence: store.watchPresence }), [state, store]);

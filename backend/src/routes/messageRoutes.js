@@ -1,3 +1,4 @@
+import { requireEmployerMessaging } from "../middleware/requireEmployerMessaging.js";
 import { ingestMessageAttachments } from "../utils/messageAttachments/ingest.js";
 import { downloadMessageAttachment } from "../controllers/messageAttachmentController.js";
 import { unreadMessages, acknowledgeMessages } from "../controllers/messageReadController.js";
@@ -12,7 +13,7 @@ import {
 } from "../controllers/messageController.js";
 
 const router = express.Router();
-router.use(protect, authorize("talent", "employer"));
+router.use(protect, authorize("talent", "employer"), requireEmployerMessaging);
 
 router.post("/heartbeat", heartbeat);
 router.post("/presence", lookupPresence);

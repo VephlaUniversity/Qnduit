@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
-import TalentSubscription from "../models/TalentSubscription.js";
+import { resolveTalentPublication } from "../services/talentPublication.js";
 
 
 /*const storage = multer.diskStorage({
@@ -470,17 +470,9 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    const subscription = await TalentSubscription.findOne({
-      talent: talent._id,
-      status: "active",
-      currentPeriodEnd: { $gt: new Date() },
-    }).select("_id");
-
-    if (!subscription) {
-      return res.status(404).json({
-        success: false,
-        message: "Public profile not found.",
-      });
+    const { publicProfile } = await resolveTalentPublication(talent._id);
+    if (publicProfile.status !== "published") {
+      return res.status(404).json({ success: false, message: "Public profile not found." });
     }
 
     return res.status(200).json({
