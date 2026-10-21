@@ -13,6 +13,7 @@ import {
   Building,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { COUNTRIES } from "../data/countries";
 import axios from "axios";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
@@ -775,21 +776,14 @@ export const EmployerSignup = () => {
                     }
                     className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                   >
-                    <option value="" className="bg-[#1a2942]">
-                      Select
+                    <option value="" disabled className="bg-[#1a2942]">
+                    Select your country
+                  </option>
+                  {COUNTRIES.map((country) => (
+                    <option key={country} value={country} className="bg-[#1a2942]">
+                      {country}
                     </option>
-                    <option value="us" className="bg-[#1a2942]">
-                      United States
-                    </option>
-                    <option value="uk" className="bg-[#1a2942]">
-                      United Kingdom
-                    </option>
-                    <option value="canada" className="bg-[#1a2942]">
-                      Canada
-                    </option>
-                    <option value="australia" className="bg-[#1a2942]">
-                      Australia
-                    </option>
+                  ))}
                   </select>
                 </div>
               </div>
@@ -860,21 +854,14 @@ export const EmployerSignup = () => {
                   }
                   className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                 >
-                  <option value="" className="bg-[#1a2942]">
-                    United States
+                  <option value="" disabled className="bg-[#1a2942]">
+                    Select your country
                   </option>
-                  <option value="us" className="bg-[#1a2942]">
-                    United States
-                  </option>
-                  <option value="uk" className="bg-[#1a2942]">
-                    United Kingdom
-                  </option>
-                  <option value="canada" className="bg-[#1a2942]">
-                    Canada
-                  </option>
-                  <option value="australia" className="bg-[#1a2942]">
-                    Australia
-                  </option>
+                  {COUNTRIES.map((country) => (
+                    <option key={country} value={country} className="bg-[#1a2942]">
+                      {country}
+                    </option>
+                  ))}
                 </select>
               </div>
 

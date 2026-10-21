@@ -15,7 +15,7 @@ import {
   Trash2,
   LogOut,
   LifeBuoy,
-  Package
+  Package,
 } from "lucide-react";
 import Meeting from "./TalentMeeting";
 import ChangePassword from "../employerDashboard/ChangePassword";

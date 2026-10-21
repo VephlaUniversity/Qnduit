@@ -428,6 +428,80 @@ export const getTalentProfile = async (req, res, next) => {
 };
 
 
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Public directory of talents. Same eligibility rule as getPublicTalentProfile:
+// verified, active, profile shown, public listing enabled and a live paid subscription.
+export const listPublicTalents = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(24, Math.max(1, parseInt(req.query.limit, 10) || 12));
+    const q = String(req.query.q || "").trim().slice(0, 60);
+    const country = String(req.query.country || "").trim().slice(0, 60);
+
+    const subscribedIds = await TalentSubscription.distinct("talent", {
+      status: "active",
+      currentPeriodEnd: { $gt: new Date() },
+    });
+
+    const filter = {
+      _id: { $in: subscribedIds },
+      isVerified: true,
+      accountStatus: "active",
+      showProfile: "show",
+      selectedPlan: "public",
+      paymentStatus: "active",
+      publicProfileEnabled: true,
+      username: { $exists: true, $ne: "" },
+    };
+
+    if (country) filter.location = new RegExp(`^${escapeRegex(country)}$`, "i");
+
+    if (q) {
+      const pattern = new RegExp(escapeRegex(q), "i");
+      filter.$or = [
+        { fullName: pattern },
+        { firstName: pattern },
+        { lastName: pattern },
+        { jobTitle: pattern },
+        { tags: pattern },
+      ];
+    }
+
+    const [total, talents] = await Promise.all([
+      Talent.countDocuments(filter),
+      Talent.find(filter)
+        .select("username fullName firstName lastName jobTitle location tags avatar experienceTime")
+        .sort({ profileUpdatedAt: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+      talents: talents.map((talent) => ({
+        username: talent.username,
+        name:
+          talent.fullName ||
+          `${talent.firstName || ""} ${talent.lastName || ""}`.trim() ||
+          "Talent",
+        jobTitle: talent.jobTitle || "",
+        location: talent.location || "",
+        experienceTime: talent.experienceTime || "",
+        skills: (talent.tags || []).slice(0, 5),
+        avatar: talent.avatar?.url || "",
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPublicTalentProfile = async (req, res, next) => {
   try {
     const { username } = req.params;

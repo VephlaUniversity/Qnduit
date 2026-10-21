@@ -7,6 +7,7 @@ import {
   getTalentDashboard,
   getTalentProfile,
   getPublicTalentProfile,
+  listPublicTalents,
   upload,
   talentUpload,
   searchTalentByEmail,
@@ -57,6 +58,8 @@ router.get(
   authorize("employer"),
   searchTalentByEmail
 );
+
+router.get("/public", listPublicTalents);
 
 router.get("/public/:username", getPublicTalentProfile);
 

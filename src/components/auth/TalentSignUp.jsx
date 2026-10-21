@@ -1,4 +1,5 @@
 import TalentSelect from "../talentDashboard/TalentSelect";
+import { COUNTRIES } from "../data/countries";
 import { TALENT_OPTION_GROUPS } from "../data/talentOptions";
 import TalentOptionPicker from "../talentDashboard/TalentOptionPicker";
 import { useState } from "react";
@@ -86,7 +87,11 @@ export const TalentSignup = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlanSelection = async (planType) => {
+  const handlePlanSelection = async (planType, actionType) => {
+    if (actionType === "payLater") {
+      navigate("/talent-dashboard");
+      return;
+    }
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) {
@@ -578,18 +583,11 @@ export const TalentSignup = () => {
                   <option value="" disabled className="bg-[#1a2942]">
                     Select your location
                   </option>
-                  <option value="Nigeria" className="bg-[#1a2942]">
-                    Nigeria
-                  </option>
-                  <option value="United Kingdom" className="bg-[#1a2942]">
-                    United Kingdom
-                  </option>
-                  <option value="United States" className="bg-[#1a2942]">
-                    United States
-                  </option>
-                  <option value="Canada" className="bg-[#1a2942]">
-                    Canada
-                  </option>
+                  {COUNTRIES.map((country) => (
+                    <option key={country} value={country} className="bg-[#1a2942]">
+                      {country}
+                    </option>
+                  ))}
                 </TalentSelect>
               </div>
 

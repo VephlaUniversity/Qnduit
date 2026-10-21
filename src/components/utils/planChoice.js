@@ -40,9 +40,7 @@ export const routeForPlan = (planType, session = readSession()) => {
 
   if (audience === "employer") return { to: "/dashboard/packages" };
   if (planType === "free") return { to: "/talent-dashboard" };
-  return {
-    to: `/talent-dashboard/my-plan?plan=${encodeURIComponent(planType)}`,
-  };
+  return { to: "/talent-dashboard/packages" };
 };
 
 // Plan from the URL (?plan=...) if it is a real one, otherwise "".

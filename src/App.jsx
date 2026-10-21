@@ -65,6 +65,7 @@ import UserProfileView from "./components/profiles/UserProfileView";
 import ProfileViewHistory from "./components/profiles/ProfileViewHistory";
 
 import PublicTalentProfile from "./components/profiles/PublicTalentProfile";
+import TalentDirectory from "./components/pages/TalentDirectory";
 
 const AppContent = () => {
   const location = useLocation();
@@ -141,6 +142,7 @@ const AppContent = () => {
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/testimonials" element={<FeaturedSuccessStories />} />
           <Route path="/find-talents" element={<TalentsSearchManager />} />
+          <Route path="/talent-directory" element={<TalentDirectory />} />
           <Route path="/jobs" element={<JobManager />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
           <Route
