@@ -1,3 +1,4 @@
+import EmployerMessagingGate from "./components/employerDashboard/EmployerMessagingGate";
 import { Header } from "./components/Header";
 import { HowItWorksSection } from "./components/pages/HowItWorks";
 import { QnduitLanding } from "./components/pages/QnduitLanding";
@@ -275,7 +276,7 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <Messages />
+                  <EmployerMessagingGate><Messages /></EmployerMessagingGate>
                 </DashboardLayout>
               </ProtectedRoute>
             }

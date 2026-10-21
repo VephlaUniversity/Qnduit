@@ -1,3 +1,4 @@
+import { resolveTalentPublication } from "../services/talentPublication.js";
 import flutterwave from "../utils/flutterwave.js";
 import crypto from "crypto";
 import Talent from "../models/Talent.js";
@@ -460,20 +461,18 @@ export const activateTalentPayment = async (
 // Get Talent Subscription
 export const getMySubscription = async (req, res, next) => {
   try {
+    if (req.user.role !== "talent") {
+      return res.status(403).json({ message: "Talent account required." });
+    }
     const subscription = await TalentSubscription.findOne({
       talent: req.user._id,
     });
 
-    if (!subscription) {
-      return res.json({
-        success: true,
-        subscription: null,
-      });
-    }
-
+    const publication = await resolveTalentPublication(req.user._id);
     res.json({
       success: true,
       subscription,
+      ...publication,
     });
   } catch (error) {
     next(error);

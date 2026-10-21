@@ -23,7 +23,7 @@ export const TalentMyPlan = () => {
   const [selectedPlan, setSelectedPlan] = useState(
     urlPlan === "public" ? "public" : "",
   );
-  const { subscription, loading, error: loadError, refresh } = useTalentSubscription();
+  const { subscription, publicProfile, loading, error: loadError, refresh } = useTalentSubscription();
   const [processing, setProcessing] = useState(false);
 
   const handlePlanAction = async (planType) => {
@@ -110,6 +110,18 @@ export const TalentMyPlan = () => {
                   ? ` · Renews or ends ${dayjs(subscription.currentPeriodEnd).format("MMMM D, YYYY")}`
                   : ""}
               </p>
+            )}
+          </div>
+
+          <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">
+            <p className="text-gray-400 text-sm mb-1">Public profile</p>
+            <p className="text-white font-semibold">
+              {publicProfile?.status === "published" && publicProfile.url ? "Visible" : publicProfile?.status === "unavailable" ? "Unavailable" : "Status could not be loaded"}
+            </p>
+            {publicProfile?.status === "published" && publicProfile.url && (
+              <a href={publicProfile.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 break-all inline-block mt-2">
+                {window.location.origin}{publicProfile.url}
+              </a>
             )}
           </div>
 
