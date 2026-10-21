@@ -1,6 +1,6 @@
 
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
   ArrowRight,
@@ -8,11 +8,34 @@ import {
   CreditCard,
 } from "lucide-react";
 
+import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
+
+const TalentPaymentResult = () => {
+  const navigate = useNavigate();
+  const { subscription, loading, error, refresh } = useTalentSubscription();
+  const activated = subscription?.status === "active" && hasCurrentPublicSubscription(subscription);
+  useEffect(() => {
+    if (activated) navigate("/talent-dashboard/my-plan", { replace: true });
+  }, [activated, navigate]);
+  return <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+    <div className="w-full max-w-lg bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 sm:p-10 text-center">
+      <h1 className="text-2xl text-white mb-4">{loading ? "Checking your subscription..." : "Subscription not confirmed"}</h1>
+      {!loading && <>
+        <p className="text-gray-400 mb-6" role={error ? "alert" : undefined}>{error || "Your subscription is not active yet. Check again before attempting another payment."}</p>
+        <button type="button" onClick={refresh} className="px-5 py-3 bg-blue-600 text-white rounded-lg">Check again</button>
+        <Link to="/talent-dashboard/my-plan" className="block mt-5 text-blue-400">View My Plan</Link>
+      </>}
+    </div>
+  </div>;
+};
+
 export const PaymentSuccess = () => {
   const location = useLocation();
 
   const isEmployer = location.pathname.startsWith("/employer/");
   const dashboardPath = isEmployer ? "/dashboard" : "/talent-dashboard";
+
+  if (!isEmployer) return <TalentPaymentResult />;
 
   return (
     <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">

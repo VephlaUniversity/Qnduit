@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import axios from "axios";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { TalentPlans } from "../TalentPlans";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
+import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
 import { planFromUrl } from "../utils/planChoice";
 
 const STATUS_LABELS = {
@@ -16,63 +17,26 @@ const STATUS_LABELS = {
   canceled: "Cancelled",
 };
 
-const isLive = (subscription) =>
-  Boolean(subscription) && ["active", "past_due"].includes(subscription.status);
-
 export const TalentMyPlan = () => {
   const [searchParams] = useSearchParams();
   const urlPlan = planFromUrl(`?${searchParams.toString()}`);
   const [selectedPlan, setSelectedPlan] = useState(
     urlPlan === "public" ? "public" : "",
   );
-  const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
+  const { subscription, loading, error: loadError, refresh } = useTalentSubscription();
   const [processing, setProcessing] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/payments/subscription`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          },
-        );
-        if (!cancelled) setSubscription(res.data?.subscription || null);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(
-            friendlyError(err, "We couldn't load your plan. Please try again."),
-          );
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey]);
 
   const handlePlanAction = async (planType) => {
     if (planType === "free") {
       toast.info(
-        isLive(subscription)
+        hasCurrentPublicSubscription(subscription)
           ? "Your Public Listing is active. Contact support if you want to cancel it."
           : "You're already on the Free plan.",
       );
       return;
     }
 
-    if (isLive(subscription)) {
+    if (hasCurrentPublicSubscription(subscription)) {
       toast.info("Your Public Listing is already active.");
       return;
     }
@@ -105,7 +69,7 @@ export const TalentMyPlan = () => {
     }
   };
 
-  const live = isLive(subscription);
+  const live = hasCurrentPublicSubscription(subscription);
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -125,7 +89,7 @@ export const TalentMyPlan = () => {
         <div className="py-12 text-center">
           <p className="text-gray-400 mb-4">{loadError}</p>
           <button
-            onClick={() => setReloadKey((k) => k + 1)}
+            onClick={() => refresh()}
             className="px-6 py-2 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors"
           >
             Try again

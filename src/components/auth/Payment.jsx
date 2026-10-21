@@ -1,15 +1,15 @@
 import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import axios from "axios";
 
 import { API_BASE_URL } from "../utils/api";
+import { useTalentSubscription, hasCurrentPublicSubscription, talentPaymentToken } from "../hooks/useTalentSubscription";
 import { usePlanAction } from "../hooks/usePlanAction";
 
 const paymentToken = userType => userType === "talent"
-  ? localStorage.getItem("authToken") || localStorage.getItem("token")
-  : localStorage.getItem("token");
+  ? talentPaymentToken() : localStorage.getItem("token");
 
 export const Payment = () => {
   const [searchParams] = useSearchParams();
@@ -39,6 +39,10 @@ export const Payment = () => {
     };
   }, [searchParams]);
 
+  const navigate = useNavigate();
+  const subscriptionState = useTalentSubscription(userType === "talent");
+  const currentPlan = hasCurrentPublicSubscription(subscriptionState.subscription);
+
   const validate = () => {
     if (!plan || price === null) {
       return "Please select a valid subscription plan.";
@@ -61,6 +65,13 @@ export const Payment = () => {
   };
 
   const handlePayment = async () => {
+    if (userType === "talent") {
+      if (subscriptionState.loading || subscriptionState.error) return;
+      if (currentPlan) {
+        navigate("/talent-dashboard/my-plan");
+        return;
+      }
+    }
     const validationError = validate();
 
     if (validationError) {
@@ -190,6 +201,7 @@ export const Payment = () => {
               Your account details will be retrieved by our backend.
             </p>
 
+            {userType === "talent" && subscriptionState.error && <p role="alert" className="text-red-600 mb-4">{subscriptionState.error} <button type="button" onClick={subscriptionState.refresh}>Try again</button></p>}
             {error && (
               <div
                 role="alert"
@@ -202,12 +214,12 @@ export const Payment = () => {
             <motion.button
               type="button"
               onClick={() => submit(plan, "payNow")}
-              disabled={loading || pending}
+              disabled={loading || pending || (userType === "talent" && subscriptionState.loading)}
               aria-busy={loading || pending}
               className="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               whileTap={{ scale: loading ? 1 : 0.98 }}
             >
-              {loading
+              {userType === "talent" && currentPlan ? "View My Plan" : loading
                 ? "Connecting to Flutterwave..."
                 : price === null
                   ? "Select a Valid Plan"
