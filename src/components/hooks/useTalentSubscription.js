@@ -22,21 +22,47 @@ export function useTalentSubscription(enabled = true) {
     let current = true;
     setResult({ token, loading: true });
     if (!token) {
-      setResult({ token, loading: false, error: "Please sign in to view your plan." });
-      return () => { current = false; controller.abort(); };
+      setResult({
+        token,
+        loading: false,
+        error: "Please sign in to view your plan.",
+      });
+      return () => {
+        current = false;
+        controller.abort();
+      };
     }
-    axios.get(`${API_BASE_URL}/api/payments/subscription`, {
-      signal: controller.signal,
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(({ data }) => {
-      if (current) setResult({ token, loading: false, subscription: data?.subscription || null,
-        subscriptionStatus: data?.subscriptionStatus, publicProfile: data?.publicProfile });
-    }).catch(error => {
-      if (current) setResult({ token, loading: false,
-        error: friendlyError(error, "We couldn't load your plan. Please try again.") });
-    });
-    return () => { current = false; controller.abort(); };
+    axios
+      .get(`${API_BASE_URL}/api/payments/subscription`, {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(({ data }) => {
+        if (current)
+          setResult({
+            token,
+            loading: false,
+            subscription: data?.subscription || null,
+            subscriptionStatus: data?.subscriptionStatus,
+            publicProfile: data?.publicProfile,
+          });
+      })
+      .catch((error) => {
+        if (current)
+          setResult({
+            token,
+            loading: false,
+            error: friendlyError(
+              error,
+              "We couldn't load your plan. Please try again.",
+            ),
+          });
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
   }, [enabled, token, revision]);
   const state = result.token === token ? result : { loading: true };
-  return { ...state, refresh: () => setRevision(value => value + 1) };
+  return { ...state, refresh: () => setRevision((value) => value + 1) };
 }

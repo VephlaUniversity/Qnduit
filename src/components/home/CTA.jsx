@@ -16,7 +16,10 @@ const fadeUp = {
 export const CTA = () => (
   <section className="relative py-20 overflow-hidden">
     {/* Background Image */}
-    <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
+    <div
+      className="absolute inset-0 z-0 pointer-events-none"
+      aria-hidden="true"
+    >
       <img
         src="/images/cta-bg.png"
         alt=""
@@ -65,12 +68,14 @@ export const CTA = () => (
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="flex flex-col sm:flex-row gap-4 justify-center"
       >
-        <Link to="/talent-signup"
-          className="inline-flex min-h-11 items-center justify-center bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4">
+        <Link
+          to="/talent-signup"
+          className="inline-flex min-h-11 items-center justify-center bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
           Join as Talent
         </Link>
         <Link
-          to="/employer-signup"
+          to="/employers"
           className="bg-white text-black px-8 py-4 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4"
         >
           Hire Talent

@@ -10,7 +10,6 @@ export const TalentPlans = ({
   freeCtaText = "Create My Free Account →",
   publicCtaText = "List My Profile Here →",
 }) => {
-
   const { pending, submit } = usePlanAction(onPlanAction);
 
   const freeIcon = (
