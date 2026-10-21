@@ -1,3 +1,4 @@
+import { getEmployerMessagingAccess } from "../middleware/requireEmployerMessaging.js";
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../controllers/paymentController.js";
 
 const router = express.Router();
+router.get("/messaging-access", protect, authorize("employer"), getEmployerMessagingAccess);
 // signup
 router.post("/signup", registerEmployer);
 

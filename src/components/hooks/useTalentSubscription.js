@@ -43,6 +43,8 @@ export function useTalentSubscription(enabled = true) {
             token,
             loading: false,
             subscription: data?.subscription || null,
+            subscriptionStatus: data?.subscriptionStatus,
+            publicProfile: data?.publicProfile,
           });
       })
       .catch((error) => {
