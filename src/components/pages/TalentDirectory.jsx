@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { Briefcase, ChevronLeft, ChevronRight, Loader2, MapPin, Search, UserRound } from "lucide-react";
+import {
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  Search,
+  UserRound,
+} from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
 import { COUNTRIES } from "../data/countries";
@@ -50,7 +58,10 @@ export const TalentDirectory = () => {
   // Wait for the visitor to stop typing before searching.
   useEffect(() => {
     if (queryInput.trim() === urlQuery) return undefined;
-    const timer = setTimeout(() => updateParams({ q: queryInput.trim(), page: "" }), 350);
+    const timer = setTimeout(
+      () => updateParams({ q: queryInput.trim(), page: "" }),
+      350,
+    );
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryInput]);
@@ -62,7 +73,12 @@ export const TalentDirectory = () => {
     setError("");
     axios
       .get(`${API_BASE_URL}/api/talents/public`, {
-        params: { q: urlQuery || undefined, country: country || undefined, page, limit: PAGE_SIZE },
+        params: {
+          q: urlQuery || undefined,
+          country: country || undefined,
+          page,
+          limit: PAGE_SIZE,
+        },
         signal: controller.signal,
       })
       .then(({ data: body }) => {
@@ -75,7 +91,12 @@ export const TalentDirectory = () => {
       })
       .catch((err) => {
         if (current && !axios.isCancel?.(err) && err?.code !== "ERR_CANCELED") {
-          setError(friendlyError(err, "We couldn't load the talent directory. Please try again."));
+          setError(
+            friendlyError(
+              err,
+              "We couldn't load the talent directory. Please try again.",
+            ),
+          );
         }
       })
       .finally(() => {
@@ -93,9 +114,13 @@ export const TalentDirectory = () => {
     <div className="min-h-screen bg-[#0F1419] text-white">
       <section className="px-6 py-12 border-b border-[#1A1F2E]">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">Talent Directory</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">
+            Browse Talents
+          </h1>
           <p className="text-gray-400 mb-8 max-w-2xl">
-            Browse professionals with a public listing on QNDUIT. Open a profile to see their portfolio and experience.
+            Discover talented individuals from around the world. Search by name,
+            role or skill, filter by country, and open a profile to see their
+            work and experience.
           </p>
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -113,7 +138,9 @@ export const TalentDirectory = () => {
             </div>
             <select
               value={country}
-              onChange={(e) => updateParams({ country: e.target.value, page: "" })}
+              onChange={(e) =>
+                updateParams({ country: e.target.value, page: "" })
+              }
               aria-label="Filter by country"
               className="md:w-64 px-4 py-3 bg-[#1A1F2E] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
             >
@@ -149,10 +176,14 @@ export const TalentDirectory = () => {
           ) : data.talents.length === 0 ? (
             <div className="py-20 text-center">
               <p className="text-white font-medium mb-1">
-                {hasFilters ? "No talents match your search" : "No talents are listed yet"}
+                {hasFilters
+                  ? "No talents match your search"
+                  : "No talents are listed yet"}
               </p>
               <p className="text-gray-400 text-sm mb-4">
-                {hasFilters ? "Try a different name, role or country." : "Check back soon."}
+                {hasFilters
+                  ? "Try a different name, role or country."
+                  : "Check back soon."}
               </p>
               {hasFilters && (
                 <button
@@ -181,9 +212,13 @@ export const TalentDirectory = () => {
                     <div className="flex items-center gap-4 mb-4 min-w-0">
                       <TalentAvatar src={talent.avatar} name={talent.name} />
                       <div className="min-w-0">
-                        <h2 className="text-lg font-semibold truncate">{talent.name}</h2>
+                        <h2 className="text-lg font-semibold truncate">
+                          {talent.name}
+                        </h2>
                         {talent.jobTitle && (
-                          <p className="text-blue-400 text-sm truncate">{talent.jobTitle}</p>
+                          <p className="text-blue-400 text-sm truncate">
+                            {talent.jobTitle}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -191,14 +226,22 @@ export const TalentDirectory = () => {
                     <div className="space-y-1 text-sm text-gray-400 mb-4">
                       {talent.location && (
                         <p className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          <MapPin
+                            className="w-4 h-4 shrink-0"
+                            aria-hidden="true"
+                          />
                           <span className="truncate">{talent.location}</span>
                         </p>
                       )}
                       {talent.experienceTime && (
                         <p className="flex items-center gap-2">
-                          <Briefcase className="w-4 h-4 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{talent.experienceTime}</span>
+                          <Briefcase
+                            className="w-4 h-4 shrink-0"
+                            aria-hidden="true"
+                          />
+                          <span className="truncate">
+                            {talent.experienceTime}
+                          </span>
                         </p>
                       )}
                     </div>
@@ -227,11 +270,16 @@ export const TalentDirectory = () => {
               </div>
 
               {data.pages > 1 && (
-                <nav className="mt-10 flex items-center justify-center gap-4" aria-label="Pagination">
+                <nav
+                  className="mt-10 flex items-center justify-center gap-4"
+                  aria-label="Pagination"
+                >
                   <button
                     type="button"
                     disabled={page <= 1}
-                    onClick={() => updateParams({ page: page - 1 > 1 ? page - 1 : "" })}
+                    onClick={() =>
+                      updateParams({ page: page - 1 > 1 ? page - 1 : "" })
+                    }
                     className="flex items-center gap-1 px-4 py-2 border border-white/10 rounded-lg hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-4 h-4" /> Previous

@@ -175,7 +175,7 @@ export const FeaturedTalents = () => {
       {/* Link to the full public directory */}
       <div className="text-center -mt-6 md:-mt-8">
         <Link
-          to="/talent-directory"
+          to="/feature-talents"
           className="inline-block border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
         >
           Browse all talents →
