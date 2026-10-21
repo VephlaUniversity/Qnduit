@@ -1,7 +1,8 @@
 import Job from "../models/Job.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
-import { uploadJobMedia } from "../utils/jobMediaUpload.js";
+import { checkEmployerJobAccess, createEmployerJob } from "../services/employerJobAccess.js";
+import { uploadJobMedia, removeNewJobMedia } from "../utils/jobMediaUpload.js";
 import { jobDeadlineUpdate, lagosDateKey } from "../utils/jobDeadline.js";
 import { sendJobInquiryEmail } from "../utils/sendEmail.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
@@ -12,6 +13,8 @@ export const jobUpload = upload.fields([
 ]);
 
 export const createJob = async (req, res) => {
+  const newAssets = [];
+  let jobCommitted = false;
   try {
     const employerId = req.user._id;
 
@@ -76,17 +79,25 @@ export const createJob = async (req, res) => {
     }
 
     await job.validate();
-    // Do not mutate saved media until every replacement upload has succeeded.
-    Object.assign(job, await uploadJobMedia(req.files));
-
-    await job.save();
+    await checkEmployerJobAccess(employerId);
+    Object.assign(job, await uploadJobMedia(req.files, { onUploaded: asset => newAssets.push(asset) }));
+    const savedJob = await createEmployerJob(employerId, job.toObject());
+    jobCommitted = true;
 
     res.status(201).json({
       success: true,
       message: "Job created successfully",
-      job,
+      job: savedJob,
     });
   } catch (error) {
+    if (!jobCommitted && !error.jobCommitOutcomeUnknown) await removeNewJobMedia(newAssets);
+    if (res.headersSent || res.destroyed) return;
+    if (error.status === 403 || error.status === 503) {
+      return res.status(error.status).json({ success: false, code: error.code,
+        message: error.status === 403 ? error.message : error.jobCommitOutcomeUnknown
+          ? "The posting outcome could not be confirmed. Check My Jobs before trying again."
+          : "Job posting is temporarily unavailable. Please try again later." });
+    }
     jobSaveError(res, error);
   }
 };

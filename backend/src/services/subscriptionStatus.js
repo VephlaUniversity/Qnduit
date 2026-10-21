@@ -23,18 +23,18 @@ const isoDate = value => {
 
 // Internal service: identity must come from authentication, never a browser plan.
 // Database errors deliberately propagate; an unavailable lookup is not a Free plan.
-export async function resolveSubscriptionStatus({ accountId, role, now = new Date() }) {
+export async function resolveSubscriptionStatus({ accountId, role, now = new Date(), session = null }) {
   const adapter = Object.hasOwn(adapters, role) ? adapters[role] : null;
   const time = dateValue(now);
   if (!adapter || !/^[a-f\d]{24}$/i.test(String(accountId)) || time === null) {
     throw new TypeError("A supported role, account ID and valid time are required.");
   }
-  const [account, subscription] = await Promise.all([
-    adapter.account.findById(accountId).select("_id accountStatus selectedPlan paymentStatus").lean(),
-    adapter.subscription.findOne({ [adapter.ownerField]: accountId }).select(
-      "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId"
-    ).lean(),
-  ]);
+  // A transaction session must not run parallel operations.
+  const account = await adapter.account.findById(accountId)
+    .select("_id accountStatus selectedPlan paymentStatus").session(session).lean();
+  const subscription = await adapter.subscription.findOne({ [adapter.ownerField]: accountId }).select(
+    "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId"
+  ).session(session).lean();
   const expiry = isoDate(subscription?.currentPeriodEnd);
   const periodStart = dateValue(subscription?.currentPeriodStart);
   const periodEnd = dateValue(subscription?.currentPeriodEnd);
@@ -49,7 +49,7 @@ export async function resolveSubscriptionStatus({ accountId, role, now = new Dat
       status: "successful",
       ...(subscription.lastTxRef ? { txRef: subscription.lastTxRef } : {}),
       ...(subscription.lastTransactionId ? { transactionId: subscription.lastTransactionId } : {}),
-    }).select("_id").lean();
+    }).select("_id").session(session).lean();
   }
   let status;
   let reason;

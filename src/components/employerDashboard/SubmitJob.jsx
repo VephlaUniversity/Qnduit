@@ -284,7 +284,9 @@ const SubmitJob = () => {
       else if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
       else toast({
         title: "Error",
-        description: err.response?.status === 401 ? "Your session expired. Please sign in again."
+        description: err.response?.data?.code === "JOB_POST_LIMIT_REACHED"
+          ? "You’ve reached the Free plan limit of 10 jobs. Upgrade to a paid plan to post more jobs."
+          : err.response?.status === 401 ? "Your session expired. Please sign in again."
           : err.response?.status === 403 ? "You are not authorized to save this job."
           : err.response?.status === 404 ? "Job not found. Return to My Jobs and try again."
           : err.response?.status === 400 ? "Please check the job details and try again."
