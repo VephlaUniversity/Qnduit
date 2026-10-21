@@ -63,7 +63,7 @@ export const Header = () => {
             className="flex items-center cursor-pointer flex-shrink-0"
           >
             <Link to="/" className="flex items-center">
-              <img src="/images/header-logo.png" alt="" className="w-5" />
+              <img src="/images/header-logo.svg" alt="" className="w-5" />
               <span className="text-lg md:text-xl pl-2 text-white">QNDUIT</span>
             </Link>
           </motion.div>

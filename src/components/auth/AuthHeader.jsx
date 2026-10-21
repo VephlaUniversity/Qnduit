@@ -18,7 +18,7 @@ export const AuthHeader = () => {
       <div className="flex justify-between items-center">
         <div className="flex items-center">
           <Link to="/" className="flex items-center">
-            <img src="/images/header-logo.png" alt="Q" className="w-5" />
+            <img src="/images/header-logo.svg" alt="Q" className="w-5" />
             <span className="text-xl pl-2 text-white">QNDUIT</span>
           </Link>
         </div>
