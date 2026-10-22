@@ -30,18 +30,37 @@ export async function ingestMessageAttachments(req, res, next) {
     req.attachmentUpload = upload;
     activeAttachmentUploads.add(directory);
 
+    let processing = true, cleanupRequested = false, cleaning = false, cleaned = false;
     const cleanup = async () => {
-      activeAttachmentUploads.delete(directory);
-      if (upload.attempted) await storage.cleanupLocal(directory);
-      else await storage.discard(directory);
+      cleanupRequested = true;
+      if (processing || cleaning || cleaned) return;
+      cleaning = true;
+      try {
+        if (upload.attempted) {
+          const confirmed = await Message.exists({ _id: messageId }).read("primary").maxTimeMS(5000);
+          if (!confirmed) {
+            console.warn("Attachment save outcome is uncertain; assets and tracking were retained.");
+            return;
+          }
+          await storage.cleanupLocal(directory);
+        } else await storage.discard(directory);
+        cleaned = true;
+      } finally {
+        cleaning = false;
+        activeAttachmentUploads.delete(directory);
+      }
     };
+    upload.cleanup = cleanup;
+    const requestCleanup = () => cleanup().catch(() => {
+      console.warn("Attachment cleanup was deferred or failed; tracking was retained.");
+    });
     const disconnect = () => {
       upload.controller.abort();
-      cleanup().catch(() => {});
+      requestCleanup();
     };
     req.once("aborted", disconnect);
     res.once("close", () => { if (!res.writableFinished) disconnect(); });
-    res.once("finish", () => { cleanup().catch(() => {}); });
+    res.once("finish", requestCleanup);
 
     let requestBytes = 0;
     countRequest = chunk => {
@@ -101,14 +120,17 @@ export async function ingestMessageAttachments(req, res, next) {
     } finally {
       clearTimeout(timer);
       req.removeListener("data", countRequest);
+      processing = false;
+      if (cleanupRequested) await requestCleanup();
     }
     next();
   } catch (error) {
     if (timer) clearTimeout(timer);
     if (countRequest) req.removeListener("data", countRequest);
     if (upload) {
-      activeAttachmentUploads.delete(upload.directory);
-      await upload.storage.discard(upload.directory).catch(() => {});
+      await upload.cleanup().catch(() => {
+        console.warn("Attachment cleanup was deferred or failed; tracking was retained.");
+      });
     }
     if (!res.headersSent && !res.destroyed) {
       res.status(error.status || (error instanceof multer.MulterError ? 400 : 503)).json({

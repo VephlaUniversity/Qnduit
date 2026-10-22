@@ -2,7 +2,7 @@ import process from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { mkdir, realpath, lstat, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, lstat, rm, writeFile, readFile, rename } from "node:fs/promises";
 import { v2 as cloudinary } from "cloudinary";
 
 export const attachmentError = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -48,23 +48,77 @@ export async function cloudAttachmentStorage() {
     throw attachmentError("Temporary attachment staging is not safely configured.", 503);
   }
 
-  // Uploaded asset references are tracked per request so failed sends can remove cloud orphans.
-  const uploadedByDirectory = new Map();
   const validDirectory = value => typeof value === "string" && /^[a-f0-9-]{36}$/.test(value);
+  const folderPath = async directory => {
+    if (!validDirectory(directory)) throw attachmentError("Invalid attachment staging reference.");
+    const folder = path.join(root, directory);
+    const info = await lstat(folder);
+    if (!info.isDirectory() || info.isSymbolicLink()) throw attachmentError("Unsafe attachment staging directory.");
+    return folder;
+  };
+  const readIntent = async directory => {
+    const folder = await folderPath(directory);
+    const file = path.join(folder, "intent.json");
+    const info = await lstat(file);
+    if (!info.isFile() || info.isSymbolicLink() || info.size > 8192) throw attachmentError("Attachment tracking is unavailable.", 503);
+    const intent = JSON.parse(await readFile(file, "utf8"));
+    if (!/^[a-f\d]{24}$/.test(intent.messageId) || !Number.isFinite(intent.createdAt)) throw attachmentError("Attachment tracking is unavailable.", 503);
+    const trackingAvailable = intent.version === 1 && ["open", "uncertain", "discardable"].includes(intent.state) &&
+      Array.isArray(intent.assets) && intent.assets.length <= 5 && intent.assets.every(asset =>
+        typeof asset.publicId === "string" && asset.publicId.startsWith(`message-attachments/${directory}/`) &&
+        /^message-attachments\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(?:jpg|jpeg|png|webp|pdf)$/.test(asset.publicId) &&
+        ["pending", "uploaded"].includes(asset.state));
+    return { ...intent, trackingAvailable };
+  };
+  const writeIntent = async (directory, intent) => {
+    const folder = await folderPath(directory);
+    const temporary = path.join(folder, `intent-${randomUUID()}.tmp`);
+    const record = { ...intent };
+    delete record.trackingAvailable;
+    await writeFile(temporary, JSON.stringify(record), { mode: 0o600, flag: "wx" });
+    await rename(temporary, path.join(folder, "intent.json"));
+  };
+  const cleanupLocal = async directory => {
+    await folderPath(directory);
+    await rm(path.join(root, directory), { recursive: true });
+  };
+  const discard = async directory => {
+    const intent = await readIntent(directory);
+    if (!intent.trackingAvailable || intent.state === "uncertain" || intent.assets.some(asset => asset.state === "pending")) {
+      throw attachmentError("Attachment cleanup is deferred because the operation outcome is uncertain.", 503);
+    }
+    // Only a settled, explicitly failed operation can become recoverable. Age is
+    // never permission to delete an open operation's assets.
+    intent.state = "discardable";
+    await writeIntent(directory, intent);
+    const outcomes = await Promise.allSettled(intent.assets.map(asset =>
+      cloudinary.uploader.destroy(asset.publicId, { resource_type: "raw", type: "authenticated", invalidate: true })
+    ));
+    if (outcomes.some(result => result.status === "rejected" || !["ok", "not found"].includes(result.value?.result))) {
+      throw attachmentError("Attachment cleanup did not complete; tracking was retained for retry.", 503);
+    }
+    await cleanupLocal(directory);
+  };
 
   return {
-    root,
+    root, readIntent, cleanupLocal, discard,
+    async recover(directory, { confirmed }) {
+      if (confirmed) { await cleanupLocal(directory); return "staging_removed"; }
+      const intent = await readIntent(directory);
+      if (!intent.trackingAvailable || intent.state !== "discardable") return "retained";
+      await discard(directory);
+      return "assets_and_staging_removed";
+    },
     async begin(messageId) {
       const directory = randomUUID();
       const folder = path.join(root, directory);
       await mkdir(folder, { mode: 0o700 });
       try {
-        await writeFile(path.join(folder, "intent.json"), JSON.stringify({ messageId, createdAt: Date.now() }), { mode: 0o600, flag: "wx" });
+        await writeIntent(directory, { version: 1, messageId, createdAt: Date.now(), state: "open", assets: [] });
       } catch (error) {
         await rm(folder, { recursive: true, force: true });
         throw error;
       }
-      uploadedByDirectory.set(directory, new Set());
       return directory;
     },
     path(directory, name) {
@@ -74,21 +128,28 @@ export async function cloudAttachmentStorage() {
       return path.join(root, directory, name);
     },
     async upload(directory, filePath, originalName) {
-      if (!validDirectory(directory) || !uploadedByDirectory.has(directory)) throw attachmentError("Invalid upload session.");
+      const intent = await readIntent(directory);
+      if (!intent.trackingAvailable || intent.state !== "open" || intent.assets.length >= 5) throw attachmentError("Invalid upload session.");
       const ext = extensionFor(originalName);
-      // Raw assets retain their file extension in the public ID. 'authenticated' prevents public delivery.
       const publicId = `message-attachments/${directory}/${randomUUID()}${ext}`;
-      const result = await cloudinary.uploader.upload(filePath, {
-        resource_type: "raw",
-        type: "authenticated",
-        public_id: publicId,
-        overwrite: false,
-        unique_filename: false,
-        use_filename: false,
-        invalidate: false,
-      });
-      uploadedByDirectory.get(directory).add(result.public_id);
-      return result.public_id;
+      const asset = { publicId, state: "pending" };
+      intent.assets.push(asset);
+      // Persist the generated identity before asking the provider to create it.
+      await writeIntent(directory, intent);
+      try {
+        const result = await cloudinary.uploader.upload(filePath, {
+          resource_type: "raw", type: "authenticated", public_id: publicId,
+          overwrite: false, unique_filename: false, use_filename: false, invalidate: false,
+        });
+        if (result.public_id !== publicId) throw attachmentError("Unexpected attachment storage response.", 503);
+        asset.state = "uploaded";
+        await writeIntent(directory, intent);
+        return publicId;
+      } catch (error) {
+        intent.state = "uncertain";
+        await writeIntent(directory, intent).catch(() => {});
+        throw error;
+      }
     },
     async downloadUrl(storageKey, mime) {
       if (typeof storageKey !== "string" || !/^message-attachments\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(?:jpg|jpeg|png|webp|pdf)$/i.test(storageKey)) {
@@ -110,24 +171,6 @@ export async function cloudAttachmentStorage() {
         expires_at: Math.floor(Date.now() / 1000) + 60,
         attachment: true,
       });
-    },
-    async cleanupLocal(directory) {
-      if (!validDirectory(directory)) return;
-      await rm(path.join(root, directory), { recursive: true, force: true });
-      uploadedByDirectory.delete(directory);
-    },
-    async discard(directory) {
-      if (!validDirectory(directory)) throw attachmentError("Invalid storage reference.");
-      const publicIds = [...(uploadedByDirectory.get(directory) || [])];
-      // Best effort deletion: attempt every asset even if one deletion fails.
-      const outcomes = await Promise.allSettled(publicIds.map(publicId =>
-        cloudinary.uploader.destroy(publicId, { resource_type: "raw", type: "authenticated", invalidate: true })
-      ));
-      await rm(path.join(root, directory), { recursive: true, force: true });
-      uploadedByDirectory.delete(directory);
-      if (outcomes.some(result => result.status === "rejected" || result.value?.result === "error")) {
-        throw attachmentError("Some temporary Cloudinary attachments could not be deleted.", 503);
-      }
     },
   };
 }
