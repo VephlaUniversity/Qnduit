@@ -154,6 +154,8 @@ const employerSchema = new mongoose.Schema(
       }
     ],
 
+    // Serialization version for transaction-based job admission, not a quota count.
+    jobCreationVersion: { type: Number, default: 0, select: false },
     planExpiresAt: Date,
 
     paystackReference: String,
