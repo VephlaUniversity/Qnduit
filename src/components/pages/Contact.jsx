@@ -130,11 +130,11 @@ const Contact = () => {
       </section>
 
       {/* Contact Form */}
-      <section className="bg-black p-8">
-        <div className="max-w-2xl mx-auto px-6">
+      <section className="bg-black p-4 sm:p-8">
+        <div className="max-w-2xl mx-auto sm:px-6">
           <motion.form
             onSubmit={handleSubmit}
-            className="bg-white rounded-3xl p-8 sm:p-12 shadow-2xl"
+            className="bg-white rounded-3xl p-5 sm:p-12 shadow-2xl"
             variants={staggerContainer}
             initial="initial"
             whileInView="animate"

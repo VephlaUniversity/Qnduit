@@ -58,9 +58,20 @@ const SEARCH_CONFIG = {
 const OwnerAvatar = ({ image }) => {
   const [failed, setFailed] = useState(false);
   const url = profileImageUrl(image);
-  return <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
-    {url && !failed ? <img src={url} alt="" className="w-full h-full rounded-full object-cover" onError={() => setFailed(true)} /> : <User className="w-5 h-5" />}
-  </div>;
+  return (
+    <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+      {url && !failed ? (
+        <img
+          src={url}
+          alt=""
+          className="w-full h-full rounded-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <User className="w-5 h-5" />
+      )}
+    </div>
+  );
 };
 
 export const DashboardLayout = ({
@@ -98,7 +109,6 @@ export const DashboardLayout = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
 
   // Debounced live search
   useEffect(() => {
@@ -151,11 +161,24 @@ export const DashboardLayout = ({
               : [];
 
         if (controller.signal.aborted) return;
-        setSearchResults(userType === "employer" ? results.filter(item => item.userType === "talent").map(talent => ({
-          ...talent,
-          name: talent.fullName || talent.name || [talent.firstName, talent.lastName].filter(Boolean).join(" ") || talent.email || "Talent",
-          role: talent.jobTitle || talent.title || "Talent",
-        })) : results);
+        setSearchResults(
+          userType === "employer"
+            ? results
+                .filter((item) => item.userType === "talent")
+                .map((talent) => ({
+                  ...talent,
+                  name:
+                    talent.fullName ||
+                    talent.name ||
+                    [talent.firstName, talent.lastName]
+                      .filter(Boolean)
+                      .join(" ") ||
+                    talent.email ||
+                    "Talent",
+                  role: talent.jobTitle || talent.title || "Talent",
+                }))
+            : results,
+        );
         setSearchStatus("success");
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -173,7 +196,6 @@ export const DashboardLayout = ({
     };
   }, [searchQuery, userType]);
 
-
   const handleResultClick = (result) => {
     setShowDropdown(false);
     setSearchQuery("");
@@ -188,7 +210,9 @@ export const DashboardLayout = ({
     event.preventDefault();
     if (!searchQuery.trim()) return;
     setShowDropdown(false);
-    navigate(`${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`);
+    navigate(
+      `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`,
+    );
   };
 
   const defaultMenuItems = menuItems || [
@@ -244,7 +268,7 @@ export const DashboardLayout = ({
               onClick={() => navigate("/")}
               className="flex items-center gap-2 text-white"
             >
-              <img src="/images/dashboard-logo.png" alt="" className="w-5" />
+              <img src="/images/dashboard-logo.svg" alt="" className="w-5" />
               <span className="text-xl">QNDUIT</span>
             </button>
           </div>
@@ -253,13 +277,20 @@ export const DashboardLayout = ({
           <div className="flex items-center gap-3">
             {/* ── Smart Search Bar ── */}
             <div ref={searchRef} className="relative">
-              <form onSubmit={submitSearch} className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors">
-                <button type="submit" aria-label="Submit search" className="min-w-8 min-h-8 flex items-center justify-center focus-visible:outline focus-visible:outline-2">
-                {searchStatus === "loading" ? (
-                  <Loader2 className="w-4 h-4 text-gray-500 flex-shrink-0 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                )}
+              <form
+                onSubmit={submitSearch}
+                className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors"
+              >
+                <button
+                  type="submit"
+                  aria-label="Submit search"
+                  className="min-w-8 min-h-8 flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                >
+                  {searchStatus === "loading" ? (
+                    <Loader2 className="w-4 h-4 text-gray-500 flex-shrink-0 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  )}
                 </button>
                 <input
                   type="text"
@@ -346,7 +377,11 @@ export const DashboardLayout = ({
               <HelpCircle className="w-5 h-5" />
             </button>
             <NotificationPop>
-              <button type="button" aria-label="Notifications" className="text-gray-400 hover:text-white transition-colors relative">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="text-gray-400 hover:text-white transition-colors relative"
+              >
                 <BellRing className="w-5 h-5" />
               </button>
             </NotificationPop>
@@ -356,7 +391,10 @@ export const DashboardLayout = ({
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors"
               >
-                <OwnerAvatar key={`${ownerAvatar.key}:${ownerAvatar.image}`} image={ownerAvatar.image} />
+                <OwnerAvatar
+                  key={`${ownerAvatar.key}:${ownerAvatar.image}`}
+                  image={ownerAvatar.image}
+                />
                 <span className="hidden sm:block text-sm">
                   {userType === "talent" ? "Talent" : "Employer"}
                 </span>
@@ -415,7 +453,14 @@ export const DashboardLayout = ({
                 <NavLink
                   key={item.path}
                   to={item.path}
-                  title={item.path.endsWith("/messages") ? messaging.error || (messaging.enabled === false ? "Unread tracking is not enabled." : undefined) : undefined}
+                  title={
+                    item.path.endsWith("/messages")
+                      ? messaging.error ||
+                        (messaging.enabled === false
+                          ? "Unread tracking is not enabled."
+                          : undefined)
+                      : undefined
+                  }
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
@@ -425,7 +470,15 @@ export const DashboardLayout = ({
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{item.label}</span>
-                  {item.path.endsWith("/messages") && messaging.total > 0 && <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white" title={messaging.error || "Unread messages"} aria-label={`${messaging.total} unread messages`}>{messaging.total}</span>}
+                  {item.path.endsWith("/messages") && messaging.total > 0 && (
+                    <span
+                      className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white"
+                      title={messaging.error || "Unread messages"}
+                      aria-label={`${messaging.total} unread messages`}
+                    >
+                      {messaging.total}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}

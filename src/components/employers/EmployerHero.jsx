@@ -36,7 +36,7 @@ export const EmployerHero = () => {
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="text-xl lg:text-2xl text-gray-300 mb-8"
           >
-            Search thousands of talents. Join now to apply
+            Search thousands of talents. Join now to apply{" "}
             <br className="hidden sm:block" />
             and get great talents today
           </motion.p>

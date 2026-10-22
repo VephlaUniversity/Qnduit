@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "./authEnter.css";
 import { AuthHeader } from "./AuthHeader";
 import { EmployerPlans } from "../EmployerPlans";
 import {
@@ -84,7 +85,7 @@ export const EmployerSignup = () => {
 
     if (actionType === "payNow") {
       navigate(
-        `/payment?plan=${encodeURIComponent(planType)}&userType=employer`
+        `/payment?plan=${encodeURIComponent(planType)}&userType=employer`,
       );
       return;
     }
@@ -100,7 +101,7 @@ export const EmployerSignup = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (response.data?.success) {
@@ -109,16 +110,14 @@ export const EmployerSignup = () => {
           return;
         }
 
-        throw new Error(
-          response.data?.message || "Unable to save your plan"
-        );
+        throw new Error(response.data?.message || "Unable to save your plan");
       } catch (error) {
         console.error("Employer plan action error:", error);
 
         alert(
           error.response?.data?.message ||
             error.message ||
-            "Something went wrong. Please try again."
+            "Something went wrong. Please try again.",
         );
       } finally {
         setLoading(false);
@@ -243,7 +242,7 @@ export const EmployerSignup = () => {
       {currentStep > 1 && (
         <button
           onClick={prevStep}
-          className="absolute top-30 left-6 text-white hover:text-blue-400 flex items-center gap-2 transition-colors"
+          className="auth-enter-back absolute top-30 left-6 text-white hover:text-blue-400 flex items-center gap-2 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Previous Page</span>
@@ -252,7 +251,7 @@ export const EmployerSignup = () => {
 
       <div className="container mx-auto min-h-[calc(100vh-80px)] py-8 px-4">
         {currentStep === 1 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <User className="w-8 h-8 text-blue-600" />
@@ -389,7 +388,7 @@ export const EmployerSignup = () => {
         )}
 
         {currentStep === 2 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Mail className="w-8 h-8 text-blue-600" />
@@ -454,7 +453,7 @@ export const EmployerSignup = () => {
         )}
 
         {currentStep === 3 && (
-          <div className="w-full max-w-2xl mx-auto">
+          <div className="auth-enter w-full max-w-2xl mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Briefcase className="w-8 h-8 text-blue-600" />
@@ -674,7 +673,7 @@ export const EmployerSignup = () => {
         )}
 
         {currentStep === 4 && formData.accountType === "institutional" && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Building className="w-8 h-8 text-blue-600" />
@@ -777,13 +776,17 @@ export const EmployerSignup = () => {
                     className="w-full bg-transparent border border-gray-700 text-white h-12 rounded-lg px-4 focus:outline-none focus:border-blue-600"
                   >
                     <option value="" disabled className="bg-[#1a2942]">
-                    Select your country
-                  </option>
-                  {COUNTRIES.map((country) => (
-                    <option key={country} value={country} className="bg-[#1a2942]">
-                      {country}
+                      Select your country
                     </option>
-                  ))}
+                    {COUNTRIES.map((country) => (
+                      <option
+                        key={country}
+                        value={country}
+                        className="bg-[#1a2942]"
+                      >
+                        {country}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -799,7 +802,7 @@ export const EmployerSignup = () => {
         )}
 
         {currentStep === 4 && formData.accountType === "individual" && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Building className="w-8 h-8 text-blue-600" />
@@ -858,7 +861,11 @@ export const EmployerSignup = () => {
                     Select your country
                   </option>
                   {COUNTRIES.map((country) => (
-                    <option key={country} value={country} className="bg-[#1a2942]">
+                    <option
+                      key={country}
+                      value={country}
+                      className="bg-[#1a2942]"
+                    >
                       {country}
                     </option>
                   ))}
@@ -876,7 +883,7 @@ export const EmployerSignup = () => {
         )}
 
         {currentStep === 5 && (
-          <div className="w-full max-w-5xl mx-auto">
+          <div className="auth-enter w-full max-w-5xl mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <DollarSign className="w-8 h-8 text-blue-600" />

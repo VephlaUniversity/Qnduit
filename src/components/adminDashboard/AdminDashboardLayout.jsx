@@ -80,7 +80,7 @@ export const AdminDashboardLayout = ({ children }) => {
               onClick={() => navigate("/admin-dashboard")}
               className="flex items-center gap-2 text-white"
             >
-              <img src="/images/dashboard-logo.png" alt="" className="w-5" />
+              <img src="/images/dashboard-logo.svg" alt="" className="w-5" />
               <span className="text-xl">QNDUIT</span>
             </button>
           </div>

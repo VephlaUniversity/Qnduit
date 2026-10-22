@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
-import { resolveTalentPublication } from "../services/talentPublication.js";
+import TalentSubscription from "../models/TalentSubscription.js";
 
 
 /*const storage = multer.diskStorage({
@@ -438,6 +438,19 @@ export const listPublicTalents = async (req, res, next) => {
     const limit = Math.min(24, Math.max(1, parseInt(req.query.limit, 10) || 12));
     const q = String(req.query.q || "").trim().slice(0, 60);
     const country = String(req.query.country || "").trim().slice(0, 60);
+    const experience = String(req.query.experience || "").trim();
+    const qualification = String(req.query.qualification || "").trim().slice(0, 60);
+
+    // Same experience choices and stored values the employer talent search uses.
+    const experienceValues = {
+      "< 1 year": "Less than 1 Year",
+      "1–3 years": "1-3 Years",
+      "3–5 years": "3-5 Years",
+      "5+ years": "5 Years+",
+    };
+    if (experience && experience !== "Any experience" && !Object.hasOwn(experienceValues, experience)) {
+      return res.status(400).json({ success: false, message: "Invalid experience filter." });
+    }
 
     const subscribedIds = await TalentSubscription.distinct("talent", {
       status: "active",
@@ -456,6 +469,14 @@ export const listPublicTalents = async (req, res, next) => {
     };
 
     if (country) filter.location = new RegExp(`^${escapeRegex(country)}$`, "i");
+
+    if (experience && experience !== "Any experience") {
+      filter.experienceTime = new RegExp(`^${escapeRegex(experienceValues[experience])}$`, "i");
+    }
+
+    if (qualification && qualification !== "Any qualification") {
+      filter.qualification = new RegExp(`^\\s*${escapeRegex(qualification)}\\s*$`, "i");
+    }
 
     if (q) {
       const pattern = new RegExp(escapeRegex(q), "i");
@@ -485,6 +506,7 @@ export const listPublicTalents = async (req, res, next) => {
       total,
       pages: Math.ceil(total / limit),
       talents: talents.map((talent) => ({
+        id: String(talent._id),
         username: talent.username,
         name:
           talent.fullName ||
@@ -544,9 +566,17 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    const { publicProfile } = await resolveTalentPublication(talent._id);
-    if (publicProfile.status !== "published") {
-      return res.status(404).json({ success: false, message: "Public profile not found." });
+    const subscription = await TalentSubscription.findOne({
+      talent: talent._id,
+      status: "active",
+      currentPeriodEnd: { $gt: new Date() },
+    }).select("_id");
+
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "Public profile not found.",
+      });
     }
 
     return res.status(200).json({

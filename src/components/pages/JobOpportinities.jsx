@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
 import {
@@ -12,10 +13,14 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Menu,
   X,
 } from "lucide-react";
 import { FilterDropdown } from "./JobFilterDropdown";
+import {
+  SALARY_MIN,
+  SALARY_MAX,
+  countActiveFilters,
+} from "../utils/jobFilters";
 import { CTA } from "../home/CTA";
 import { AnimatedPage } from "../AnimatedPage";
 import axios from "axios";
@@ -29,7 +34,7 @@ import {
 } from "../utils/jobDisplay";
 
 export const JobOpportunities = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const jobTitle = searchParams.get("jobTitle") || "";
@@ -45,28 +50,13 @@ export const JobOpportunities = () => {
   const [locationFilter, setLocationFilter] = useState(location);
   const [workTypeFilter, setWorkTypeFilter] = useState(workType);
   const [jobTypeFilter, setJobTypeFilter] = useState("");
-  const [salaryRange, setSalaryRange] = useState([0, 240000]);
-  const [radius, setRadius] = useState(25);
+  const [salaryRange, setSalaryRange] = useState([SALARY_MIN, SALARY_MAX]);
   const [postedAnytime, setPostedAnytime] = useState("anytime");
   const [seniorityLevel, setSeniorityLevel] = useState("all");
   const [company, setCompany] = useState("");
 
-  // FilterDropdown state
+  // Filter More panel (large screens) open state; its values are the shared filters above
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [dropdownFilters, setDropdownFilters] = useState({
-    workLocation: "Remote",
-    jobTypes: {
-      "All Job Types": true,
-      "Full-time": false,
-      "Part-time": false,
-      Contract: false,
-      Internship: false,
-      Temporary: false,
-    },
-    salary: "All Salaries",
-    postedAnytime: "Posted Anytime",
-    seniority: "All Seniority Levels",
-  });
 
   // UI state
   const [viewMode, setViewMode] = useState("grid");
@@ -106,6 +96,9 @@ export const JobOpportunities = () => {
     setSearchKeyword(jobTitle);
     setLocationFilter(location);
     setWorkTypeFilter(workType);
+    // A new search returns a new set of jobs, so a company picked earlier may
+    // no longer be in the list. Clear it so it can't hide every result.
+    setCompany("");
   }, [jobTitle, location, workType]);
 
   const companyOptions = [
@@ -186,49 +179,6 @@ export const JobOpportunities = () => {
       if (!level.includes(wanted)) return false;
     }
 
-    // Dropdown filters
-
-    // Work location from dropdown (only applies once the user changes it)
-    if (dropdownFilters.workLocation !== "Remote") {
-      const wanted = dropdownFilters.workLocation
-        .toLowerCase()
-        .replace(/[- ]/g, "");
-      if ((job.workType || "").toLowerCase().replace(/[- ]/g, "") !== wanted)
-        return false;
-    }
-
-    // Job types from dropdown
-    const selectedJobTypes = Object.entries(dropdownFilters.jobTypes)
-      .filter(([key, val]) => val && key !== "All Job Types")
-      .map(([key]) => key.toLowerCase().replace(/-/g, " "));
-
-    if (selectedJobTypes.length > 0) {
-      const jobApplyType = job.jobApplyType?.toLowerCase().replace(/-/g, " ");
-
-      if (!selectedJobTypes.some((type) => jobApplyType?.includes(type))) {
-        return false;
-      }
-    }
-
-    // Salary from dropdown
-    if (dropdownFilters.salary !== "All Salaries") {
-      const minSalary = parseInt(dropdownFilters.salary.replace(/[^0-9]/g, ""));
-      if (!isNaN(minSalary) && job.salary?.min < minSalary) return false;
-    }
-
-    // Seniority from dropdown
-    if (
-      dropdownFilters.seniority !== "All Seniority Levels" &&
-      job.seniorityLevel
-    ) {
-      if (
-        !job.seniorityLevel
-          .toLowerCase()
-          .includes(dropdownFilters.seniority.toLowerCase())
-      )
-        return false;
-    }
-
     return true;
   });
 
@@ -275,9 +225,27 @@ export const JobOpportunities = () => {
     );
   };
 
-  const handleFindJobs = () => {
+  // Put the search in the URL so the server runs a fresh search and the
+  // result can be shared or reached with the back button.
+  const applySearch = (overrides = {}) => {
+    const keyword = (overrides.keyword ?? searchKeyword).trim();
+    const place = overrides.location ?? locationFilter;
+    const next = new URLSearchParams();
+    if (keyword) next.set("jobTitle", keyword);
+    if (place) next.set("location", place);
+    if (workTypeFilter) next.set("workType", workTypeFilter);
+    setSearchParams(next);
     setCurrentPage(1);
     setSidebarOpen(false);
+  };
+
+  const handleFindJobs = () => applySearch();
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applySearch();
+    }
   };
 
   const resetFilters = () => {
@@ -285,41 +253,22 @@ export const JobOpportunities = () => {
     setLocationFilter(location);
     setWorkTypeFilter(workType);
     setJobTypeFilter("");
-    setSalaryRange([0, 240000]);
-    setRadius(25);
+    setSalaryRange([SALARY_MIN, SALARY_MAX]);
     setPostedAnytime("anytime");
     setSeniorityLevel("all");
     setCompany("");
-    setDropdownFilters({
-      workLocation: "Remote",
-      jobTypes: {
-        "All Job Types": true,
-        "Full-time": false,
-        "Part-time": false,
-        Contract: false,
-        Internship: false,
-        Temporary: false,
-      },
-      salary: "All Salaries",
-      postedAnytime: "Posted Anytime",
-      seniority: "All Seniority Levels",
-    });
     setCurrentPage(1);
   };
 
-  // Count active dropdown filters
-  const activeDropdownCount = (() => {
-    let count = 0;
-    if (dropdownFilters.workLocation !== "Remote") count++;
-    if (dropdownFilters.salary !== "All Salaries") count++;
-    if (dropdownFilters.postedAnytime !== "Posted Anytime") count++;
-    if (dropdownFilters.seniority !== "All Seniority Levels") count++;
-    const activeTypes = Object.entries(dropdownFilters.jobTypes).filter(
-      ([k, v]) => v && k !== "All Job Types",
-    );
-    if (activeTypes.length > 0) count++;
-    return count;
-  })();
+  // Active filters (badge on the Filter More button)
+  const activeFilterCount = countActiveFilters({
+    workType: workTypeFilter,
+    jobType: jobTypeFilter,
+    salaryRange,
+    posted: postedAnytime,
+    seniority: seniorityLevel,
+    company,
+  });
 
   // Job Card
   const JobCard = ({ job }) => (
@@ -439,8 +388,8 @@ export const JobOpportunities = () => {
           </div>
         </div>
 
-        {/* Top Search Bar */}
-        <div className="px-6 py-6 border-b border-[#1A1F2E]">
+        {/* Top Search Bar (large screens only; smaller screens search from the drawer) */}
+        <div className="hidden lg:block px-6 py-6 border-b border-[#1A1F2E]">
           <div className="max-w-7xl mx-auto">
             <div className="relative">
               <div className="bg-white rounded-lg p-2 flex items-center gap-2 md:gap-4">
@@ -455,6 +404,7 @@ export const JobOpportunities = () => {
                       setSearchKeyword(e.target.value);
                       setCurrentPage(1);
                     }}
+                    onKeyDown={handleSearchKeyDown}
                     className="flex-1 outline-none text-gray-900 text-sm min-w-0"
                   />
                 </div>
@@ -472,32 +422,34 @@ export const JobOpportunities = () => {
                       setLocationFilter(e.target.value);
                       setCurrentPage(1);
                     }}
+                    onKeyDown={handleSearchKeyDown}
                     className="flex-1 outline-none text-gray-900 text-sm min-w-0"
                   />
                 </div>
 
-                <div className="hidden sm:block h-8 w-px bg-gray-300" />
+                <div className="hidden lg:block h-8 w-px bg-gray-300" />
 
-                {/* Filter More button */}
+                {/* Filter More button (large screens; smaller screens use the sidebar drawer) */}
                 <button
+                  data-filter-toggle
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors relative ${
+                  className={`hidden lg:flex px-3 py-2 rounded-lg items-center gap-2 text-sm transition-colors relative ${
                     isFilterOpen
                       ? "bg-blue-50 text-blue-600"
                       : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <Filter className="w-4 h-4" />
-                  <span className="hidden sm:inline">Filter More</span>
+                  <span>Filter More</span>
                   <ChevronDown
                     className={`w-4 h-4 transition-transform ${
                       isFilterOpen ? "rotate-180" : ""
                     }`}
                   />
                   {/* Active filters badge */}
-                  {activeDropdownCount > 0 && (
+                  {activeFilterCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                      {activeDropdownCount}
+                      {activeFilterCount}
                     </span>
                   )}
                 </button>
@@ -510,13 +462,26 @@ export const JobOpportunities = () => {
                 </button>
               </div>
 
-              {/* FilterDropdown — receives and updates dropdownFilters state */}
               <FilterDropdown
                 isOpen={isFilterOpen}
                 onClose={() => setIsFilterOpen(false)}
-                filters={dropdownFilters}
-                onFiltersChange={(updated) => {
-                  setDropdownFilters(updated);
+                filters={{
+                  workType: workTypeFilter,
+                  jobType: jobTypeFilter,
+                  salaryRange,
+                  posted: postedAnytime,
+                  seniority: seniorityLevel,
+                  company,
+                }}
+                companyOptions={companyOptions}
+                onReset={resetFilters}
+                onChange={(patch) => {
+                  if ("workType" in patch) setWorkTypeFilter(patch.workType);
+                  if ("jobType" in patch) setJobTypeFilter(patch.jobType);
+                  if ("salaryRange" in patch) setSalaryRange(patch.salaryRange);
+                  if ("posted" in patch) setPostedAnytime(patch.posted);
+                  if ("seniority" in patch) setSeniorityLevel(patch.seniority);
+                  if ("company" in patch) setCompany(patch.company);
                   setCurrentPage(1);
                 }}
               />
@@ -527,247 +492,248 @@ export const JobOpportunities = () => {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex gap-6">
-            {/* Mobile sidebar toggle */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#3B82F6] hover:bg-[#3077e8] text-white p-4 rounded-full shadow-lg"
-            >
-              {sidebarOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
+            {/* Smaller screens: toggle, overlay and drawer are rendered on document.body
+                so they sit above the sticky header (its blur creates its own layer). */}
+            {typeof document !== "undefined" &&
+              createPortal(
+                <>
+                  {sidebarOpen && (
+                    <div
+                      className="lg:hidden fixed inset-0 bg-black/50 z-[55]"
+                      onClick={() => setSidebarOpen(false)}
+                    />
+                  )}
+
+                  <div
+                    aria-hidden={!sidebarOpen}
+                    className={`${
+                      sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                    } lg:hidden fixed top-0 left-0 h-full w-80 max-w-[90vw] bg-[#0F1419] z-[58] transition-transform duration-300 overflow-y-auto`}
+                  >
+                    <div className="bg-[#191D23] rounded-xl p-6 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-white font-semibold text-lg">
+                          Filters
+                        </h2>
+                        <button
+                          onClick={() => setSidebarOpen(false)}
+                          aria-label="Close filters"
+                          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A3142]"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Search */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Search
+                        </h3>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Job title, keywords or company"
+                            value={searchKeyword}
+                            onChange={(e) => {
+                              setSearchKeyword(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            onKeyDown={handleSearchKeyDown}
+                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Location */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Location
+                        </h3>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="City, country..."
+                            value={locationFilter}
+                            onChange={(e) => {
+                              setLocationFilter(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            onKeyDown={handleSearchKeyDown}
+                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleFindJobs}
+                        className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
+                      >
+                        Find Jobs
+                      </button>
+
+                      {/* Work type */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          On-Site / Remote
+                        </h3>
+                        <select
+                          value={workTypeFilter}
+                          onChange={(e) => {
+                            setWorkTypeFilter(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                        >
+                          <option value="">All Work Types</option>
+                          <option value="on-site">On-site</option>
+                          <option value="remote">Remote</option>
+                          <option value="hybrid">Hybrid</option>
+                        </select>
+                      </div>
+
+                      {/* Job type */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Job Type
+                        </h3>
+                        <select
+                          value={jobTypeFilter}
+                          onChange={(e) => {
+                            setJobTypeFilter(e.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                        >
+                          <option value="">All Job Types</option>
+                          <option value="full-time">Full-time</option>
+                          <option value="part-time">Part-time</option>
+                          <option value="contract">Contract</option>
+                          <option value="temporary">Temporary</option>
+                          <option value="freelancer">Freelancer</option>
+                        </select>
+                      </div>
+
+                      {/* Salary slider */}
+                      <div>
+                        <h3 className="text-gray-400 text-sm font-normal mb-3">
+                          Salary:{" "}
+                          <span className="text-[#3B82F6] font-semibold">
+                            ${salaryRange[0].toLocaleString()} – $
+                            {salaryRange[1].toLocaleString()}
+                          </span>
+                        </h3>
+                        <Slider.Root
+                          className="relative flex items-center select-none touch-none w-full h-5"
+                          value={salaryRange}
+                          onValueChange={(v) => {
+                            setSalaryRange(v);
+                            setCurrentPage(1);
+                          }}
+                          max={SALARY_MAX}
+                          min={SALARY_MIN}
+                          step={1000}
+                          minStepsBetweenThumbs={1}
+                        >
+                          <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
+                            <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
+                          </Slider.Track>
+                          <Slider.Thumb
+                            className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                            aria-label="Min salary"
+                          />
+                          <Slider.Thumb
+                            className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                            aria-label="Max salary"
+                          />
+                        </Slider.Root>
+                      </div>
+
+                      {/* Posted */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Posted
+                        </h3>
+                        <div className="relative">
+                          <select
+                            value={postedAnytime}
+                            onChange={(e) => {
+                              setPostedAnytime(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                          >
+                            <option value="anytime">Posted Anytime</option>
+                            <option value="today">Today</option>
+                            <option value="week">Past Week</option>
+                            <option value="month">Past Month</option>
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Seniority */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Seniority Level
+                        </h3>
+                        <div className="relative">
+                          <select
+                            value={seniorityLevel}
+                            onChange={(e) => {
+                              setSeniorityLevel(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                          >
+                            <option value="all">All Seniority Levels</option>
+                            <option value="entry">Entry Level</option>
+                            <option value="mid">Mid Level</option>
+                            <option value="senior">Senior Level</option>
+                            <option value="lead">Lead</option>
+                            <option value="executive">Executive</option>
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Company */}
+                      <div>
+                        <h3 className="text-white font-semibold mb-3">
+                          Company
+                        </h3>
+                        <div className="relative">
+                          <select
+                            value={company}
+                            onChange={(e) => {
+                              setCompany(e.target.value);
+                              setCurrentPage(1);
+                            }}
+                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                          >
+                            <option value="">All Companies</option>
+                            {companyOptions.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={resetFilters}
+                        className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+                </>,
+                document.body,
               )}
-            </button>
-
-            {/* Mobile overlay */}
-            {sidebarOpen && (
-              <div
-                className="lg:hidden fixed inset-0 bg-black/50 z-30"
-                onClick={() => setSidebarOpen(false)}
-              />
-            )}
-
-            {/* Sidebar */}
-            <div
-              className={`${
-                sidebarOpen ? "translate-x-0" : "-translate-x-full"
-              } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
-            >
-              <div className="bg-[#191D23] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
-                {/* Search keyword */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Search Jobs</h3>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Job title, keywords or company"
-                      value={searchKeyword}
-                      onChange={(e) => {
-                        setSearchKeyword(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Location</h3>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="City, country..."
-                      value={locationFilter}
-                      onChange={(e) => {
-                        setLocationFilter(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                    />
-                  </div>
-                </div>
-
-                {/* Work type */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">
-                    On-Site / Remote
-                  </h3>
-                  <select
-                    value={workTypeFilter}
-                    onChange={(e) => {
-                      setWorkTypeFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
-                  >
-                    <option value="">All Work Types</option>
-                    <option value="on-site">On-site</option>
-                    <option value="remote">Remote</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </div>
-
-                {/* Job type */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Job Type</h3>
-                  <select
-                    value={jobTypeFilter}
-                    onChange={(e) => {
-                      setJobTypeFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
-                  >
-                    <option value="">All Job Types</option>
-                    <option value="full-time">Full-time</option>
-                    <option value="part-time">Part-time</option>
-                    <option value="contract">Contract</option>
-                    <option value="temporary">Temporary</option>
-                    <option value="freelancer">Freelancer</option>
-                  </select>
-                </div>
-
-                {/* Salary slider */}
-                <div>
-                  <h3 className="text-gray-400 text-sm font-normal mb-3">
-                    Salary:{" "}
-                    <span className="text-[#3B82F6] font-semibold">
-                      ${salaryRange[0].toLocaleString()} – $
-                      {salaryRange[1].toLocaleString()}
-                    </span>
-                  </h3>
-                  <Slider.Root
-                    className="relative flex items-center select-none touch-none w-full h-5"
-                    value={salaryRange}
-                    onValueChange={(v) => {
-                      setSalaryRange(v);
-                      setCurrentPage(1);
-                    }}
-                    max={240000}
-                    min={0}
-                    step={1000}
-                    minStepsBetweenThumbs={1}
-                  >
-                    <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                      <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
-                    </Slider.Track>
-                    <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
-                      aria-label="Min salary"
-                    />
-                    <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
-                      aria-label="Max salary"
-                    />
-                  </Slider.Root>
-                </div>
-
-                {/* Radius slider */}
-                <div>
-                  <h3 className="text-gray-400 text-sm font-normal mb-3">
-                    Radius:{" "}
-                    <span className="text-[#3B82F6] font-semibold">
-                      {radius} Miles
-                    </span>
-                  </h3>
-                  <Slider.Root
-                    className="relative flex items-center select-none touch-none w-full h-5"
-                    value={[radius]}
-                    onValueChange={(v) => setRadius(v[0])}
-                    max={100}
-                    min={0}
-                    step={1}
-                  >
-                    <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                      <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
-                    </Slider.Track>
-                    <Slider.Thumb
-                      className="block w-4 h-4 bg-[#3B82F6] rounded-full shadow-lg focus:outline-none"
-                      aria-label="Radius"
-                    />
-                  </Slider.Root>
-                </div>
-
-                {/* Posted */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Posted</h3>
-                  <div className="relative">
-                    <select
-                      value={postedAnytime}
-                      onChange={(e) => {
-                        setPostedAnytime(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
-                    >
-                      <option value="anytime">Posted Anytime</option>
-                      <option value="today">Today</option>
-                      <option value="week">Past Week</option>
-                      <option value="month">Past Month</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Seniority */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">
-                    Seniority Level
-                  </h3>
-                  <div className="relative">
-                    <select
-                      value={seniorityLevel}
-                      onChange={(e) => {
-                        setSeniorityLevel(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
-                    >
-                      <option value="all">All Seniority Levels</option>
-                      <option value="entry">Entry Level</option>
-                      <option value="mid">Mid Level</option>
-                      <option value="senior">Senior Level</option>
-                      <option value="lead">Lead</option>
-                      <option value="executive">Executive</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Company */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Company</h3>
-                  <div className="relative">
-                    <select
-                      value={company}
-                      onChange={(e) => {
-                        setCompany(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
-                    >
-                      <option value="">All Companies</option>
-                      {companyOptions.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                <button
-                  onClick={resetFilters}
-                  className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            </div>
 
             {/* Job listings */}
             <div className="flex-1 min-w-0">
@@ -785,6 +751,18 @@ export const JobOpportunities = () => {
                     className={`p-2 rounded ${viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    aria-label="Open filters"
+                    className="lg:hidden relative p-2 rounded bg-[#1A1F2E] hover:bg-[#232A3B]"
+                  >
+                    <Filter className="w-5 h-5" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#3B82F6] text-white text-xs rounded-full flex items-center justify-center font-medium">
+                        {activeFilterCount}
+                      </span>
+                    )}
                   </button>
                   <span className="text-gray-400 text-sm">
                     {loading

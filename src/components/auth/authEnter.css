@@ -1,0 +1,52 @@
+/* Entrance animation for the sign-up steps (matches the sign-in page):
+   heading blocks fade up one after another, then the form fields follow.
+   Each step is re-mounted when you move on, so every step plays it again. */
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-fade-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.auth-enter > :not([class*="space-y-"]),
+.auth-enter > [class*="space-y-"] > * {
+  animation: auth-rise 0.5s ease-out both;
+}
+
+.auth-enter > :nth-child(1) { animation-delay: 0s; }
+.auth-enter > :nth-child(2) { animation-delay: 0.1s; }
+.auth-enter > :nth-child(3) { animation-delay: 0.15s; }
+.auth-enter > :nth-child(n + 4) { animation-delay: 0.2s; }
+
+.auth-enter > [class*="space-y-"] > :nth-child(1) { animation-delay: 0.2s; }
+.auth-enter > [class*="space-y-"] > :nth-child(2) { animation-delay: 0.25s; }
+.auth-enter > [class*="space-y-"] > :nth-child(3) { animation-delay: 0.3s; }
+.auth-enter > [class*="space-y-"] > :nth-child(4) { animation-delay: 0.35s; }
+.auth-enter > [class*="space-y-"] > :nth-child(n + 5) { animation-delay: 0.4s; }
+
+.auth-enter-back {
+  animation: auth-fade-left 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-enter > :not([class*="space-y-"]),
+  .auth-enter > [class*="space-y-"] > *,
+  .auth-enter-back {
+    animation: none;
+  }
+}

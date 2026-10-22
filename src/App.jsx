@@ -143,13 +143,10 @@ const AppContent = () => {
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/testimonials" element={<FeaturedSuccessStories />} />
           <Route path="/find-talents" element={<TalentsSearchManager />} />
-          <Route path="/talent-directory" element={<TalentDirectory />} />
+          <Route path="/feature-talents" element={<TalentDirectory />} />
           <Route path="/jobs" element={<JobManager />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
-          <Route
-            path="/:username"
-            element={<PublicTalentProfile />}
-          />
+          <Route path="/:username" element={<PublicTalentProfile />} />
           {/* SignIn/SignUp */}
           <Route path="/talent-signup" element={<TalentSignup />} />
           <Route path="/employer-signup" element={<EmployerSignup />} />
@@ -278,7 +275,9 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <EmployerMessagingGate><Messages /></EmployerMessagingGate>
+                  <EmployerMessagingGate>
+                    <Messages />
+                  </EmployerMessagingGate>
                 </DashboardLayout>
               </ProtectedRoute>
             }

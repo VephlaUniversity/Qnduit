@@ -99,18 +99,18 @@ const Blog = () => {
           Latest Post
         </motion.h2>
 
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10"
-          variants={staggerContainer}
-          initial="initial"
-          whileInView="animate"
-          viewport={{ once: true, amount: 0.1 }}
-        >
-          {visiblePosts.map((post) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+          {visiblePosts.map((post, index) => (
             <motion.div
               key={post.id}
-              variants={fadeUp}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{
+                duration: 0.5,
+                ease: [0.16, 1, 0.3, 1],
+                delay: (index % POSTS_PER_PAGE) * 0.08,
+              }}
               onClick={() => navigate(`/blog/${post.id}`)}
               className="bg-[#1A1A1E] border border-white/5 rounded-xl overflow-hidden cursor-pointer group hover:border-blue-500/40 transition-colors"
             >
@@ -140,7 +140,7 @@ const Blog = () => {
               </div>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Load More */}
         {hasMore && (

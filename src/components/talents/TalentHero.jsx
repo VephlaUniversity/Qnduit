@@ -36,7 +36,7 @@ export const TalentHero = () => {
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="text-xl lg:text-2xl text-gray-300 mb-8"
           >
-            Search thousands of roles. Join free to apply
+            Search thousands of roles. Join free to apply{" "}
             <br className="hidden sm:block" />
             and get noticed by employers today
           </motion.p>

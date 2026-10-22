@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AuthHeader } from "./AuthHeader";
 import { ArrowLeft, LogIn, Eye, EyeOff } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { resumePlanSelection } from "../utils/ResumePlanSelection";
 import { motion } from "framer-motion";
@@ -251,12 +251,12 @@ export const SignIn = () => {
                 <input type="checkbox" className="rounded" />
                 Remember me
               </label>
-              <a
-                href="/forgot-password"
+              <Link
+                to="/forgot-password"
                 className="text-sm text-blue-500 hover:text-blue-400"
               >
                 Forgot password?
-              </a>
+              </Link>
             </motion.div>
 
             {/* Submit Button */}
@@ -279,19 +279,19 @@ export const SignIn = () => {
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.4 }}
             >
               Don't have an account?{" "}
-              <a
-                href="/talent-signup"
+              <Link
+                to="/talent-signup"
                 className="text-blue-500 hover:text-blue-400"
               >
                 Sign up as Talent
-              </a>{" "}
+              </Link>{" "}
               or{" "}
-              <a
-                href="/employer-signup"
+              <Link
+                to="/employer-signup"
                 className="text-blue-500 hover:text-blue-400"
               >
                 Employer
-              </a>
+              </Link>
             </motion.p>
           </div>
         </motion.div>

@@ -1,8 +1,9 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./hooks/useAuth";
-import { LayoutDashboardIcon } from "lucide-react";
+import { ChevronRight, LayoutDashboardIcon, X } from "lucide-react";
 
 const staggerContainer = {
   initial: {},
@@ -28,6 +29,26 @@ export const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Close the mobile menu when the page changes
+  React.useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
+
+  // While the mobile menu is open: Esc closes it and the page behind can't scroll
+  React.useEffect(() => {
+    if (!isMenuOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setIsMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMenuOpen]);
 
   const navLinks = [
     { to: "/talents", label: "For Talent" },
@@ -63,7 +84,7 @@ export const Header = () => {
             className="flex items-center cursor-pointer flex-shrink-0"
           >
             <Link to="/" className="flex items-center">
-              <img src="/images/header-logo.png" alt="" className="w-5" />
+              <img src="/images/header-logo.svg" alt="" className="w-5" />
               <span className="text-lg md:text-xl pl-2 text-white">QNDUIT</span>
             </Link>
           </motion.div>
@@ -144,143 +165,147 @@ export const Header = () => {
           <motion.button
             variants={fadeDown}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-white focus:outline-none p-1"
-            aria-label="Toggle menu"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            className="md:hidden relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-menu"
           >
-            <AnimatePresence mode="wait" initial={false}>
-              {isMenuOpen ? (
-                <motion.svg
-                  key="close"
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </motion.svg>
-              ) : (
-                <motion.svg
-                  key="open"
-                  initial={{ rotate: 90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: -90, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </motion.svg>
-              )}
-            </AnimatePresence>
+            <span className="relative block h-4 w-5" aria-hidden="true">
+              <span
+                className={`absolute left-0 h-0.5 w-full rounded-full bg-current transition-all duration-300 ${
+                  isMenuOpen ? "top-1/2 -translate-y-1/2 rotate-45" : "top-0"
+                }`}
+              />
+              <span
+                className={`absolute left-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-current transition-all duration-300 ${
+                  isMenuOpen ? "w-0 opacity-0" : "w-3.5 opacity-100"
+                }`}
+              />
+              <span
+                className={`absolute left-0 h-0.5 w-full rounded-full bg-current transition-all duration-300 ${
+                  isMenuOpen
+                    ? "top-1/2 -translate-y-1/2 -rotate-45"
+                    : "bottom-0"
+                }`}
+              />
+            </span>
           </motion.button>
         </motion.div>
       </div>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            className="absolute left-0 right-0 top-full md:hidden bg-[#0a1628] backdrop-blur-sm shadow-lg z-50"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <motion.nav
-              className="flex flex-col space-y-4 px-4 py-6"
-              variants={staggerContainer}
-              initial="initial"
-              animate="animate"
-            >
-              {navLinks.map(({ to, label }) => (
-                <motion.div
-                  key={to}
-                  variants={fadeDown}
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  <Link
-                    to={to}
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`transition-colors text-sm ${
-                      isActive(to)
-                        ? "text-blue-400 font-semibold"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    {label}
-                  </Link>
-                </motion.div>
-              ))}
-
+      {/* Mobile Menu: a slide-in drawer, rendered on the page body so the
+          header's blur effect can't trap it */}
+      {createPortal(
+        <AnimatePresence>
+          {isMenuOpen && (
+            <>
               <motion.div
-                variants={fadeDown}
+                key="mobile-backdrop"
+                className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                onClick={() => setIsMenuOpen(false)}
+              />
+              <motion.aside
+                key="mobile-drawer"
+                id="mobile-menu"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Main menu"
+                className="fixed right-0 top-0 z-[58] flex h-full w-[85%] max-w-sm flex-col bg-[#0a1628] shadow-2xl md:hidden"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-col space-y-3 pt-4 border-t border-gray-700"
               >
-                <AnimatePresence mode="wait">
-                  {isAuthenticated ? (
+                <div className="flex items-center justify-between px-6 py-5">
+                  <Link
+                    to="/"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center"
+                  >
+                    <img src="/images/header-logo.svg" alt="" className="w-5" />
+                    <span className="pl-2 text-lg text-white">QNDUIT</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setIsMenuOpen(false)}
+                    aria-label="Close menu"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <motion.nav
+                  className="flex-1 overflow-y-auto px-4 py-2"
+                  variants={staggerContainer}
+                  initial="initial"
+                  animate="animate"
+                >
+                  {navLinks.map(({ to, label }) => (
                     <motion.div
-                      key="mobile-dashboard"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                      key={to}
+                      variants={fadeDown}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                     >
-                      <button
-                        onClick={handleDashboardClick}
-                        className="bg-white text-slate-900 px-6 py-2 rounded-[10px] hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-1 text-sm"
+                      <Link
+                        to={to}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`flex items-center justify-between rounded-xl px-4 py-4 text-base transition-colors ${
+                          isActive(to)
+                            ? "bg-white/10 font-semibold text-white"
+                            : "text-gray-300 hover:bg-white/5 hover:text-white"
+                        }`}
                       >
-                        <LayoutDashboardIcon className="w-4 h-4" />
-                        Dashboard
-                      </button>
+                        {label}
+                        <ChevronRight
+                          className={`h-4 w-4 ${
+                            isActive(to) ? "text-blue-400" : "text-gray-500"
+                          }`}
+                        />
+                      </Link>
                     </motion.div>
-                  ) : (
-                    <motion.div
-                      key="mobile-auth"
-                      className="flex flex-col space-y-3"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                  ))}
+                </motion.nav>
+
+                <div className="flex flex-col gap-3 border-t border-white/10 px-6 py-6">
+                  {isAuthenticated ? (
+                    <button
+                      onClick={handleDashboardClick}
+                      className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-base font-medium text-slate-900 transition-colors hover:bg-gray-100"
                     >
-                      <Link to="/signin" onClick={() => setIsMenuOpen(false)}>
-                        <button className="w-full text-gray-300 hover:bg-[#192426] transition-colors text-center bg-[#192436] px-6 py-2 rounded-full cursor-pointer text-sm">
-                          Sign In
-                        </button>
+                      <LayoutDashboardIcon className="h-4 w-4" />
+                      Dashboard
+                    </button>
+                  ) : (
+                    <>
+                      <Link
+                        to="/signin"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#192436] px-6 py-3 text-base text-gray-200 transition-colors hover:bg-[#223048]"
+                      >
+                        Sign In
                       </Link>
                       <Link
                         to="/talent-signup"
                         onClick={() => setIsMenuOpen(false)}
+                        className="flex min-h-12 w-full items-center justify-center rounded-full bg-white px-6 py-3 text-base font-medium text-slate-900 transition-colors hover:bg-gray-100"
                       >
-                        <button className="w-full bg-white text-slate-900 px-6 py-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer text-sm">
-                          Join as Talent
-                        </button>
+                        Join as Talent
                       </Link>
-                    </motion.div>
+                    </>
                   )}
-                </AnimatePresence>
-              </motion.div>
-            </motion.nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </header>
   );
 };

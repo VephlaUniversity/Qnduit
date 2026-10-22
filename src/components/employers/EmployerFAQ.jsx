@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 const fadeUp = {
@@ -128,9 +129,12 @@ export const EmployerFAQ = () => {
             Contact us if you have any other questions.
           </p>
         </div>
-        <button className="bg-white text-gray-900 px-6 py-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap">
-          Contact us
-        </button>
+        <Link
+          to="/contact"
+          className="bg-white text-gray-900 px-6 py-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap"
+        >
+          Contact Us
+        </Link>
       </motion.div>
     </section>
   );

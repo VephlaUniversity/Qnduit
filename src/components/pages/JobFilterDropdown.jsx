@@ -1,18 +1,84 @@
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import {
+  SALARY_BANDS,
+  matchingBand,
+  countActiveFilters,
+} from "../utils/jobFilters";
 
-// FilterDropdown
+const WORK_TYPES = [
+  { label: "Any", value: "" },
+  { label: "On-site", value: "on-site" },
+  { label: "Remote", value: "remote" },
+  { label: "Hybrid", value: "hybrid" },
+];
+
+const JOB_TYPES = [
+  { label: "All Job Types", value: "" },
+  { label: "Full-time", value: "full-time" },
+  { label: "Part-time", value: "part-time" },
+  { label: "Contract", value: "contract" },
+  { label: "Temporary", value: "temporary" },
+  { label: "Freelancer", value: "freelancer" },
+];
+
+const POSTED = [
+  { label: "Posted Anytime", value: "anytime" },
+  { label: "Today", value: "today" },
+  { label: "Past Week", value: "week" },
+  { label: "Past Month", value: "month" },
+];
+
+const SENIORITY = [
+  { label: "All Seniority Levels", value: "all" },
+  { label: "Entry Level", value: "entry" },
+  { label: "Mid Level", value: "mid" },
+  { label: "Senior Level", value: "senior" },
+  { label: "Lead", value: "lead" },
+  { label: "Executive", value: "executive" },
+];
+
+const RadioGroup = ({ title, name, options, value, onSelect }) => (
+  <div>
+    <h3 className="text-gray-900 font-semibold mb-4 text-sm">{title}</h3>
+    <div className="space-y-3">
+      {options.map((option) => (
+        <label
+          key={option.label}
+          className="flex items-center gap-3 cursor-pointer group"
+        >
+          <input
+            type="radio"
+            name={name}
+            checked={value === option.value}
+            onChange={() => onSelect(option.value)}
+            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+          />
+          <span className="text-gray-700 text-sm group-hover:text-gray-900">
+            {option.label}
+          </span>
+        </label>
+      ))}
+    </div>
+  </div>
+);
+
+// Large-screen "Filter More" panel. It holds no state of its own: it reads and
+// writes the same filters as the sidebar.
 export const FilterDropdown = ({
   isOpen,
   onClose,
   filters,
-  onFiltersChange,
+  onChange,
+  onReset,
+  companyOptions = [],
 }) => {
   const dropdownRef = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
+      // The "Filter More" button toggles the panel itself; closing here as well
+      // would make its click reopen the panel straight away.
+      if (e.target.closest?.("[data-filter-toggle]")) return;
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         onClose();
       }
@@ -23,260 +89,98 @@ export const FilterDropdown = ({
 
   if (!isOpen) return null;
 
-  // Generic change handlers
-  const handleRadioChange = (key, value) => {
-    onFiltersChange({ ...filters, [key]: value });
-  };
-
-  const handleCheckboxChange = (value) => {
-    const updated = {
-      ...filters,
-      jobTypes: {
-        ...filters.jobTypes,
-        [value]: !filters.jobTypes[value],
-      },
-    };
-    // If a specific type is checked, uncheck "All Job Types"
-    if (value !== "All Job Types" && updated.jobTypes[value]) {
-      updated.jobTypes["All Job Types"] = false;
-    }
-    // If "All Job Types" is checked, uncheck all others
-    if (value === "All Job Types" && updated.jobTypes["All Job Types"]) {
-      Object.keys(updated.jobTypes).forEach((k) => {
-        if (k !== "All Job Types") updated.jobTypes[k] = false;
-      });
-    }
-    onFiltersChange(updated);
-  };
-
-  const handleReset = () => {
-    onFiltersChange({
-      workLocation: "Remote",
-      jobTypes: {
-        "All Job Types": true,
-        "Full-time": false,
-        "Part-time": false,
-        Contract: false,
-        Internship: false,
-        Temporary: false,
-      },
-      salary: "All Salaries",
-      postedAnytime: "Posted Anytime",
-      seniority: "All Seniority Levels",
-    });
-  };
+  const band = matchingBand(filters.salaryRange);
+  const active = countActiveFilters(filters);
 
   return (
     <div
       ref={dropdownRef}
-      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl z-50 p-8"
+      className="hidden lg:block absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl z-50 p-8"
     >
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-gray-900 font-semibold text-base">More Filters</h3>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleReset}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Reset all
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-        {/* On-site / Remote */}
-        <div>
-          <h3 className="text-gray-900 font-semibold mb-4 text-sm">
-            On-site / Remote
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "On-site" },
-              { label: "Remote" },
-              { label: "Hybrid" },
-            ].map(({ label }) => (
-              <label
-                key={label}
-                className="flex items-center gap-3 cursor-pointer group"
-              >
-                <input
-                  type="radio"
-                  name="workLocation"
-                  checked={filters.workLocation === label}
-                  onChange={() => handleRadioChange("workLocation", label)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-gray-700 text-sm group-hover:text-gray-900">
-                  {label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Job Types */}
-        <div>
-          <h3 className="text-gray-900 font-semibold mb-4 text-sm">
-            Job Types
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "All Job Types" },
-              { label: "Full-time" },
-              { label: "Part-time" },
-              { label: "Contract" },
-              { label: "Internship" },
-              { label: "Temporary" },
-            ].map(({ label }) => (
-              <label
-                key={label}
-                className="flex items-center gap-3 cursor-pointer group"
-              >
-                <input
-                  type="checkbox"
-                  checked={!!filters.jobTypes[label]}
-                  onChange={() => handleCheckboxChange(label)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-gray-700 text-sm group-hover:text-gray-900">
-                  {label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Salary */}
-        <div>
-          <h3 className="text-gray-900 font-semibold mb-4 text-sm">
-            Salary Range
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "All Salaries" },
-              { label: "$50,000+" },
-              { label: "$70,000+" },
-              { label: "$90,000+" },
-              { label: "$110,000+" },
-              { label: "$130,000+" },
-            ].map(({ label }) => (
-              <label
-                key={label}
-                className="flex items-center gap-3 cursor-pointer group"
-              >
-                <input
-                  type="radio"
-                  name="salary"
-                  checked={filters.salary === label}
-                  onChange={() => handleRadioChange("salary", label)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-gray-700 text-sm group-hover:text-gray-900">
-                  {label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Posted */}
-        <div>
-          <h3 className="text-gray-900 font-semibold mb-4 text-sm">
-            Date Posted
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "Posted Anytime" },
-              { label: "Last 1 days" },
-              { label: "Last 3 days" },
-              { label: "Last 7 days" },
-              { label: "Last 14 days" },
-            ].map(({ label }) => (
-              <label
-                key={label}
-                className="flex items-center gap-3 cursor-pointer group"
-              >
-                <input
-                  type="radio"
-                  name="postedAnytime"
-                  checked={filters.postedAnytime === label}
-                  onChange={() => handleRadioChange("postedAnytime", label)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-gray-700 text-sm group-hover:text-gray-900">
-                  {label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Seniority */}
-        <div>
-          <h3 className="text-gray-900 font-semibold mb-4 text-sm">
-            Seniority Level
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: "All Seniority Levels" },
-              { label: "Entry Level" },
-              { label: "Mid Senior Level" },
-              { label: "Executive" },
-            ].map(({ label }) => (
-              <label
-                key={label}
-                className="flex items-center gap-3 cursor-pointer group"
-              >
-                <input
-                  type="radio"
-                  name="seniority"
-                  checked={filters.seniority === label}
-                  onChange={() => handleRadioChange("seniority", label)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-gray-700 text-sm group-hover:text-gray-900">
-                  {label}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          {(() => {
-            const active = [];
-            if (filters.workLocation !== "Remote")
-              active.push(filters.workLocation);
-            if (filters.salary !== "All Salaries") active.push(filters.salary);
-            if (filters.postedAnytime !== "Posted Anytime")
-              active.push(filters.postedAnytime);
-            if (filters.seniority !== "All Seniority Levels")
-              active.push(filters.seniority);
-            const types = Object.entries(filters.jobTypes)
-              .filter(([k, v]) => v && k !== "All Job Types")
-              .map(([k]) => k);
-            active.push(...types);
-            return active.length > 0
-              ? `${active.length} filter${active.length > 1 ? "s" : ""} active: ${active.join(", ")}`
-              : "No filters active";
-          })()}
-        </p>
         <button
-          onClick={onClose}
-          className="px-6 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-lg transition-colors text-sm"
+          onClick={onReset}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
-          Apply Filters
+          Reset all
         </button>
+      </div>
+
+      <div className="grid grid-cols-3 xl:grid-cols-6 gap-8">
+        <RadioGroup
+          title="On-site / Remote"
+          name="workLocation"
+          options={WORK_TYPES}
+          value={filters.workType}
+          onSelect={(v) => onChange({ workType: v })}
+        />
+        <RadioGroup
+          title="Job Type"
+          name="jobType"
+          options={JOB_TYPES}
+          value={filters.jobType}
+          onSelect={(v) => onChange({ jobType: v })}
+        />
+        <div>
+          <RadioGroup
+            title="Salary Range"
+            name="salary"
+            options={SALARY_BANDS.map((b) => ({
+              label: b.label,
+              value: b.label,
+            }))}
+            value={band ? band.label : null}
+            onSelect={(label) =>
+              onChange({
+                salaryRange: SALARY_BANDS.find((b) => b.label === label).range,
+              })
+            }
+          />
+          {!band && (
+            <p className="mt-3 text-xs text-gray-500">
+              Custom: ${filters.salaryRange[0].toLocaleString()} – $
+              {filters.salaryRange[1].toLocaleString()}
+            </p>
+          )}
+        </div>
+        <RadioGroup
+          title="Date Posted"
+          name="postedAnytime"
+          options={POSTED}
+          value={filters.posted}
+          onSelect={(v) => onChange({ posted: v })}
+        />
+        <RadioGroup
+          title="Seniority Level"
+          name="seniority"
+          options={SENIORITY}
+          value={filters.seniority}
+          onSelect={(v) => onChange({ seniority: v })}
+        />
+        <div>
+          <h3 className="text-gray-900 font-semibold mb-4 text-sm">Company</h3>
+          <select
+            value={filters.company}
+            onChange={(e) => onChange({ company: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500"
+          >
+            <option value="">All Companies</option>
+            {companyOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-6 border-t border-gray-100">
+        <p className="text-sm text-gray-500">
+          {active > 0
+            ? `${active} filter${active > 1 ? "s" : ""} active`
+            : "No filters active"}
+        </p>
       </div>
     </div>
   );
