@@ -33,6 +33,17 @@ const talentSchema = new mongoose.Schema(
     index: true,
   },
 
+  resetPasswordToken: {
+    type: String,
+    default: undefined,
+    select: false,
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: undefined,
+    select: false,
+  },
+
   // ================= PROFILE =================
   fullName: String,
   dateOfBirth: String,

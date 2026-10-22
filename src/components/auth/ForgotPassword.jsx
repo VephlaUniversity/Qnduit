@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { API_BASE_URL } from "../utils/api";
 
 export const ForgotPassword = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -13,6 +14,17 @@ export const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [resetToken, setResetToken] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      setResetToken(token);
+      setCurrentStep(2);
+    }
+  }, []);
 
   // Validation functions
   const validateEmail = (email) => {
@@ -84,14 +96,31 @@ export const ForgotPassword = () => {
     if (!validateStep1()) return;
 
     setLoading(true);
+    setErrors({});
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Sending reset instructions to:", formData.email);
-      setCurrentStep(2);
-    } catch (err) {
-      console.error(err);
-      setErrors({ submit: "Failed to send instructions. Please try again." });
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/forgot-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email.trim() }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to process request.");
+      }
+
+      setErrors({
+        notice: data.message,
+      });
+    } catch (error) {
+      setErrors({
+        submit: error.message || "Unable to send reset instructions.",
+      });
     } finally {
       setLoading(false);
     }
@@ -100,15 +129,52 @@ export const ForgotPassword = () => {
   const handleResetPassword = async () => {
     if (!validateStep2()) return;
 
+    if (!resetToken) {
+      setErrors({
+        submit: "Reset token is missing. Please use the email link.",
+      });
+      return;
+    }
+
     setLoading(true);
+    setErrors({});
+
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Resetting password");
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/reset-password/${encodeURIComponent(resetToken)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newPassword: formData.password,
+            confirmPassword: formData.confirmPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Password reset failed.");
+      }
+
       setCurrentStep(3);
-    } catch (err) {
-      console.error(err);
-      setErrors({ submit: "Failed to reset password. Please try again." });
+      setFormData({
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+
+      setResetToken("");
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    } catch (error) {
+      setErrors({
+        submit: error.message || "Password reset failed.",
+      });
     } finally {
       setLoading(false);
     }
@@ -193,6 +259,12 @@ export const ForgotPassword = () => {
                     <p className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
                       <AlertCircle className="w-3 h-3" />
                       {errors.email}
+                    </p>
+                  )}
+                  {errors.notice && (
+                    <p role="status" className="text-red-400 text-xs mt-2 flex items-center gap-1.5">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.notice}
                     </p>
                   )}
                 </motion.div>
