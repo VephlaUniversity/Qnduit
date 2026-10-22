@@ -205,9 +205,12 @@ export const FAQSection = () => {
             Contact us if you have any other questions.
           </p>
         </div>
-        <button className="bg-white cursor-pointer text-gray-900 px-6 py-3 rounded-full hover:bg-gray-100 transition-colors whitespace-nowrap">
-          <Link to="/contact">Contact us</Link>
-        </button>
+        <Link
+          to="/contact"
+          className="bg-white text-gray-900 px-6 py-3 rounded-full cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap"
+        >
+          Contact Us
+        </Link>
       </motion.div>
     </section>
   );

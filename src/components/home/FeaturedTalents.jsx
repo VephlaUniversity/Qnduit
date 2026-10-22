@@ -1,7 +1,4 @@
 import { Star } from "lucide-react";
-import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -14,6 +11,76 @@ const staggerContainer = {
   initial: {},
   animate: { transition: { staggerChildren: 0.12 } },
 };
+
+// A smooth, endless sideways scroll done with CSS only (no slider library), so it
+// never stutters at the loop point. Cards per row: 4, then 3 / 2 / 1 as the
+// screen narrows. Pauses on hover and stops for visitors who prefer less motion.
+const marqueeCss = `
+.talent-marquee { --cards: 4; container-type: inline-size; overflow: hidden; }
+.talent-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: talent-marquee 30s linear infinite;
+}
+.talent-marquee.reverse .talent-marquee-track { animation-direction: reverse; }
+.talent-marquee:hover .talent-marquee-track { animation-play-state: paused; }
+.talent-marquee-slot { flex: none; width: calc(100cqw / var(--cards)); }
+@keyframes talent-marquee { to { transform: translateX(-50%); } }
+@media (max-width: 1024px) { .talent-marquee { --cards: 3; } }
+@media (max-width: 768px) { .talent-marquee { --cards: 2; } }
+@media (max-width: 480px) { .talent-marquee { --cards: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .talent-marquee { overflow-x: auto; }
+  .talent-marquee-track { animation: none; }
+}
+`;
+
+const MarqueeRow = ({ talents, reverse = false, label }) => (
+  <div className={`talent-marquee${reverse ? " reverse" : ""}`}>
+    <div className="talent-marquee-track">
+      {/* The list is shown twice so the loop has no gap; the copy is hidden from screen readers. */}
+      {[0, 1].map((copy) =>
+        talents.map((talent, index) => (
+          <div
+            key={`${label}-${copy}-${index}`}
+            className="talent-marquee-slot"
+            aria-hidden={copy === 1 ? true : undefined}
+          >
+            <TalentCard talent={talent} />
+          </div>
+        )),
+      )}
+    </div>
+  </div>
+);
+
+const TalentCard = ({ talent }) => (
+  <div className="px-2 sm:px-3">
+    <div className="rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-full max-w-[250px] mx-auto bg-gray-800 hover:scale-105 transform transition-all duration-300">
+      <img
+        src={talent.gradient}
+        alt={talent.name}
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+        <h3 className="font-semibold mb-1">{talent.name}</h3>
+        <p className="text-sm mb-2 text-gray-200">{talent.role}</p>
+        <div className="flex items-center">
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className="w-4 h-4 fill-[#F5C518] text-[#F5C518]"
+              />
+            ))}
+          </div>
+          <span className="ml-2 text-sm text-gray-200">{talent.rating}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export const FeaturedTalents = () => {
   const featuredTalents = [
@@ -61,76 +128,9 @@ export const FeaturedTalents = () => {
     },
   ];
 
-  const topSliderSettings = {
-    dots: false,
-    infinite: true,
-    speed: 4000,
-    slidesToShow: 4,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 0,
-    cssEase: "linear",
-    arrows: false,
-    pauseOnHover: false,
-    pauseOnFocus: false,
-    rtl: false,
-    responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: 3 } },
-      { breakpoint: 768, settings: { slidesToShow: 2 } },
-      { breakpoint: 480, settings: { slidesToShow: 1 } },
-    ],
-  };
-
-  const bottomSliderSettings = {
-    dots: false,
-    infinite: true,
-    speed: 4000,
-    slidesToShow: 4,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 0,
-    cssEase: "linear",
-    arrows: false,
-    pauseOnHover: false,
-    pauseOnFocus: false,
-    rtl: true,
-    responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: 3 } },
-      { breakpoint: 768, settings: { slidesToShow: 2 } },
-      { breakpoint: 480, settings: { slidesToShow: 1 } },
-    ],
-  };
-
-  const TalentCard = ({ talent }) => (
-    <div className="px-2 sm:px-3">
-      <div className="rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-full max-w-[250px] mx-auto bg-gray-800 hover:scale-105 transform transition-all duration-300">
-        <img
-          src={talent.gradient}
-          alt={talent.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-          <h3 className="font-semibold mb-1">{talent.name}</h3>
-          <p className="text-sm mb-2 text-gray-200">{talent.role}</p>
-          <div className="flex items-center">
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className="w-4 h-4 fill-[#F5C518] text-[#F5C518]"
-                />
-              ))}
-            </div>
-            <span className="ml-2 text-sm text-gray-200">{talent.rating}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-8 py-12 overflow-hidden">
+      <style>{marqueeCss}</style>
       {/* Heading */}
       <motion.h2
         className="text-4xl lg:text-5xl text-center mb-12 text-white"
@@ -150,11 +150,7 @@ export const FeaturedTalents = () => {
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <Slider {...topSliderSettings}>
-          {[...featuredTalents, ...featuredTalents].map((talent, index) => (
-            <TalentCard key={`top-${index}`} talent={talent} />
-          ))}
-        </Slider>
+        <MarqueeRow talents={featuredTalents} label="top" />
       </motion.div>
 
       {/* Bottom Row */}
@@ -165,15 +161,11 @@ export const FeaturedTalents = () => {
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
       >
-        <Slider {...bottomSliderSettings}>
-          {[...featuredTalents, ...featuredTalents].map((talent, index) => (
-            <TalentCard key={`bottom-${index}`} talent={talent} />
-          ))}
-        </Slider>
+        <MarqueeRow talents={featuredTalents} reverse label="bottom" />
       </motion.div>
 
       {/* Link to the full public directory */}
-      <div className="text-center -mt-6 md:-mt-8">
+      <div className="text-center mt-6 md:-mt-8">
         <Link
           to="/feature-talents"
           className="inline-block border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
@@ -206,9 +198,12 @@ export const FeaturedTalents = () => {
           variants={fadeUp}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-          <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-            <Link to="/pricing">Boost profile for $1.99 →</Link>
-          </button>
+          <Link
+            to="/pricing"
+            className="inline-block border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
+          >
+            Boost profile for $1.99 →
+          </Link>
         </motion.div>
       </motion.div>
     </section>

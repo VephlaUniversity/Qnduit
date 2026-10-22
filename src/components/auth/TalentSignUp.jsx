@@ -1,4 +1,5 @@
 import TalentSelect from "../talentDashboard/TalentSelect";
+import "./authEnter.css";
 import { COUNTRIES } from "../data/countries";
 import { TALENT_OPTION_GROUPS } from "../data/talentOptions";
 import TalentOptionPicker from "../talentDashboard/TalentOptionPicker";
@@ -108,7 +109,7 @@ export const TalentSignup = () => {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
-          }
+          },
         );
 
         if (response.data?.free) {
@@ -116,22 +117,18 @@ export const TalentSignup = () => {
           return;
         }
 
-        throw new Error(
-          response.data?.message || "Unable to select free plan"
-        );
+        throw new Error(response.data?.message || "Unable to select free plan");
       }
 
       // Navigate for paid plans.
-      navigate(
-        `/payment?plan=${encodeURIComponent(planType)}&userType=talent`
-      );
+      navigate(`/payment?plan=${encodeURIComponent(planType)}&userType=talent`);
     } catch (error) {
       console.error("Talent plan selection error:", error);
 
       alert(
         error.response?.data?.message ||
           error.message ||
-          "Unable to select plan"
+          "Unable to select plan",
       );
     }
   };
@@ -227,7 +224,10 @@ export const TalentSignup = () => {
 
       // Update the rest of the profile
       const profileData = {
-        jobTitle: formData.role === OTHER_ROLE ? formData.roleOther.trim() : formData.role,
+        jobTitle:
+          formData.role === OTHER_ROLE
+            ? formData.roleOther.trim()
+            : formData.role,
         categories: formData.categories,
         tags: formData.skills,
         experienceTime: formData.experience,
@@ -270,7 +270,7 @@ export const TalentSignup = () => {
       {currentStep > 1 && (
         <button
           onClick={prevStep}
-          className="absolute top-30 left-6 text-white hover:text-blue-400 flex items-center gap-2 transition-colors"
+          className="auth-enter-back absolute top-30 left-6 text-white hover:text-blue-400 flex items-center gap-2 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Previous Page</span>
@@ -279,7 +279,7 @@ export const TalentSignup = () => {
 
       <div className="container mx-auto min-h-[calc(100vh-80px)] py-8 px-4">
         {currentStep === 1 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <User className="w-8 h-8 text-blue-600" />
@@ -416,7 +416,7 @@ export const TalentSignup = () => {
         )}
 
         {currentStep === 2 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Mail className="w-8 h-8 text-blue-600" />
@@ -481,7 +481,7 @@ export const TalentSignup = () => {
         )}
 
         {currentStep === 3 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Briefcase className="w-8 h-8 text-blue-600" />
@@ -517,7 +517,10 @@ export const TalentSignup = () => {
                           value={role.value}
                           className="bg-[#1a2942]"
                         >
-                          {role.value}{role.aliases.length ? ` (${role.aliases.join(", ")})` : ""}
+                          {role.value}
+                          {role.aliases.length
+                            ? ` (${role.aliases.join(", ")})`
+                            : ""}
                         </option>
                       ))}
                     </optgroup>
@@ -584,17 +587,29 @@ export const TalentSignup = () => {
                     Select your location
                   </option>
                   {COUNTRIES.map((country) => (
-                    <option key={country} value={country} className="bg-[#1a2942]">
+                    <option
+                      key={country}
+                      value={country}
+                      className="bg-[#1a2942]"
+                    >
                       {country}
                     </option>
                   ))}
                 </TalentSelect>
               </div>
 
-              <TalentOptionPicker label="Categories" kind="categories"
-                value={formData.categories} onChange={value => handleInputChange("categories", value)} />
-              <TalentOptionPicker label="Skills" kind="skills"
-                value={formData.skills} onChange={value => handleInputChange("skills", value)} />
+              <TalentOptionPicker
+                label="Categories"
+                kind="categories"
+                value={formData.categories}
+                onChange={(value) => handleInputChange("categories", value)}
+              />
+              <TalentOptionPicker
+                label="Skills"
+                kind="skills"
+                value={formData.skills}
+                onChange={(value) => handleInputChange("skills", value)}
+              />
 
               <button
                 onClick={nextStep}
@@ -607,7 +622,7 @@ export const TalentSignup = () => {
         )}
 
         {currentStep === 4 && (
-          <div className="w-full max-w-md mx-auto">
+          <div className="auth-enter w-full max-w-md mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <Building2 className="w-8 h-8 text-blue-600" />
@@ -695,7 +710,7 @@ export const TalentSignup = () => {
         )}
 
         {currentStep === 5 && (
-          <div className="w-full max-w-4xl mx-auto">
+          <div className="auth-enter w-full max-w-4xl mx-auto">
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
                 <DollarSign className="w-8 h-8 text-blue-600" />

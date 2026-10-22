@@ -40,9 +40,12 @@ export const TalentSearch = () => {
           variants={fadeUp}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <button className="border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-            <Link to="/pricing">Boost profile for $1.99 →</Link>
-          </button>
+          <Link
+            to="/pricing"
+            className="inline-block border border-gray-600 text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
+          >
+            Boost profile for $1.99 →
+          </Link>
         </motion.div>
       </motion.div>
     </section>
