@@ -29,7 +29,7 @@ import {
 } from "../utils/jobDisplay";
 
 export const JobOpportunities = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const jobTitle = searchParams.get("jobTitle") || "";
@@ -275,9 +275,27 @@ export const JobOpportunities = () => {
     );
   };
 
-  const handleFindJobs = () => {
+  // Put the search in the URL so the server runs a fresh search and the
+  // result can be shared or reached with the back button.
+  const applySearch = (overrides = {}) => {
+    const keyword = (overrides.keyword ?? searchKeyword).trim();
+    const place = overrides.location ?? locationFilter;
+    const next = new URLSearchParams();
+    if (keyword) next.set("jobTitle", keyword);
+    if (place) next.set("location", place);
+    if (workTypeFilter) next.set("workType", workTypeFilter);
+    setSearchParams(next);
     setCurrentPage(1);
     setSidebarOpen(false);
+  };
+
+  const handleFindJobs = () => applySearch();
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applySearch();
+    }
   };
 
   const resetFilters = () => {
@@ -455,6 +473,7 @@ export const JobOpportunities = () => {
                       setSearchKeyword(e.target.value);
                       setCurrentPage(1);
                     }}
+                    onKeyDown={handleSearchKeyDown}
                     className="flex-1 outline-none text-gray-900 text-sm min-w-0"
                   />
                 </div>
@@ -472,6 +491,7 @@ export const JobOpportunities = () => {
                       setLocationFilter(e.target.value);
                       setCurrentPage(1);
                     }}
+                    onKeyDown={handleSearchKeyDown}
                     className="flex-1 outline-none text-gray-900 text-sm min-w-0"
                   />
                 </div>
@@ -480,6 +500,7 @@ export const JobOpportunities = () => {
 
                 {/* Filter More button */}
                 <button
+                  data-filter-toggle
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
                   className={`px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors relative ${
                     isFilterOpen
@@ -554,26 +575,8 @@ export const JobOpportunities = () => {
               } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
             >
               <div className="bg-[#191D23] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
-                {/* Search keyword */}
-                <div>
-                  <h3 className="text-white font-semibold mb-3">Search Jobs</h3>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Job title, keywords or company"
-                      value={searchKeyword}
-                      onChange={(e) => {
-                        setSearchKeyword(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
+                {/* Location (phones only: the top bar has it from sm upwards) */}
+                <div className="sm:hidden">
                   <h3 className="text-white font-semibold mb-3">Location</h3>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -585,6 +588,7 @@ export const JobOpportunities = () => {
                         setLocationFilter(e.target.value);
                         setCurrentPage(1);
                       }}
+                      onKeyDown={handleSearchKeyDown}
                       className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
                     />
                   </div>

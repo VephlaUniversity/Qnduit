@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
 
 // FilterDropdown
 export const FilterDropdown = ({
@@ -13,6 +12,7 @@ export const FilterDropdown = ({
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
+      if (e.target.closest?.("[data-filter-toggle]")) return;
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         onClose();
       }
@@ -80,12 +80,6 @@ export const FilterDropdown = ({
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
             Reset all
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
       </div>
@@ -271,12 +265,6 @@ export const FilterDropdown = ({
               : "No filters active";
           })()}
         </p>
-        <button
-          onClick={onClose}
-          className="px-6 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-medium rounded-lg transition-colors text-sm"
-        >
-          Apply Filters
-        </button>
       </div>
     </div>
   );
