@@ -126,7 +126,7 @@ export const JobListings = () => {
                 </span>
                 <Link
                   to={jobPath(job)}
-                  className="bg-blue-500 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-600 transition-colors whitespace-nowrap"
+                  className="bg-blue-600 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
                 >
                   Apply Now →
                 </Link>

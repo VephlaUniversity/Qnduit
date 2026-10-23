@@ -84,14 +84,14 @@ export const HeroSection = () => {
               <button
                 type="button"
                 onClick={handleDashboardClick}
-                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-[#3B82F6] text-white px-8 py-3 rounded-full hover:bg-[#5F8DD7] transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 transition-colors cursor-pointer"
               >
                 Go to your Dashboard
               </button>
             ) : (
               <Link
                 to="/talent-signup"
-                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-[#3B82F6] text-white px-8 py-3 rounded-full hover:bg-[#5F8DD7] transition-colors cursor-pointer"
+                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 transition-colors cursor-pointer"
               >
                 Join as Talent
               </Link>

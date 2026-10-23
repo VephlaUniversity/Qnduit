@@ -326,7 +326,7 @@ const Contact = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white py-4 rounded-xl transition-colors duration-200 font-medium text-base"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white py-4 rounded-xl transition-colors duration-200 font-medium text-base"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">

@@ -7,7 +7,7 @@ import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
 
 const fieldClass =
-  "w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#3B82F6]";
+  "w-full bg-[#262C36] border border-[#2A3142] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-blue-600";
 const EMPTY = { subject: "", message: "" };
 
 const readToken = () => {
@@ -74,7 +74,7 @@ export const JobContactForm = ({ jobId }) => {
           </p>
           <Link
             to="/signin"
-            className="block w-full text-center bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold rounded-sm py-2 transition-colors"
+            className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm py-2 transition-colors"
           >
             Sign in to contact
           </Link>
@@ -108,7 +108,7 @@ export const JobContactForm = ({ jobId }) => {
           <button
             type="submit"
             disabled={sending}
-            className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold rounded-sm py-2 transition-colors cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm py-2 transition-colors cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
           >
             {sending && <Loader2 className="w-4 h-4 animate-spin" />}
             {sending ? "Sending..." : "Send Message"}

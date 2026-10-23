@@ -18,8 +18,11 @@ import { COUNTRIES } from "../data/countries";
 import axios from "axios";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 export const EmployerSignup = () => {
+  const { busy, run } = useBusyAction();
   const [currentStep, setCurrentStep] = useState(1);
   const [, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -378,10 +381,18 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleSubmit}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("register", handleSubmit)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create account as Employer
+                {busy === "register" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>Create account as Employer</>
+                )}
               </button>
             </div>
           </div>
@@ -444,10 +455,18 @@ export const EmployerSignup = () => {
             )}
 
             <button
-              onClick={handleVerifyEmail}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+              onClick={() => run("verify", handleVerifyEmail)}
+              disabled={!!busy}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Verify email address
+              {busy === "verify" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Verifying…
+                </>
+              ) : (
+                <>Verify email address</>
+              )}
             </button>
           </div>
         )}
@@ -663,11 +682,18 @@ export const EmployerSignup = () => {
             </div>
 
             <button
-              onClick={handleAccountTypeContinue}
-              disabled={!formData.accountType}
+              onClick={() => run("account", handleAccountTypeContinue)}
+              disabled={!formData.accountType || !!busy}
               className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium disabled:opacity-50 transition-colors"
             >
-              Continue as {formData.accountType || "..."}
+              {busy === "account" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Please wait…
+                </>
+              ) : (
+                <>Continue as {formData.accountType || "..."}</>
+              )}
             </button>
           </div>
         )}
@@ -792,10 +818,18 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleAccountTypeContinue}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("account", handleAccountTypeContinue)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create account as Employer
+                {busy === "account" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Please wait…
+                  </>
+                ) : (
+                  <>Create account as Employer</>
+                )}
               </button>
             </div>
           </div>
@@ -873,10 +907,18 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleAccountTypeContinue}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("account", handleAccountTypeContinue)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Continue as a Individual
+                {busy === "account" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Please wait…
+                  </>
+                ) : (
+                  <>Continue as a Individual</>
+                )}
               </button>
             </div>
           </div>

@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -8,25 +7,55 @@ import {
   CreditCard,
 } from "lucide-react";
 
-import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
+import {
+  useTalentSubscription,
+  hasCurrentPublicSubscription,
+} from "../hooks/useTalentSubscription";
 
 const TalentPaymentResult = () => {
   const navigate = useNavigate();
   const { subscription, loading, error, refresh } = useTalentSubscription();
-  const activated = subscription?.status === "active" && hasCurrentPublicSubscription(subscription);
+  const activated =
+    subscription?.status === "active" &&
+    hasCurrentPublicSubscription(subscription);
   useEffect(() => {
     if (activated) navigate("/talent-dashboard/my-plan", { replace: true });
   }, [activated, navigate]);
-  return <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
-    <div className="w-full max-w-lg bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 sm:p-10 text-center">
-      <h1 className="text-2xl text-white mb-4">{loading ? "Checking your subscription..." : "Subscription not confirmed"}</h1>
-      {!loading && <>
-        <p className="text-gray-400 mb-6" role={error ? "alert" : undefined}>{error || "Your subscription is not active yet. Check again before attempting another payment."}</p>
-        <button type="button" onClick={refresh} className="px-5 py-3 bg-blue-600 text-white rounded-lg">Check again</button>
-        <Link to="/talent-dashboard/my-plan" className="block mt-5 text-blue-400">View My Plan</Link>
-      </>}
+  return (
+    <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-lg bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 sm:p-10 text-center">
+        <h1 className="text-2xl text-white mb-4">
+          {loading
+            ? "Checking your subscription..."
+            : "Subscription not confirmed"}
+        </h1>
+        {!loading && (
+          <>
+            <p
+              className="text-gray-400 mb-6"
+              role={error ? "alert" : undefined}
+            >
+              {error ||
+                "Your subscription is not active yet. Check again before attempting another payment."}
+            </p>
+            <button
+              type="button"
+              onClick={refresh}
+              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            >
+              Check again
+            </button>
+            <Link
+              to="/talent-dashboard/my-plan"
+              className="block mt-5 text-blue-400"
+            >
+              View My Plan
+            </Link>
+          </>
+        )}
+      </div>
     </div>
-  </div>;
+  );
 };
 
 export const PaymentSuccess = () => {
@@ -35,13 +64,21 @@ export const PaymentSuccess = () => {
   const isEmployer = location.pathname.startsWith("/employer/");
   const dashboardPath = isEmployer ? "/dashboard" : "/talent-dashboard";
 
-  if (new URLSearchParams(location.search).get("activation") === "blocked") return <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
-    <div className="max-w-lg rounded-2xl border border-white/10 bg-[#1A1A1E] p-8 text-center text-white">
-      <h1 className="text-2xl mb-4">Subscription access not activated</h1>
-      <p className="text-gray-400">Check your payment and subscription status before attempting another payment.</p>
-      <Link to={dashboardPath} className="block mt-6 text-blue-400">Go to Dashboard</Link>
-    </div>
-  </div>;
+  if (new URLSearchParams(location.search).get("activation") === "blocked")
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+        <div className="max-w-lg rounded-2xl border border-white/10 bg-[#1A1A1E] p-8 text-center text-white">
+          <h1 className="text-2xl mb-4">Subscription access not activated</h1>
+          <p className="text-gray-400">
+            Check your payment and subscription status before attempting another
+            payment.
+          </p>
+          <Link to={dashboardPath} className="block mt-6 text-blue-400">
+            Go to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
 
   if (!isEmployer) return <TalentPaymentResult />;
 

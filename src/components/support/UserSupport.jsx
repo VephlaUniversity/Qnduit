@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { TICKET_CATEGORIES } from "../utils/supportTickets";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 const STATUS_STYLE = {
   Open: "bg-yellow-500/15 text-yellow-500",
@@ -43,6 +45,7 @@ export const UserSupport = () => {
   const [tickets, setTickets] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { busy, run } = useBusyAction();
   const [requestError, setRequestError] = useState("");
 
   const email = user?.email || "";
@@ -93,7 +96,8 @@ export const UserSupport = () => {
     } else if (message.trim().length < MIN_MESSAGE_LENGTH) {
       next.message = `Please give us a bit more detail (at least ${MIN_MESSAGE_LENGTH} characters)`;
     }
-    if (message.trim().length > 10000) next.message = "Message cannot exceed 10,000 characters.";
+    if (message.trim().length > 10000)
+      next.message = "Message cannot exceed 10,000 characters.";
     if (!email)
       next.form = "We couldn't find your account email. Please sign in again.";
     setErrors(next);
@@ -147,7 +151,10 @@ export const UserSupport = () => {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Submit */}
         <form
-          onSubmit={handleSubmit}
+          onSubmit={(e) => {
+            e.preventDefault();
+            run("ticket", () => handleSubmit(e));
+          }}
           noValidate
           className="xl:col-span-2 bg-[#1A1A1E] rounded-lg border border-white/5 p-6 h-fit"
         >
@@ -232,10 +239,20 @@ export const UserSupport = () => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-medium text-sm transition-colors"
+              disabled={!!busy}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Send className="w-4 h-4" />
-              Submit Ticket
+              {busy === "ticket" ? (
+                <>
+                  <ButtonSpinner />
+                  Submitting…
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Submit Ticket
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -3,13 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { NotFound } from "../pages/NotFound";
 import { motion } from "framer-motion";
-import {
-  MapPin,
-  Briefcase,
-  ExternalLink,
-  Linkedin,
-  Globe,
-} from "lucide-react";
+import { MapPin, Briefcase, ExternalLink, Linkedin, Globe } from "lucide-react";
 
 import { API_BASE_URL } from "../utils/api";
 import { profileImageUrl } from "./profileApi";
@@ -44,7 +38,7 @@ const PublicTalentProfile = () => {
       try {
         const response = await axios.get(
           `${API_BASE_URL}/api/talents/public/${encodeURIComponent(username)}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
 
         if (!cancelled) {
@@ -54,8 +48,7 @@ const PublicTalentProfile = () => {
         if (!cancelled) {
           setLoadError(true);
           setNotFound(
-            error.response?.status === 404 ||
-            error.response?.status === 403
+            error.response?.status === 404 || error.response?.status === 403,
           );
         }
       } finally {
@@ -89,9 +82,7 @@ const PublicTalentProfile = () => {
   if (!talent) {
     return (
       <main className="min-h-screen bg-[#0F1419] text-white flex flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-3xl font-bold mb-3">
-          Profile unavailable
-        </h1>
+        <h1 className="text-3xl font-bold mb-3">Profile unavailable</h1>
         <p className="text-gray-400 mb-6">
           {loadError && !notFound
             ? "We couldn’t load this profile. Please try again."
@@ -99,7 +90,7 @@ const PublicTalentProfile = () => {
         </p>
         <Link
           to="/"
-          className="bg-blue-500 hover:bg-blue-600 px-5 py-3 rounded-lg"
+          className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-lg"
         >
           Return to QNDUIT
         </Link>
@@ -107,18 +98,19 @@ const PublicTalentProfile = () => {
     );
   }
 
-  const displayName = talent.fullName?.trim() ||
-    [talent.firstName, talent.lastName].filter(value => typeof value === "string" && value.trim()).map(value => value.trim()).join(" ") || "Talent";
+  const displayName =
+    talent.fullName?.trim() ||
+    [talent.firstName, talent.lastName]
+      .filter((value) => typeof value === "string" && value.trim())
+      .map((value) => value.trim())
+      .join(" ") ||
+    "Talent";
   const avatar = profileImageUrl(talent.avatar);
   const portfolioUrl = safeExternalUrl(talent.portfolioUrl);
   const linkedinUrl = safeExternalUrl(talent.socialNetworks?.linkedin);
   const skills = Array.isArray(talent.tags) ? talent.tags : [];
-  const experience = Array.isArray(talent.experience)
-    ? talent.experience
-    : [];
-  const portfolio = Array.isArray(talent.portfolio)
-    ? talent.portfolio
-    : [];
+  const experience = Array.isArray(talent.experience) ? talent.experience : [];
+  const portfolio = Array.isArray(talent.portfolio) ? talent.portfolio : [];
 
   return (
     <main className="min-h-screen bg-[#0F1419] text-white">
@@ -142,16 +134,10 @@ const PublicTalentProfile = () => {
             )}
 
             <div className="flex-1">
-              <p className="text-blue-400 text-sm mb-2">
-                Talent on QNDUIT
-              </p>
-              <h1 className="text-3xl md:text-4xl font-bold">
-                {displayName}
-              </h1>
+              <p className="text-blue-400 text-sm mb-2">Talent on QNDUIT</p>
+              <h1 className="text-3xl md:text-4xl font-bold">{displayName}</h1>
               {talent.jobTitle && (
-                <p className="text-lg text-gray-300 mt-2">
-                  {talent.jobTitle}
-                </p>
+                <p className="text-lg text-gray-300 mt-2">{talent.jobTitle}</p>
               )}
 
               <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-400">

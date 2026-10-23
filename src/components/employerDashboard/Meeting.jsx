@@ -16,6 +16,8 @@ import { format } from "date-fns";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 // Full 24-hour clock in 30-minute intervals → 48 slots: 12:00 am … 11:30 pm
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
@@ -100,6 +102,7 @@ export const Meeting = () => {
   const [attendeeEmail, setAttendeeEmail] = useState("");
   const [newAttendeeId, setNewAttendeeId] = useState("");
   const [searchingTalent, setSearchingTalent] = useState(false);
+  const { busy, run } = useBusyAction();
 
   useEffect(() => {
     const fetchMeetings = async () => {
@@ -107,9 +110,12 @@ export const Meeting = () => {
         setLoading(true);
         const token = localStorage.getItem("token");
 
-        const { data } = await axios.get(`${API_BASE_URL}/api/meetings/my-meetings`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/meetings/my-meetings`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         setMeetings(data.meetings);
       } catch (err) {
         console.error(err);
@@ -124,7 +130,6 @@ export const Meeting = () => {
     };
     fetchMeetings();
   }, []);
-
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -145,9 +150,12 @@ export const Meeting = () => {
   const handleDeleteConfirm = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`${API_BASE_URL}/api/meetings/delete/${confirmDelete._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.delete(
+        `${API_BASE_URL}/api/meetings/delete/${confirmDelete._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       setMeetings((prev) => prev.filter((m) => m._id !== confirmDelete._id));
       setConfirmDelete(null);
       toast({
@@ -163,8 +171,6 @@ export const Meeting = () => {
       });
     }
   };
-
-
 
   const handleReschedule = (meeting) => {
     setSelectedMeeting(meeting);
@@ -188,11 +194,11 @@ export const Meeting = () => {
         },
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       setMeetings((prev) =>
-        prev.map((m) => (m.id === selectedMeeting._id ? data.meeting : m))
+        prev.map((m) => (m.id === selectedMeeting._id ? data.meeting : m)),
       );
       setShowRescheduleModal(false);
       toast({
@@ -219,7 +225,7 @@ export const Meeting = () => {
         `${API_BASE_URL}/api/talents/search-by-email?email=${attendeeEmail}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const talent = data.talent;
@@ -244,7 +250,6 @@ export const Meeting = () => {
     }
   };
 
-
   const handleCreateMeeting = async () => {
     const errors = {};
     if (!newTitle.trim()) errors.title = "Meeting title is required.";
@@ -263,9 +268,13 @@ export const Meeting = () => {
         duration: newDuration,
       };
 
-      const response = await axios.post(`${API_BASE_URL}/api/meetings/create`, meetingData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/api/meetings/create`,
+        meetingData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       setMeetings((prev) => [...prev, response.data.meeting]);
       setNewTitle("");
@@ -474,10 +483,18 @@ export const Meeting = () => {
 
                 <button
                   type="button"
-                  onClick={handleSearchAttendee}
-                  className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                  onClick={() => run("search", handleSearchAttendee)}
+                  disabled={!!busy}
+                  className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Search
+                  {busy === "search" ? (
+                    <>
+                      <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                      Searching…
+                    </>
+                  ) : (
+                    <>Search</>
+                  )}
                 </button>
               </div>
 
@@ -554,11 +571,21 @@ export const Meeting = () => {
             </div>
 
             <button
-              onClick={handleCreateMeeting}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors mt-2 flex items-center justify-center gap-2"
+              onClick={() => run("create", handleCreateMeeting)}
+              disabled={!!busy}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Plus className="w-4 h-4" />
-              Create Meeting
+              {busy === "create" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Create Meeting
+                </>
+              )}
             </button>
           </div>
         </DialogContent>
@@ -662,10 +689,18 @@ export const Meeting = () => {
             </div>
 
             <button
-              onClick={handleSubmitReschedule}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              onClick={() => run("reschedule", handleSubmitReschedule)}
+              disabled={!!busy}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Confirm Reschedule
+              {busy === "reschedule" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Rescheduling…
+                </>
+              ) : (
+                <>Confirm Reschedule</>
+              )}
             </button>
           </div>
         </DialogContent>

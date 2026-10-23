@@ -114,7 +114,7 @@ export const ProfilePage = ({ candidate, onBack }) => {
               </div>
 
               <div className="flex gap-3 flex-wrap">
-                <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium flex items-center gap-2 text-sm md:text-base">
+                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium flex items-center gap-2 text-sm md:text-base">
                   <Download className="w-4 h-4" />
                   Download CV
                 </button>
@@ -432,7 +432,7 @@ export const ProfilePage = ({ candidate, onBack }) => {
                         </div>
                         <button
                           type="submit"
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-lg font-medium transition-colors text-sm w-full sm:w-auto"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors text-sm w-full sm:w-auto"
                         >
                           Send Message
                         </button>
@@ -520,7 +520,7 @@ export const ProfilePage = ({ candidate, onBack }) => {
                       <p className="text-white font-medium text-sm">PDF</p>
                     </div>
                   </div>
-                  <button className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 text-sm">
                     <Download className="w-4 h-4" />
                     Download CV
                   </button>

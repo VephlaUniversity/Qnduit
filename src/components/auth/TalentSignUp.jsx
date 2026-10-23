@@ -20,11 +20,14 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 const OTHER_ROLE = "__other__";
 const ROLE_GROUPS = TALENT_OPTION_GROUPS;
 
 export const TalentSignup = () => {
+  const { busy, run } = useBusyAction();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     email: "",
@@ -406,10 +409,18 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={handleRegisterTalent}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("register", handleRegisterTalent)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create account as Talent
+                {busy === "register" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>Create account as Talent</>
+                )}
               </button>
             </div>
           </div>
@@ -472,10 +483,18 @@ export const TalentSignup = () => {
             )}
 
             <button
-              onClick={handleVerifyEmail}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+              onClick={() => run("verify", handleVerifyEmail)}
+              disabled={!!busy}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Verify email address
+              {busy === "verify" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Verifying…
+                </>
+              ) : (
+                <>Verify email address</>
+              )}
             </button>
           </div>
         )}
@@ -700,10 +719,18 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={handleProfileUpdate}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("profile", handleProfileUpdate)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create account as Talent
+                {busy === "profile" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>Create account as Talent</>
+                )}
               </button>
             </div>
           </div>

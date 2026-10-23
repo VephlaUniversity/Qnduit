@@ -45,7 +45,7 @@ export const NotFound = ({
         <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
           <Link
             to="/"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#3B82F6] hover:bg-[#3077e8] px-8 py-3 text-white font-medium transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 hover:bg-blue-700 px-8 py-3 text-white font-medium transition-colors"
           >
             <Home className="h-4 w-4" />
             Back to home
