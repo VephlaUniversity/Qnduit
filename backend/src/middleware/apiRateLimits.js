@@ -1,6 +1,6 @@
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { resolveAuthentication } from "./authMiddleware.js";
-import { pollingRoles, POLLING_BUDGETS } from "../../../shared/pollingPolicy.js";
+import { pollingRoles, POLLING_BUDGETS } from "../config/pollingPolicy.js";
 
 // Separate stores per scope/window. Default stores are per-process memory;
 // multi-instance deployment requires shared atomic stores with unique prefixes.

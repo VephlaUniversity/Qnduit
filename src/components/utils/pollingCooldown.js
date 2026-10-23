@@ -1,4 +1,4 @@
-import { pollingRoles } from "../../../shared/pollingPolicy.js";
+import { pollingRoles } from "../../../backend/src/config/pollingPolicy.js";
 
 export function retryAfterMs(value, serverDate, now = Date.now()) {
   if (value == null || String(value).trim() === "") return null;

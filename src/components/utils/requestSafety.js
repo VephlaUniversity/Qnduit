@@ -1,4 +1,4 @@
-import { pollingRoles } from "../../../shared/pollingPolicy.js";
+import { pollingRoles } from "../../../backend/src/config/pollingPolicy.js";
 import { retryAfterMs } from "./pollingCooldown.js";
 
 const getHeader = (headers, key) => headers?.get?.(key)
