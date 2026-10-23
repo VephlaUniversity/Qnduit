@@ -18,6 +18,7 @@ import { COUNTRIES } from "../data/countries";
 import axios from "axios";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
+import { toast } from "sonner";
 import ButtonSpinner from "../utils/ButtonSpinner";
 import { useBusyAction } from "../utils/useBusyAction";
 
@@ -58,10 +59,10 @@ export const EmployerSignup = () => {
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
-        alert("Email verified successfully!");
+        toast.success("Email verified successfully!");
         setCurrentStep(3);
       } else {
-        alert(
+        toast.error(
           safeText(
             res.data.message,
             "We couldn't complete that step. Please try again.",
@@ -77,12 +78,12 @@ export const EmployerSignup = () => {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      alert("Missing authentication token. Please verify your email first.");
+      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
       return;
     }
 
     if (!planType) {
-      alert("Please select a plan first");
+      toast.error("Please select a plan first");
       return;
     }
 
@@ -108,7 +109,7 @@ export const EmployerSignup = () => {
         );
 
         if (response.data?.success) {
-          alert("Your plan has been saved. You can complete payment later.");
+          toast.success("Your plan has been saved. You can complete payment later.");
           navigate("/dashboard");
           return;
         }
@@ -117,10 +118,11 @@ export const EmployerSignup = () => {
       } catch (error) {
         console.error("Employer plan action error:", error);
 
-        alert(
-          error.response?.data?.message ||
-            error.message ||
+        toast.error(
+          safeText(
+            error.response?.data?.message || error.message,
             "Something went wrong. Please try again.",
+          ),
         );
       } finally {
         setLoading(false);
@@ -159,7 +161,7 @@ export const EmployerSignup = () => {
       );
 
       if (res.data.success) {
-        alert("Profile updated successfully!");
+        toast.success("Profile updated successfully!");
 
         if (currentStep === 3) {
           setCurrentStep(4);
@@ -184,10 +186,10 @@ export const EmployerSignup = () => {
 
       if (res.data.success) {
         localStorage.setItem("employerId", res.data.employerId);
-        alert("Verification code sent to your email");
+        toast.success("Verification code sent to your email");
         setCurrentStep(2);
       } else {
-        alert(
+        toast.error(
           safeText(
             res.data.message,
             "We couldn't complete that step. Please try again.",
@@ -391,7 +393,9 @@ export const EmployerSignup = () => {
                     Creating account…
                   </>
                 ) : (
-                  <>Create account as Employer</>
+                  <>
+                Create account as Employer
+                  </>
                 )}
               </button>
             </div>
@@ -465,7 +469,9 @@ export const EmployerSignup = () => {
                   Verifying…
                 </>
               ) : (
-                <>Verify email address</>
+                <>
+              Verify email address
+                </>
               )}
             </button>
           </div>
@@ -692,7 +698,9 @@ export const EmployerSignup = () => {
                   Please wait…
                 </>
               ) : (
-                <>Continue as {formData.accountType || "..."}</>
+                <>
+              Continue as {formData.accountType || "..."}
+                </>
               )}
             </button>
           </div>
@@ -828,7 +836,9 @@ export const EmployerSignup = () => {
                     Please wait…
                   </>
                 ) : (
-                  <>Create account as Employer</>
+                  <>
+                Create account as Employer
+                  </>
                 )}
               </button>
             </div>
@@ -917,7 +927,9 @@ export const EmployerSignup = () => {
                     Please wait…
                   </>
                 ) : (
-                  <>Continue as a Individual</>
+                  <>
+                Continue as a Individual
+                  </>
                 )}
               </button>
             </div>
