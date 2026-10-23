@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { Link } from "react-router-dom";
 import { Search, MapPin, Briefcase, Star } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
+import { createEmployerFollowSession } from "../utils/employerFollowSession";
 
 const SORT_OPTIONS = [
   "(Default)",
@@ -12,13 +15,6 @@ const SORT_OPTIONS = [
   "Most Openings",
   "Top Rated",
 ];
-
-const getHeaders = () => {
-  const token =
-    localStorage.getItem("authToken") || localStorage.getItem("token");
-
-  return { Authorization: `Bearer ${token}` };
-};
 
 const normalizeEmployer = (employer) => ({
   ...employer,
@@ -119,45 +115,56 @@ export const TalentFollowingEmployers = () => {
   const [category, setCategory] = useState("All");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState(null);
+  const action = useRef(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  const { user } = useAuth();
+  const actor = user?.userType === "talent" && (user.id || user._id) ? `talent:${user.id || user._id}` : "";
+  const [sessionRevision, setSessionRevision] = useState(0);
+  const session = useMemo(() => createEmployerFollowSession({
+    client: axios, baseUrl: API_BASE_URL,
+    readOwner: () => browserSessions().find(owner => owner.actor === actor),
+  }), [actor]);
 
   const loadEmployers = useCallback(async () => {
     setLoading(true);
     setError("");
-
     try {
-      const endpoint =
-        tab === "following"
-          ? "/api/follows/employers/following"
-          : "/api/follows/employers/search";
-
-      const response = await axios.get(`${API_BASE_URL}${endpoint}`, {
-        headers: getHeaders(),
-        params: {
-          q: searchQuery.trim(),
-          page: 1,
-          limit: 50,
-        },
-      });
-
-      if (!response.data?.success) {
-        throw new Error(response.data?.message || "Unable to load employers.");
-      }
-
-      setEmployers((response.data.data || []).map(normalizeEmployer));
+      const rows = await session.load(tab, searchQuery);
+      setEmployers(rows.map(normalizeEmployer));
+      setLoading(false);
     } catch (err) {
+      if (axios.isCancel(err)) return;
       setError(friendlyError(err, "Unable to load employers."));
-      setEmployers([]);
-    } finally {
       setLoading(false);
     }
-  }, [tab, searchQuery]);
+  }, [session, tab, searchQuery]);
 
   useEffect(() => {
+    let owner = JSON.stringify(browserSessions().find(row => row.actor === actor));
+    const changed = () => {
+      const next = JSON.stringify(browserSessions().find(row => row.actor === actor));
+      if (next === owner) return;
+      owner = next;
+      session.cancel();
+      setEmployers([]); setNotice(""); setError(""); setActionId(null); action.current = null;
+      setSessionRevision(value => value + 1);
+    };
+    window.addEventListener("storage", changed);
+    window.addEventListener("qnduit:polling-session-changed", changed);
+    return () => {
+      session.cancel();
+      window.removeEventListener("storage", changed);
+      window.removeEventListener("qnduit:polling-session-changed", changed);
+    };
+  }, [actor, session]);
+
+  useEffect(() => {
+    setEmployers([]); setNotice(""); setActionId(null); action.current = null; setLoading(true);
     const timer = setTimeout(loadEmployers, 300);
-    return () => clearTimeout(timer);
-  }, [loadEmployers]);
+    return () => { clearTimeout(timer); session.cancel(); };
+  }, [loadEmployers, session, sessionRevision]);
 
   useEffect(() => {
     if (!notice) return;
@@ -208,25 +215,21 @@ export const TalentFollowingEmployers = () => {
   };
 
   const handleFollowToggle = async (employer) => {
+    if (action.current) return;
+    const operation = {}; action.current = operation;
     setActionId(employer.id);
     setError("");
 
     try {
-      const url = `${API_BASE_URL}/api/follows/employers/${employer.id}`;
-
-      if (employer.isFollowing) {
-        await axios.delete(url, { headers: getHeaders() });
-        setNotice(`You unfollowed ${employer.name}.`);
-      } else {
-        await axios.post(url, {}, { headers: getHeaders() });
-        setNotice(`You are now following ${employer.name}.`);
-      }
+      await session.toggle(employer);
+      setNotice(employer.isFollowing ? `You unfollowed ${employer.name}.` : `You are now following ${employer.name}.`);
 
       await loadEmployers();
     } catch (err) {
+      if (axios.isCancel(err)) return;
       setError(friendlyError(err, "Unable to update follow status."));
     } finally {
-      setActionId(null);
+      if (action.current === operation) { setActionId(null); action.current = null; }
     }
   };
 
@@ -330,7 +333,7 @@ export const TalentFollowingEmployers = () => {
             <EmployerCard
               key={employer.id}
               employer={employer}
-              loading={actionId === employer.id}
+              loading={actionId !== null}
               onAction={() => handleFollowToggle(employer)}
             />
           ))
