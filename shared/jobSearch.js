@@ -1,6 +1,7 @@
+// Used by BOTH the frontend (live filtering) and the backend (/api/jobs/search and
+// /api/jobs/suggest).
 // Smarter job search: word-based matching with spelling variants, synonyms,
-// small-typo tolerance and a relevance score. Pure functions (no database
-// access) so they are easy to test; jobController.js feeds them the open jobs.
+// small-typo tolerance and a relevance score. jobController.js feeds them the open jobs.
 
 const STOP_WORDS = new Set([
   "a",

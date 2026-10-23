@@ -23,7 +23,7 @@ import {
 } from "../utils/jobFilters";
 import { CTA } from "../home/CTA";
 import { SuggestInput } from "./SuggestInput";
-import { rankJobs } from "../utils/jobSearch";
+import { rankJobs } from "../../../shared/jobSearch.js";
 import { AnimatedPage } from "../AnimatedPage";
 import axios from "axios";
 import { toast } from "sonner";

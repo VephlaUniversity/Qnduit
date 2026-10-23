@@ -67,6 +67,7 @@ export function SuggestInput({
   wrapperClassName = "relative",
   inputClassName = "",
   ariaLabel,
+  id,
 }) {
   const colors = THEMES[theme] || THEMES.light;
   const listId = useId();
@@ -137,6 +138,7 @@ export function SuggestInput({
     <div ref={wrapperRef} className={wrapperClassName}>
       {icon}
       <input
+        id={id}
         type="text"
         role="combobox"
         aria-label={ariaLabel || placeholder}
