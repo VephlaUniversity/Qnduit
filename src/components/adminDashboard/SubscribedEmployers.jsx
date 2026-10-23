@@ -1,15 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  MoreVertical,
   Building2,
-  XCircle,
-  ArrowDownCircle,
-  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
+import { SubscriptionActionMenu } from "./SubscriptionActionMenu";
 import { SubscriptionDetailModal } from "./SubscriptionDetailModal";
 import { API_BASE_URL } from "../utils/api";
 
@@ -78,76 +75,6 @@ const getLogoUrl = (logo) => {
   return logo.url || null;
 };
 
-const RowMenu = ({ row }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", close);
-
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="text-gray-400 hover:text-white transition-colors p-1"
-      >
-        <MoreVertical className="w-4 h-4" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          <button
-            onClick={() => {
-              toast.info(
-                "Subscription cancellation is not connected to the backend yet.",
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancel Subscription
-          </button>
-
-          <button
-            onClick={() => {
-              toast.info(
-                "Subscription downgrade is not connected to the backend yet.",
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <ArrowDownCircle className="w-4 h-4" />
-            Downgrade Subscription
-          </button>
-
-          <button
-            onClick={() => {
-              toast.info(
-                "Invoice sending is not connected to the backend yet.",
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Send Invoice
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const SubscribedEmployers = () => {
   const [rows, setRows] = useState([]);
@@ -324,7 +251,7 @@ export const SubscribedEmployers = () => {
 
                     <td className="py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <RowMenu row={row} />
+                        <SubscriptionActionMenu />
 
                         <button
                           onClick={() => setActive(row)}

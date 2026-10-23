@@ -146,9 +146,11 @@ export const EmployerProfile = () => {
                 <h2 className="text-xl font-semibold text-white">
                   {profile?.companyName || "Company Name"}
                 </h2>
-                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
-                </div>
+                {profile?.hasVerificationBadge === true && (
+                  <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center" role="img" aria-label="Admin verification badge">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
                 <MapPin className="w-4 h-4" />

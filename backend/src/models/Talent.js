@@ -20,6 +20,10 @@ const talentSchema = new mongoose.Schema(
     minlength: 8,
   },
 
+  // Admin badge only. isVerified remains the legacy email/login/access flag.
+  verificationBadgeOverride: { type: Boolean, default: null },
+  verificationBadgeDecidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", select: false },
+  verificationBadgeDecidedAt: { type: Date, select: false },
   verificationCode: String,
   isVerified: {
     type: Boolean,

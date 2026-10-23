@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import { AdminProfileDialog } from "./AdminProfileDialog";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   MoreHorizontal,
   MapPin,
+  Eye,
   BadgeCheck,
   BadgeMinus,
   Trash2,
@@ -11,11 +13,13 @@ import { ListToolbar } from "./ListToolbar";
 import { PaginationBar } from "./PaginationBar";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { badgeLabel } from "../utils/adminVerification";
+import { useAdminBadgeActions } from "../hooks/useAdminBadgeActions";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 
 const statusStyle = {
   Verified: "bg-emerald-600/15 text-emerald-500",
-  Unverified: "bg-red-600/15 text-red-500",
-  Pending: "bg-yellow-500/15 text-yellow-500",
+  "Unverified": "bg-gray-600/15 text-gray-400",
 };
 
 const SORT_OPTIONS = [
@@ -33,62 +37,43 @@ const formatDate = (date) =>
       })
     : "-";
 
-const RowMenu = ({ onVerify, onUnverify, onDelete }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const run = (fn) => () => {
-    setOpen(false);
-    fn();
-  };
-
-  return (
-    <div className="relative inline-block" ref={ref}>
+const RowMenu = ({ onVerify, onUnverify, onDelete, pending }) => (
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-9 h-9 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 flex items-center justify-center text-white transition-colors"
+        type="button"
+        aria-label="Employer actions"
+        className="w-9 h-9 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 flex items-center justify-center text-white"
       >
         <MoreHorizontal className="w-4 h-4" />
       </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-44 z-20 rounded-lg bg-[#2A2A2E] border border-white/10 shadow-lg py-1 text-left">
-          <button
-            onClick={run(onVerify)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5"
-          >
-            <BadgeCheck className="w-4 h-4 text-emerald-500" />
-            Verify
-          </button>
-          <button
-            onClick={run(onUnverify)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/5"
-          >
-            <BadgeMinus className="w-4 h-4 text-yellow-500" />
-            Unverify
-          </button>
-          <button
-            onClick={run(onDelete)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="end"
+      sideOffset={6}
+      avoidCollisions
+      collisionPadding={8}
+      sticky="always"
+      className="w-44 max-w-[calc(100vw-1rem)] bg-[#2A2A2E] border-white/10 text-white"
+    >
+      <DropdownMenuItem disabled={pending} onSelect={onVerify} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <BadgeCheck className="w-4 h-4 text-emerald-500" />
+        Verify User
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={pending} onSelect={onUnverify} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <BadgeMinus className="w-4 h-4 text-yellow-500" />
+        Unverify User
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={pending} onSelect={onDelete} className="cursor-pointer text-red-400 focus:bg-white/10 focus:text-red-400">
+        <Trash2 className="w-4 h-4" />
+        Delete
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 export const ManageEmployers = () => {
+  const [profileSubject, setProfileSubject] = useState(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
@@ -102,11 +87,20 @@ export const ManageEmployers = () => {
     totalPages: 1,
   });
 
-  const fetchEmployers = async () => {
+  const badges = useAdminBadgeActions({
+    refresh: () => fetchEmployers(),
+    onSaved(_type, account) {
+      setEmployers(rows => rows.map(row => String(row._id) === account._id ? { ...row, ...account } : row));
+    },
+  });
+  const beginBadgeRead = badges.beginRead;
+
+  const fetchEmployers = useCallback(async () => {
+    const read = beginBadgeRead();
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("adminToken");
+      const token = read.token;
 
       const params = new URLSearchParams({
         page: page.toString(),
@@ -125,48 +119,32 @@ export const ManageEmployers = () => {
       const res = await axios.get(
         `${API_BASE_URL}/api/admin/employers?${params}`,
         {
+          signal: read.signal,
           headers: {
             Authorization: `Bearer ${token}`,
           },
         },
       );
+      if (!read.current()) return false;
 
       setEmployers(res.data.data || []);
       setPagination(res.data.pagination);
+      return true;
     } catch (error) {
+      if (!read.current()) return false;
       console.error("Fetch employers error:", error);
 
       toast.error(error.response?.data?.message || "Failed to load employers");
     } finally {
-      setLoading(false);
+      if (read.current()) setLoading(false);
+      read.finish();
     }
-  };
+  }, [beginBadgeRead, page, sort, search]);
+
 
   useEffect(() => {
     fetchEmployers();
-  }, [page, sort, search]);
-
-  const setVerification = async (id, verified) => {
-    try {
-      const token = localStorage.getItem("adminToken");
-
-      await axios.patch(
-        `${API_BASE_URL}/api/admin/employers/${id}/verification`,
-        { verified },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      toast.success(verified ? "Employer verified" : "Employer unverified");
-
-      fetchEmployers();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update employer");
-    }
-  };
+  }, [fetchEmployers]);
 
   const deleteEmployer = async (id) => {
     try {
@@ -190,6 +168,7 @@ export const ManageEmployers = () => {
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminProfileDialog subject={profileSubject} onClose={() => setProfileSubject(null)} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
         <h1 className="text-2xl md:text-3xl font-semibold text-white">
@@ -215,7 +194,7 @@ export const ManageEmployers = () => {
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-white/5">
                 <th className="pb-3 font-medium">Employers</th>
-                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 font-medium">Badge</th>
                 <th className="pb-3 font-medium">Date Joined</th>
                 <th className="pb-3 font-medium text-right">Action</th>
               </tr>
@@ -243,11 +222,7 @@ export const ManageEmployers = () => {
                   }`.trim() ||
                   "Unnamed Employer";
 
-                const employerStatus = employer.isVerified
-                  ? "Verified"
-                  : employer.paymentStatus === "pending"
-                    ? "Pending"
-                    : "Unverified";
+                const employerStatus = badgeLabel(employer);
 
                 return (
                   <tr key={employer._id}>
@@ -292,11 +267,19 @@ export const ManageEmployers = () => {
                     </td>
 
                     <td className="py-5 text-right">
-                      <RowMenu
-                        onVerify={() => setVerification(employer._id, true)}
-                        onUnverify={() => setVerification(employer._id, false)}
-                        onDelete={() => deleteEmployer(employer._id)}
-                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <RowMenu
+                          pending={badges.pending("employer", employer._id)}
+                          onVerify={() => badges.setBadge("employer", employer._id, true)}
+                          onUnverify={() => badges.setBadge("employer", employer._id, false)}
+                          onDelete={() => deleteEmployer(employer._id)}
+                        />
+                        <button type="button" title="View Profile" aria-label={`View profile for ${employerName}`}
+                          onClick={event => setProfileSubject({ type: "employer", id: employer._id, trigger: event.currentTarget })}
+                          className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

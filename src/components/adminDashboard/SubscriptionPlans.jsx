@@ -4,14 +4,11 @@ import {
   Briefcase,
   ScanSearch,
   Gift,
-  MoreVertical,
-  XCircle,
-  ArrowDownCircle,
-  Send,
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import { SubscriptionActionMenu } from "./SubscriptionActionMenu";
 import { SubscriptionDetailModal } from "./SubscriptionDetailModal";
 import { API_BASE_URL } from "../utils/api";
 
@@ -77,63 +74,6 @@ const getAvatarUrl = (avatar) => {
   return avatar.url || null;
 };
 
-const RowMenu = ({ row }) => {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((value) => !value)}
-        className="text-gray-400 hover:text-white p-1"
-      >
-        <MoreVertical className="w-4 h-4" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20">
-          <button
-            onClick={() => {
-              toast.info(
-                "Subscription cancellation will be connected to Flutterwave subscription management."
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-white/10 flex items-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancel Subscription
-          </button>
-
-          <button
-            onClick={() => {
-              toast.info(
-                "Downgrade will be connected after the Flutterwave subscription plan update flow is implemented."
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 flex items-center gap-2"
-          >
-            <ArrowDownCircle className="w-4 h-4" />
-            Downgrade Subscription
-          </button>
-
-          <button
-            onClick={() => {
-              toast.info(
-                "Invoice sending will be connected to the Qnduit email service."
-              );
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Send Invoice
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const SubscriptionTable = ({
   title,
@@ -216,7 +156,7 @@ const SubscriptionTable = ({
 
                 <td className="py-4">
                   <div className="flex items-center justify-end gap-2">
-                    <RowMenu row={row} />
+                    <SubscriptionActionMenu />
 
                     <button
                       onClick={() => onViewDetails(row)}

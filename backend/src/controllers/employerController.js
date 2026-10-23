@@ -1,3 +1,4 @@
+import { verificationBadgeDTO } from "../services/verificationBadge.js";
 import Employer from "../models/Employer.js";
 import { employerGallerySelection } from "../utils/employerGallery.js";
 import Talent from "../models/Talent.js";
@@ -335,13 +336,14 @@ export const getEmployerProfile = async (req, res) => {
       "aboutCompany", "introVideo", "address", "location", "mapLocation",
       "accountType", "displayName", "aboutYou", "socialNetworks", "logo", "gallery", "geoLocation",
     ];
-    const employer = await Employer.findById(id).select(profileFields.join(" "));
+    const employer = await Employer.findById(id).select(profileFields.join(" ") + " verificationBadgeOverride");
 
     if (!employer)
       return res.status(404).json({ message: "Employer not found" });
 
     const profile = {
       ...Object.fromEntries(profileFields.map((key) => [key, employer[key]])),
+      ...verificationBadgeDTO(employer),
 
       logo: employer.logo?.url || "",
 

@@ -1,3 +1,4 @@
+import { AdminProfileDialog } from "./AdminProfileDialog";
 import React, { useState, useEffect } from "react";
 import { Eye, MapPin } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ const formatDate = (date) =>
     : "-";
 
 export const ManageCandidates = () => {
+  const [profileSubject, setProfileSubject] = useState(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("name-asc");
   const [page, setPage] = useState(1);
@@ -117,6 +119,7 @@ export const ManageCandidates = () => {
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminProfileDialog subject={profileSubject} onClose={() => setProfileSubject(null)} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
         <h1 className="text-2xl md:text-3xl font-semibold text-white">
@@ -223,9 +226,8 @@ export const ManageCandidates = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           title="View Profile"
-                          onClick={() =>
-                            toast.info(`Viewing profile for ${candidateName}`)
-                          }
+                          aria-label={`View profile for ${candidateName}`}
+                          onClick={event => setProfileSubject({ type: "talent", id: c._id, trigger: event.currentTarget })}
                           className="w-9 h-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-colors"
                         >
                           <Eye className="w-4 h-4" />

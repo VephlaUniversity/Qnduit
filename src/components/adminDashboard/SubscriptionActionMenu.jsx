@@ -1,54 +1,43 @@
-import React, { useState, useRef, useEffect } from "react";
 import { MoreVertical, XCircle, ArrowDownCircle, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
+
+const unavailable = (action) => () => toast.info(`${action} is not connected to the backend yet.`);
 
 export const SubscriptionActionMenu = ({
-  onCancel,
-  onDowngrade,
-  onSendInvoice,
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const item = (Icon, label, handler, danger) => (
-    <button
-      onClick={() => {
-        handler?.();
-        setOpen(false);
-      }}
-      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 hover:bg-white/10 transition-colors ${
-        danger ? "text-red-500" : "text-gray-200"
-      }`}
-    >
-      <Icon className="w-4 h-4 flex-shrink-0" />
-      {label}
-    </button>
-  );
-
-  return (
-    <div className="relative" ref={ref}>
+  onCancel = unavailable("Subscription cancellation"),
+  onDowngrade = unavailable("Subscription downgrade"),
+  onSendInvoice = unavailable("Invoice sending"),
+}) => (
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        aria-label="Subscription actions"
         className="text-gray-400 hover:text-white transition-colors p-1"
       >
         <MoreVertical className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 mt-1 w-52 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          {item(XCircle, "Cancel Subscription", onCancel, true)}
-          {item(ArrowDownCircle, "Downgrade Subscription", onDowngrade)}
-          {item(Receipt, "Send Invoice", onSendInvoice)}
-        </div>
-      )}
-    </div>
-  );
-};
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="end"
+      sideOffset={6}
+      avoidCollisions
+      collisionPadding={8}
+      sticky="always"
+      className="w-56 max-w-[calc(100vw-1rem)] bg-[#2A2A2E] border-white/10 text-white"
+    >
+      <DropdownMenuItem onSelect={onCancel} className="cursor-pointer text-red-500 focus:bg-white/10 focus:text-red-500">
+        <XCircle className="w-4 h-4" /> Cancel Subscription
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={onDowngrade} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <ArrowDownCircle className="w-4 h-4" /> Downgrade Subscription
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={onSendInvoice} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <Receipt className="w-4 h-4" /> Send Invoice
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 export default SubscriptionActionMenu;

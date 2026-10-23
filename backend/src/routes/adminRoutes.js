@@ -2,6 +2,8 @@ import express from "express";
 
 import {
   getAdminDashboard,
+  getAdminTalentProfile,
+  getAdminEmployerProfile,
 
   getAdminTalents,
   updateTalentStatus,
@@ -31,6 +33,12 @@ import {
 
 const router = express.Router();
 
+// Include authorization/validation failures in the detail cache policy too.
+router.use((req, res, next) => {
+  if (req.method === "GET" && /^\/(talents|employers)\/[^/]+\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
+  next();
+});
+
 router.use(protect);
 router.use(authorize("admin"));
 
@@ -44,6 +52,7 @@ router.get(
   "/talents",
   getAdminTalents
 );
+router.get("/talents/:id", getAdminTalentProfile);
 
 router.patch(
   "/talents/:id/status",
@@ -64,6 +73,7 @@ router.get(
   "/employers",
   getAdminEmployers
 );
+router.get("/employers/:id", getAdminEmployerProfile);
 
 router.patch(
   "/employers/:id/status",

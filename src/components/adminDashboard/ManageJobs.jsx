@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Flag,
   Trash2,
@@ -14,7 +14,11 @@ import { PaginationBar } from "./PaginationBar";
 import { Modal } from "./Modal";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import { formatJobDeadline, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
+import { jobDateKey, lagosDateKey } from "../utils/jobDeadline";
+
+import { formatAdminProfileDate } from "../utils/adminProfile";
+import { safeText } from "../utils/userMessage";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 
 const statusStyle = {
   Published: "bg-emerald-600/15 text-emerald-500",
@@ -24,19 +28,17 @@ const statusStyle = {
 };
 
 const formatDate = (date) => {
-  if (!date) return "Not specified";
+  const formatted = formatAdminProfileDate(date);
+  return formatted === "Not provided" ? "Not specified" : formatted;
+};
 
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "Not specified";
-  }
-
-  return parsedDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+const deleteErrorMessage = (error) => {
+  const status = error.response?.status;
+  if (status === 401) return "Your admin session expired. Please sign in again.";
+  if (status === 403) return "You are not authorized to delete this job.";
+  if (status === 404) return "This job is no longer available. Refresh the list.";
+  if (status === 429) return safeText(error.response?.data?.message, "Too many requests. Please wait and try again.");
+  return "Deletion could not be confirmed. Refresh the list before trying again.";
 };
 
 const getJobStatus = (job) => {
@@ -65,6 +67,16 @@ export const ManageJobs = () => {
   const [activeJob, setActiveJob] = useState(null);
   const [loading, setLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const deleteSelection = useRef(null);
+  const deleteOperation = useRef(null);
+  const deleteTrigger = useRef(null);
+  const cancelDeleteButton = useRef(null);
+  const heading = useRef(null);
+
+  useEffect(() => () => deleteOperation.current?.controller.abort(), []);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -152,34 +164,58 @@ export const ManageJobs = () => {
     }
   };
 
-  const deleteJob = async (job) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${job.jobTitle}"?`,
-    );
+  const closeDeleteDialog = () => {
+    deleteSelection.current = null;
+    setDeleteTarget(null);
+    setDeleteError("");
+  };
 
-    if (!confirmed) return;
+  const openDeleteDialog = (job, trigger) => {
+    if (deleteOperation.current) return;
+    deleteTrigger.current = trigger;
+    deleteSelection.current = job;
+    setDeleteError("");
+    setDeleteTarget(job);
+  };
+
+  const deleteJob = async () => {
+    const job = deleteSelection.current;
+    if (!job || deleteOperation.current) return;
+    const token = localStorage.getItem("adminToken");
+    const operation = { controller: new AbortController() };
+    deleteOperation.current = operation;
+    setDeletePending(true);
+    setDeleteError("");
+    const current = () => !operation.controller.signal.aborted && localStorage.getItem("adminToken") === token;
 
     try {
-      await axios.delete(`${API_BASE_URL}/api/admin/jobs/${job._id}`, {
-        headers: getAuthHeaders(),
+      const { data } = await axios.delete(`${API_BASE_URL}/api/admin/jobs/${job._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: operation.controller.signal,
       });
+      if (!current()) return;
+      if (data?.success !== true) throw new Error("Deletion was not confirmed");
 
       toast.success(`"${job.jobTitle}" deleted`);
-
-      if (activeJob?._id === job._id) {
-        setActiveJob(null);
-      }
+      closeDeleteDialog();
+      setActiveJob(previous => previous?._id === job._id ? null : previous);
 
       // Refresh the current page and its pagination.
       if (jobs.length === 1 && page > 1) {
-        setPage((current) => current - 1);
+        setPage((previous) => previous - 1);
       } else {
-        fetchJobs();
+        await fetchJobs();
       }
     } catch (error) {
-      console.error("Delete job error:", error);
-
-      toast.error(error.response?.data?.message || "Failed to delete job");
+      if (!current() || axios.isCancel(error)) return;
+      const message = deleteErrorMessage(error);
+      if (deleteSelection.current?._id === job._id) setDeleteError(message);
+      toast.error(message);
+    } finally {
+      if (deleteOperation.current === operation) {
+        deleteOperation.current = null;
+        setDeletePending(false);
+      }
     }
   };
 
@@ -219,7 +255,7 @@ export const ManageJobs = () => {
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full" />
-        <h1 className="text-2xl md:text-3xl font-semibold text-white">
+        <h1 ref={heading} tabIndex={-1} className="text-2xl md:text-3xl font-semibold text-white">
           Manage Jobs
         </h1>
       </div>
@@ -304,7 +340,7 @@ export const ManageJobs = () => {
                       </div>
 
                       <div className="text-gray-500">
-                        Expiry date: {formatJobDeadline(job.deadlineDate, "Not specified")}
+                        Expiry date: {formatDate(jobDateKey(job.deadlineDate))}
                       </div>
                     </td>
 
@@ -334,8 +370,10 @@ export const ManageJobs = () => {
 
                         <button
                           title="Delete Job"
-                          onClick={() => deleteJob(job)}
-                          className="w-9 h-9 rounded-sm bg-red-600 hover:bg-red-700 flex items-center justify-center text-white transition-colors"
+                          aria-label={`Delete job ${job.jobTitle || "Untitled job"}`}
+                          disabled={deletePending}
+                          onClick={event => openDeleteDialog(job, event.currentTarget)}
+                          className="w-9 h-9 rounded-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 flex items-center justify-center text-white transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -361,6 +399,33 @@ export const ManageJobs = () => {
           onChange={setPage}
         />
       </div>
+
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) closeDeleteDialog(); }}>
+        <DialogContent className="border-white/10 bg-[#1A1A1E] text-white"
+          onOpenAutoFocus={event => { event.preventDefault(); cancelDeleteButton.current?.focus({ preventScroll: true }); }}
+          onCloseAutoFocus={event => {
+            event.preventDefault();
+            const trigger = deleteTrigger.current;
+            (trigger?.isConnected && !trigger.disabled ? trigger : heading.current)?.focus({ preventScroll: true });
+          }}>
+          <DialogHeader>
+            <DialogTitle>Delete job?</DialogTitle>
+            <DialogDescription className="break-words">
+              Are you sure you want to remove “<strong className="font-bold text-white">{deleteTarget?.jobTitle || "Untitled job"}</strong>” from the available listings?
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && <p role="alert" className="text-sm text-red-400">{deleteError}</p>}
+          {deletePending && <p role="status" aria-live="polite" className="text-sm text-gray-400">Deleting job…</p>}
+          <div className="flex justify-end gap-3">
+            <button ref={cancelDeleteButton} type="button" onClick={closeDeleteDialog}
+              className="min-h-11 rounded border border-white/20 px-4">Cancel</button>
+            <button type="button" disabled={deletePending} aria-busy={deletePending} onClick={deleteJob}
+              className="min-h-11 rounded bg-red-600 px-4 hover:bg-red-700 disabled:opacity-50">
+              {deletePending ? "Deleting…" : "Delete Job"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Modal
         open={!!activeJob}
@@ -417,7 +482,7 @@ export const ManageJobs = () => {
                       Expiry date
                     </span>
                     <span className="text-white font-medium">
-                      {formatJobDeadline(activeJob.deadlineDate, "Not specified")}
+                      {formatDate(jobDateKey(activeJob.deadlineDate))}
                     </span>
                   </div>
 

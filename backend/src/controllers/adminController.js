@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+import { ADMIN_PROFILE_FIELDS, adminProfileDTO } from "../services/adminProfile.js";
+import { verificationBadgeDTO, withVerificationBadge } from "../services/verificationBadge.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 import Job from "../models/Job.js";
@@ -6,6 +9,25 @@ import TalentSubscription from "../models/TalentSubscription.js";
 import EmployerSubscription from "../models/EmployerSubscription.js";
 import TalentPayment from "../models/TalentPayment.js";
 import EmployerPayment from "../models/EmployerPayment.js";
+
+const adminProfileDetail = (Model, type) => async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
+  if (req.user?.role !== "admin" || !/^[a-f\d]{24}$/i.test(String(req.user?._id || ""))) {
+    return res.status(403).json({ success: false, code: "ADMIN_REQUIRED", message: "Admin access is required." });
+  }
+  if (!/^[a-f\d]{24}$/i.test(req.params.id || "")) {
+    return res.status(400).json({ success: false, code: "INVALID_PROFILE_ID", message: "Invalid profile ID." });
+  }
+  try {
+    const account = await Model.findById(req.params.id).select(ADMIN_PROFILE_FIELDS[type]).lean();
+    if (!account) return res.status(404).json({ success: false, code: "PROFILE_NOT_FOUND", message: "Account not found." });
+    return res.json({ success: true, profile: adminProfileDTO(type, account) });
+  } catch {
+    return res.status(500).json({ success: false, code: "PROFILE_SERVICE_ERROR", message: "Unable to load account details. Please try again." });
+  }
+};
+export const getAdminTalentProfile = adminProfileDetail(Talent, "talent");
+export const getAdminEmployerProfile = adminProfileDetail(Employer, "employer");
 
 // ADMIN DASHBOARD
 
@@ -54,7 +76,7 @@ export const getAdminDashboard = async (req, res) => {
 
       Talent.find()
         .select(
-          "firstName lastName fullName email jobTitle location isVerified accountStatus createdAt avatar"
+          "firstName lastName fullName email jobTitle location isVerified verificationBadgeOverride accountStatus createdAt avatar"
         )
         .sort({ createdAt: -1 })
         .limit(5)
@@ -62,7 +84,7 @@ export const getAdminDashboard = async (req, res) => {
 
       Employer.find()
         .select(
-          "firstName lastName companyName displayName email location isVerified accountStatus createdAt logo paymentStatus"
+          "firstName lastName companyName displayName email location isVerified verificationBadgeOverride accountStatus createdAt logo paymentStatus"
         )
         .sort({ createdAt: -1 })
         .limit(5)
@@ -98,8 +120,8 @@ export const getAdminDashboard = async (req, res) => {
 
       chartData,
 
-      recentCandidates: recentTalents,
-      recentEmployers,
+      recentCandidates: recentTalents.map(withVerificationBadge),
+      recentEmployers: recentEmployers.map(withVerificationBadge),
       recentJobs,
     });
   } catch (error) {
@@ -143,7 +165,7 @@ export const getAdminTalents = async (req, res) => {
     const [talents, total] = await Promise.all([
       Talent.find(filter)
         .select(
-          "firstName lastName fullName email jobTitle location isVerified accountStatus createdAt avatar"
+          "firstName lastName fullName email jobTitle location isVerified verificationBadgeOverride accountStatus createdAt avatar"
         )
         .sort(sort)
         .skip((pageNumber - 1) * limitNumber)
@@ -155,7 +177,7 @@ export const getAdminTalents = async (req, res) => {
 
     res.json({
       success: true,
-      data: talents,
+      data: talents.map(withVerificationBadge),
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -246,42 +268,36 @@ export const deleteTalent = async (req, res) => {
   }
 };
 
-// TALENT VERIFICATION
-export const updateTalentVerification = async (req, res) => {
+// Both canonical and compatibility routes use this same badge-only action.
+const updateVerificationBadge = (Model, responseKey, label) => async (req, res) => {
+  // Defense in depth: route guards are mandatory too.
+  if (!req.user || req.user.role !== "admin" || !mongoose.isValidObjectId(req.user._id)) {
+    return res.status(403).json({ success: false, message: "Admin authorization is required." });
+  }
+  const { id } = req.params;
+  const verified = req.body?.verified;
+  if (!mongoose.isValidObjectId(id) || typeof verified !== "boolean") {
+    return res.status(400).json({ success: false, message: "A valid account ID and boolean verified value are required." });
+  }
   try {
-    const { id } = req.params;
-    const { verified } = req.body;
-
-    const talent = await Talent.findById(id);
-
-    if (!talent) {
-      return res.status(404).json({
-        success: false,
-        message: "Talent not found",
-      });
-    }
-
-    talent.isVerified = Boolean(verified);
-
-    await talent.save();
-
-    res.json({
+    const account = await Model.findByIdAndUpdate(id, { $set: {
+      verificationBadgeOverride: verified,
+      verificationBadgeDecidedBy: req.user._id,
+      verificationBadgeDecidedAt: new Date(),
+    } }, { new: true, runValidators: true }).select("_id verificationBadgeOverride").lean();
+    if (!account) return res.status(404).json({ success: false, message: `${label} not found.` });
+    return res.json({
       success: true,
-      message: talent.isVerified
-        ? "Candidate verified successfully"
-        : "Candidate unverified successfully",
-      talent,
+      message: `${label} badge ${verified ? "granted" : "removed"}.`,
+      [responseKey]: { _id: String(account._id), ...verificationBadgeDTO(account) },
     });
   } catch (error) {
-    console.error("Update talent verification error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update candidate verification",
-    });
+    console.error("Update verification badge error:", error);
+    return res.status(500).json({ success: false, message: "Unable to update verification badge." });
   }
 };
 
+export const updateTalentVerification = updateVerificationBadge(Talent, "talent", "Candidate");
 
 // EMPLOYERS
 export const getAdminEmployers = async (req, res) => {
@@ -315,7 +331,7 @@ export const getAdminEmployers = async (req, res) => {
     const [employers, total] = await Promise.all([
       Employer.find(filter)
         .select(
-          "firstName lastName companyName displayName email companyIndustry location address isVerified accountStatus createdAt logo paymentStatus selectedPlan"
+          "firstName lastName companyName displayName email companyIndustry location address isVerified verificationBadgeOverride accountStatus createdAt logo paymentStatus selectedPlan"
         )
         .sort(sort)
         .skip((pageNumber - 1) * limitNumber)
@@ -327,7 +343,7 @@ export const getAdminEmployers = async (req, res) => {
 
     res.json({
       success: true,
-      data: employers,
+      data: employers.map(withVerificationBadge),
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -392,41 +408,7 @@ export const updateEmployerStatus = async (req, res) => {
   }
 };
 
-//EMPLOYER VERIFICATION
-export const updateEmployerVerification = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { verified } = req.body;
-
-    const employer = await Employer.findById(id);
-
-    if (!employer) {
-      return res.status(404).json({
-        success: false,
-        message: "Employer not found",
-      });
-    }
-
-    employer.isVerified = Boolean(verified);
-
-    await employer.save();
-
-    res.json({
-      success: true,
-      message: employer.isVerified
-        ? "Employer verified successfully"
-        : "Employer unverified successfully",
-      employer,
-    });
-  } catch (error) {
-    console.error("Update employer verification error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update employer verification",
-    });
-  }
-};
+export const updateEmployerVerification = updateVerificationBadge(Employer, "employer", "Employer");
 
 // DELETE EMPLOYER
 export const deleteEmployer = async (req, res) => {

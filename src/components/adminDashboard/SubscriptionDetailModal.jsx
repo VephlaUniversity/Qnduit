@@ -7,19 +7,21 @@ import {
   Layers,
   DollarSign,
   Briefcase,
+  UserRound,
 } from "lucide-react";
 import { Modal } from "./Modal";
+import { formatAdminProfileDate } from "../utils/adminProfile";
 
 const Field = (props) => {
   const Icon = props.icon;
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex min-w-0 items-start gap-3">
       <Icon className="w-5 h-5 text-blue-500 flex-shrink-0" />
-      <div>
+      <div className="min-w-0 flex-1">
         <div className="text-xs uppercase tracking-wide text-gray-500">
           {props.label}
         </div>
-        <div className="text-white font-medium">{props.value}</div>
+        <div className="text-white font-medium [overflow-wrap:anywhere]">{props.value}</div>
       </div>
     </div>
   );
@@ -29,7 +31,7 @@ const Field = (props) => {
 // (Organization Type) and candidates (Job Role) without duplicating markup.
 export const SubscriptionDetailModal = (props) => {
   const { subject, avatarIcon, avatarSrc, onClose } = props;
-  const AvatarIcon = avatarIcon;
+  const AvatarIcon = avatarIcon || UserRound;
   return (
   <Modal open={!!subject} onClose={onClose} maxWidth="max-w-2xl">
     {subject && (
@@ -46,7 +48,7 @@ export const SubscriptionDetailModal = (props) => {
               <AvatarIcon className="w-7 h-7 text-white" />
             </div>
           )}
-          <div>
+          <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
             <h2 className="text-xl font-semibold text-white">
               {subject.name}
             </h2>
@@ -55,8 +57,8 @@ export const SubscriptionDetailModal = (props) => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-6">
-          <Field icon={Calendar} label="Start Date:" value={subject.startDate} />
-          <Field icon={Calendar} label="End Date:" value={subject.endDate} />
+          <Field icon={Calendar} label="Start Date:" value={formatAdminProfileDate(subject.startDate)} />
+          <Field icon={Calendar} label="End Date:" value={formatAdminProfileDate(subject.endDate)} />
           <Field icon={Mail} label="Email" value={subject.email} />
           <Field icon={Circle} label="Status" value={subject.status} />
           <Field
@@ -68,7 +70,7 @@ export const SubscriptionDetailModal = (props) => {
           <Field
             icon={Calendar}
             label="Last Payment:"
-            value={subject.lastPayment}
+            value={formatAdminProfileDate(subject.lastPayment)}
           />
           <Field icon={DollarSign} label="Amount" value={subject.amount} />
           <Field

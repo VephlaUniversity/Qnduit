@@ -59,6 +59,10 @@ const employerSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Admin badge only. isVerified remains the legacy email/login/access flag.
+    verificationBadgeOverride: { type: Boolean, default: null },
+    verificationBadgeDecidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", select: false },
+    verificationBadgeDecidedAt: { type: Date, select: false },
     verificationCode: { 
       type: String 
     },

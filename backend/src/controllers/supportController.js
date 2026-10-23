@@ -270,7 +270,7 @@ export const updateTicketStatus = async (req, res) => {
 export const replyToTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const message = String(req.body.message || "").trim();
+    const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
 
     if (!mongoose.isValidObjectId(ticketId)) {
       return res.status(400).json({
@@ -301,8 +301,8 @@ export const replyToTicket = async (req, res) => {
       adminName: getAccountName(req.user),
     });
 
-    // Match the existing UI's behavior after sending a response.
-    ticket.status = "Resolved";
+    // Only append the reply. Leaving status untouched also preserves concurrent
+    // explicit status updates: Mongoose saves modified paths, not the snapshot.
     await ticket.save();
 
     return res.json({

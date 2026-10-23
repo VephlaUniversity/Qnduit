@@ -1,4 +1,5 @@
 import express from "express";
+import { createApiRateLimits } from "./middleware/apiRateLimits.js";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -46,24 +47,14 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Retry-After", "RateLimit-Policy", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "RateLimit-Scope", "Date"],
   })
 );
 
 app.use(helmet());
 app.use(morgan("dev"));
 
-const globalApiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  limit: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many requests. Please try again later.",
-  },
-});
-
-app.use("/api", globalApiLimiter);
+app.use("/api", createApiRateLimits());
 
 // Flutter webhook
 app.post(
