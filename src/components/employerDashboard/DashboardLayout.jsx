@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/apiFetch";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
@@ -138,7 +139,7 @@ export const DashboardLayout = ({
             ? `${API_BASE_URL}/api/jobs?q=${encodeURIComponent(trimmed)}`
             : `${API_BASE_URL}/api/gen/search?userType=talent&query=${encodeURIComponent(trimmed)}`;
 
-        const response = await fetch(searchUrl, {
+        const response = await apiFetch(searchUrl, {
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",

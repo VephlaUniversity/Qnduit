@@ -83,7 +83,9 @@ export const NotificationPop = ({ children }) => {
         record.failures++;
         record.expired = error.response?.status === 401;
         delay = Math.min(120000, 15000 * 2 ** Math.min(record.failures, 3));
-        setResult(previous => ({ ...previous, scope, status: "error", total: null,
+        setResult(previous => ({ ...previous, scope,
+          status: error.response?.status === 429 && previous.status === "ready" ? "ready" : "error",
+          total: error.response?.status === 429 ? previous.total : null,
           items: record.expired ? [] : previous.items,
           feedback: record.expired ? "Your session has expired. Sign in again." : "Unable to load notifications. Please try again." }));
       } finally { record.busy = false; schedule(record.immediate ? 0 : delay); }

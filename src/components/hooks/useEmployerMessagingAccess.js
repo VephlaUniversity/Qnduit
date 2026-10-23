@@ -45,7 +45,9 @@ function createAccessStore(token, key) {
             if (typeof data?.allowed !== "boolean") throw new Error("Invalid access response");
             publish(data.allowed ? "allowed" : "restricted");
           },
-          onSuccess() {}, onError: () => publish("error"), onUnauthorized: () => publish("error"),
+          onSuccess() {},
+          onError: error => { if (error?.response?.status !== 429) publish("error"); },
+          onUnauthorized: () => publish("error"),
         });
         loop.wake();
       }

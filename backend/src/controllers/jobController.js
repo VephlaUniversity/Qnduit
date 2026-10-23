@@ -1,4 +1,5 @@
 import Job from "../models/Job.js";
+import { nonDeletedJobFilter } from "../services/jobVisibility.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
 import { checkEmployerJobAccess, createEmployerJob } from "../services/employerJobAccess.js";
@@ -102,7 +103,18 @@ export const createJob = async (req, res) => {
   }
 };
 
+// Scalar/object fields accepted by the existing form/update API. Salary, deadline
+// and media use their existing validators/mappers below; ownership and deletion
+// state are never taken from the request body.
+const editableJobFields = [
+  "jobTitle", "jobDescription", "category", "jobCategory", "jobApplyType",
+  "workType", "experience", "careerLevel", "qualification", "address", "location",
+  "geoLocation", "status",
+];
+
 export const updateJob = async (req, res) => {
+  const newAssets = [];
+  let writeAttempted = false;
   try {
     const { id } = req.params;
     const employerId = req.user._id;
@@ -110,6 +122,7 @@ export const updateJob = async (req, res) => {
     const job = await Job.findOne({
       _id: id,
       employer: employerId,
+      ...nonDeletedJobFilter(),
     });
 
     if (!job) return res.status(404).json({ message: "Job not found" });
@@ -135,41 +148,45 @@ export const updateJob = async (req, res) => {
           message: "Please check the salary fields.",
           errors,
         });
-    // Salary needs deliberate mapping; flat form fields are not model paths.
-    const updates = Object.fromEntries(
-      Object.entries(req.body).filter(
-        ([key]) =>
-          ![
-            "salary",
-            "salaryType",
-            "minSalary",
-            "maxSalary",
-            "deadlineDate",
-            "retainedGalleryIds",
-          ].includes(key) && !key.startsWith("salary."),
-      ),
-    );
-    Object.assign(job, updates);
+    for (const field of editableJobFields) {
+      if (Object.hasOwn(req.body, field)) job.set(field, req.body[field]);
+    }
     if (Object.hasOwn(deadline, "value")) job.deadlineDate = deadline.value;
     for (const [key, value] of Object.entries(salary))
       job.set(`salary.${key}`, value);
 
     await job.validate();
     // Do not mutate saved media until every replacement upload has succeeded.
-    const media = await uploadJobMedia(req.files);
+    const media = await uploadJobMedia(req.files, { onUploaded: asset => newAssets.push(asset) });
     if (gallery.explicit || Object.hasOwn(media, "gallery")) {
       media.gallery = [...gallery.items, ...(media.gallery || [])];
     }
     Object.assign(job, media);
 
-    await job.save();
+    await job.validate();
+    writeAttempted = true;
+    const savedJob = await Job.findOneAndUpdate({
+      _id: id,
+      employer: employerId,
+      ...nonDeletedJobFilter(),
+    }, job.getChanges(), { new: true, runValidators: true });
+    if (!savedJob) {
+      await removeNewJobMedia(newAssets);
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
 
     res.json({
       success: true,
       message: "Job updated successfully",
-      job,
+      job: savedJob,
     });
   } catch (error) {
+    // A failed/partial upload or rejected update cannot own saved media. After
+    // an ambiguous database write error, retain new assets: the write may have
+    // committed even if its reply was lost. Never delete existing job assets.
+    if (!writeAttempted || ["ValidationError", "CastError"].includes(error.name)) {
+      await removeNewJobMedia(newAssets);
+    }
     jobSaveError(res, error);
   }
 };
@@ -178,7 +195,7 @@ export const getEmployerJobs = async (req, res, next) => {
   try {
     const employerId = req.user._id;
 
-    const jobs = await Job.find({ employer: employerId }).sort({
+    const jobs = await Job.find({ employer: employerId, ...nonDeletedJobFilter() }).sort({
       createdAt: -1,
     });
 
@@ -193,7 +210,7 @@ export const getEmployerJobs = async (req, res, next) => {
 
 export const getSingleJob = async (req, res, next) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findOne({ _id: req.params.id, ...nonDeletedJobFilter() });
 
     if (!job) {
       return res.status(404).json({
@@ -226,6 +243,7 @@ export const deleteJob = async (req, res, next) => {
     const job = await Job.findOneAndDelete({
       _id: id,
       employer: employerId,
+      ...nonDeletedJobFilter(),
     });
 
     if (!job) {
@@ -255,7 +273,7 @@ const queryText = (value) => (typeof value === "string" ? value : "");
 // Published, not deleted, and not past its (Africa/Lagos) deadline.
 const openJobFilter = () => ({
   status: "published",
-  isDeleted: false,
+  ...nonDeletedJobFilter(),
   $or: [
     { deadlineDate: null },
     { deadlineDate: { $exists: false } },
@@ -408,7 +426,7 @@ export const getPublicJobDetails = async (req, res, next) => {
     const job = await Job.findOne({
       _id: req.params.id,
       status: "published",
-      isDeleted: false,
+      ...nonDeletedJobFilter(),
     }).populate(
       "employer",
       "companyName logo selectedPlan companyWebsite companyEmail companyIndustry companySize location foundedYear socialNetworks",
@@ -451,7 +469,7 @@ export const getPublicJobDetails = async (req, res, next) => {
 
 export const getRelatedJobs = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findOne({ _id: req.params.id, ...nonDeletedJobFilter() });
 
     if (!job) {
       return res.status(404).json({
@@ -465,7 +483,7 @@ export const getRelatedJobs = async (req, res) => {
     const relatedJobs = await Job.find({
       _id: { $ne: job._id }, // exclude current job
       status: "published",
-      isDeleted: false,
+      ...nonDeletedJobFilter(),
       $or: [
         { location: job.location },
         { jobApplyType: job.jobApplyType },
@@ -540,7 +558,7 @@ export const contactJobPoster = async (req, res, next) => {
     const job = await Job.findOne({
       _id: req.params.id,
       status: "published",
-      isDeleted: false,
+      ...nonDeletedJobFilter(),
     }).populate("employer", "companyName companyEmail email");
 
     if (!job || !job.employer) {

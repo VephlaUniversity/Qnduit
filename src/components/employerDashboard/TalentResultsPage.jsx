@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/apiFetch";
 import { useState, useEffect, useRef } from "react";
 
 import * as Slider from "@radix-ui/react-slider";
@@ -55,7 +56,7 @@ const useCandidates = (keyword, page, limit, location, minAge, maxAge, sort, exp
           experience, qualification,
         });
 
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/gen/search?${query.toString()}`,
           {
             method: "GET",
@@ -110,7 +111,7 @@ const useCandidates = (keyword, page, limit, location, minAge, maxAge, sort, exp
           age: talent.age ?? "",
           availability:
             talent.availability || "Availability not specified",
-          verified: Boolean(talent.isVerified),
+          hasVerificationBadge: talent.hasVerificationBadge === true,
         }));
 
         if (controller.signal.aborted) return;
@@ -209,7 +210,7 @@ const TalentsResultsPage = () => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/employers/saved-candidates`, {
           signal: controller.signal,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
@@ -231,7 +232,7 @@ const TalentsResultsPage = () => {
     setSavingIds(new Set(pendingSaves.current));
     const unsave = savedIds.has(candidate.id);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/employers/saved-candidates/${encodeURIComponent(candidate.id)}`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/employers/saved-candidates/${encodeURIComponent(candidate.id)}`, {
         method: unsave ? "DELETE" : "POST",
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
@@ -294,8 +295,8 @@ const TalentsResultsPage = () => {
             <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
             <h2 className="text-white font-semibold text-lg flex items-center gap-2">
               {candidate.name}
-              {candidate.verified && (
-                <span className="text-blue-400 text-xs">⚡</span>
+              {candidate.hasVerificationBadge === true && (
+                <span className="text-blue-400 text-xs" role="img" aria-label="Admin verification badge">⚡</span>
               )}
             </h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">

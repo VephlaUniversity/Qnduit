@@ -1,9 +1,14 @@
+import { apiFetch } from "../utils/apiFetch";
 import React, { useState, useEffect } from "react";
-import { User, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { User, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { API_BASE_URL } from "../utils/api";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 export const ForgotPassword = () => {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     email: "",
@@ -99,7 +104,7 @@ export const ForgotPassword = () => {
     setErrors({});
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/auth/forgot-password`,
         {
           method: "POST",
@@ -140,7 +145,7 @@ export const ForgotPassword = () => {
     setErrors({});
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/auth/reset-password/${encodeURIComponent(resetToken)}`,
         {
           method: "POST",
@@ -154,11 +159,11 @@ export const ForgotPassword = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || data.success !== true) {
         throw new Error(data.message || "Password reset failed.");
       }
 
-      setCurrentStep(3);
+      await signOut();
       setFormData({
         email: "",
         password: "",
@@ -166,11 +171,10 @@ export const ForgotPassword = () => {
       });
 
       setResetToken("");
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-      );
+      navigate("/signin", {
+        replace: true,
+        state: { message: "Password updated. Please sign in." },
+      });
     } catch (error) {
       setErrors({
         submit: error.message || "Password reset failed.",
@@ -469,62 +473,6 @@ export const ForgotPassword = () => {
             </motion.div>
           )}
 
-          {/* Step 3 */}
-          {currentStep === 3 && (
-            <motion.div
-              key="step-3"
-              className="w-full max-w-md text-center"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -24 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              <motion.div
-                className="flex justify-center mb-6"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
-              >
-                <div className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                </div>
-              </motion.div>
-
-              <motion.h1
-                className="text-4xl font-normal text-white text-center mb-4"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.15 }}
-              >
-                Password Reset
-              </motion.h1>
-
-              <motion.p
-                className="text-gray-400 text-center mb-10"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
-              >
-                Your password has been successfully reset.
-                <br />
-                You can now sign in with your new password
-              </motion.p>
-
-              <motion.button
-                onClick={() => {
-                  setCurrentStep(1);
-                  setFormData({ email: "", password: "", confirmPassword: "" });
-                  setErrors({});
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.25 }}
-              >
-                Sign In now
-              </motion.button>
-            </motion.div>
-          )}
         </AnimatePresence>
       </div>
     </div>

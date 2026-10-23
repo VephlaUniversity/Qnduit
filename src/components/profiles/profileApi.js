@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/apiFetch";
 import { API_BASE_URL } from "../utils/api";
 import { OFFLINE_ERROR, SERVER_ERROR, safeText } from "../utils/userMessage";
 
@@ -6,7 +7,7 @@ export async function profileRequest(path, options = {}) {
     localStorage.getItem("token") || localStorage.getItem("authToken");
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await apiFetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import { AdminPasswordResetDialog } from "./AdminPasswordResetDialog";
+import { useAdminPasswordReset } from "../hooks/useAdminPasswordReset";
+import { AdminProfileDialog } from "./AdminProfileDialog";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
@@ -24,6 +27,9 @@ import {
 import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { badgeLabel } from "../utils/adminVerification";
+import { useAdminBadgeActions } from "../hooks/useAdminBadgeActions";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 
 /*const stats = [
   { icon: Briefcase, label: "Jobs", value: "158000", color: "bg-blue-600" },
@@ -132,77 +138,50 @@ const employers = [
 
 const statusColor = {
   Verified: "text-emerald-500",
-  Unverified: "text-red-500",
-  Pending: "text-yellow-500",
+  "Unverified": "text-gray-400",
 };
 
-// Row action menu — same four actions for both candidates and employers:
-// Verify User, Unverify User, Reset Password, Delete User.
-const RowActions = ({ row, onChange, onResetPassword, onDelete }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
+// Portal menus escape table overflow; non-modal mode avoids locking page scroll.
+const RowActions = ({ row, onChange, onResetPassword, onDelete, pending, resetDisabled }) => {
+  const trigger = useRef(null);
   return (
-    <div className="relative" ref={ref}>
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        ref={trigger}
+        aria-label={`Actions for ${row.name}`}
         className="text-gray-400 hover:text-white transition-colors p-1"
       >
         <MoreVertical className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          <button
-            onClick={() => {
-              onChange("Verified");
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2"
-          >
-            <BadgeCheck className="w-4 h-4" />
-            Verify User
-          </button>
-          <button
-            onClick={() => {
-              onChange("Unverified");
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <BadgeMinus className="w-4 h-4" />
-            Unverify User
-          </button>
-          <button
-            onClick={() => {
-              onResetPassword?.(row);
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <KeyRound className="w-4 h-4" />
-            Reset Password
-          </button>
-          <button
-            onClick={() => {
-              onDelete?.(row);
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete User
-          </button>
-        </div>
-      )}
-    </div>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="end"
+      sideOffset={6}
+      avoidCollisions
+      collisionPadding={8}
+      sticky="always"
+      className="w-48 max-w-[calc(100vw-1rem)] bg-[#2A2A2E] border-white/10 text-gray-200"
+    >
+      <DropdownMenuItem disabled={pending} onSelect={() => onChange(true)} className="cursor-pointer focus:bg-blue-600 focus:text-white">
+        <BadgeCheck className="w-4 h-4" />
+        Verify User
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={pending} onSelect={() => onChange(false)} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <BadgeMinus className="w-4 h-4" />
+        Unverify User
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={pending || resetDisabled} onSelect={() => onResetPassword?.(row, trigger.current)} className="cursor-pointer focus:bg-white/10 focus:text-white">
+        <KeyRound className="w-4 h-4" />
+        Reset Password
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={pending} onSelect={() => onDelete?.(row)} className="cursor-pointer text-red-500 focus:bg-white/10 focus:text-red-500">
+        <Trash2 className="w-4 h-4" />
+        Delete User
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
   );
 };
 
@@ -210,8 +189,11 @@ const SignupTable = ({
   title,
   rows,
   onRowChange,
+  isPending,
   onViewAll,
+  onViewProfile,
   onResetPassword,
+  resetDisabled,
   onDelete,
 }) => (
   <div className="bg-[#1A1A1E] rounded-lg border border-white/5 mb-8">
@@ -232,13 +214,13 @@ const SignupTable = ({
             <th className="px-6 py-3 font-medium">Email</th>
             <th className="px-6 py-3 font-medium">Date Joined</th>
             <th className="px-6 py-3 font-medium">Category</th>
-            <th className="px-6 py-3 font-medium">Status</th>
+            <th className="px-6 py-3 font-medium">Badge</th>
             <th className="px-6 py-3 font-medium text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
-          {rows.map((row, i) => (
-            <tr key={row.email} className="text-sm">
+          {rows.map((row) => (
+            <tr key={row._id} className="text-sm">
               <td className="px-6 py-4 text-white font-medium">{row.name}</td>
               <td className="px-6 py-4 text-blue-400">{row.email}</td>
               <td className="px-6 py-4 text-gray-400">{row.date}</td>
@@ -250,12 +232,14 @@ const SignupTable = ({
                 <div className="flex items-center justify-end gap-2">
                   <RowActions
                     row={row}
-                    onChange={(status) => onRowChange(i, status)}
+                    onChange={(verified) => onRowChange(row._id, verified)}
+                    pending={isPending(row._id)}
                     onResetPassword={onResetPassword}
-                    onDelete={() => onDelete(i, row)}
+                    resetDisabled={resetDisabled}
+                    onDelete={() => onDelete?.(row)}
                   />
                   <button
-                    onClick={() => toast.info(`Viewing profile for ${row.name}`)}
+                    onClick={event => onViewProfile(row._id, event.currentTarget)}
                     className="px-4 py-2 rounded-lg bg-[#2A2A2E] hover:bg-white/10 text-white text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5"
                   >
                     <Eye className="w-3.5 h-3.5" />
@@ -286,6 +270,8 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export const AdminOverview = () => {
+  const passwordReset = useAdminPasswordReset();
+  const [profileSubject, setProfileSubject] = useState(null);
   const navigate = useNavigate();
 
   const [period, setPeriod] = useState("month");
@@ -309,20 +295,32 @@ export const AdminOverview = () => {
   const [candidateRows, setCandidateRows] = useState([]);
   const [employerRows, setEmployerRows] = useState([]);
 
-  const loadDashboard = async () => {
+  const badges = useAdminBadgeActions({
+    refresh: () => loadDashboard(),
+    onSaved(type, account) {
+      const update = type === "talent" ? setCandidateRows : setEmployerRows;
+      update(rows => rows.map(row => String(row._id) === account._id ? { ...row, ...account } : row));
+    },
+  });
+  const beginBadgeRead = badges.beginRead;
+
+  const loadDashboard = useCallback(async () => {
+    const read = beginBadgeRead();
     try {
       setLoading(true);
 
-      const token = localStorage.getItem("adminToken");
+      const token = read.token;
 
       const res = await axios.get(
         `${API_BASE_URL}/api/admin/dashboard`,
         {
+          signal: read.signal,
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
+      if (!read.current()) return false;
 
       setStats(res.data.stats);
       setChartData(
@@ -336,7 +334,9 @@ export const AdminOverview = () => {
 
       setCandidateRows(res.data.recentCandidates || []);
       setEmployerRows(res.data.recentEmployers || []);
+      return true;
     } catch (error) {
+      if (!read.current()) return false;
       console.error("Admin dashboard error:", error);
 
       toast.error(
@@ -344,13 +344,15 @@ export const AdminOverview = () => {
           "Failed to load dashboard"
       );
     } finally {
-      setLoading(false);
+      if (read.current()) setLoading(false);
+      read.finish();
     }
-  };
+  }, [beginBadgeRead]);
+
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [loadDashboard]);
 
   const statCards = [
     {
@@ -396,9 +398,7 @@ export const AdminOverview = () => {
 
     category: candidate.jobTitle || "Not specified",
 
-    status: candidate.isVerified
-      ? "Verified"
-      : "Unverified",
+    status: badgeLabel(candidate),
   }));
 
   const employerTableRows = employerRows.map((employer) => ({
@@ -421,15 +421,13 @@ export const AdminOverview = () => {
     category:
       employer.companyIndustry || "Not specified",
 
-    status: employer.isVerified
-      ? "Verified"
-      : employer.paymentStatus === "pending"
-      ? "Pending"
-      : "Unverified",
+    status: badgeLabel(employer),
   }));
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminProfileDialog subject={profileSubject} onClose={() => setProfileSubject(null)} />
+      <AdminPasswordResetDialog flow={passwordReset} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
         <h1 className="text-2xl md:text-3xl font-semibold text-white">
@@ -523,6 +521,11 @@ export const AdminOverview = () => {
       <SignupTable
         title="Recent Candidate Signups"
         rows={candidateTableRows}
+        resetDisabled={passwordReset.disabled}
+        onResetPassword={(row, trigger) => passwordReset.open({ type: "talent", id: row._id, name: row.name, email: row.email, trigger })}
+        onViewProfile={(id, trigger) => setProfileSubject({ type: "talent", id, trigger })}
+        onRowChange={(id, verified) => badges.setBadge("talent", id, verified)}
+        isPending={id => badges.pending("talent", id)}
         onViewAll={() =>
           navigate("/admin-dashboard/candidates")
         }
@@ -531,6 +534,11 @@ export const AdminOverview = () => {
       <SignupTable
         title="Recent Employers Signups"
         rows={employerTableRows}
+        resetDisabled={passwordReset.disabled}
+        onResetPassword={(row, trigger) => passwordReset.open({ type: "employer", id: row._id, name: row.name, email: row.email, trigger })}
+        onViewProfile={(id, trigger) => setProfileSubject({ type: "employer", id, trigger })}
+        onRowChange={(id, verified) => badges.setBadge("employer", id, verified)}
+        isPending={id => badges.pending("employer", id)}
         onViewAll={() =>
           navigate("/admin-dashboard/employers")
         }

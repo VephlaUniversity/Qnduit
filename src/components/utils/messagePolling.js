@@ -17,7 +17,7 @@ export function startMessagePolling({ run, onError, onSuccess, onUnauthorized, i
     } catch (error) {
       if (!controller.signal.aborted && !stopped) {
         if (error.response?.status === 401) { expired = true; onUnauthorized(); }
-        else { failures++; onError(); }
+        else { failures++; onError(error); }
       }
     } finally {
       running = false;

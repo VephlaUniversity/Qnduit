@@ -1,3 +1,4 @@
+import { withVerificationBadge } from "../services/verificationBadge.js";
 import bcrypt from "bcryptjs";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
@@ -173,14 +174,14 @@ export const searchUsers = async (req, res, next) => {
       const sort = req.query.sort === "newest" ? { createdAt: -1, _id: -1 } : { _id: 1 };
       const [total, talents, savedLocations] = await Promise.all([
         Talent.countDocuments(filter),
-        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified createdAt experienceTime qualification offeredSalary salaryType")
+        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified verificationBadgeOverride createdAt experienceTime qualification offeredSalary salaryType")
           .sort(sort).skip((page - 1) * limit).limit(limit).lean(),
         Talent.distinct("location", visibleTalents),
       ]);
       const locations = [...new Map(savedLocations.filter(value => typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "location not specified")
         .map(value => [value.trim().toLowerCase(), value.trim()])).values()].sort();
       return res.json({ success: true, page, limit, total, locations, totalPages: Math.ceil(total / limit),
-        results: talents.map(talent => ({ ...talent, userType: "talent" })) });
+        results: talents.map(talent => ({ ...withVerificationBadge(talent), userType: "talent" })) });
     }
 
     if (!query) {

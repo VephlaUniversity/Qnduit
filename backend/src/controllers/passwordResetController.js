@@ -13,8 +13,10 @@ const FRONTEND_URL =
 
 const RESET_EXPIRY_MS = 15 * 60 * 1000;
 
-const getAccountByEmail = async (email) => {
+const getAccountByEmail = async (email, userType) => {
   const normalizedEmail = email.trim().toLowerCase();
+  if (userType === "talent") return Talent.findOne({ email: normalizedEmail });
+  if (userType === "employer") return Employer.findOne({ email: normalizedEmail });
 
   const talent = await Talent.findOne({
     email: normalizedEmail,
@@ -29,6 +31,10 @@ const getAccountByEmail = async (email) => {
 
 export const forgotPassword = async (req, res, next) => {
   try {
+    const { userType } = req.body;
+    if (Object.hasOwn(req.body, "userType") && !["talent", "employer"].includes(userType)) {
+      return res.status(400).json({ success: false, message: "User type must be talent or employer." });
+    }
     const email = String(req.body.email || "")
       .trim()
       .toLowerCase();
@@ -46,7 +52,7 @@ export const forgotPassword = async (req, res, next) => {
         "If an account exists with that email, password reset instructions will be sent.",
     };
 
-    const user = await getAccountByEmail(email);
+    const user = await getAccountByEmail(email, userType);
 
     if (!user) {
       return res.status(200).json(genericResponse);
@@ -91,7 +97,7 @@ export const forgotPassword = async (req, res, next) => {
           <p>If you did not request this, you can ignore this email.</p>
         `,
       });
-    } catch (emailError) {
+    } catch {
       try {
         await user.constructor.updateOne(
           {
@@ -112,7 +118,7 @@ export const forgotPassword = async (req, res, next) => {
         );
       }
 
-      throw emailError;
+      return res.status(502).json({ success: false, code: "RESET_EMAIL_FAILED", message: "Unable to send reset instructions. Please try again." });
     }
 
     return res.status(200).json(genericResponse);

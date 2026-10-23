@@ -177,7 +177,11 @@ export const AuthProvider = ({ children }) => {
     try {
       setUser(null);
       localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
       localStorage.removeItem("pendingPlanSelection");
+      // Notify request owners even when context was already signed out.
+      window.dispatchEvent(new Event("qnduit:polling-session-changed"));
     } catch (error) {
       console.error("Sign out error:", error);
       throw error;
@@ -188,6 +192,21 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
     checkAdminAuth();
   }, []);
+
+  useEffect(() => {
+    const clearRemovedUserSession = (event) => {
+      if (event.storageArea !== localStorage ||
+        (event.key !== null && !["user", "token", "authToken"].includes(event.key))) return;
+      if (!localStorage.getItem("user") ||
+        (!localStorage.getItem("token") && !localStorage.getItem("authToken"))) setUser(null);
+    };
+    window.addEventListener("storage", clearRemovedUserSession);
+    return () => window.removeEventListener("storage", clearRemovedUserSession);
+  }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new Event("qnduit:polling-session-changed"));
+  }, [user, adminUser]);
 
   const value = {
     user,

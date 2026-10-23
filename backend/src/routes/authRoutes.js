@@ -1,4 +1,5 @@
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import { loginUser } from "../controllers/authController.js";
 import {
   forgotPassword,
