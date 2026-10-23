@@ -21,36 +21,41 @@ const isoDate = value => {
   return time === null ? null : new Date(time).toISOString();
 };
 
-// Internal service: identity must come from authentication, never a browser plan.
-// Database errors deliberately propagate; an unavailable lookup is not a Free plan.
-export async function resolveSubscriptionStatus({ accountId, role, now = new Date(), session = null }) {
+// Internal loader: never serialize these account/payment documents into API DTOs.
+// Invoice reads opt into explicit billing fields; existing entitlement reads retain
+// their original selection and matching behavior.
+export async function loadSubscriptionEvidence({ accountId, role, session = null, invoice = false }) {
+  const adapter = Object.hasOwn(adapters, role) ? adapters[role] : null;
+  if (!adapter || !/^[a-f\d]{24}$/i.test(String(accountId))) throw new TypeError("A supported role and account ID are required.");
+  // Keep session operations sequential for callers using a transaction.
+  const account = await adapter.account.findById(accountId).select(invoice
+    ? "_id accountStatus selectedPlan paymentStatus email firstName lastName fullName companyName displayName"
+    : "_id accountStatus selectedPlan paymentStatus").session(session).lean();
+  let query = adapter.subscription.findOne({ [adapter.ownerField]: accountId, ...(invoice ? { status: "active" } : {}) });
+  if (invoice) query = query.sort({ currentPeriodStart: -1, createdAt: -1, _id: -1 });
+  const subscription = await query.select("plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId").session(session).lean();
+  let payment = null, ambiguousPayment = false;
+  if (subscription && (subscription.lastTxRef || subscription.lastTransactionId)) {
+    const filter = { [adapter.ownerField]: accountId, plan: subscription.plan, provider: subscription.provider, status: "successful",
+      ...(subscription.lastTxRef ? { txRef: subscription.lastTxRef } : {}),
+      ...(subscription.lastTransactionId ? { transactionId: subscription.lastTransactionId } : {}) };
+    if (invoice) {
+      const matches = await adapter.payment.find(filter).select("_id plan provider status type amount currency txRef transactionId paidAt").limit(2).session(session).lean();
+      payment = matches[0] || null; ambiguousPayment = matches.length > 1;
+    } else payment = await adapter.payment.findOne(filter).select("_id").session(session).lean();
+  }
+  return { account, subscription, payment, ambiguousPayment };
+}
+
+// Pure evaluation shared with invoice validation; its public DTO is unchanged.
+export function subscriptionStatusFromEvidence({ account, subscription, payment }, { role, now = new Date() }) {
   const adapter = Object.hasOwn(adapters, role) ? adapters[role] : null;
   const time = dateValue(now);
-  if (!adapter || !/^[a-f\d]{24}$/i.test(String(accountId)) || time === null) {
-    throw new TypeError("A supported role, account ID and valid time are required.");
-  }
-  // A transaction session must not run parallel operations.
-  const account = await adapter.account.findById(accountId)
-    .select("_id accountStatus selectedPlan paymentStatus").session(session).lean();
-  const subscription = await adapter.subscription.findOne({ [adapter.ownerField]: accountId }).select(
-    "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId"
-  ).session(session).lean();
+  if (!adapter || time === null) throw new TypeError("A supported role and valid time are required.");
   const expiry = isoDate(subscription?.currentPeriodEnd);
   const periodStart = dateValue(subscription?.currentPeriodStart);
   const periodEnd = dateValue(subscription?.currentPeriodEnd);
   const plan = subscription?.plan || "free";
-  let payment = null;
-  // Link to this subscription's activation, not an arbitrary old successful payment.
-  if (subscription && (subscription.lastTxRef || subscription.lastTransactionId)) {
-    payment = await adapter.payment.findOne({
-      [adapter.ownerField]: accountId,
-      plan: subscription.plan,
-      provider: subscription.provider,
-      status: "successful",
-      ...(subscription.lastTxRef ? { txRef: subscription.lastTxRef } : {}),
-      ...(subscription.lastTransactionId ? { transactionId: subscription.lastTransactionId } : {}),
-    }).select("_id").session(session).lean();
-  }
   let status;
   let reason;
   if (!account) { status = "missing"; reason = "account_missing"; }
@@ -87,4 +92,10 @@ export async function resolveSubscriptionStatus({ accountId, role, now = new Dat
       employerMessaging: role === "employer" && paidEligible && ["silver", "platinum"].includes(plan),
     },
   };
+}
+
+// Existing callers retain the same loading and entitlement semantics.
+export async function resolveSubscriptionStatus({ accountId, role, now = new Date(), session = null }) {
+  if (dateValue(now) === null) throw new TypeError("A valid time is required.");
+  return subscriptionStatusFromEvidence(await loadSubscriptionEvidence({ accountId, role, session }), { role, now });
 }

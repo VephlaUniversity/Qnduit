@@ -35,6 +35,14 @@ export const PaymentSuccess = () => {
   const isEmployer = location.pathname.startsWith("/employer/");
   const dashboardPath = isEmployer ? "/dashboard" : "/talent-dashboard";
 
+  if (new URLSearchParams(location.search).get("activation") === "blocked") return <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+    <div className="max-w-lg rounded-2xl border border-white/10 bg-[#1A1A1E] p-8 text-center text-white">
+      <h1 className="text-2xl mb-4">Subscription access not activated</h1>
+      <p className="text-gray-400">Check your payment and subscription status before attempting another payment.</p>
+      <Link to={dashboardPath} className="block mt-6 text-blue-400">Go to Dashboard</Link>
+    </div>
+  </div>;
+
   if (!isEmployer) return <TalentPaymentResult />;
 
   return (

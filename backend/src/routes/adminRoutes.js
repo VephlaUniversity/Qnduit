@@ -1,4 +1,7 @@
 import express from "express";
+import { previewDowngrade, requestDowngrade } from "../controllers/subscriptionDowngradeController.js";
+import { previewCancellation, cancelActiveSubscription } from "../controllers/subscriptionCancellationController.js";
+import { previewInvoice, emailInvoice } from "../controllers/subscriptionInvoiceController.js";
 
 import {
   getAdminDashboard,
@@ -35,12 +38,20 @@ const router = express.Router();
 
 // Include authorization/validation failures in the detail cache policy too.
 router.use((req, res, next) => {
+  if (/^\/subscriptions\/[^/]+\/[^/]+\/(invoice-email|cancel|downgrade)\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   if (req.method === "GET" && /^\/(talents|employers)\/[^/]+\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   next();
 });
 
 router.use(protect);
 router.use(authorize("admin"));
+
+router.get("/subscriptions/:role/:accountId/downgrade", previewDowngrade);
+router.post("/subscriptions/:role/:accountId/downgrade", requestDowngrade);
+router.get("/subscriptions/:role/:accountId/cancel", previewCancellation);
+router.post("/subscriptions/:role/:accountId/cancel", cancelActiveSubscription);
+router.get("/subscriptions/:role/:accountId/invoice-email", previewInvoice);
+router.post("/subscriptions/:role/:accountId/invoice-email", emailInvoice);
 
 
 router.get(

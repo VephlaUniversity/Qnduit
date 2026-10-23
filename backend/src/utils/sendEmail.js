@@ -1,6 +1,12 @@
 import sgMail from "@sendgrid/mail";
+import process from "node:process";
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Invoice and later subscription messages share the existing SendGrid sender.
+export const sendSubscriptionEmail = ({ to, subject, text, html }) => sgMail.send({
+  to, from: { email: process.env.SENDGRID_FROM_EMAIL, name: "Qnduit Jobs" }, subject, text, html,
+});
 
 export const sendVerificationEmail = async (email, name, otp) => {
   try {
