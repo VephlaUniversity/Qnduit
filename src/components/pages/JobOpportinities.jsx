@@ -22,6 +22,8 @@ import {
   countActiveFilters,
 } from "../utils/jobFilters";
 import { CTA } from "../home/CTA";
+import { SuggestInput } from "./SuggestInput";
+import { rankJobs } from "../utils/jobSearch";
 import { AnimatedPage } from "../AnimatedPage";
 import axios from "axios";
 import { toast } from "sonner";
@@ -125,7 +127,8 @@ export const JobOpportunities = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        if (active) setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+        if (active)
+          setFavorites((res.data.jobs || []).map((j) => String(j.id)));
       })
       .catch(() => {});
     return () => {
@@ -142,24 +145,14 @@ export const JobOpportunities = () => {
   ].sort((a, b) => a.localeCompare(b));
 
   // Apply all active filters (sidebar + dropdown) to fetched jobs
-  const filteredJobs = (Array.isArray(jobs) ? jobs : []).filter((job) => {
-    // Keyword: the server already matched the URL keyword (title, company, location,
-    // category), so only re-filter locally once the user edits the sidebar box.
-    if (searchKeyword && searchKeyword !== jobTitle) {
-      const q = searchKeyword.toLowerCase();
-      const match =
-        job.jobTitle?.toLowerCase().includes(q) ||
-        job.employer?.companyName?.toLowerCase().includes(q) ||
-        job.location?.toLowerCase().includes(q);
-      if (!match) return false;
-    }
+  // The keyword and location boxes use the same word-based matching as the server
+  // (spelling variants, small typos, relevance order), so results update as you type.
+  const matchedJobs = rankJobs(Array.isArray(jobs) ? jobs : [], {
+    q: searchKeyword,
+    location: locationFilter,
+  });
 
-    // Location
-    if (locationFilter) {
-      if (!job.location?.toLowerCase().includes(locationFilter.toLowerCase()))
-        return false;
-    }
-
+  const filteredJobs = matchedJobs.filter((job) => {
     // Work type (Remote / On-site / Hybrid) lives in job.workType
     if (workTypeFilter) {
       const wanted = workTypeFilter.toLowerCase().replace(/[- ]/g, "");
@@ -278,7 +271,9 @@ export const JobOpportunities = () => {
       );
     } catch (error) {
       if (/already saved/i.test(error.response?.data?.message || "")) {
-        setFavorites((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
+        setFavorites((prev) =>
+          prev.includes(jobId) ? prev : [...prev, jobId],
+        );
       } else {
         toast.error(
           friendlyError(
@@ -308,11 +303,21 @@ export const JobOpportunities = () => {
 
   const handleFindJobs = () => applySearch();
 
-  const handleSearchKeyDown = (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      applySearch();
+  // A suggestion was chosen: search right away.
+  const handlePickSuggestion = (kind, text) => {
+    if (kind === "location") {
+      setLocationFilter(text);
+      // the typed words were part of a place name, so clear them from the keyword box
+      applySearch({ keyword: "", location: text });
+    } else {
+      setSearchKeyword(text);
+      applySearch({ keyword: text });
     }
+  };
+
+  const handlePickLocation = (_kind, text) => {
+    setLocationFilter(text);
+    applySearch({ location: text });
   };
 
   const resetFilters = () => {
@@ -357,7 +362,10 @@ export const JobOpportunities = () => {
               {job.employer?.companyName}
             </div>
             <h3 className="text-white text-lg font-semibold mb-2">
-              <Link to={jobPath(job)} className="hover:text-[#3B82F6] transition-colors">
+              <Link
+                to={jobPath(job)}
+                className="hover:text-[#3B82F6] transition-colors"
+              >
                 {job.jobTitle}
               </Link>
               {job.verified && (
@@ -471,38 +479,44 @@ export const JobOpportunities = () => {
             <div className="relative">
               <div className="bg-white rounded-lg p-2 flex items-center gap-2 md:gap-4">
                 {/* Job title input */}
-                <div className="flex-1 min-w-0 flex items-center gap-3">
-                  <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Job title, keywords or company"
-                    value={searchKeyword}
-                    onChange={(e) => {
-                      setSearchKeyword(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    onKeyDown={handleSearchKeyDown}
-                    className="flex-1 outline-none text-gray-900 text-sm min-w-0"
-                  />
-                </div>
+                <SuggestInput
+                  mode="keyword"
+                  theme="light"
+                  wrapperClassName="relative flex-1 min-w-0 flex items-center gap-3"
+                  icon={
+                    <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  }
+                  placeholder="Job title, keywords or company"
+                  value={searchKeyword}
+                  onChange={(v) => {
+                    setSearchKeyword(v);
+                    setCurrentPage(1);
+                  }}
+                  onPick={handlePickSuggestion}
+                  onSubmit={applySearch}
+                  inputClassName="flex-1 outline-none text-gray-900 text-sm min-w-0"
+                />
 
                 <div className="hidden sm:block h-8 w-px bg-gray-300" />
 
                 {/* Location input */}
-                <div className="hidden sm:flex flex-1 items-center gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Location"
-                    value={locationFilter}
-                    onChange={(e) => {
-                      setLocationFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    onKeyDown={handleSearchKeyDown}
-                    className="flex-1 outline-none text-gray-900 text-sm min-w-0"
-                  />
-                </div>
+                <SuggestInput
+                  mode="location"
+                  theme="light"
+                  wrapperClassName="relative hidden sm:flex flex-1 items-center gap-3"
+                  icon={
+                    <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  }
+                  placeholder="Location"
+                  value={locationFilter}
+                  onChange={(v) => {
+                    setLocationFilter(v);
+                    setCurrentPage(1);
+                  }}
+                  onPick={handlePickLocation}
+                  onSubmit={applySearch}
+                  inputClassName="flex-1 outline-none text-gray-900 text-sm min-w-0"
+                />
 
                 <div className="hidden lg:block h-8 w-px bg-gray-300" />
 
@@ -606,20 +620,23 @@ export const JobOpportunities = () => {
                         <h3 className="text-white font-semibold mb-3">
                           Search
                         </h3>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Job title, keywords or company"
-                            value={searchKeyword}
-                            onChange={(e) => {
-                              setSearchKeyword(e.target.value);
-                              setCurrentPage(1);
-                            }}
-                            onKeyDown={handleSearchKeyDown}
-                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                          />
-                        </div>
+                        <SuggestInput
+                          mode="keyword"
+                          theme="dark"
+                          wrapperClassName="relative"
+                          icon={
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          }
+                          placeholder="Job title, keywords or company"
+                          value={searchKeyword}
+                          onChange={(v) => {
+                            setSearchKeyword(v);
+                            setCurrentPage(1);
+                          }}
+                          onPick={handlePickSuggestion}
+                          onSubmit={applySearch}
+                          inputClassName="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                        />
                       </div>
 
                       {/* Location */}
@@ -627,20 +644,23 @@ export const JobOpportunities = () => {
                         <h3 className="text-white font-semibold mb-3">
                           Location
                         </h3>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="City, country..."
-                            value={locationFilter}
-                            onChange={(e) => {
-                              setLocationFilter(e.target.value);
-                              setCurrentPage(1);
-                            }}
-                            onKeyDown={handleSearchKeyDown}
-                            className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
-                          />
-                        </div>
+                        <SuggestInput
+                          mode="location"
+                          theme="dark"
+                          wrapperClassName="relative"
+                          icon={
+                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          }
+                          placeholder="City, country..."
+                          value={locationFilter}
+                          onChange={(v) => {
+                            setLocationFilter(v);
+                            setCurrentPage(1);
+                          }}
+                          onPick={handlePickLocation}
+                          onSubmit={applySearch}
+                          inputClassName="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                        />
                       </div>
 
                       <button
