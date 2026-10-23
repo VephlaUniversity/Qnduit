@@ -13,7 +13,9 @@ export const POLLING_ENDPOINTS = Object.freeze([
 
 export function pollingRoles(method, pathname) {
   const path = pathname.replace(/\/$/, "");
-  return POLLING_ENDPOINTS.find(([verb, route]) => verb === method.toUpperCase() && route === path)?.[2];
+  return POLLING_ENDPOINTS.find(
+    ([verb, route]) => verb === method.toUpperCase() && route === path,
+  )?.[2];
 }
 
 export const POLLING_BUDGETS = Object.freeze([

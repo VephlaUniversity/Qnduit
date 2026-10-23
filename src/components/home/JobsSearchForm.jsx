@@ -2,6 +2,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
+import { SuggestInput } from "../pages/SuggestInput";
 
 const inputClass =
   "w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 text-sm";
@@ -15,8 +16,25 @@ export const JobSearchForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    submitSearch();
+  };
 
-    const jobTitle = selectedJobTitle.trim();
+  // A suggestion was chosen: go straight to the results.
+  const handlePickTitle = (kind, text) => {
+    if (kind === "location") {
+      setSelectedJobTitle("");
+      setSelectedLocation(text);
+      const params = new URLSearchParams({ location: text });
+      if (selectedWorkType) params.set("workType", selectedWorkType);
+      navigate(`/jobs?${params.toString()}`);
+      return;
+    }
+    setSelectedJobTitle(text);
+    submitSearch(text);
+  };
+
+  const submitSearch = (titleOverride) => {
+    const jobTitle = (titleOverride ?? selectedJobTitle).trim();
     if (!jobTitle) {
       toast({
         title: "Job title is required",
@@ -55,13 +73,16 @@ export const JobSearchForm = () => {
           >
             Job Title
           </label>
-          <input
+          <SuggestInput
             id="job-search-title"
-            type="text"
-            className={inputClass}
+            mode="keyword"
+            theme="light"
+            inputClassName={inputClass}
             placeholder="Title Keyword e.g Product..."
             value={selectedJobTitle}
-            onChange={(e) => setSelectedJobTitle(e.target.value)}
+            onChange={setSelectedJobTitle}
+            onPick={handlePickTitle}
+            onSubmit={submitSearch}
           />
         </div>
 
@@ -72,13 +93,16 @@ export const JobSearchForm = () => {
           >
             Location
           </label>
-          <input
+          <SuggestInput
             id="job-search-location"
-            type="text"
-            className={inputClass}
+            mode="location"
+            theme="light"
+            inputClassName={inputClass}
             placeholder="e.g. New York, USA"
             value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
+            onChange={setSelectedLocation}
+            onPick={(_kind, text) => setSelectedLocation(text)}
+            onSubmit={submitSearch}
           />
         </div>
 
