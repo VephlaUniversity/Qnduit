@@ -1,3 +1,9 @@
+import { useAdminSubscriptionAction } from "../hooks/useAdminSubscriptionAction";
+import { AdminDowngradeSubscriptionDialog } from "./AdminDowngradeSubscriptionDialog";
+import { useAdminCancellation } from "../hooks/useAdminCancellation";
+import { AdminCancelSubscriptionDialog } from "./AdminCancelSubscriptionDialog";
+import { useAdminInvoice } from "../hooks/useAdminInvoice";
+import { AdminInvoiceDialog } from "./AdminInvoiceDialog";
 import React, { useEffect, useState } from "react";
 import {
   Building2,
@@ -35,7 +41,7 @@ const formatStatus = (status) => {
     active: "Active",
     pending: "Pending",
     past_due: "Past Due",
-    canceled: "Canceled",
+    canceled: "Cancelled",
     expired: "Expired",
   };
 
@@ -45,7 +51,7 @@ const formatStatus = (status) => {
 const statusStyle = {
   Active: "text-emerald-500",
   Expired: "text-red-500",
-  Canceled: "text-red-500",
+  Cancelled: "text-red-500",
   Pending: "text-yellow-500",
   "Past Due": "text-orange-500",
 };
@@ -77,6 +83,10 @@ const getLogoUrl = (logo) => {
 
 
 export const SubscribedEmployers = () => {
+  const invoice = useAdminInvoice();
+  const [revision, setRevision] = useState(0);
+  const cancellation = useAdminCancellation(() => setRevision(value => value + 1));
+  const downgrade = useAdminSubscriptionAction("downgrade");
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
@@ -97,7 +107,7 @@ export const SubscribedEmployers = () => {
 
     const loadEmployers = async () => {
       try {
-        setLoading(true);
+        if (!revision) setLoading(true);
 
         const response = await axios.get(
           `${API_BASE_URL}/api/admin/subscriptions`,
@@ -151,7 +161,7 @@ export const SubscribedEmployers = () => {
     return () => {
       cancelled = true;
     };
-  }, [page, search, sort]);
+  }, [page, search, sort, revision]);
 
   const handleSearchChange = (value) => {
     setSearch(value);
@@ -165,6 +175,9 @@ export const SubscribedEmployers = () => {
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminInvoiceDialog flow={invoice} />
+      <AdminCancelSubscriptionDialog flow={cancellation} />
+      <AdminDowngradeSubscriptionDialog flow={downgrade} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full" />
 
@@ -251,7 +264,7 @@ export const SubscribedEmployers = () => {
 
                     <td className="py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <SubscriptionActionMenu />
+                        <SubscriptionActionMenu onDowngrade={trigger => downgrade.open(row, trigger)} onCancel={trigger => cancellation.open(row, trigger)} onSendInvoice={trigger => invoice.open(row, trigger)} />
 
                         <button
                           onClick={() => setActive(row)}

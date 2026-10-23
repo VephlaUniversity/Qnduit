@@ -81,6 +81,10 @@ const paymentSchema = new mongoose.Schema(
       type: String,
     },
 
+    // Only explicit server-created checkouts receive an activation generation.
+    activationGeneration: Number,
+    activationOutcome: String,
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
     },

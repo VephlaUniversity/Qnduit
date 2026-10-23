@@ -1,3 +1,9 @@
+import { useAdminSubscriptionAction } from "../hooks/useAdminSubscriptionAction";
+import { AdminDowngradeSubscriptionDialog } from "./AdminDowngradeSubscriptionDialog";
+import { useAdminCancellation } from "../hooks/useAdminCancellation";
+import { AdminCancelSubscriptionDialog } from "./AdminCancelSubscriptionDialog";
+import { useAdminInvoice } from "../hooks/useAdminInvoice";
+import { AdminInvoiceDialog } from "./AdminInvoiceDialog";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -45,7 +51,7 @@ const formatStatus = (status) => {
     active: "Active",
     pending: "Pending",
     past_due: "Past Due",
-    canceled: "Canceled",
+    canceled: "Cancelled",
     expired: "Expired",
   };
 
@@ -55,7 +61,7 @@ const formatStatus = (status) => {
 const statusStyle = {
   Active: "text-emerald-500",
   Expired: "text-red-500",
-  Canceled: "text-red-500",
+  Cancelled: "text-red-500",
   Pending: "text-yellow-500",
   "Past Due": "text-orange-500",
 };
@@ -81,6 +87,9 @@ const SubscriptionTable = ({
   loading,
   onViewAll,
   onViewDetails,
+  onInvoice,
+  onCancel,
+  onDowngrade,
 }) => (
   <div className="mb-8">
     <div className="flex items-center justify-between mb-4">
@@ -156,7 +165,7 @@ const SubscriptionTable = ({
 
                 <td className="py-4">
                   <div className="flex items-center justify-end gap-2">
-                    <SubscriptionActionMenu />
+                    <SubscriptionActionMenu onDowngrade={trigger => onDowngrade(row, trigger)} onCancel={trigger => onCancel(row, trigger)} onSendInvoice={trigger => onInvoice(row, trigger)} />
 
                     <button
                       onClick={() => onViewDetails(row)}
@@ -176,6 +185,10 @@ const SubscriptionTable = ({
 );
 
 export const SubscriptionPlans = () => {
+  const invoice = useAdminInvoice();
+  const [revision, setRevision] = useState(0);
+  const cancellation = useAdminCancellation(() => setRevision(value => value + 1));
+  const downgrade = useAdminSubscriptionAction("downgrade");
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -195,7 +208,7 @@ export const SubscriptionPlans = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        setLoading(true);
+        if (!revision) setLoading(true);
 
         const headers = getAuthHeaders();
 
@@ -263,10 +276,13 @@ export const SubscriptionPlans = () => {
     };
 
     loadData();
-  }, []);
+  }, [revision]);
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminInvoiceDialog flow={invoice} />
+      <AdminCancelSubscriptionDialog flow={cancellation} />
+      <AdminDowngradeSubscriptionDialog flow={downgrade} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full" />
 
@@ -335,6 +351,9 @@ export const SubscriptionPlans = () => {
               "/admin-dashboard/subscription/candidates"
             )
           }
+          onInvoice={invoice.open}
+          onCancel={cancellation.open}
+          onDowngrade={downgrade.open}
           onViewDetails={setActiveCandidate}
         />
 
@@ -347,6 +366,9 @@ export const SubscriptionPlans = () => {
               "/admin-dashboard/subscription/employers"
             )
           }
+          onInvoice={invoice.open}
+          onCancel={cancellation.open}
+          onDowngrade={downgrade.open}
           onViewDetails={setActiveEmployer}
         />
       </div>

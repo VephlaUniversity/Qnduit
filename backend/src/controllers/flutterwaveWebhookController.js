@@ -1,230 +1,43 @@
+import process from "node:process";
 import flutterwave from "../utils/flutterwave.js";
-
 import TalentPayment from "../models/TalentPayment.js";
 import EmployerPayment from "../models/EmployerPayment.js";
+import { activateVerifiedSubscription, recordFailedSubscriptionPayment, applyProviderSubscriptionCancellation, recordUnlinkedSubscriptionCharge } from "../services/subscriptionLifecycle.js";
 
-import {
-  activateTalentPayment,
-  activateEmployerPayment,
-} from "./paymentController.js";
-
-export const handleFlutterwaveWebhook = async (
-  req,
-  res
-) => {
+export const handleFlutterwaveWebhook = async (req, res) => {
+  if (!req.headers["verif-hash"] || req.headers["verif-hash"] !== process.env.FLW_SECRET_HASH) {
+    return res.status(401).json({ success: false, message: "Invalid webhook signature" });
+  }
   try {
-    const signature =
-      req.headers["verif-hash"];
-
-    if (
-      !signature ||
-      signature !==
-        process.env.FLW_SECRET_HASH
-    ) {
-      return res.status(401).json({
-        success: false,
-        message:
-          "Invalid webhook signature",
-      });
+    const event = req.body?.event || req.body?.type, data = req.body?.data;
+    if (event === "charge.completed" && data?.id) {
+      const response = await flutterwave.get(`/transactions/${encodeURIComponent(data.id)}/verify`);
+      const transaction = response.data?.data;
+      if (!transaction?.tx_ref) return res.json({ received: true });
+      // Only a stored explicit checkout establishes ownership. Renewal events
+      // without a known reference require reconciliation, never an email match.
+      const matches = [];
+      for (const [role, Payment] of [["talent", TalentPayment], ["employer", EmployerPayment]]) {
+        const payment = await Payment.findOne({ txRef: transaction.tx_ref }).select("_id").lean();
+        if (payment) matches.push({ role, paymentId: payment._id });
+      }
+      if (matches.length !== 1) {
+        if (transaction.status === "successful") await recordUnlinkedSubscriptionCharge(transaction);
+        return res.json({ received: true, reason: "unlinked_payment_requires_reconciliation" });
+      }
+      const selection = matches[0];
+      if (transaction.status === "successful") {
+        const result = await activateVerifiedSubscription({ ...selection, transaction });
+        return res.json({ received: true, activated: result.activated, reason: result.reason });
+      }
+      await recordFailedSubscriptionPayment(selection);
+    } else if (event === "subscription.cancelled") {
+      // data.id is a provider subscription ID, not proof of a payment link.
+      const result = await applyProviderSubscriptionCancellation({ txRef: data?.tx_ref, transactionId: data?.transaction_id });
+      return res.json({ received: true, ...result });
     }
-
-    const event = req.body;
-
-    const data = event?.data;
-
-    if (!data?.id) {
-      return res.status(200).json({
-        received: true,
-      });
-    }
-
-    // ==========================================
-    // SUCCESSFUL / FAILED CHARGE
-    // ==========================================
-
-    if (
-      event.event ===
-        "charge.completed" ||
-      event.type ===
-        "charge.completed"
-    ) {
-      const transactionId =
-        data.id;
-
-      const response =
-        await flutterwave.get(
-          `/transactions/${transactionId}/verify`
-        );
-
-      const transaction =
-        response.data?.data;
-
-      if (!transaction) {
-        return res.status(200).json({
-          received: true,
-        });
-      }
-
-      const txRef =
-        transaction.tx_ref;
-
-      // ==========================================
-      // TALENT PAYMENT
-      // ==========================================
-
-      const talentPayment =
-        await TalentPayment.findOne({
-          txRef,
-        });
-
-      if (talentPayment) {
-        if (
-          transaction.status ===
-          "successful"
-        ) {
-          if (
-            talentPayment.status !==
-            "successful"
-          ) {
-            await activateTalentPayment(
-              talentPayment,
-              transaction
-            );
-          }
-        } else {
-          talentPayment.status =
-            "failed";
-
-          talentPayment.failureReason =
-            "Flutterwave payment failed";
-
-          await talentPayment.save();
-        }
-
-        return res.status(200).json({
-          received: true,
-        });
-      }
-
-      // ==========================================
-      // EMPLOYER PAYMENT
-      // ==========================================
-
-      const employerPayment =
-        await EmployerPayment.findOne({
-          txRef,
-        });
-
-      if (employerPayment) {
-        if (
-          transaction.status ===
-          "successful"
-        ) {
-          if (
-            employerPayment.status !==
-            "successful"
-          ) {
-            await activateEmployerPayment(
-              employerPayment,
-              transaction
-            );
-          }
-        } else {
-          employerPayment.status =
-            "failed";
-
-          employerPayment.failureReason =
-            "Flutterwave payment failed";
-
-          await employerPayment.save();
-        }
-
-        return res.status(200).json({
-          received: true,
-        });
-      }
-    }
-
-    // ==========================================
-    // SUBSCRIPTION CANCELLED
-    // ==========================================
-
-    if (
-      event.event ===
-        "subscription.cancelled" ||
-      event.type ===
-        "subscription.cancelled"
-    ) {
-      const customerEmail =
-        data.customer?.email;
-
-      if (!customerEmail) {
-        return res.status(200).json({
-          received: true,
-        });
-      }
-
-      // Handle Talent subscription
-      const Talent =
-        (
-          await import(
-            "../models/Talent.js"
-          )
-        ).default;
-
-      const talent =
-        await Talent.findOne({
-          email:
-            customerEmail.toLowerCase(),
-        });
-
-      if (talent) {
-        const subscription =
-          await import(
-            "../models/TalentSubscription.js"
-          );
-
-        const TalentSubscription =
-          subscription.default;
-
-        await TalentSubscription.findOneAndUpdate(
-          {
-            talent:
-              talent._id,
-          },
-          {
-            status:
-              "canceled",
-            endedAt:
-              new Date(),
-          }
-        );
-
-        talent.paymentStatus =
-          "cancelled";
-
-        await talent.save();
-      }
-
-      return res.status(200).json({
-        received: true,
-      });
-    }
-
-    return res.status(200).json({
-      received: true,
-    });
-  } catch (error) {
-    console.error(
-      "Flutterwave webhook error:",
-      error.response?.data ||
-        error.message
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Webhook processing failed",
-    });
+    return res.json({ received: true });
+  } catch {
+    return res.status(500).json({ success: false, message: "Webhook processing failed" });
   }
 };

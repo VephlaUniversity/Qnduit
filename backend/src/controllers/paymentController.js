@@ -1,3 +1,5 @@
+import process from "node:process";
+import { initiateSubscriptionCheckout, selectUnpaidSubscription, activateVerifiedSubscription, recordFailedSubscriptionPayment } from "../services/subscriptionLifecycle.js";
 import { resolveTalentPublication } from "../services/talentPublication.js";
 import flutterwave from "../utils/flutterwave.js";
 import crypto from "crypto";
@@ -7,6 +9,13 @@ import TalentPayment from "../models/TalentPayment.js";
 import Employer from "../models/Employer.js";
 import EmployerSubscription from "../models/EmployerSubscription.js";
 import EmployerPayment from "../models/EmployerPayment.js";
+
+const respondLifecycleError = (error, res, next) => {
+  if (typeof error.code === "string" && error.code.startsWith("SUBSCRIPTION_")) {
+    return res.status(error.status || 503).json({ success: false, code: error.code, message: error.message });
+  }
+  next(error);
+};
 
 // EMPLOYER PLANS
 
@@ -49,22 +58,6 @@ const TALENT_PLANS = {
   },
 };
 
-const createTalentUsername = (talent) => {
-  const name =
-    talent.fullName ||
-    `${talent.firstName || ""} ${talent.lastName || ""}`.trim() ||
-    "talent";
-
-  const slug = name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return `${slug || "talent"}-${talent._id.toString().slice(-6)}`;
-};
-
 // CREATE TALENT CHECKOUT
 
 export const createCheckoutSession = async (
@@ -73,32 +66,14 @@ export const createCheckoutSession = async (
   next
 ) => {
   try {
+    if (req.user.role !== "talent") return res.status(403).json({ message: "Talent account required." });
     const talentId = req.user._id;
     const { plan } = req.body;
 
     // FREE PLAN
 
     if (plan === "free") {
-      const talent = await Talent.findById(talentId);
-
-      if (!talent) {
-        return res.status(404).json({
-          success: false,
-          message: "Talent not found",
-        });
-      }
-
-      if (!talent.isVerified) {
-        return res.status(403).json({
-          success: false,
-          message: "Please verify your email first",
-        });
-      }
-
-      talent.selectedPlan = "free";
-      talent.paymentStatus = "none";
-
-      await talent.save();
+      await selectUnpaidSubscription({ role: "talent", accountId: talentId, plan });
 
       return res.json({
         success: true,
@@ -110,7 +85,7 @@ export const createCheckoutSession = async (
 
     // VALIDATE PAID PLAN
 
-    const selectedPlan = TALENT_PLANS[plan];
+    const selectedPlan = Object.hasOwn(TALENT_PLANS, plan) ? TALENT_PLANS[plan] : null;
 
     if (!selectedPlan) {
       return res.status(400).json({
@@ -171,20 +146,8 @@ export const createCheckoutSession = async (
         .randomBytes(4)
         .toString("hex")}`;
 
-    await TalentPayment.create({
-      talent: talent._id,
-      provider: "flutterwave",
-      txRef,
-      amount: selectedPlan.amount,
-      currency: selectedPlan.currency,
-      plan,
-      type: "subscription",
-      status: "pending",
-      metadata: {
-        talentId: talent._id.toString(),
-        plan,
-      },
-    });
+    await initiateSubscriptionCheckout({ role: "talent", accountId: talent._id, plan, txRef,
+      amount: selectedPlan.amount, currency: selectedPlan.currency, paymentPlanId: selectedPlan.paymentPlanId });
 
     // FLUTTERWAVE CHECKOUT
 
@@ -239,10 +202,7 @@ export const createCheckoutSession = async (
       }
     );
 
-    talent.selectedPlan = plan;
-    talent.paymentStatus = "pending";
 
-    await talent.save();
 
     return res.json({
       success: true,
@@ -257,7 +217,7 @@ export const createCheckoutSession = async (
         error.message
     );
 
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
@@ -306,28 +266,17 @@ export const talentFlutterwaveCallback = async (
       Number(transaction.amount) <
         Number(payment.amount)
     ) {
-      payment.status = "failed";
-
-      payment.failureReason =
-        "Flutterwave transaction verification failed";
-
-      payment.transactionId =
-        transaction_id.toString();
-
-      await payment.save();
+      await recordFailedSubscriptionPayment({ role: "talent", paymentId: payment._id });
 
       return res.redirect(
         `${process.env.FRONTEND_URL}/payment/cancelled`
       );
     }
 
-    await activateTalentPayment(
-      payment,
-      transaction
-    );
+    const activation = await activateTalentPayment(payment, transaction);
 
     return res.redirect(
-      `${process.env.FRONTEND_URL}/payment/success`
+      `${process.env.FRONTEND_URL}/payment/success${activation.activated ? "" : "?activation=blocked"}`
     );
   } catch (error) {
     console.error(
@@ -336,127 +285,14 @@ export const talentFlutterwaveCallback = async (
         error.message
     );
 
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
 // ACTIVATE TALENT PAYMENT
 
-export const activateTalentPayment = async (
-  payment,
-  transaction
-) => {
-  const talent =
-    await Talent.findById(
-      payment.talent
-    );
-
-  if (!talent) {
-    throw new Error(
-      "Talent not found"
-    );
-  }
-
-  const startDate =
-    new Date();
-
-  const endDate =
-    new Date(startDate);
-
-  endDate.setMonth(
-    endDate.getMonth() + 1
-  );
-
-  payment.transactionId =
-    transaction.id?.toString();
-
-  payment.flwRef =
-    transaction.flw_ref;
-
-  payment.status =
-    "successful";
-
-  payment.paidAt =
-    new Date();
-
-  payment.metadata = {
-    ...(payment.metadata || {}),
-
-    flutterwaveStatus:
-      transaction.status,
-
-    paymentType:
-      transaction.payment_type,
-
-    chargedAmount:
-      transaction.charged_amount,
-  };
-
-  await payment.save();
-
-  await TalentSubscription.findOneAndUpdate(
-    {
-      talent:
-        talent._id,
-    },
-
-    {
-      talent:
-        talent._id,
-
-      provider:
-        "flutterwave",
-
-      flutterwavePlanId:
-        Number(
-          process.env
-            .FLW_TALENT_PUBLIC_PLAN_ID
-        ),
-
-      flutterwaveCustomerEmail:
-        talent.email,
-
-      plan:
-        payment.plan,
-
-      status:
-        "active",
-
-      currentPeriodStart:
-        startDate,
-
-      currentPeriodEnd:
-        endDate,
-
-      cancelAtPeriodEnd:
-        false,
-
-      lastTransactionId:
-        transaction.id?.toString(),
-
-      lastTxRef:
-        payment.txRef,
-    },
-
-    {
-      upsert: true,
-      new: true,
-    }
-  );
-
-    talent.selectedPlan = payment.plan;
-    talent.paymentStatus = "active";
-
-    if (payment.plan === "public") {
-      if (!talent.username) {
-        talent.username = createTalentUsername(talent);
-      }
-
-      talent.publicProfileEnabled = true;
-    }
-
-    await talent.save();
-};
+export const activateTalentPayment = (payment, transaction) =>
+  activateVerifiedSubscription({ role: "talent", paymentId: payment._id, transaction });
 
 // Get Talent Subscription
 export const getMySubscription = async (req, res, next) => {
@@ -475,7 +311,7 @@ export const getMySubscription = async (req, res, next) => {
       ...publication,
     });
   } catch (error) {
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
@@ -488,10 +324,11 @@ export const createEmployerCheckoutSession = async (
   next
 ) => {
   try {
+    if (req.user.role !== "employer") return res.status(403).json({ message: "Employer account required." });
     const employerId = req.user._id;
     const { plan } = req.body;
 
-    const selectedPlan = EMPLOYER_PLANS[plan];
+    const selectedPlan = Object.hasOwn(EMPLOYER_PLANS, plan) ? EMPLOYER_PLANS[plan] : null;
 
     if (!selectedPlan) {
       return res.status(400).json({
@@ -549,19 +386,8 @@ export const createEmployerCheckoutSession = async (
       }`.trim();
 
     // Create pending payment record BEFORE redirecting
-    await EmployerPayment.create({
-      employer: employer._id,
-      provider: "flutterwave",
-      txRef,
-      amount: selectedPlan.amount,
-      currency: selectedPlan.currency,
-      plan,
-      type: "subscription",
-      status: "pending",
-      metadata: {
-        employerId: employer._id.toString(),
-      },
-    });
+    await initiateSubscriptionCheckout({ role: "employer", accountId: employer._id, plan, txRef,
+      amount: selectedPlan.amount, currency: selectedPlan.currency, paymentPlanId: selectedPlan.paymentPlanId });
 
     const response = await flutterwave.post("/payments", {
       tx_ref: txRef,
@@ -599,10 +425,7 @@ export const createEmployerCheckoutSession = async (
       },
     });
 
-    employer.selectedPlan = plan;
-    employer.paymentStatus = "pending";
 
-    await employer.save();
 
     return res.json({
       success: true,
@@ -615,7 +438,7 @@ export const createEmployerCheckoutSession = async (
       error.response?.data || error.message
     );
 
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
@@ -628,7 +451,6 @@ export const employerFlutterwaveCallback = async (
 ) => {
   try {
     const {
-      status,
       tx_ref,
       transaction_id,
     } = req.query;
@@ -663,27 +485,17 @@ export const employerFlutterwaveCallback = async (
       transaction.currency !== payment.currency ||
       Number(transaction.amount) < Number(payment.amount)
     ) {
-      payment.status = "failed";
-      payment.failureReason =
-        "Flutterwave transaction verification failed";
-
-      payment.transactionId =
-        transaction_id.toString();
-
-      await payment.save();
+      await recordFailedSubscriptionPayment({ role: "employer", paymentId: payment._id });
 
       return res.redirect(
         `${process.env.FRONTEND_URL}/employer/payment/cancelled`
       );
     }
 
-    await activateEmployerPayment(
-      payment,
-      transaction
-    );
+    const activation = await activateEmployerPayment(payment, transaction);
 
     return res.redirect(
-      `${process.env.FRONTEND_URL}/employer/payment/success`
+      `${process.env.FRONTEND_URL}/employer/payment/success${activation.activated ? "" : "?activation=blocked"}`
     );
   } catch (error) {
     console.error(
@@ -691,90 +503,15 @@ export const employerFlutterwaveCallback = async (
       error.response?.data || error.message
     );
 
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
 
 // ACTIVATE EMPLOYER SUBSCRIPTION
 
-export const activateEmployerPayment = async (
-  payment,
-  transaction
-) => {
-  const employer = await Employer.findById(
-    payment.employer
-  );
-
-  if (!employer) {
-    throw new Error("Employer not found");
-  }
-
-  const startDate = new Date();
-
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + 1);
-
-  payment.transactionId =
-    transaction.id?.toString();
-
-  payment.flwRef = transaction.flw_ref;
-
-  payment.status = "successful";
-
-  payment.paidAt = new Date();
-
-  payment.metadata = {
-    ...(payment.metadata || {}),
-    flutterwaveStatus: transaction.status,
-    paymentType: transaction.payment_type,
-    chargedAmount: transaction.charged_amount,
-  };
-
-  await payment.save();
-
-  await EmployerSubscription.findOneAndUpdate(
-    {
-      employer: employer._id,
-    },
-    {
-      employer: employer._id,
-
-      provider: "flutterwave",
-
-      plan: payment.plan,
-
-      status: "active",
-
-      currentPeriodStart: startDate,
-
-      currentPeriodEnd: endDate,
-
-      cancelAtPeriodEnd: false,
-
-      lastTransactionId:
-        transaction.id?.toString(),
-
-      lastTxRef: payment.txRef,
-    },
-    {
-      upsert: true,
-      new: true,
-    }
-  );
-
-  employer.selectedPlan = payment.plan;
-
-  employer.paymentStatus = "active";
-
-  employer.planExpiresAt = endDate;
-
-  employer.isTrial = false;
-
-  await employer.save();
-};
-
-
+export const activateEmployerPayment = (payment, transaction) =>
+  activateVerifiedSubscription({ role: "employer", paymentId: payment._id, transaction });
 
 // GET EMPLOYER SUBSCRIPTION
 
@@ -801,7 +538,7 @@ export const getEmployerSubscription = async (
       subscription,
     });
   } catch (error) {
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };
 
@@ -905,6 +642,7 @@ export const resumeEmployerSubscription = async (
 
 export const employerPayLater = async (req, res, next) => {
   try {
+    if (req.user.role !== "employer") return res.status(403).json({ message: "Employer account required." });
     const employerId = req.user._id;
     const { plan } = req.body;
 
@@ -915,26 +653,7 @@ export const employerPayLater = async (req, res, next) => {
       });
     }
 
-    const employer = await Employer.findById(employerId);
-
-    if (!employer) {
-      return res.status(404).json({
-        success: false,
-        message: "Employer not found",
-      });
-    }
-
-    if (!employer.isVerified) {
-      return res.status(403).json({
-        success: false,
-        message: "Please verify your email first",
-      });
-    }
-
-    employer.selectedPlan = plan;
-    employer.paymentStatus = "pending";
-
-    await employer.save();
+    await selectUnpaidSubscription({ role: "employer", accountId: employerId, plan });
 
     return res.json({
       success: true,
@@ -943,6 +662,6 @@ export const employerPayLater = async (req, res, next) => {
       redirectUrl: `${process.env.FRONTEND_URL}/dashboard`,
     });
   } catch (error) {
-    next(error);
+    respondLifecycleError(error, res, next);
   }
 };

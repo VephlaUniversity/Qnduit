@@ -1051,6 +1051,7 @@ export const getAdminSubscriptions = async (req, res) => {
           return {
             id: subscription._id,
             type: "talent",
+            accountId: String(subscription.talent._id),
 
             name:
               subscription.talent.fullName ||
@@ -1222,6 +1223,7 @@ export const getAdminSubscriptions = async (req, res) => {
         return {
           id: subscription._id,
           type: "employer",
+          accountId: String(subscription.employer._id),
 
           name:
             subscription.employer.companyName ||

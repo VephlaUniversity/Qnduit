@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
-import TalentSubscription from "../models/TalentSubscription.js";
+import { resolveTalentPublication } from "../services/talentPublication.js";
 
 
 /*const storage = multer.diskStorage({
@@ -452,13 +452,7 @@ export const listPublicTalents = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Invalid experience filter." });
     }
 
-    const subscribedIds = await TalentSubscription.distinct("talent", {
-      status: "active",
-      currentPeriodEnd: { $gt: new Date() },
-    });
-
     const filter = {
-      _id: { $in: subscribedIds },
       isVerified: true,
       accountStatus: "active",
       showProfile: "show",
@@ -488,6 +482,17 @@ export const listPublicTalents = async (req, res, next) => {
         { tags: pattern },
       ];
     }
+
+    // Apply authoritative paid evidence before pagination/counts. Keep every
+    // existing visibility filter and limit concurrent eligibility reads.
+    const candidates = await Talent.find(filter).select("_id").lean();
+    const eligibleIds = [];
+    for (let offset = 0; offset < candidates.length; offset += 20) {
+      const batch = candidates.slice(offset, offset + 20);
+      const publications = await Promise.all(batch.map(row => resolveTalentPublication(row._id)));
+      batch.forEach((row, index) => { if (publications[index].publicProfile.status === "published") eligibleIds.push(row._id); });
+    }
+    filter._id = { $in: eligibleIds };
 
     const [total, talents] = await Promise.all([
       Talent.countDocuments(filter),
@@ -566,13 +571,8 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    const subscription = await TalentSubscription.findOne({
-      talent: talent._id,
-      status: "active",
-      currentPeriodEnd: { $gt: new Date() },
-    }).select("_id");
-
-    if (!subscription) {
+    const publication = await resolveTalentPublication(talent._id);
+    if (publication.publicProfile.status !== "published") {
       return res.status(404).json({
         success: false,
         message: "Public profile not found.",
