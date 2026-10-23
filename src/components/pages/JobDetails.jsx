@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   MapPin,
   Share2,
@@ -27,11 +27,27 @@ import {
   shareLink,
   formatPosted,
   normalizeList,
+  jobPath,
+  jobIdFromParam,
 } from "../utils/jobDisplay";
+import { buildJobPostingLd, shortText, useDocumentSeo } from "../utils/seo";
+
+// Employers cannot save jobs (saved jobs belong to talent accounts).
+const isEmployerSignedIn = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return user?.userType === "employer" || user?.role === "employer";
+  } catch {
+    return false;
+  }
+};
 
 export const JobDetails = ({ jobId: propJobId, onBack }) => {
-  const { id } = useParams();
+  const { id: idParam } = useParams();
+  // The address is <title>-<company>-<id>; the server only needs the id.
+  const id = jobIdFromParam(idParam);
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const [job, setJob] = useState(null);
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("about");
@@ -102,7 +118,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
   // Is this job already saved? (uses the existing saved-jobs list endpoint)
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token || isEmployerSignedIn()) return;
     let active = true;
     axios
       .get(`${API_BASE_URL}/api/saved-jobs`, {
@@ -235,7 +251,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         ? `${job.jobTitle}${job.employer?.companyName ? " at " + job.employer.companyName : ""}`
         : undefined,
       url: job?._id
-        ? `${window.location.origin}/jobs/${job._id}`
+        ? `${window.location.origin}${jobPath(job)}`
         : window.location.href,
     });
     if (result === "copied") toast.success("Link copied to clipboard");
@@ -251,6 +267,11 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
     if (!token) {
       toast.error("Please sign in to save this job");
+      return;
+    }
+
+    if (isEmployerSignedIn()) {
+      toast.error("Only talent accounts can save jobs");
       return;
     }
 
@@ -304,6 +325,31 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         : activePortfolioIndex - 1,
     );
   };
+
+  // Old links (/jobs/<id>) and links with an outdated title move to the current address.
+  useEffect(() => {
+    if (!job?._id) return;
+    const wanted = jobPath(job);
+    let current = routeLocation.pathname;
+    try {
+      current = decodeURIComponent(current);
+    } catch {
+      /* keep the raw path */
+    }
+    if (current !== wanted) navigate(wanted, { replace: true });
+  }, [job, routeLocation.pathname, navigate]);
+
+  const jobUrl = job?._id ? `${window.location.origin}${jobPath(job)}` : "";
+  const company = job?.employer?.companyName;
+  useDocumentSeo({
+    title: job ? `${job.jobTitle}${company ? ` at ${company}` : ""} | QNDUIT` : "",
+    description: job
+      ? shortText(job.jobDescription) ||
+        `${job.jobTitle}${company ? ` at ${company}` : ""}${job.location ? ` in ${job.location}` : ""}. Apply on QNDUIT.`
+      : "",
+    canonical: jobUrl,
+    jsonLd: job ? buildJobPostingLd(job, jobUrl) : null,
+  });
 
   if (loadError) {
     return (
@@ -678,7 +724,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                                   <div className="text-[#3B82F6] text-sm mb-1">
                                     {relatedJob.employer?.companyName}
                                   </div>
-                                  <Link to={`/jobs/${relatedJob._id}`}>
+                                  <Link to={jobPath(relatedJob)}>
                                     <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors">
                                       {relatedJob.jobTitle}{" "}
                                       {relatedJob.verified && (

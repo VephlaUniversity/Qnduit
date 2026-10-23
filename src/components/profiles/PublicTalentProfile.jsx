@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
+import { NotFound } from "../pages/NotFound";
 import { motion } from "framer-motion";
 import {
   MapPin,
@@ -78,7 +79,14 @@ const PublicTalentProfile = () => {
     );
   }
 
-  if (notFound || !talent) {
+  // The address matched no page and no public profile: show the 404 page.
+  if (notFound) {
+    return (
+      <NotFound message="We couldn't find a page or a public talent profile at this address. It may have been moved, or the profile may not be public." />
+    );
+  }
+
+  if (!talent) {
     return (
       <main className="min-h-screen bg-[#0F1419] text-white flex flex-col items-center justify-center px-6 text-center">
         <h1 className="text-3xl font-bold mb-3">

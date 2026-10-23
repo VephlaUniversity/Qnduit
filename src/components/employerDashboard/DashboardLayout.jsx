@@ -1,5 +1,6 @@
 import { apiFetch } from "../utils/apiFetch";
 import React, { useState, useEffect, useRef } from "react";
+import "./dashboardScroll.css";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
 import { profileImageUrl } from "../profiles/profileApi";
@@ -430,7 +431,7 @@ export const DashboardLayout = ({
         <aside
           className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] bg-[#1A1A1E] border-r border-white/10 transition-transform duration-300 ease-in-out z-40 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } lg:translate-x-0 w-64 overflow-y-auto`}
+          } lg:translate-x-0 w-64 overflow-y-auto dash-sidebar-scroll`}
         >
           <nav className="p-4 space-y-1">
             {defaultMenuItems.map((item) => {

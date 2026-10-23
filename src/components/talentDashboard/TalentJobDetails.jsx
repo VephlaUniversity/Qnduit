@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { JobContactForm } from "../pages/JobContactForm";
-import { shareLink } from "../utils/jobDisplay";
+import { shareLink, jobPath } from "../utils/jobDisplay";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
@@ -368,7 +368,7 @@ export const TalentJobDetails = () => {
         ? `${job.jobTitle}${job.employer?.companyName ? " at " + job.employer.companyName : ""}`
         : undefined,
       url: job?._id
-        ? `${window.location.origin}/jobs/${job._id}`
+        ? `${window.location.origin}${jobPath(job)}`
         : window.location.href,
     });
     if (result === "copied") toast.success("Link copied to clipboard");

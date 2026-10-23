@@ -74,3 +74,37 @@ export async function shareLink({ title, text, url }) {
     return "failed";
   }
 }
+
+// ---- SEO-friendly job addresses -------------------------------------------
+// A job lives at /jobs/<title>-<company>-<id>, for example
+// /jobs/senior-frontend-engineer-acme-64f1c2a9b3d4e5f607182930
+// The 24-character id at the end is what the server looks up; the words in
+// front are only for people and search engines. Old /jobs/<id> links still work.
+
+export function slugify(text, maxLength = 70) {
+  const slug = String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug.length <= maxLength) return slug;
+  const cut = slug.slice(0, maxLength);
+  const lastDash = cut.lastIndexOf("-");
+  return (lastDash > 20 ? cut.slice(0, lastDash) : cut).replace(/-+$/g, "");
+}
+
+export function jobPath(job) {
+  if (!job?._id) return "/jobs";
+  const slug = slugify(
+    [job.jobTitle, job.employer?.companyName].filter(Boolean).join(" "),
+  );
+  return slug ? `/jobs/${slug}-${job._id}` : `/jobs/${job._id}`;
+}
+
+// Takes what is in the address bar and returns the id.
+export function jobIdFromParam(param) {
+  const match = /([a-f0-9]{24})$/i.exec(String(param || ""));
+  return match ? match[1] : String(param || "");
+}

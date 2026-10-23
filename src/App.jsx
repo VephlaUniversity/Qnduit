@@ -3,6 +3,7 @@ import { Header } from "./components/Header";
 import { HowItWorksSection } from "./components/pages/HowItWorks";
 import { QnduitLanding } from "./components/pages/QnduitLanding";
 import { Footer } from "./components/Footer";
+import { NotFound } from "./components/pages/NotFound";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 import { ForTalents } from "./components/pages/ForTalents";
@@ -436,6 +437,9 @@ const AppContent = () => {
               </AdminProtectedRoute>
             }
           />
+
+          {/* Anything else: 404 page */}
+          <Route path="*" element={<NotFound />} />
 
           {/* Talent Dashboard Routes */}
           <Route

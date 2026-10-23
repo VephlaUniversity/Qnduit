@@ -24,6 +24,8 @@ import {
 import { CTA } from "../home/CTA";
 import { AnimatedPage } from "../AnimatedPage";
 import axios from "axios";
+import { toast } from "sonner";
+import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 import {
   daysLeftLabel,
@@ -31,7 +33,18 @@ import {
   formatPosted,
   normalizeList,
   postedWithin,
+  jobPath,
 } from "../utils/jobDisplay";
+
+// Employers cannot save jobs (saved jobs belong to talent accounts).
+const isEmployerSignedIn = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+    return user?.userType === "employer" || user?.role === "employer";
+  } catch {
+    return false;
+  }
+};
 
 export const JobOpportunities = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,7 +73,8 @@ export const JobOpportunities = () => {
 
   // UI state
   const [viewMode, setViewMode] = useState("grid");
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState([]); // ids of jobs this talent has saved
+  const [savingIds, setSavingIds] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
@@ -100,6 +114,24 @@ export const JobOpportunities = () => {
     // no longer be in the list. Clear it so it can't hide every result.
     setCompany("");
   }, [jobTitle, location, workType]);
+
+  // Load the jobs this talent has already saved so their hearts show as filled.
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || isEmployerSignedIn()) return;
+    let active = true;
+    axios
+      .get(`${API_BASE_URL}/api/saved-jobs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (active) setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const companyOptions = [
     ...new Set(
@@ -217,12 +249,47 @@ export const JobOpportunities = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const toggleFavorite = (jobId) => {
-    setFavorites((prev) =>
-      prev.includes(jobId)
-        ? prev.filter((id) => id !== jobId)
-        : [...prev, jobId],
-    );
+  const toggleFavorite = async (jobId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Please sign in to save this job");
+      return;
+    }
+    if (isEmployerSignedIn()) {
+      toast.error("Only talent accounts can save jobs");
+      return;
+    }
+    if (savingIds.includes(jobId)) return;
+
+    const wasSaved = favorites.includes(jobId);
+    const headers = { Authorization: `Bearer ${token}` };
+    setSavingIds((ids) => [...ids, jobId]);
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/saved-jobs${wasSaved ? "/remove-job" : ""}`,
+        { jobId },
+        { headers },
+      );
+      setFavorites((prev) =>
+        wasSaved ? prev.filter((id) => id !== jobId) : [...prev, jobId],
+      );
+      toast.success(
+        wasSaved ? "Job removed from favorites!" : "Job added to favorites!",
+      );
+    } catch (error) {
+      if (/already saved/i.test(error.response?.data?.message || "")) {
+        setFavorites((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
+      } else {
+        toast.error(
+          friendlyError(
+            error,
+            "We couldn't update your saved jobs. Please try again.",
+          ),
+        );
+      }
+    } finally {
+      setSavingIds((ids) => ids.filter((id) => id !== jobId));
+    }
   };
 
   // Put the search in the URL so the server runs a fresh search and the
@@ -274,7 +341,11 @@ export const JobOpportunities = () => {
   const JobCard = ({ job }) => (
     <div
       className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
-      onClick={() => navigate(`/jobs/${job._id}`)}
+      onClick={(e) => {
+        // The title is a real link and the heart is a button; let them do their own thing.
+        if (e.target.closest("a, button")) return;
+        navigate(jobPath(job));
+      }}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
@@ -286,7 +357,9 @@ export const JobOpportunities = () => {
               {job.employer?.companyName}
             </div>
             <h3 className="text-white text-lg font-semibold mb-2">
-              {job.jobTitle}
+              <Link to={jobPath(job)} className="hover:text-[#3B82F6] transition-colors">
+                {job.jobTitle}
+              </Link>
               {job.verified && (
                 <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2 align-middle">
                   <svg
@@ -322,7 +395,11 @@ export const JobOpportunities = () => {
             e.stopPropagation();
             toggleFavorite(job._id);
           }}
-          className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors"
+          disabled={savingIds.includes(job._id)}
+          aria-label={
+            favorites.includes(job._id) ? "Remove from saved jobs" : "Save job"
+          }
+          className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
         >
           <Heart
             className={`w-5 h-5 ${
