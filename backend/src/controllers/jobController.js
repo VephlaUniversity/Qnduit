@@ -10,7 +10,7 @@ import { uploadJobMedia, removeNewJobMedia } from "../utils/jobMediaUpload.js";
 import { jobDeadlineUpdate, lagosDateKey } from "../utils/jobDeadline.js";
 import { sendJobInquiryEmail } from "../utils/sendEmail.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
-import { rankJobs, buildSuggestions } from "../../../shared/jobSearch.js";
+import { rankJobs, buildSuggestions } from "../config/jobSearch.js";
 
 export const jobUpload = upload.fields([
   { name: "featuredImage", maxCount: 1 },
