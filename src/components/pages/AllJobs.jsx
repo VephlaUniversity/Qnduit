@@ -376,7 +376,7 @@ export const AllJobsPage = () => {
                 onClick={() => setSidebarOpen(false)}
               />
               <motion.div
-                className="fixed top-0 left-0 h-full w-80 bg-[#0F1419] z-50 lg:hidden overflow-y-auto p-4"
+                className="fixed top-0 left-0 h-full w-80 bg-[#0F1419] z-50 lg:hidden overflow-y-auto thin-scroll p-4"
                 initial={{ x: -320 }}
                 animate={{ x: 0 }}
                 exit={{ x: -320 }}

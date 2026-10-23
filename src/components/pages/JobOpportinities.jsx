@@ -599,7 +599,7 @@ export const JobOpportunities = () => {
                     aria-hidden={!sidebarOpen}
                     className={`${
                       sidebarOpen ? "translate-x-0" : "-translate-x-full"
-                    } lg:hidden fixed top-0 left-0 h-full w-80 max-w-[90vw] bg-[#0F1419] z-[58] transition-transform duration-300 overflow-y-auto`}
+                    } lg:hidden fixed top-0 left-0 h-full w-80 max-w-[90vw] bg-[#0F1419] z-[58] transition-transform duration-300 overflow-y-auto thin-scroll`}
                   >
                     <div className="bg-[#191D23] rounded-xl p-6 space-y-6">
                       <div className="flex items-center justify-between">

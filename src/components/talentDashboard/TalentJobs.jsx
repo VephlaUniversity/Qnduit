@@ -399,7 +399,7 @@ export const TalentJobs = () => {
           <div
             className={`${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } lg:translate-x-0 fixed lg:sticky lg:top-6 top-16 left-0 h-[calc(100vh-4rem)] lg:h-auto max-w-[90vw] w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-[45] lg:z-40 transition-transform duration-300 overflow-y-auto`}
+            } lg:translate-x-0 fixed lg:sticky lg:top-6 top-16 left-0 h-[calc(100vh-4rem)] lg:h-auto max-w-[90vw] w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-[45] lg:z-40 transition-transform duration-300 overflow-y-auto thin-scroll`}
           >
             <div className="bg-[#191D23] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
               <div className="flex items-center justify-between lg:hidden">
@@ -601,7 +601,7 @@ export const TalentJobs = () => {
           {/* Job listings */}
           <div className="flex-1 min-w-0">
             {/* Controls bar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between mb-6 gap-4">
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setViewMode("list")}
@@ -627,7 +627,7 @@ export const TalentJobs = () => {
                     </span>
                   )}
                 </button>
-                <span className="text-gray-400 text-sm">
+                <span className="text-gray-400 text-sm whitespace-nowrap">
                   {loading
                     ? "Loading..."
                     : loadError
@@ -704,7 +704,7 @@ export const TalentJobs = () => {
               <div
                 className={
                   viewMode === "grid"
-                    ? "grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
+                    ? "grid grid-cols-1 min-[1180px]:grid-cols-2 gap-6 mb-8"
                     : "space-y-4 mb-8"
                 }
               >

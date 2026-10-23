@@ -337,7 +337,7 @@ export const DashboardLayout = ({
                   )}
 
                   {searchStatus === "success" && searchResults.length > 0 && (
-                    <ul className="max-h-64 overflow-y-auto divide-y divide-white/5">
+                    <ul className="max-h-64 overflow-y-auto thin-scroll divide-y divide-white/5">
                       {searchResults.map((result, index) => (
                         <li key={result.id ?? index}>
                           <button

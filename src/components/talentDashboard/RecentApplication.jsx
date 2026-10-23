@@ -19,7 +19,7 @@ const RecentApplication = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const formatted = (res.data.applications || []).map((app) => ({
@@ -71,46 +71,56 @@ const RecentApplication = () => {
   };
 
   return (
-       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
-        <h2 className="text-xl font-semibold text-white mb-6">
-          Job Applied Recently
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
-                  JOBS
-                </th>
-                <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
-                  STATUS
-                </th>
-                <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
-                  DATE APPLIED
-                </th>
+    <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5">
+      <h2 className="text-xl font-semibold text-white mb-6">
+        Job Applied Recently
+      </h2>
+      <div className="overflow-x-auto thin-scroll">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
+                JOBS
+              </th>
+              <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
+                STATUS
+              </th>
+              <th className="text-left text-gray-400 text-sm font-medium pb-4 px-4">
+                DATE APPLIED
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={3}
+                  className="py-8 px-4 text-center text-gray-400"
+                  role="status"
+                >
+                  Loading applications…
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={3} className="py-8 px-4 text-center text-gray-400" role="status">
-                    Loading applications…
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={3} className="py-8 px-4 text-center text-red-400" role="alert">
-                    Unable to load your applications.
-                  </td>
-                </tr>
-              ) : applications.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="py-8 px-4 text-center text-gray-400">
-                    You haven't applied for any jobs yet.
-                  </td>
-                </tr>
-              ) : null}
-              {!loading && !error && applications.map((app, index) => (
+            ) : error ? (
+              <tr>
+                <td
+                  colSpan={3}
+                  className="py-8 px-4 text-center text-red-400"
+                  role="alert"
+                >
+                  Unable to load your applications.
+                </td>
+              </tr>
+            ) : applications.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="py-8 px-4 text-center text-gray-400">
+                  You haven't applied for any jobs yet.
+                </td>
+              </tr>
+            ) : null}
+            {!loading &&
+              !error &&
+              applications.map((app, index) => (
                 <tr
                   key={app.id || index}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
@@ -138,7 +148,7 @@ const RecentApplication = () => {
                   <td className="py-4 px-4">
                     <span
                       className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
-                        app.status
+                        app.status,
                       )}`}
                     >
                       {app.status}
@@ -149,11 +159,11 @@ const RecentApplication = () => {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </table>
       </div>
-    )
+    </div>
+  );
 };
 
 export default RecentApplication;

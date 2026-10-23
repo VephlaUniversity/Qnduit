@@ -287,7 +287,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
             <motion.div
               className={`${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
-              } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
+              } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto thin-scroll`}
               initial={{ opacity: 0, x: -24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}

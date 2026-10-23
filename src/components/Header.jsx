@@ -241,7 +241,7 @@ export const Header = () => {
                 </div>
 
                 <motion.nav
-                  className="flex-1 overflow-y-auto px-4 py-2"
+                  className="flex-1 overflow-y-auto thin-scroll px-4 py-2"
                   variants={staggerContainer}
                   initial="initial"
                   animate="animate"

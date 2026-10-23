@@ -624,7 +624,7 @@ export const TalentJobDetails = () => {
       {/* Tabs */}
       <div className="border-b border-[#1A1F2E]">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-4 md:gap-8 overflow-x-auto whitespace-nowrap">
+          <div className="flex gap-4 md:gap-8 overflow-x-auto thin-scroll whitespace-nowrap">
             <button
               onClick={() => setActiveTab("about")}
               className={`py-4 px-2 border-b-2 transition-colors ${
@@ -748,7 +748,7 @@ export const TalentJobDetails = () => {
                           >
                             <ChevronLeft className="w-5 h-5 text-gray-800" />
                           </button>
-                          <div className="flex flex-1 gap-4 overflow-x-auto">
+                          <div className="flex flex-1 gap-4 overflow-x-auto thin-scroll">
                             {portfolioItems.map((item, idx) => (
                               <button
                                 key={`${item.url}-${idx}`}

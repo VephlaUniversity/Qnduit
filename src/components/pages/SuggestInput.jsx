@@ -165,7 +165,7 @@ export function SuggestInput({
         <ul
           id={listId}
           role="listbox"
-          className={`absolute left-0 top-full z-50 mt-2 max-h-80 w-full min-w-[16rem] overflow-y-auto rounded-lg py-1 shadow-xl ${colors.panel}`}
+          className={`absolute left-0 top-full z-50 mt-2 max-h-80 w-full min-w-[16rem] overflow-y-auto thin-scroll rounded-lg py-1 shadow-xl ${colors.panel}`}
         >
           {items.map((item, index) => {
             const showHeading = item.kind !== lastKind;
