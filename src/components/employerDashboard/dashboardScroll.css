@@ -1,0 +1,10 @@
+/* Thin, quiet scrollbar for the dashboard sidebar. It stays visible (so people
+   can tell there is more to scroll) but blends into the dark panel. */
+.dash-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.dash-sidebar-scroll:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}

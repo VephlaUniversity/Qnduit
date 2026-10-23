@@ -9,6 +9,7 @@ import {
   getSingleJob,
   deleteJob,
   searchJobs,
+  suggestJobs,
   quickSearchJobs,
   getPublicJobDetails,
   getRelatedJobs,
@@ -35,6 +36,8 @@ router.get("/my-jobs", protect, authorize("employer"), getEmployerJobs);
 router.get("/", quickSearchJobs); // no auth: search-bar suggestions
 
 router.get("/search", searchJobs); // no auth
+
+router.get("/suggest", suggestJobs); // no auth: suggestions while typing
 
 router.get("/:id", protect, authorize("employer"), getSingleJob);
 

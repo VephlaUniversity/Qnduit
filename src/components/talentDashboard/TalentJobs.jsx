@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Menu,
   X,
 } from "lucide-react";
 import axios from "axios";
@@ -45,7 +44,6 @@ export const TalentJobs = () => {
   const [workTypeFilter, setWorkTypeFilter] = useState(workType);
   const [jobTypeFilter, setJobTypeFilter] = useState("");
   const [salaryRange, setSalaryRange] = useState([0, 240000]);
-  const [radius, setRadius] = useState(25);
   const [postedAnytime, setPostedAnytime] = useState("anytime");
   const [seniorityLevel, setSeniorityLevel] = useState("all");
   const [company, setCompany] = useState("");
@@ -88,6 +86,7 @@ export const TalentJobs = () => {
     setSearchKeyword(jobTitle);
     setLocationFilter(location);
     setWorkTypeFilter(workType);
+    setCompany("");
   }, [jobTitle, location, workType]);
 
   const companyOptions = [
@@ -157,7 +156,14 @@ export const TalentJobs = () => {
     // Seniority (career level)
     if (seniorityLevel !== "all") {
       const level = String(job.careerLevel || "").toLowerCase();
-      const wanted = { entry: "entry", mid: "mid", senior: "senior", lead: "lead", executive: "exec" }[seniorityLevel] || seniorityLevel;
+      const wanted =
+        {
+          entry: "entry",
+          mid: "mid",
+          senior: "senior",
+          lead: "lead",
+          executive: "exec",
+        }[seniorityLevel] || seniorityLevel;
       if (!level.includes(wanted)) return false;
     }
 
@@ -209,7 +215,8 @@ export const TalentJobs = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        if (active) setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+        if (active)
+          setFavorites((res.data.jobs || []).map((j) => String(j.id)));
       })
       .catch(() => {});
     return () => {
@@ -227,18 +234,33 @@ export const TalentJobs = () => {
     const saved = favorites.includes(id);
     const headers = { Authorization: `Bearer ${token}` };
     // optimistic update, rolled back on failure
-    setFavorites((prev) => (saved ? prev.filter((x) => x !== id) : [...prev, id]));
+    setFavorites((prev) =>
+      saved ? prev.filter((x) => x !== id) : [...prev, id],
+    );
     try {
       if (saved) {
-        await axios.post(`${API_BASE_URL}/api/saved-jobs/remove-job`, { jobId: id }, { headers });
+        await axios.post(
+          `${API_BASE_URL}/api/saved-jobs/remove-job`,
+          { jobId: id },
+          { headers },
+        );
       } else {
-        await axios.post(`${API_BASE_URL}/api/saved-jobs`, { jobId: id }, { headers });
+        await axios.post(
+          `${API_BASE_URL}/api/saved-jobs`,
+          { jobId: id },
+          { headers },
+        );
       }
     } catch (error) {
       if (!/already saved/i.test(error.response?.data?.message || "")) {
-        setFavorites((prev) => (saved ? [...prev, id] : prev.filter((x) => x !== id)));
+        setFavorites((prev) =>
+          saved ? [...prev, id] : prev.filter((x) => x !== id),
+        );
         toast.error(
-          friendlyError(error, "We couldn't update your saved jobs. Please try again."),
+          friendlyError(
+            error,
+            "We couldn't update your saved jobs. Please try again.",
+          ),
         );
       }
     }
@@ -250,7 +272,6 @@ export const TalentJobs = () => {
     setWorkTypeFilter(workType);
     setJobTypeFilter("");
     setSalaryRange([0, 240000]);
-    setRadius(25);
     setPostedAnytime("anytime");
     setSeniorityLevel("all");
     setCompany("");
@@ -325,48 +346,51 @@ export const TalentJobs = () => {
 
       <div className="flex justify-between flex-wrap gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
-          {[...normalizeList(job.jobApplyType), ...(job.workType ? [job.workType] : [])].map((type, idx) => (
-              <span
-                key={idx}
-                className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
-              >
-                {type}
-              </span>
-            ))}
+          {[
+            ...normalizeList(job.jobApplyType),
+            ...(job.workType ? [job.workType] : []),
+          ].map((type, idx) => (
+            <span
+              key={idx}
+              className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
+            >
+              {type}
+            </span>
+          ))}
         </div>
-        </div>
+      </div>
 
       <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between">
         <span className="text-[#f1f1f1] flex items-center gap-1 text-sm">
           <DollarSign className="w-4 h-4" />
           {formatSalary(job.salary)}
         </span>
-        <span className="text-gray-400 text-sm">{daysLeftLabel(job.deadlineDate)}</span>
+        <span className="text-gray-400 text-sm">
+          {daysLeftLabel(job.deadlineDate)}
+        </span>
       </div>
     </div>
   );
+
+  // Filters that differ from their defaults (badge on the filter icon)
+  const activeFilterCount = [
+    workTypeFilter !== "",
+    jobTypeFilter !== "",
+    salaryRange[0] !== 0 || salaryRange[1] !== 240000,
+    postedAnytime !== "anytime",
+    seniorityLevel !== "all",
+    company !== "",
+  ].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-[#0F1419] text-white">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex gap-6">
-          {/* Mobile sidebar toggle */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#3B82F6] hover:bg-[#3077e8] text-white p-4 rounded-full shadow-lg"
-          >
-            {sidebarOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
-
-          {/* Mobile overlay */}
+          {/* Mobile overlay (starts below the dashboard header) */}
           {sidebarOpen && (
             <div
-              className="lg:hidden fixed inset-0 bg-black/50 z-30"
+              className="lg:hidden fixed inset-x-0 bottom-0 top-16 bg-black/50 z-[44]"
               onClick={() => setSidebarOpen(false)}
             />
           )}
@@ -375,9 +399,20 @@ export const TalentJobs = () => {
           <div
             className={`${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
+            } lg:translate-x-0 fixed lg:sticky lg:top-6 top-16 left-0 h-[calc(100vh-4rem)] lg:h-auto max-w-[90vw] w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-[45] lg:z-40 transition-transform duration-300 overflow-y-auto`}
           >
             <div className="bg-[#191D23] rounded-xl p-6 space-y-6 lg:sticky lg:top-6">
+              <div className="flex items-center justify-between lg:hidden">
+                <h2 className="text-white font-semibold text-lg">Filters</h2>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  aria-label="Close filters"
+                  className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A3142]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
               {/* Search keyword */}
               <div>
                 <h3 className="text-white mb-3">Filter Result</h3>
@@ -487,32 +522,6 @@ export const TalentJobs = () => {
                 </Slider.Root>
               </div>
 
-              {/* Radius slider */}
-              <div>
-                <h3 className="text-gray-400 text-sm font-normal mb-3">
-                  Radius:{" "}
-                  <span className="text-[#3B82F6] font-semibold">
-                    {radius} Miles
-                  </span>
-                </h3>
-                <Slider.Root
-                  className="relative flex items-center select-none touch-none w-full h-5"
-                  value={[radius]}
-                  onValueChange={(v) => setRadius(v[0])}
-                  max={100}
-                  min={0}
-                  step={1}
-                >
-                  <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                    <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
-                  </Slider.Track>
-                  <Slider.Thumb
-                    className="block w-4 h-4 bg-[#3B82F6] rounded-full shadow-lg focus:outline-none"
-                    aria-label="Radius"
-                  />
-                </Slider.Root>
-              </div>
-
               {/* Posted */}
               <div>
                 <h3 className="text-white mb-3">Posted</h3>
@@ -606,12 +615,24 @@ export const TalentJobs = () => {
                 >
                   <Grid className="w-5 h-5" />
                 </button>
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Open filters"
+                  className="lg:hidden relative p-2 rounded bg-[#1A1F2E] hover:bg-[#232A3B]"
+                >
+                  <Filter className="w-5 h-5" />
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#3B82F6] text-white text-xs rounded-full flex items-center justify-center font-medium">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
                 <span className="text-gray-400 text-sm">
                   {loading
                     ? "Loading..."
                     : loadError
-                    ? "Unable to load jobs"
-                    : `${filteredJobs.length} job${filteredJobs.length !== 1 ? "s" : ""} found`}
+                      ? "Unable to load jobs"
+                      : `${filteredJobs.length} job${filteredJobs.length !== 1 ? "s" : ""} found`}
                 </span>
               </div>
               <div className="flex gap-3 w-full sm:w-auto">

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
-import { formatSalary } from "../utils/jobDisplay";
+import { formatSalary, jobPath } from "../utils/jobDisplay";
 import { friendlyError } from "../utils/userMessage";
 
 const MAX_JOBS = 6;
@@ -125,7 +125,7 @@ export const JobListings = () => {
                   {formatSalary(job.salary)}
                 </span>
                 <Link
-                  to={`/jobs/${job._id}`}
+                  to={jobPath(job)}
                   className="bg-blue-500 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-600 transition-colors whitespace-nowrap"
                 >
                   Apply Now →

@@ -2,11 +2,15 @@ import Job from "../models/Job.js";
 import { nonDeletedJobFilter } from "../services/jobVisibility.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
-import { checkEmployerJobAccess, createEmployerJob } from "../services/employerJobAccess.js";
+import {
+  checkEmployerJobAccess,
+  createEmployerJob,
+} from "../services/employerJobAccess.js";
 import { uploadJobMedia, removeNewJobMedia } from "../utils/jobMediaUpload.js";
 import { jobDeadlineUpdate, lagosDateKey } from "../utils/jobDeadline.js";
 import { sendJobInquiryEmail } from "../utils/sendEmail.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
+import { rankJobs, buildSuggestions } from "../utils/jobSearch.js";
 
 export const jobUpload = upload.fields([
   { name: "featuredImage", maxCount: 1 },
@@ -39,22 +43,18 @@ export const createJob = async (req, res) => {
       return res.status(400).json({ success: false, message: gallery.error });
     const deadline = jobDeadlineUpdate(req.body);
     if (deadline.error)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: deadline.error,
-          errors: { deadlineDate: deadline.error },
-        });
+      return res.status(400).json({
+        success: false,
+        message: deadline.error,
+        errors: { deadlineDate: deadline.error },
+      });
     const { errors, salary } = jobSalaryUpdate(req.body);
     if (Object.keys(errors).length)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Please check the salary fields.",
-          errors,
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Please check the salary fields.",
+        errors,
+      });
 
     const job = new Job({
       employer: employerId,
@@ -81,7 +81,12 @@ export const createJob = async (req, res) => {
 
     await job.validate();
     await checkEmployerJobAccess(employerId);
-    Object.assign(job, await uploadJobMedia(req.files, { onUploaded: asset => newAssets.push(asset) }));
+    Object.assign(
+      job,
+      await uploadJobMedia(req.files, {
+        onUploaded: (asset) => newAssets.push(asset),
+      }),
+    );
     const savedJob = await createEmployerJob(employerId, job.toObject());
     jobCommitted = true;
 
@@ -91,13 +96,20 @@ export const createJob = async (req, res) => {
       job: savedJob,
     });
   } catch (error) {
-    if (!jobCommitted && !error.jobCommitOutcomeUnknown) await removeNewJobMedia(newAssets);
+    if (!jobCommitted && !error.jobCommitOutcomeUnknown)
+      await removeNewJobMedia(newAssets);
     if (res.headersSent || res.destroyed) return;
     if (error.status === 403 || error.status === 503) {
-      return res.status(error.status).json({ success: false, code: error.code,
-        message: error.status === 403 ? error.message : error.jobCommitOutcomeUnknown
-          ? "The posting outcome could not be confirmed. Check My Jobs before trying again."
-          : "Job posting is temporarily unavailable. Please try again later." });
+      return res.status(error.status).json({
+        success: false,
+        code: error.code,
+        message:
+          error.status === 403
+            ? error.message
+            : error.jobCommitOutcomeUnknown
+              ? "The posting outcome could not be confirmed. Check My Jobs before trying again."
+              : "Job posting is temporarily unavailable. Please try again later.",
+      });
     }
     jobSaveError(res, error);
   }
@@ -107,9 +119,19 @@ export const createJob = async (req, res) => {
 // and media use their existing validators/mappers below; ownership and deletion
 // state are never taken from the request body.
 const editableJobFields = [
-  "jobTitle", "jobDescription", "category", "jobCategory", "jobApplyType",
-  "workType", "experience", "careerLevel", "qualification", "address", "location",
-  "geoLocation", "status",
+  "jobTitle",
+  "jobDescription",
+  "category",
+  "jobCategory",
+  "jobApplyType",
+  "workType",
+  "experience",
+  "careerLevel",
+  "qualification",
+  "address",
+  "location",
+  "geoLocation",
+  "status",
 ];
 
 export const updateJob = async (req, res) => {
@@ -132,22 +154,18 @@ export const updateJob = async (req, res) => {
       return res.status(400).json({ success: false, message: gallery.error });
     const deadline = jobDeadlineUpdate(req.body, job.deadlineDate);
     if (deadline.error)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: deadline.error,
-          errors: { deadlineDate: deadline.error },
-        });
+      return res.status(400).json({
+        success: false,
+        message: deadline.error,
+        errors: { deadlineDate: deadline.error },
+      });
     const { errors, salary } = jobSalaryUpdate(req.body, job.salary);
     if (Object.keys(errors).length)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Please check the salary fields.",
-          errors,
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Please check the salary fields.",
+        errors,
+      });
     for (const field of editableJobFields) {
       if (Object.hasOwn(req.body, field)) job.set(field, req.body[field]);
     }
@@ -157,7 +175,9 @@ export const updateJob = async (req, res) => {
 
     await job.validate();
     // Do not mutate saved media until every replacement upload has succeeded.
-    const media = await uploadJobMedia(req.files, { onUploaded: asset => newAssets.push(asset) });
+    const media = await uploadJobMedia(req.files, {
+      onUploaded: (asset) => newAssets.push(asset),
+    });
     if (gallery.explicit || Object.hasOwn(media, "gallery")) {
       media.gallery = [...gallery.items, ...(media.gallery || [])];
     }
@@ -165,11 +185,15 @@ export const updateJob = async (req, res) => {
 
     await job.validate();
     writeAttempted = true;
-    const savedJob = await Job.findOneAndUpdate({
-      _id: id,
-      employer: employerId,
-      ...nonDeletedJobFilter(),
-    }, job.getChanges(), { new: true, runValidators: true });
+    const savedJob = await Job.findOneAndUpdate(
+      {
+        _id: id,
+        employer: employerId,
+        ...nonDeletedJobFilter(),
+      },
+      job.getChanges(),
+      { new: true, runValidators: true },
+    );
     if (!savedJob) {
       await removeNewJobMedia(newAssets);
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -184,7 +208,10 @@ export const updateJob = async (req, res) => {
     // A failed/partial upload or rejected update cannot own saved media. After
     // an ambiguous database write error, retain new assets: the write may have
     // committed even if its reply was lost. Never delete existing job assets.
-    if (!writeAttempted || ["ValidationError", "CastError"].includes(error.name)) {
+    if (
+      !writeAttempted ||
+      ["ValidationError", "CastError"].includes(error.name)
+    ) {
       await removeNewJobMedia(newAssets);
     }
     jobSaveError(res, error);
@@ -195,7 +222,10 @@ export const getEmployerJobs = async (req, res, next) => {
   try {
     const employerId = req.user._id;
 
-    const jobs = await Job.find({ employer: employerId, ...nonDeletedJobFilter() }).sort({
+    const jobs = await Job.find({
+      employer: employerId,
+      ...nonDeletedJobFilter(),
+    }).sort({
       createdAt: -1,
     });
 
@@ -210,7 +240,10 @@ export const getEmployerJobs = async (req, res, next) => {
 
 export const getSingleJob = async (req, res, next) => {
   try {
-    const job = await Job.findOne({ _id: req.params.id, ...nonDeletedJobFilter() });
+    const job = await Job.findOne({
+      _id: req.params.id,
+      ...nonDeletedJobFilter(),
+    });
 
     if (!job) {
       return res.status(404).json({
@@ -350,45 +383,93 @@ const searchPipeline = (
   return pipeline;
 };
 
+// Most open jobs the smart search will look through per request.
+const SEARCH_POOL = 1500;
+
+const SEARCH_PROJECT = {
+  _id: 1,
+  jobTitle: 1,
+  jobDescription: 1,
+  location: 1,
+  address: 1,
+  category: 1,
+  jobCategory: 1,
+  jobApplyType: 1,
+  workType: 1,
+  experience: 1,
+  careerLevel: 1,
+  qualification: 1,
+  deadlineDate: 1,
+  salary: 1,
+  featuredImage: 1,
+  gallery: 1,
+  createdAt: 1,
+  "employer._id": 1,
+  "employer.companyName": 1,
+  "employer.logo": 1,
+  "employer.selectedPlan": 1,
+  planPriority: 1,
+};
+
 export const searchJobs = async (req, res, next) => {
   try {
-    const params = {
-      jobTitle: queryText(req.query.jobTitle),
-      location: queryText(req.query.location),
-      workType: queryText(req.query.workType),
-      q: queryText(req.query.q),
-    };
+    const workType = queryText(req.query.workType);
+    // "q" is what was typed; "jobTitle" is the older name for the same box.
+    const q = queryText(req.query.q) || queryText(req.query.jobTitle);
+    const location = queryText(req.query.location);
 
-    const jobs = await Job.aggregate(
-      searchPipeline(params, [
-        {
-          $project: {
-            _id: 1,
-            jobTitle: 1,
-            jobDescription: 1,
-            location: 1,
-            jobCategory: 1,
-            jobApplyType: 1,
-            workType: 1,
-            experience: 1,
-            careerLevel: 1,
-            qualification: 1,
-            deadlineDate: 1,
-            salary: 1,
-            featuredImage: 1,
-            gallery: 1,
-            createdAt: 1,
-            "employer._id": 1,
-            "employer.companyName": 1,
-            "employer.logo": 1,
-            "employer.selectedPlan": 1,
-            planPriority: 1,
-          },
-        },
+    // The database only narrows by work type; matching and ranking by the typed
+    // words and place happen in rankJobs (spelling variants, typos, relevance).
+    const pool = await Job.aggregate(
+      searchPipeline({ workType }, [
+        { $limit: SEARCH_POOL },
+        { $project: SEARCH_PROJECT },
       ]),
     );
 
+    const jobs = rankJobs(pool, { q, location });
+
     res.json({ success: true, count: jobs.length, jobs });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Suggestions while typing: GET /api/jobs/suggest?q=...
+// Distinct job titles, companies and places that fit the typed words, with counts.
+let suggestPool = { at: 0, jobs: [] };
+const SUGGEST_TTL_MS = 30 * 1000;
+
+export const suggestJobs = async (req, res, next) => {
+  try {
+    const q = queryText(req.query.q).trim().slice(0, 60);
+    if (q.length < 2) {
+      return res.json({
+        success: true,
+        titles: [],
+        companies: [],
+        locations: [],
+      });
+    }
+
+    if (Date.now() - suggestPool.at > SUGGEST_TTL_MS) {
+      const jobs = await Job.aggregate(
+        searchPipeline({}, [
+          { $limit: SEARCH_POOL },
+          {
+            $project: {
+              jobTitle: 1,
+              location: 1,
+              workType: 1,
+              "employer.companyName": 1,
+            },
+          },
+        ]),
+      );
+      suggestPool = { at: Date.now(), jobs };
+    }
+
+    res.json({ success: true, ...buildSuggestions(suggestPool.jobs, q) });
   } catch (error) {
     next(error);
   }
@@ -469,7 +550,10 @@ export const getPublicJobDetails = async (req, res, next) => {
 
 export const getRelatedJobs = async (req, res) => {
   try {
-    const job = await Job.findOne({ _id: req.params.id, ...nonDeletedJobFilter() });
+    const job = await Job.findOne({
+      _id: req.params.id,
+      ...nonDeletedJobFilter(),
+    });
 
     if (!job) {
       return res.status(404).json({
