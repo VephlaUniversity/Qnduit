@@ -125,3 +125,28 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Thin, quiet scrollbar for panels, drawers, dropdowns and wide tables.
+   Add the "thin-scroll" class next to overflow-y-auto / overflow-x-auto. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+.thin-scroll:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+}
+/* Older Chromium/Safari */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}

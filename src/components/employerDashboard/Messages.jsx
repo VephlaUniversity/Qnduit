@@ -1,6 +1,18 @@
 import MessageAttachment from "./MessageAttachment";
-import { MESSAGE_FILE_ACCEPT, validateMessageFiles, messageSendBody, sameMessageFiles, messagePreview } from "../utils/messageAttachments";
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import {
+  MESSAGE_FILE_ACCEPT,
+  validateMessageFiles,
+  messageSendBody,
+  sameMessageFiles,
+  messagePreview,
+} from "../utils/messageAttachments";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { Search, Send, Paperclip, Smile, MoreVertical } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
@@ -11,67 +23,128 @@ import { messageRecipient } from "../utils/messageRecipient";
 import { profileImageUrl } from "../profiles/profileApi";
 import { Popover, PopoverTrigger, PopoverContent } from "../ui/popover";
 import { API_BASE_URL } from "../utils/api";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../ui/dropdown-menu";
 
 const MESSAGE_LIMIT = 10000;
 
 const mergeMessages = (older, newer) => {
   const unique = new Map();
-  for (const message of [...older, ...newer]) unique.set(message.id, { ...message, read: message.read === true || unique.get(message.id)?.read === true });
+  for (const message of [...older, ...newer])
+    unique.set(message.id, {
+      ...message,
+      read: message.read === true || unique.get(message.id)?.read === true,
+    });
   return [...unique.values()].sort((a, b) => {
-    const difference = (messageDate(a.createdAt)?.getTime() ?? -Infinity) - (messageDate(b.createdAt)?.getTime() ?? -Infinity);
-    return difference && !Number.isNaN(difference) ? difference : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    const difference =
+      (messageDate(a.createdAt)?.getTime() ?? -Infinity) -
+      (messageDate(b.createdAt)?.getTime() ?? -Infinity);
+    return difference && !Number.isNaN(difference)
+      ? difference
+      : a.id < b.id
+        ? -1
+        : a.id > b.id
+          ? 1
+          : 0;
   });
 };
-const chatKey = chat => `${chat.role}:${chat._id}`;
+const chatKey = (chat) => `${chat.role}:${chat._id}`;
 const compareChats = (a, b) => {
-  const timestamp = value => messageDate(value)?.getTime() ?? -Infinity;
+  const timestamp = (value) => messageDate(value)?.getTime() ?? -Infinity;
   const difference = timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt);
   if (difference && !Number.isNaN(difference)) return difference;
   return chatKey(a) < chatKey(b) ? -1 : chatKey(a) > chatKey(b) ? 1 : 0;
 };
 // Only absolute timestamps are trustworthy across server/viewer timezones.
-const messageDate = value => {
+const messageDate = (value) => {
   if (typeof value !== "string") return null;
-  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i);
+  const parts = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i,
+  );
   if (!parts) return null;
   const [, year, month, day, hour, minute, second] = parts.map(Number);
   const monthEnd = new Date(0);
   monthEnd.setUTCFullYear(year, month, 0);
-  if (month < 1 || month > 12 || day < 1 || day > monthEnd.getUTCDate() || hour > 23 || minute > 59 || second > 59) return null;
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > monthEnd.getUTCDate() ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    return null;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date : null;
 };
-const localDay = value => {
+const localDay = (value) => {
   const date = messageDate(value);
-  return date ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}` : null;
+  return date
+    ? `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    : null;
 };
-const messageTime = value => {
+const messageTime = (value) => {
   const date = messageDate(value);
   if (!date) return "";
   const hour = date.getHours();
   return `${String(hour % 12 || 12).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}${hour < 12 ? "am" : "pm"}`;
 };
-const messageDayLabel = value => messageDate(value)?.toDateString() || "Date unavailable";
+const messageDayLabel = (value) =>
+  messageDate(value)?.toDateString() || "Date unavailable";
 
-const avatarKey = chat => `${chat ? chatKey(chat) : "none"}:${chat?.avatar || ""}`;
+const avatarKey = (chat) =>
+  `${chat ? chatKey(chat) : "none"}:${chat?.avatar || ""}`;
 const PresenceDot = ({ presence }) => {
-  if (!presence || !["online", "offline"].includes(presence.status) || presence.validUntil <= performance.now()) return null;
+  if (
+    !presence ||
+    !["online", "offline"].includes(presence.status) ||
+    presence.validUntil <= performance.now()
+  )
+    return null;
   const online = presence.status === "online";
-  return <span role="img" aria-label={online ? "Online" : "Offline"} title={online ? "Online" : "Offline"}
-    className={`absolute bottom-0 right-0 w-3 h-3 ${online ? "bg-green-500" : "bg-gray-500"} rounded-full border-2 border-[#1A1A1E]`} />;
+  return (
+    <span
+      role="img"
+      aria-label={online ? "Online" : "Offline"}
+      title={online ? "Online" : "Offline"}
+      className={`absolute bottom-0 right-0 w-3 h-3 ${online ? "bg-green-500" : "bg-gray-500"} rounded-full border-2 border-[#1A1A1E]`}
+    />
+  );
 };
 const MessageAvatar = ({ chat, className }) => {
   const [failed, setFailed] = useState(false);
   const value = typeof chat?.avatar === "string" ? chat.avatar.trim() : "";
   // The messaging API uses the same field for image paths and initial fallbacks.
-  const image = value.includes("/") || /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#]|$)/i.test(value);
+  const image =
+    value.includes("/") ||
+    /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#]|$)/i.test(value);
   const source = image ? profileImageUrl(value) : "";
-  const words = typeof chat?.name === "string" ? chat.name.trim().split(/\s+/).filter(Boolean) : [];
-  const initials = (words.length > 1 ? [words[0], words.at(-1)] : words).map(word => Array.from(word)[0]).join("").toLocaleUpperCase() || "?";
+  const words =
+    typeof chat?.name === "string"
+      ? chat.name.trim().split(/\s+/).filter(Boolean)
+      : [];
+  const initials =
+    (words.length > 1 ? [words[0], words.at(-1)] : words)
+      .map((word) => Array.from(word)[0])
+      .join("")
+      .toLocaleUpperCase() || "?";
   return (
     <div className={className} aria-hidden="true">
-      {source && !failed ? <img src={source} alt="" className="h-full w-full rounded-full object-cover" onError={() => setFailed(true)} /> : initials}
+      {source && !failed ? (
+        <img
+          src={source}
+          alt=""
+          className="h-full w-full rounded-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials
+      )}
     </div>
   );
 };
@@ -79,10 +152,16 @@ const MessageAvatar = ({ chat, className }) => {
 export const Messages = () => {
   const { user } = useAuth();
   const messaging = useMessagingCoordinator();
-  const { register: registerPolling, wake: refreshUnread, watchPresence } = messaging;
+  const {
+    register: registerPolling,
+    wake: refreshUnread,
+    watchPresence,
+  } = messaging;
   const [readError, setReadError] = useState("");
   const sessionToken = localStorage.getItem("token");
-  const accountKey = user ? `${user.userType}:${user._id || user.id || user.email}` : "";
+  const accountKey = user
+    ? `${user.userType}:${user._id || user.id || user.email}`
+    : "";
   const [authExpired, setAuthExpired] = useState(false);
   const [pollError, setPollError] = useState("");
   const poll = useRef(null);
@@ -98,10 +177,23 @@ export const Messages = () => {
   const recipient = messageRecipient(params);
   const [resolvedRecipient, setResolvedRecipient] = useState(null);
   const [recipientVersion, setRecipientVersion] = useState(0);
-  const selectedChat = resolvedRecipient?.key === recipient.key && resolvedRecipient.status === "ready" ? resolvedRecipient.chat : null;
-  const recipientLoading = recipient.status === "valid" && (!resolvedRecipient || resolvedRecipient.key !== recipient.key || resolvedRecipient.status === "loading");
-  const recipientError = recipient.status === "invalid" ? "Invalid recipient link. Select someone from search."
-    : resolvedRecipient?.key === recipient.key && resolvedRecipient.status === "error" ? resolvedRecipient.error : "";
+  const selectedChat =
+    resolvedRecipient?.key === recipient.key &&
+    resolvedRecipient.status === "ready"
+      ? resolvedRecipient.chat
+      : null;
+  const recipientLoading =
+    recipient.status === "valid" &&
+    (!resolvedRecipient ||
+      resolvedRecipient.key !== recipient.key ||
+      resolvedRecipient.status === "loading");
+  const recipientError =
+    recipient.status === "invalid"
+      ? "Invalid recipient link. Select someone from search."
+      : resolvedRecipient?.key === recipient.key &&
+          resolvedRecipient.status === "error"
+        ? resolvedRecipient.error
+        : "";
   const [fileDrafts, setFileDrafts] = useState({});
   const selectedFiles = fileDrafts[recipient.key] || [];
   const fileInput = useRef(null);
@@ -109,12 +201,23 @@ export const Messages = () => {
   const accountSession = useRef("");
   const [drafts, setDrafts] = useState({});
   const messageInput = drafts[recipient.key] || "";
-  const setMessageInput = value => setDrafts(previous => ({ ...previous,
-    [recipient.key]: typeof value === "function" ? value(previous[recipient.key] || "") : value }));
+  const setMessageInput = (value) =>
+    setDrafts((previous) => ({
+      ...previous,
+      [recipient.key]:
+        typeof value === "function"
+          ? value(previous[recipient.key] || "")
+          : value,
+    }));
   const [chats, setChats] = useState([]);
   const [listReload, setListReload] = useState(0);
   const [listState, setListState] = useState({ query: "", status: "loading" });
-  const [transcript, setTranscript] = useState({ key: "", version: 0, status: "idle", messages: [] });
+  const [transcript, setTranscript] = useState({
+    key: "",
+    version: 0,
+    status: "idle",
+    messages: [],
+  });
   const [conversationVersion, setConversationVersion] = useState(0);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -140,9 +243,14 @@ export const Messages = () => {
   const draftRevisions = useRef(new Map());
   const previews = useRef(new Map());
   const selectedKey = selectedChat ? chatKey(selectedChat) : "";
-  const currentTranscript = transcript.key === selectedKey && transcript.version === conversationVersion;
-  const transcriptLoading = Boolean(selectedChat) && (!currentTranscript || transcript.status === "loading");
-  const listLoading = listState.query !== searchQuery || listState.status === "loading";
+  const currentTranscript =
+    transcript.key === selectedKey &&
+    transcript.version === conversationVersion;
+  const transcriptLoading =
+    Boolean(selectedChat) &&
+    (!currentTranscript || transcript.status === "loading");
+  const listLoading =
+    listState.query !== searchQuery || listState.status === "loading";
 
   useEffect(() => {
     manualRefresh.current = null;
@@ -152,14 +260,34 @@ export const Messages = () => {
 
   const viewRecipientProfile = () => {
     if (!selectedChat || authExpired || manualRefresh.current) return;
-    const type = selectedChat.role === "Talent" ? "talent" : selectedChat.role === "Employer" ? "employer" : "";
-    const target = messageRecipient(new URLSearchParams({ recipientId: selectedChat._id, recipientType: type }));
+    const type =
+      selectedChat.role === "Talent"
+        ? "talent"
+        : selectedChat.role === "Employer"
+          ? "employer"
+          : "";
+    const target = messageRecipient(
+      new URLSearchParams({
+        recipientId: selectedChat._id,
+        recipientType: type,
+      }),
+    );
     if (target.status !== "valid") return;
-    const dashboard = user.userType === "talent" ? "/talent-dashboard" : "/dashboard";
+    const dashboard =
+      user.userType === "talent" ? "/talent-dashboard" : "/dashboard";
     navigate(`${dashboard}/users/${target.type}/${target.id}?from=messages`);
   };
   const refreshConversation = () => {
-    if (!selectedChat || authExpired || transcriptLoading || sending || olderRequest.current || manualRefresh.current || !poll.current) return;
+    if (
+      !selectedChat ||
+      authExpired ||
+      transcriptLoading ||
+      sending ||
+      olderRequest.current ||
+      manualRefresh.current ||
+      !poll.current
+    )
+      return;
     manualRefresh.current = { key: selectedKey, version: conversationVersion };
     setRefreshing(true);
     poll.current.wake();
@@ -167,13 +295,21 @@ export const Messages = () => {
 
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; transcriptRequest.current?.abort(); olderRequest.current?.abort(); };
+    return () => {
+      mounted.current = false;
+      transcriptRequest.current?.abort();
+      olderRequest.current?.abort();
+    };
   }, []);
 
   const rememberPreview = useCallback((chat, preview) => {
     const key = chatKey(chat);
     previews.current.set(key, preview);
-    setChats(previous => previous.map(item => chatKey(item) === key ? { ...item, ...preview } : item));
+    setChats((previous) =>
+      previous.map((item) =>
+        chatKey(item) === key ? { ...item, ...preview } : item,
+      ),
+    );
   }, []);
 
   useLayoutEffect(() => {
@@ -185,7 +321,10 @@ export const Messages = () => {
     poll.current?.stop();
     transcriptRequest.current?.abort();
     olderRequest.current?.abort();
-    activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+    activeConversation.current = {
+      key: "",
+      version: activeConversation.current.version + 1,
+    };
     setResolvedRecipient(null);
     setChats([]);
     setDrafts({});
@@ -202,19 +341,29 @@ export const Messages = () => {
   }, [accountKey, sessionToken]);
 
   useEffect(() => {
-    const invalidate = event => {
-      if (event.key !== null && event.key !== "token" && event.key !== "user") return;
+    const invalidate = (event) => {
+      if (event.key !== null && event.key !== "token" && event.key !== "user")
+        return;
       if (event.key === "token" && event.newValue === sessionToken) return;
       if (event.key === "user" && event.newValue) {
         try {
           const stored = JSON.parse(event.newValue);
-          if (`${stored.userType}:${stored._id || stored.id || stored.email}` === accountKey) return;
-        } catch { /* Invalid session storage is treated as logout. */ }
+          if (
+            `${stored.userType}:${stored._id || stored.id || stored.email}` ===
+            accountKey
+          )
+            return;
+        } catch {
+          /* Invalid session storage is treated as logout. */
+        }
       }
       poll.current?.stop();
       transcriptRequest.current?.abort();
       olderRequest.current?.abort();
-      activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+      activeConversation.current = {
+        key: "",
+        version: activeConversation.current.version + 1,
+      };
       setAuthExpired(true);
       setResolvedRecipient(null);
       setChats([]);
@@ -228,12 +377,18 @@ export const Messages = () => {
     return () => window.removeEventListener("storage", invalidate);
   }, [accountKey, sessionToken]);
 
-  const selectChat = chat => {
-    const type = chat.role === "Talent" ? "talent" : chat.role === "Employer" ? "employer" : "invalid";
+  const selectChat = (chat) => {
+    const type =
+      chat.role === "Talent"
+        ? "talent"
+        : chat.role === "Employer"
+          ? "employer"
+          : "invalid";
     const next = new URLSearchParams(params);
     next.set("recipientId", chat._id);
     next.set("recipientType", type);
-    if (messageRecipient(next).key === recipient.key) setRecipientVersion(value => value + 1);
+    if (messageRecipient(next).key === recipient.key)
+      setRecipientVersion((value) => value + 1);
     else setParams(next);
   };
 
@@ -241,7 +396,10 @@ export const Messages = () => {
     transcriptRequest.current?.abort();
     olderRequest.current?.abort();
     olderRequest.current = null;
-    activeConversation.current = { key: "", version: activeConversation.current.version + 1 };
+    activeConversation.current = {
+      key: "",
+      version: activeConversation.current.version + 1,
+    };
     pendingScroll.current = null;
     composing.current = false;
     fileInputOwner.current = "";
@@ -258,26 +416,52 @@ export const Messages = () => {
     setResolvedRecipient({ key, status: "loading" });
     async function resolve() {
       try {
-        const { data } = await axios.get(`${API_BASE_URL}/api/messages/search`, {
-          params: { recipientId: recipient.id, recipientModel: recipient.model }, signal: controller.signal,
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/messages/search`,
+          {
+            params: {
+              recipientId: recipient.id,
+              recipientModel: recipient.model,
+            },
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          },
+        );
         if (controller.signal.aborted) return;
         const chat = data.results?.length === 1 ? data.results[0] : null;
-        if (!chat || chat._id !== recipient.id || chat.role !== recipient.model) throw new Error();
+        if (!chat || chat._id !== recipient.id || chat.role !== recipient.model)
+          throw new Error();
         const version = activeConversation.current.version + 1;
         activeConversation.current = { key, version };
         setConversationVersion(version);
         setResolvedRecipient({ key, status: "ready", chat });
       } catch (error) {
-        if (!controller.signal.aborted && error.response?.status === 401) setAuthExpired(true);
-        if (!controller.signal.aborted) setResolvedRecipient({ key, status: "error", error: [400, 404].includes(error.response?.status)
-          ? "Recipient unavailable. Select someone from search." : "Unable to load recipient. Select them again to retry." });
+        if (!controller.signal.aborted && error.response?.status === 401)
+          setAuthExpired(true);
+        if (!controller.signal.aborted)
+          setResolvedRecipient({
+            key,
+            status: "error",
+            error: [400, 404].includes(error.response?.status)
+              ? "Recipient unavailable. Select someone from search."
+              : "Unable to load recipient. Select them again to retry.",
+          });
       }
     }
     resolve();
     return () => controller.abort();
-  }, [recipient.key, recipient.status, recipient.id, recipient.model, recipientVersion, accountKey, authExpired, sessionToken]);
+  }, [
+    recipient.key,
+    recipient.status,
+    recipient.id,
+    recipient.model,
+    recipientVersion,
+    accountKey,
+    authExpired,
+    sessionToken,
+  ]);
 
   useEffect(() => {
     if (!accountKey || authExpired) return;
@@ -289,20 +473,40 @@ export const Messages = () => {
         const token = localStorage.getItem("token");
         if (!token) throw new Error();
         const headers = { Authorization: `Bearer ${token}` };
-        const results = await messagePages(async before => (await axios.get(`${API_BASE_URL}/api/messages/chats`, {
-          params: { limit: 100, query: searchQuery, ...(before ? { before } : {}) }, headers, signal: controller.signal, timeout: 15000,
-        })).data, { chats: true });
+        const results = await messagePages(
+          async (before) =>
+            (
+              await axios.get(`${API_BASE_URL}/api/messages/chats`, {
+                params: {
+                  limit: 100,
+                  query: searchQuery,
+                  ...(before ? { before } : {}),
+                },
+                headers,
+                signal: controller.signal,
+                timeout: 15000,
+              })
+            ).data,
+          { chats: true },
+        );
         if (controller.signal.aborted) return;
         if (!Array.isArray(results)) throw new Error();
-        setChats(results.map(chat => {
-          const cached = previews.current.get(chatKey(chat));
-          return cached && (!chat.lastMessageAt || new Date(cached.lastMessageAt) > new Date(chat.lastMessageAt))
-            ? { ...chat, ...cached } : chat;
-        }));
+        setChats(
+          results.map((chat) => {
+            const cached = previews.current.get(chatKey(chat));
+            return cached &&
+              (!chat.lastMessageAt ||
+                new Date(cached.lastMessageAt) > new Date(chat.lastMessageAt))
+              ? { ...chat, ...cached }
+              : chat;
+          }),
+        );
         setListState({ query: searchQuery, status: "ready" });
       } catch (error) {
-        if (!controller.signal.aborted && error.response?.status === 401) setAuthExpired(true);
-        if (!controller.signal.aborted) setListState({ query: searchQuery, status: "error" });
+        if (!controller.signal.aborted && error.response?.status === 401)
+          setAuthExpired(true);
+        if (!controller.signal.aborted)
+          setListState({ query: searchQuery, status: "error" });
       } finally {
         if (chatRequest.current === controller) chatRequest.current = null;
       }
@@ -315,87 +519,207 @@ export const Messages = () => {
     if (!selectedChat || !accountKey || authExpired) return;
     const controller = new AbortController();
     transcriptRequest.current = controller;
-    const key = selectedKey, version = conversationVersion;
-    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version;
+    const key = selectedKey,
+      version = conversationVersion;
+    const current = () =>
+      !controller.signal.aborted &&
+      activeConversation.current.key === key &&
+      activeConversation.current.version === version;
     setTranscript({ key, version, status: "loading", messages: [] });
     async function loadMessages() {
       try {
         const { data } = await axios.get(`${API_BASE_URL}/api/messages`, {
-          params: { withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 50 }, signal: controller.signal,
+          params: {
+            withUserId: selectedChat._id,
+            partnerModel: selectedChat.role,
+            limit: 50,
+          },
+          signal: controller.signal,
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         if (!current()) return;
         if (!Array.isArray(data.messages)) throw new Error();
-        receiveCutoff.current = { key, date: messageDate(data.messages.at(-1)?.createdAt)?.getTime() ?? null };
+        receiveCutoff.current = {
+          key,
+          date: messageDate(data.messages.at(-1)?.createdAt)?.getTime() ?? null,
+        };
         pendingScroll.current = { version, initial: true };
-        setTranscript({ key, version, status: "ready", messages: data.messages, pagination: data.pagination });
+        setTranscript({
+          key,
+          version,
+          status: "ready",
+          messages: data.messages,
+          pagination: data.pagination,
+        });
         const latest = data.messages.at(-1);
-        rememberPreview(selectedChat, { lastMessage: latest ? messagePreview(latest) : null, lastMessageAt: latest?.createdAt ?? null });
+        rememberPreview(selectedChat, {
+          lastMessage: latest ? messagePreview(latest) : null,
+          lastMessageAt: latest?.createdAt ?? null,
+        });
       } catch (error) {
         if (current() && error.response?.status === 401) setAuthExpired(true);
-        if (current()) setTranscript({ key, version, status: "error", messages: [] });
+        if (current())
+          setTranscript({ key, version, status: "error", messages: [] });
       }
     }
     loadMessages();
     return () => {
       controller.abort();
-      if (activeConversation.current.version === version) transcriptRequest.current?.abort();
+      if (activeConversation.current.version === version)
+        transcriptRequest.current?.abort();
     };
-  }, [selectedChat, selectedKey, conversationVersion, rememberPreview, accountKey, authExpired, sessionToken]);
+  }, [
+    selectedChat,
+    selectedKey,
+    conversationVersion,
+    rememberPreview,
+    accountKey,
+    authExpired,
+    sessionToken,
+  ]);
 
   useEffect(() => {
     if (!accountKey || authExpired) return;
     const token = localStorage.getItem("token");
     if (!token) return;
-    const key = selectedKey, version = conversationVersion;
-    const sessionCurrent = signal => !signal.aborted && localStorage.getItem("token") === token;
-    const conversationCurrent = signal => sessionCurrent(signal) && activeConversation.current.key === key && activeConversation.current.version === version;
-    const getPage = async (path, params, signal) => (await axios.get(`${API_BASE_URL}/api/messages${path}`, {
-      params, signal, timeout: 15000, headers: { Authorization: `Bearer ${token}` },
-    })).data;
+    const key = selectedKey,
+      version = conversationVersion;
+    const sessionCurrent = (signal) =>
+      !signal.aborted && localStorage.getItem("token") === token;
+    const conversationCurrent = (signal) =>
+      sessionCurrent(signal) &&
+      activeConversation.current.key === key &&
+      activeConversation.current.version === version;
+    const getPage = async (path, params, signal) =>
+      (
+        await axios.get(`${API_BASE_URL}/api/messages${path}`, {
+          params,
+          signal,
+          timeout: 15000,
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ).data;
     const loop = registerPolling({
       async run(signal) {
         const requested = manualRefresh.current;
         let attempted = false;
         try {
-        if (localStorage.getItem("token") !== token) { loop.stop(); return false; }
-        pollRequest.current = { abort: () => loop.cancel() };
-        const snapshot = latestTranscript.current;
-        // Initial loads, older-page loads and sends already perform their own reads.
-        if (sendPending.current || olderRequest.current || chatRequest.current || selectedChat && snapshot?.status === "loading") return false;
-        attempted = true;
-        const results = await messagePages(before => getPage("/chats", { limit: 100, query: searchQuery, ...(before ? { before } : {}) }, signal), { chats: true });
-        if (!sessionCurrent(signal)) return;
-        for (const chat of results) {
-          const cached = previews.current.get(chatKey(chat));
-          if (!cached || !cached.lastMessageAt || new Date(chat.lastMessageAt) >= new Date(cached.lastMessageAt)) {
-            previews.current.set(chatKey(chat), { lastMessage: chat.lastMessage, lastMessageAt: chat.lastMessageAt });
+          if (localStorage.getItem("token") !== token) {
+            loop.stop();
+            return false;
           }
-        }
-        setChats(results.map(chat => ({ ...chat, ...previews.current.get(chatKey(chat)) })));
-        setListState({ query: searchQuery, status: "ready" });
-        if (!selectedChat || !conversationCurrent(signal)) return;
-        const cutoff = receiveCutoff.current?.key === key ? receiveCutoff.current.date : undefined;
-        const messages = await messagePages(before => getPage("", {
-          withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 100, ...(before ? { before } : {}),
-        }, signal), { cutoff });
-        if (!conversationCurrent(signal) || sendPending.current) return;
-        const newest = mergeMessages([], messages).at(-1);
-        receiveCutoff.current = { key, date: messageDate(newest?.createdAt)?.getTime() ?? null };
-        const existing = latestTranscript.current;
-        if (existing?.status === "ready" && messages.every(message => existing.messages.some(row => row.id === message.id && row.read === message.read))) return;
-        const target = pane.current;
-        const nearBottom = target && target.scrollHeight - target.scrollTop - target.clientHeight <= 80;
-        const rect = target?.getBoundingClientRect();
-        const anchor = target && [...target.querySelectorAll("[data-message-id]")].find(row => row.getBoundingClientRect().bottom > rect.top);
-        pendingScroll.current = { version, incoming: true, nearBottom,
-          top: target?.scrollTop || 0, anchor: anchor?.dataset.messageId, offset: anchor ? anchor.getBoundingClientRect().top - rect.top : 0 };
-        setTranscript(previous => {
-          if (previous.key !== key || previous.version !== version) return previous;
-          return { ...previous, status: "ready", messages: mergeMessages(previous.messages, messages),
-            // A retry of an initially failed load scanned the whole bounded history.
-            pagination: previous.pagination || { hasMore: false, nextCursor: null } };
-        });
+          pollRequest.current = { abort: () => loop.cancel() };
+          const snapshot = latestTranscript.current;
+          // Initial loads, older-page loads and sends already perform their own reads.
+          if (
+            sendPending.current ||
+            olderRequest.current ||
+            chatRequest.current ||
+            (selectedChat && snapshot?.status === "loading")
+          )
+            return false;
+          attempted = true;
+          const results = await messagePages(
+            (before) =>
+              getPage(
+                "/chats",
+                {
+                  limit: 100,
+                  query: searchQuery,
+                  ...(before ? { before } : {}),
+                },
+                signal,
+              ),
+            { chats: true },
+          );
+          if (!sessionCurrent(signal)) return;
+          for (const chat of results) {
+            const cached = previews.current.get(chatKey(chat));
+            if (
+              !cached ||
+              !cached.lastMessageAt ||
+              new Date(chat.lastMessageAt) >= new Date(cached.lastMessageAt)
+            ) {
+              previews.current.set(chatKey(chat), {
+                lastMessage: chat.lastMessage,
+                lastMessageAt: chat.lastMessageAt,
+              });
+            }
+          }
+          setChats(
+            results.map((chat) => ({
+              ...chat,
+              ...previews.current.get(chatKey(chat)),
+            })),
+          );
+          setListState({ query: searchQuery, status: "ready" });
+          if (!selectedChat || !conversationCurrent(signal)) return;
+          const cutoff =
+            receiveCutoff.current?.key === key
+              ? receiveCutoff.current.date
+              : undefined;
+          const messages = await messagePages(
+            (before) =>
+              getPage(
+                "",
+                {
+                  withUserId: selectedChat._id,
+                  partnerModel: selectedChat.role,
+                  limit: 100,
+                  ...(before ? { before } : {}),
+                },
+                signal,
+              ),
+            { cutoff },
+          );
+          if (!conversationCurrent(signal) || sendPending.current) return;
+          const newest = mergeMessages([], messages).at(-1);
+          receiveCutoff.current = {
+            key,
+            date: messageDate(newest?.createdAt)?.getTime() ?? null,
+          };
+          const existing = latestTranscript.current;
+          if (
+            existing?.status === "ready" &&
+            messages.every((message) =>
+              existing.messages.some(
+                (row) => row.id === message.id && row.read === message.read,
+              ),
+            )
+          )
+            return;
+          const target = pane.current;
+          const nearBottom =
+            target &&
+            target.scrollHeight - target.scrollTop - target.clientHeight <= 80;
+          const rect = target?.getBoundingClientRect();
+          const anchor =
+            target &&
+            [...target.querySelectorAll("[data-message-id]")].find(
+              (row) => row.getBoundingClientRect().bottom > rect.top,
+            );
+          pendingScroll.current = {
+            version,
+            incoming: true,
+            nearBottom,
+            top: target?.scrollTop || 0,
+            anchor: anchor?.dataset.messageId,
+            offset: anchor ? anchor.getBoundingClientRect().top - rect.top : 0,
+          };
+          setTranscript((previous) => {
+            if (previous.key !== key || previous.version !== version)
+              return previous;
+            return {
+              ...previous,
+              status: "ready",
+              messages: mergeMessages(previous.messages, messages),
+              // A retry of an initially failed load scanned the whole bounded history.
+              pagination: previous.pagination || {
+                hasMore: false,
+                nextCursor: null,
+              },
+            };
+          });
         } finally {
           if (attempted && requested && manualRefresh.current === requested) {
             manualRefresh.current = null;
@@ -412,56 +736,151 @@ export const Messages = () => {
       onUnauthorized: () => setAuthExpired(true),
     });
     poll.current = loop;
-    return () => { loop.stop(); if (poll.current === loop) poll.current = null; };
-  }, [accountKey, authExpired, selectedChat, selectedKey, conversationVersion, searchQuery, listReload, sessionToken, registerPolling]);
+    return () => {
+      loop.stop();
+      if (poll.current === loop) poll.current = null;
+    };
+  }, [
+    accountKey,
+    authExpired,
+    selectedChat,
+    selectedKey,
+    conversationVersion,
+    searchQuery,
+    listReload,
+    sessionToken,
+    registerPolling,
+  ]);
 
-  useEffect(() => { if (messaging.expired) setAuthExpired(true); }, [messaging.expired]);
+  useEffect(() => {
+    if (messaging.expired) setAuthExpired(true);
+  }, [messaging.expired]);
 
   useEffect(() => {
     setReadError("");
-    if (!selectedChat || !currentTranscript || transcript.status !== "ready" || authExpired || !messaging.enabled) return;
-    const target = pane.current, controller = new AbortController();
-    const key = selectedKey, version = conversationVersion;
-    let timer, pending = false, failures = 0;
-    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version && localStorage.getItem("token") === sessionToken;
+    if (
+      !selectedChat ||
+      !currentTranscript ||
+      transcript.status !== "ready" ||
+      authExpired ||
+      !messaging.enabled
+    )
+      return;
+    const target = pane.current,
+      controller = new AbortController();
+    const key = selectedKey,
+      version = conversationVersion;
+    let timer,
+      pending = false,
+      failures = 0;
+    const current = () =>
+      !controller.signal.aborted &&
+      activeConversation.current.key === key &&
+      activeConversation.current.version === version &&
+      localStorage.getItem("token") === sessionToken;
     const visibleIds = () => {
-      if (!current() || document.visibilityState === "hidden" || !document.hasFocus()) return [];
+      if (
+        !current() ||
+        document.visibilityState === "hidden" ||
+        !document.hasFocus()
+      )
+        return [];
       const rect = target.getBoundingClientRect();
-      const top = Math.max(rect.top, 0), bottom = Math.min(rect.bottom, window.innerHeight);
+      const top = Math.max(rect.top, 0),
+        bottom = Math.min(rect.bottom, window.innerHeight);
       if (bottom <= top) return [];
-      const eligible = new Set(transcript.messages.filter(message => message.sender === "them" && message.readEligible && !message.read).map(message => message.id));
-      return [...target.querySelectorAll("[data-message-id]")].filter(row => {
-        if (!eligible.has(row.dataset.messageId)) return false;
-        const content = row.querySelector(".leading-relaxed")?.getBoundingClientRect();
-        const box = content?.height > 0 ? content : row.getBoundingClientRect();
-        const left = Math.max(box.left, rect.left, 0), right = Math.min(box.right, rect.right, window.innerWidth);
-        const visibleTop = Math.max(box.top, top), visibleBottom = Math.min(box.bottom, bottom);
-        if (right <= left || box.height <= 0 || visibleBottom - visibleTop < Math.min(32, box.height / 2)) return false;
-        const hit = document.elementFromPoint?.((left + right) / 2, (visibleTop + visibleBottom) / 2);
-        return !document.elementFromPoint || Boolean(hit && row.contains(hit));
-      }).slice(0, 100).map(row => row.dataset.messageId);
+      const eligible = new Set(
+        transcript.messages
+          .filter(
+            (message) =>
+              message.sender === "them" &&
+              message.readEligible &&
+              !message.read,
+          )
+          .map((message) => message.id),
+      );
+      return [...target.querySelectorAll("[data-message-id]")]
+        .filter((row) => {
+          if (!eligible.has(row.dataset.messageId)) return false;
+          const content = row
+            .querySelector(".leading-relaxed")
+            ?.getBoundingClientRect();
+          const box =
+            content?.height > 0 ? content : row.getBoundingClientRect();
+          const left = Math.max(box.left, rect.left, 0),
+            right = Math.min(box.right, rect.right, window.innerWidth);
+          const visibleTop = Math.max(box.top, top),
+            visibleBottom = Math.min(box.bottom, bottom);
+          if (
+            right <= left ||
+            box.height <= 0 ||
+            visibleBottom - visibleTop < Math.min(32, box.height / 2)
+          )
+            return false;
+          const hit = document.elementFromPoint?.(
+            (left + right) / 2,
+            (visibleTop + visibleBottom) / 2,
+          );
+          return (
+            !document.elementFromPoint || Boolean(hit && row.contains(hit))
+          );
+        })
+        .slice(0, 100)
+        .map((row) => row.dataset.messageId);
     };
-    const schedule = (delay = 150) => { clearTimeout(timer); if (current()) timer = setTimeout(acknowledge, delay); };
+    const schedule = (delay = 150) => {
+      clearTimeout(timer);
+      if (current()) timer = setTimeout(acknowledge, delay);
+    };
     async function acknowledge() {
       if (pending) return;
       const ids = visibleIds();
       if (!ids.length) return;
       pending = true;
       try {
-        const { data } = await axios.patch(`${API_BASE_URL}/api/messages/read`, {
-          messageIds: ids, partnerId: selectedChat._id, partnerModel: selectedChat.role,
-        }, { signal: controller.signal, timeout: 15000, headers: { Authorization: `Bearer ${sessionToken}` } });
+        const { data } = await axios.patch(
+          `${API_BASE_URL}/api/messages/read`,
+          {
+            messageIds: ids,
+            partnerId: selectedChat._id,
+            partnerModel: selectedChat.role,
+          },
+          {
+            signal: controller.signal,
+            timeout: 15000,
+            headers: { Authorization: `Bearer ${sessionToken}` },
+          },
+        );
         if (!current()) return;
-        if (!data.success || !Array.isArray(data.acknowledgedIds) || data.acknowledgedIds.length !== ids.length
-          || new Set(data.acknowledgedIds).size !== ids.length || data.acknowledgedIds.some(id => !ids.includes(id))) throw new Error();
+        if (
+          !data.success ||
+          !Array.isArray(data.acknowledgedIds) ||
+          data.acknowledgedIds.length !== ids.length ||
+          new Set(data.acknowledgedIds).size !== ids.length ||
+          data.acknowledgedIds.some((id) => !ids.includes(id))
+        )
+          throw new Error();
         const acknowledged = new Set(data.acknowledgedIds);
-        setTranscript(previous => ({ ...previous, messages: previous.messages.map(message => acknowledged.has(message.id) ? { ...message, read: true } : message) }));
+        setTranscript((previous) => ({
+          ...previous,
+          messages: previous.messages.map((message) =>
+            acknowledged.has(message.id) ? { ...message, read: true } : message,
+          ),
+        }));
         refreshUnread();
       } catch (error) {
         if (!current()) return;
         if (error.response?.status === 401) setAuthExpired(true);
-        else { failures++; setReadError("Unable to mark visible messages read. Retrying automatically."); schedule(Math.min(30000, 3000 * 2 ** Math.min(failures - 1, 4))); }
-      } finally { pending = false; }
+        else {
+          failures++;
+          setReadError(
+            "Unable to mark visible messages read. Retrying automatically.",
+          );
+          schedule(Math.min(30000, 3000 * 2 ** Math.min(failures - 1, 4)));
+        }
+      } finally {
+        pending = false;
+      }
     }
     const check = () => schedule();
     target.addEventListener("scroll", check);
@@ -470,83 +889,185 @@ export const Messages = () => {
     document.addEventListener("visibilitychange", check);
     schedule();
     return () => {
-      controller.abort(); clearTimeout(timer);
+      controller.abort();
+      clearTimeout(timer);
       target.removeEventListener("scroll", check);
-      window.removeEventListener("resize", check); window.removeEventListener("focus", check);
+      window.removeEventListener("resize", check);
+      window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [selectedChat, currentTranscript, transcript, authExpired, messaging.enabled, selectedKey, conversationVersion, sessionToken, refreshUnread]);
+  }, [
+    selectedChat,
+    currentTranscript,
+    transcript,
+    authExpired,
+    messaging.enabled,
+    selectedKey,
+    conversationVersion,
+    sessionToken,
+    refreshUnread,
+  ]);
 
   useEffect(() => {
     const target = chatListPane.current;
     if (!target) return;
     const update = () => {
-      const recipients = selectedChat ? [{ id: selectedChat._id, model: selectedChat.role }] : [];
+      const recipients = selectedChat
+        ? [{ id: selectedChat._id, model: selectedChat.role }]
+        : [];
       const rect = target.getBoundingClientRect();
-      const top = Math.max(0, rect.top), bottom = Math.min(window.innerHeight, rect.bottom);
+      const top = Math.max(0, rect.top),
+        bottom = Math.min(window.innerHeight, rect.bottom);
       for (const row of target.querySelectorAll("[data-presence-key]")) {
         const box = row.getBoundingClientRect();
-        if (bottom <= top || box.bottom <= top || box.top >= bottom || box.right <= 0 || box.left >= window.innerWidth) continue;
+        if (
+          bottom <= top ||
+          box.bottom <= top ||
+          box.top >= bottom ||
+          box.right <= 0 ||
+          box.left >= window.innerWidth
+        )
+          continue;
         const [model, id] = row.dataset.presenceKey.split(":");
         recipients.push({ id, model });
       }
       watchPresence(recipients);
     };
-    const observer = typeof IntersectionObserver === "function" ? new IntersectionObserver(update, { root: target }) : null;
-    target.querySelectorAll("[data-presence-key]").forEach(row => observer?.observe(row));
+    const observer =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(update, { root: target })
+        : null;
+    target
+      .querySelectorAll("[data-presence-key]")
+      .forEach((row) => observer?.observe(row));
     target.addEventListener("scroll", update);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     update();
-    return () => { observer?.disconnect(); target.removeEventListener("scroll", update); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+    return () => {
+      observer?.disconnect();
+      target.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
   }, [chats, selectedChat, listLoading, listState.status, watchPresence]);
   useEffect(() => () => watchPresence([]), [watchPresence]);
 
   const loadOlder = useCallback(async () => {
-    if (!accountKey || authExpired || !selectedChat || !currentTranscript || transcript.status !== "ready" || !transcript.pagination?.hasMore || olderRequest.current) return;
+    if (
+      !accountKey ||
+      authExpired ||
+      !selectedChat ||
+      !currentTranscript ||
+      transcript.status !== "ready" ||
+      !transcript.pagination?.hasMore ||
+      olderRequest.current
+    )
+      return;
     const controller = new AbortController();
     olderRequest.current = controller;
     pollRequest.current?.abort();
-    const key = selectedKey, version = conversationVersion;
-    const current = () => !controller.signal.aborted && activeConversation.current.key === key && activeConversation.current.version === version;
-    setTranscript(previous => ({ ...previous, olderLoading: true, olderError: "" }));
+    const key = selectedKey,
+      version = conversationVersion;
+    const current = () =>
+      !controller.signal.aborted &&
+      activeConversation.current.key === key &&
+      activeConversation.current.version === version;
+    setTranscript((previous) => ({
+      ...previous,
+      olderLoading: true,
+      olderError: "",
+    }));
     try {
       const { data } = await axios.get(`${API_BASE_URL}/api/messages`, {
-        params: { withUserId: selectedChat._id, partnerModel: selectedChat.role, limit: 50, before: transcript.pagination.nextCursor },
-        signal: controller.signal, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        params: {
+          withUserId: selectedChat._id,
+          partnerModel: selectedChat.role,
+          limit: 50,
+          before: transcript.pagination.nextCursor,
+        },
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!current()) return;
       if (!Array.isArray(data.messages) || !data.pagination) throw new Error();
       const target = pane.current;
-      pendingScroll.current = { version, prepend: true, height: target.scrollHeight, top: target.scrollTop };
-      setTranscript(previous => ({ ...previous, messages: mergeMessages(data.messages, previous.messages), pagination: data.pagination, olderLoading: false }));
+      pendingScroll.current = {
+        version,
+        prepend: true,
+        height: target.scrollHeight,
+        top: target.scrollTop,
+      };
+      setTranscript((previous) => ({
+        ...previous,
+        messages: mergeMessages(data.messages, previous.messages),
+        pagination: data.pagination,
+        olderLoading: false,
+      }));
     } catch (error) {
       if (current() && error.response?.status === 401) setAuthExpired(true);
-      if (current()) setTranscript(previous => ({ ...previous, olderLoading: false, olderError: "Unable to load older messages. Scroll up to retry, or reselect the conversation." }));
+      if (current())
+        setTranscript((previous) => ({
+          ...previous,
+          olderLoading: false,
+          olderError:
+            "Unable to load older messages. Scroll up to retry, or reselect the conversation.",
+        }));
     } finally {
       if (olderRequest.current === controller) olderRequest.current = null;
     }
-  }, [selectedChat, currentTranscript, transcript.status, transcript.pagination, selectedKey, conversationVersion, accountKey, authExpired]);
+  }, [
+    selectedChat,
+    currentTranscript,
+    transcript.status,
+    transcript.pagination,
+    selectedKey,
+    conversationVersion,
+    accountKey,
+    authExpired,
+  ]);
 
   useEffect(() => {
     const target = pane.current;
-    if (target && target.scrollHeight <= target.clientHeight && !transcript.olderError) loadOlder();
+    if (
+      target &&
+      target.scrollHeight <= target.clientHeight &&
+      !transcript.olderError
+    )
+      loadOlder();
   }, [transcript, loadOlder]);
 
   useLayoutEffect(() => {
-    if (currentTranscript && transcript.status === "ready" && pendingScroll.current?.version === conversationVersion && pane.current) {
+    if (
+      currentTranscript &&
+      transcript.status === "ready" &&
+      pendingScroll.current?.version === conversationVersion &&
+      pane.current
+    ) {
       // Change only the transcript scroll offset; unrelated renders never request a scroll.
       const target = pane.current;
       const previousBehavior = target.style.scrollBehavior;
       // Global smooth scrolling must not animate the initial pre-paint position.
-      if (pendingScroll.current.initial || pendingScroll.current.prepend) target.style.scrollBehavior = "auto";
+      if (pendingScroll.current.initial || pendingScroll.current.prepend)
+        target.style.scrollBehavior = "auto";
       const position = pendingScroll.current;
       if (position.incoming && !position.nearBottom) {
-        const anchor = position.anchor && [...target.querySelectorAll("[data-message-id]")].find(row => row.dataset.messageId === position.anchor);
+        const anchor =
+          position.anchor &&
+          [...target.querySelectorAll("[data-message-id]")].find(
+            (row) => row.dataset.messageId === position.anchor,
+          );
         target.style.scrollBehavior = "auto";
-        target.scrollTop = anchor ? target.scrollTop + anchor.getBoundingClientRect().top - target.getBoundingClientRect().top - position.offset : position.top;
+        target.scrollTop = anchor
+          ? target.scrollTop +
+            anchor.getBoundingClientRect().top -
+            target.getBoundingClientRect().top -
+            position.offset
+          : position.top;
       } else {
-        target.scrollTop = position.prepend ? position.top + target.scrollHeight - position.height : target.scrollHeight;
+        target.scrollTop = position.prepend
+          ? position.top + target.scrollHeight - position.height
+          : target.scrollHeight;
       }
       target.style.scrollBehavior = previousBehavior;
       pendingScroll.current = null;
@@ -570,26 +1091,59 @@ export const Messages = () => {
   }, [messageInput]);
 
   useEffect(() => {
-    if (!emojiOwner || emojiOwner !== recipient.key || !selectedChat || authExpired || EmojiPicker) return;
+    if (
+      !emojiOwner ||
+      emojiOwner !== recipient.key ||
+      !selectedChat ||
+      authExpired ||
+      EmojiPicker
+    )
+      return;
     let cancelled = false;
     setEmojiPicker({ status: "loading" });
     // The package's English data and native renderer are bundled locally in this async chunk.
-    import("emoji-picker-react").then(module => {
-      if (!cancelled) setEmojiPicker({ status: "ready", component: module.default });
-    }).catch(() => {
-      if (!cancelled) setEmojiPicker({ status: "error" });
-    });
-    return () => { cancelled = true; };
-  }, [emojiOwner, recipient.key, selectedChat, authExpired, EmojiPicker, emojiLoadAttempt]);
+    import("emoji-picker-react")
+      .then((module) => {
+        if (!cancelled)
+          setEmojiPicker({ status: "ready", component: module.default });
+      })
+      .catch(() => {
+        if (!cancelled) setEmojiPicker({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    emojiOwner,
+    recipient.key,
+    selectedChat,
+    authExpired,
+    EmojiPicker,
+    emojiLoadAttempt,
+  ]);
 
   const rememberCaret = () => {
     const field = composer.current;
-    if (field) caret.current = { key: recipient.key, start: field.selectionStart, end: field.selectionEnd };
+    if (field)
+      caret.current = {
+        key: recipient.key,
+        start: field.selectionStart,
+        end: field.selectionEnd,
+      };
   };
-  const insertEmoji = emoji => {
-    if (emojiOwner !== recipient.key || activeConversation.current.key !== recipient.key
-      || authExpired || !selectedChat || localStorage.getItem("token") !== sessionToken) return;
-    const selection = caret.current?.key === recipient.key ? caret.current : { start: messageInput.length, end: messageInput.length };
+  const insertEmoji = (emoji) => {
+    if (
+      emojiOwner !== recipient.key ||
+      activeConversation.current.key !== recipient.key ||
+      authExpired ||
+      !selectedChat ||
+      localStorage.getItem("token") !== sessionToken
+    )
+      return;
+    const selection =
+      caret.current?.key === recipient.key
+        ? caret.current
+        : { start: messageInput.length, end: messageInput.length };
     const start = Math.min(selection.start, messageInput.length);
     const end = Math.max(start, Math.min(selection.end, messageInput.length));
     const next = messageInput.slice(0, start) + emoji + messageInput.slice(end);
@@ -597,81 +1151,171 @@ export const Messages = () => {
       setEmojiError("Message cannot exceed 10,000 characters.");
       return;
     }
-    draftRevisions.current.set(recipient.key, (draftRevisions.current.get(recipient.key) || 0) + 1);
-    insertedCaret.current = { key: recipient.key, position: start + emoji.length };
+    draftRevisions.current.set(
+      recipient.key,
+      (draftRevisions.current.get(recipient.key) || 0) + 1,
+    );
+    insertedCaret.current = {
+      key: recipient.key,
+      position: start + emoji.length,
+    };
     setMessageInput(next);
     setEmojiOwner("");
   };
 
-  const handleSendMessage = async event => {
+  const handleSendMessage = async (event) => {
     event.preventDefault();
-    if (!accountKey || authExpired || composing.current || sendPending.current || (!messageInput.trim() && !selectedFiles.length) || !selectedChat || transcriptLoading) return;
-    const validation = messageInput.length > MESSAGE_LIMIT ? "Message must be no longer than 10,000 characters."
-      : validateMessageFiles(selectedFiles.map(entry => entry.file));
-    if (validation) { setSendError(validation); return; }
+    if (
+      !accountKey ||
+      authExpired ||
+      composing.current ||
+      sendPending.current ||
+      (!messageInput.trim() && !selectedFiles.length) ||
+      !selectedChat ||
+      transcriptLoading
+    )
+      return;
+    const validation =
+      messageInput.length > MESSAGE_LIMIT
+        ? "Message must be no longer than 10,000 characters."
+        : validateMessageFiles(selectedFiles.map((entry) => entry.file));
+    if (validation) {
+      setSendError(validation);
+      return;
+    }
     pollRequest.current?.abort();
     sendPending.current = true;
     setSending(true);
     setSendError("");
-    const chat = selectedChat, text = messageInput, key = selectedKey, version = conversationVersion;
+    const chat = selectedChat,
+      text = messageInput,
+      key = selectedKey,
+      version = conversationVersion;
     const session = `${accountKey}:${sessionToken}`;
     const files = selectedFiles;
     const revision = draftRevisions.current.get(key) || 0;
     let attempt = sendAttempts.current.get(key);
-    if (!attempt || attempt.text !== text || !sameMessageFiles(attempt.files, files)) {
+    if (
+      !attempt ||
+      attempt.text !== text ||
+      !sameMessageFiles(attempt.files, files)
+    ) {
       attempt = { text, files, revision, clientMessageId: crypto.randomUUID() };
       sendAttempts.current.set(key, attempt);
     }
-    const sameSession = () => mounted.current && accountSession.current === session && localStorage.getItem("token") === sessionToken;
-    const current = () => sameSession() && activeConversation.current.key === key && activeConversation.current.version === version;
+    const sameSession = () =>
+      mounted.current &&
+      accountSession.current === session &&
+      localStorage.getItem("token") === sessionToken;
+    const current = () =>
+      sameSession() &&
+      activeConversation.current.key === key &&
+      activeConversation.current.version === version;
     let saved = false;
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.post(`${API_BASE_URL}/api/messages/send`, messageSendBody(chat, attempt), { headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/messages/send`,
+        messageSendBody(chat, attempt),
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const message = data.message;
-      if (!data.success || !message?._id || typeof message.text !== "string" || !message.createdAt || !Number.isFinite(new Date(message.createdAt).getTime())) throw new Error();
+      if (
+        !data.success ||
+        !message?._id ||
+        typeof message.text !== "string" ||
+        !message.createdAt ||
+        !Number.isFinite(new Date(message.createdAt).getTime())
+      )
+        throw new Error();
       saved = true;
-      if (sendAttempts.current.get(key) === attempt) sendAttempts.current.delete(key);
+      if (sendAttempts.current.get(key) === attempt)
+        sendAttempts.current.delete(key);
       if (!sameSession()) return;
-      if ((draftRevisions.current.get(key) || 0) === revision) setMessageInput(value => value === text ? "" : value);
-      const sentFiles = new Set(files.map(entry => entry.id));
-      setFileDrafts(previous => ({ ...previous, [key]: (previous[key] || []).filter(entry => !sentFiles.has(entry.id)) }));
-      rememberPreview(chat, { lastMessage: messagePreview(message), lastMessageAt: message.createdAt });
-      setListReload(value => value + 1);
+      if ((draftRevisions.current.get(key) || 0) === revision)
+        setMessageInput((value) => (value === text ? "" : value));
+      const sentFiles = new Set(files.map((entry) => entry.id));
+      setFileDrafts((previous) => ({
+        ...previous,
+        [key]: (previous[key] || []).filter(
+          (entry) => !sentFiles.has(entry.id),
+        ),
+      }));
+      rememberPreview(chat, {
+        lastMessage: messagePreview(message),
+        lastMessageAt: message.createdAt,
+      });
+      setListReload((value) => value + 1);
       if (!current()) return;
       transcriptRequest.current?.abort();
       const controller = new AbortController();
       transcriptRequest.current = controller;
       pendingScroll.current = { version, initial: false };
-      const sent = { id: message._id, text: message.text, attachments: message.attachments, createdAt: message.createdAt,
-        sender: "me", time: messageTime(message.createdAt), date: new Date(message.createdAt).toDateString() };
-      setTranscript(previous => ({ ...previous, key, version, status: "ready",
-        messages: previous.messages.some(item => item.id === sent.id) ? previous.messages : [...previous.messages, sent] }));
+      const sent = {
+        id: message._id,
+        text: message.text,
+        attachments: message.attachments,
+        createdAt: message.createdAt,
+        sender: "me",
+        time: messageTime(message.createdAt),
+        date: new Date(message.createdAt).toDateString(),
+      };
+      setTranscript((previous) => ({
+        ...previous,
+        key,
+        version,
+        status: "ready",
+        messages: previous.messages.some((item) => item.id === sent.id)
+          ? previous.messages
+          : [...previous.messages, sent],
+      }));
       const response = await axios.get(`${API_BASE_URL}/api/messages`, {
-        params: { withUserId: chat._id, partnerModel: chat.role, limit: 50 }, signal: controller.signal,
+        params: { withUserId: chat._id, partnerModel: chat.role, limit: 50 },
+        signal: controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
       if (current() && !controller.signal.aborted) {
         if (!Array.isArray(response.data.messages)) throw new Error();
         // Catch up without scrolling a user who moved up after the save.
-        setTranscript(previous => {
-          const overlaps = response.data.messages.some(message => message.id !== sent.id && previous.messages.some(existing => existing.id === message.id));
-          return { ...previous, key, version, status: "ready", messages: mergeMessages(previous.messages, response.data.messages),
+        setTranscript((previous) => {
+          const overlaps = response.data.messages.some(
+            (message) =>
+              message.id !== sent.id &&
+              previous.messages.some((existing) => existing.id === message.id),
+          );
+          return {
+            ...previous,
+            key,
+            version,
+            status: "ready",
+            messages: mergeMessages(previous.messages, response.data.messages),
             // If more than a page arrived meanwhile, retain a route through the gap.
-            pagination: overlaps ? previous.pagination : response.data.pagination };
+            pagination: overlaps
+              ? previous.pagination
+              : response.data.pagination,
+          };
         });
       }
     } catch (error) {
       if (current() && error.response?.status === 401) setAuthExpired(true);
-      if (current()) setSendError(files.length && [400, 413].includes(error.response?.status)
-        ? "Attachments were rejected. Check file formats and sizes; your draft and files have been kept."
-        : files.length && error.response?.status === 503 ? "Attachments are unavailable. Your draft and files have been kept."
-        : error.response?.status === 409 ? "This send conflicts with an earlier request. Your draft has been kept." : saved
-        ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
-        : "Send not confirmed. Your draft and attachments have been kept; Send retries the same unchanged selection safely.");
+      if (current())
+        setSendError(
+          files.length && [400, 413].includes(error.response?.status)
+            ? "Attachments were rejected. Check file formats and sizes; your draft and files have been kept."
+            : files.length && error.response?.status === 503
+              ? "Attachments are unavailable. Your draft and files have been kept."
+              : error.response?.status === 409
+                ? "This send conflicts with an earlier request. Your draft has been kept."
+                : saved
+                  ? "Message saved, but the transcript could not be refreshed. Reselect the conversation to reload."
+                  : "Send not confirmed. Your draft and attachments have been kept; Send retries the same unchanged selection safely.",
+        );
     } finally {
       sendPending.current = false;
-      if (mounted.current) { setSending(false); poll.current?.wake(); }
+      if (mounted.current) {
+        setSending(false);
+        poll.current?.wake();
+      }
     }
   };
 
@@ -699,42 +1343,74 @@ export const Messages = () => {
               />
             </div>
           </div>
-          <div ref={chatListPane} className="min-w-0 min-h-0 flex-1 overflow-y-auto">
-            {listLoading ? <p className="p-4 text-sm text-gray-400" role="status">Loading conversations…</p>
-              : listState.status === "error" ? <p className="p-4 text-sm text-red-400" role="alert">Unable to load conversations. Try searching again.</p>
-              : chats.length === 0 ? <p className="p-4 text-sm text-gray-400">{searchQuery ? "No matching conversations." : "No conversations yet."}</p> : null}
-            {!listLoading && listState.status === "ready" && [...chats].sort(compareChats).map((chat) => (
-              <button
-                key={chatKey(chat)}
-                data-presence-key={chatKey(chat)}
-                onClick={() => selectChat(chat)}
-                className={`w-full p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
-                  selectedChat?._id === chat._id ? "bg-[#2A2A2E]" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-shrink-0">
-                    <MessageAvatar key={avatarKey(chat)} chat={chat}
-                      className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`} />
-                    <PresenceDot presence={messaging.presence[chatKey(chat)]} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-white font-medium truncate">
-                        {chat.name || "Unknown"}
-                      </p>
-                      <span className="text-xs text-gray-500">{messageTime(chat.lastMessageAt)}</span>
+          <div
+            ref={chatListPane}
+            className="min-w-0 min-h-0 flex-1 overflow-y-auto thin-scroll"
+          >
+            {listLoading ? (
+              <p className="p-4 text-sm text-gray-400" role="status">
+                Loading conversations…
+              </p>
+            ) : listState.status === "error" ? (
+              <p className="p-4 text-sm text-red-400" role="alert">
+                Unable to load conversations. Try searching again.
+              </p>
+            ) : chats.length === 0 ? (
+              <p className="p-4 text-sm text-gray-400">
+                {searchQuery
+                  ? "No matching conversations."
+                  : "No conversations yet."}
+              </p>
+            ) : null}
+            {!listLoading &&
+              listState.status === "ready" &&
+              [...chats].sort(compareChats).map((chat) => (
+                <button
+                  key={chatKey(chat)}
+                  data-presence-key={chatKey(chat)}
+                  onClick={() => selectChat(chat)}
+                  className={`w-full p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
+                    selectedChat?._id === chat._id ? "bg-[#2A2A2E]" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                      <MessageAvatar
+                        key={avatarKey(chat)}
+                        chat={chat}
+                        className={`w-12 h-12 rounded-full ${chat.color || "bg-gray-500"} flex items-center justify-center text-white font-semibold`}
+                      />
+                      <PresenceDot
+                        presence={messaging.presence[chatKey(chat)]}
+                      />
                     </div>
-                    {typeof chat.lastMessage === "string" && <p className="text-sm text-gray-400 truncate">{chat.lastMessage}</p>}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-white font-medium truncate">
+                          {chat.name || "Unknown"}
+                        </p>
+                        <span className="text-xs text-gray-500">
+                          {messageTime(chat.lastMessageAt)}
+                        </span>
+                      </div>
+                      {typeof chat.lastMessage === "string" && (
+                        <p className="text-sm text-gray-400 truncate">
+                          {chat.lastMessage}
+                        </p>
+                      )}
+                    </div>
+                    {(messaging.counts[chatKey(chat)] || 0) > 0 && (
+                      <span
+                        className="bg-red-500 text-white text-xs rounded-full min-w-5 px-1.5 text-center shrink-0"
+                        title={messaging.error || "Unread messages"}
+                        aria-label={`${messaging.counts[chatKey(chat)]} unread messages`}
+                      >
+                        {messaging.counts[chatKey(chat)]}
+                      </span>
+                    )}
                   </div>
-                  {(messaging.counts[chatKey(chat)] || 0) > 0 && (
-                    <span className="bg-red-500 text-white text-xs rounded-full min-w-5 px-1.5 text-center shrink-0" title={messaging.error || "Unread messages"} aria-label={`${messaging.counts[chatKey(chat)]} unread messages`}>
-                      {messaging.counts[chatKey(chat)]}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
           </div>
         </div>
 
@@ -744,9 +1420,18 @@ export const Messages = () => {
           <div className="min-w-0 shrink-0 p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <MessageAvatar key={avatarKey(selectedChat)} chat={selectedChat}
-                  className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold" />
-                <PresenceDot presence={selectedChat ? messaging.presence[chatKey(selectedChat)] : null} />
+                <MessageAvatar
+                  key={avatarKey(selectedChat)}
+                  chat={selectedChat}
+                  className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold"
+                />
+                <PresenceDot
+                  presence={
+                    selectedChat
+                      ? messaging.presence[chatKey(selectedChat)]
+                      : null
+                  }
+                />
               </div>
               <div>
                 <p className="text-white font-medium">
@@ -759,70 +1444,148 @@ export const Messages = () => {
             </div>
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="Conversation actions" aria-busy={refreshing} disabled={!selectedChat || authExpired}
-                  className="text-gray-400 hover:text-white">
+                <button
+                  type="button"
+                  aria-label="Conversation actions"
+                  aria-busy={refreshing}
+                  disabled={!selectedChat || authExpired}
+                  className="text-gray-400 hover:text-white"
+                >
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#1A1A1E] border-white/10 text-white">
-                <DropdownMenuItem disabled={!selectedChat || authExpired || refreshing} onSelect={viewRecipientProfile}>View Profile</DropdownMenuItem>
-                <DropdownMenuItem disabled={!selectedChat || authExpired || refreshing || transcriptLoading || sending || Boolean(transcript.olderLoading)}
-                  onSelect={refreshConversation}>Refresh Conversation</DropdownMenuItem>
+              <DropdownMenuContent
+                align="end"
+                className="bg-[#1A1A1E] border-white/10 text-white"
+              >
+                <DropdownMenuItem
+                  disabled={!selectedChat || authExpired || refreshing}
+                  onSelect={viewRecipientProfile}
+                >
+                  View Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={
+                    !selectedChat ||
+                    authExpired ||
+                    refreshing ||
+                    transcriptLoading ||
+                    sending ||
+                    Boolean(transcript.olderLoading)
+                  }
+                  onSelect={refreshConversation}
+                >
+                  Refresh Conversation
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
           {/* Messages */}
-          <div ref={pane} onScroll={() => { if (pane.current.scrollTop <= 80) loadOlder(); }} className="min-w-0 min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
-            {readError && <p className="text-sm text-red-400" role="alert">{readError}</p>}
-            {(authExpired || pollError) && <p className="text-sm text-red-400" role="alert">{authExpired ? "Your session has expired. Sign in again to receive messages." : pollError}</p>}
-            {currentTranscript && transcript.olderLoading && <p className="text-sm text-gray-400" role="status">Loading older messages…</p>}
-            {currentTranscript && transcript.olderError && <p className="text-sm text-red-400" role="alert">{transcript.olderError}</p>}
-            {recipientLoading ? <p className="text-sm text-gray-400" role="status">Loading recipient…</p>
-              : recipientError ? <p className="text-sm text-red-400" role="alert">{recipientError}</p>
-              : !selectedChat ? <p className="text-sm text-gray-400">Select a conversation.</p>
-              : transcriptLoading ? <p className="text-sm text-gray-400" role="status">Loading messages…</p>
-              : transcript.status === "error" ? <p className="text-sm text-red-400" role="alert">Unable to load messages. Reselect the conversation to try again.</p>
-              : transcript.messages.length === 0 ? <p className="text-sm text-gray-400">No messages yet.</p> : null}
-            {currentTranscript && transcript.status === "ready" && transcript.messages.map((message, index) => (
-              <React.Fragment key={message.id}>
-                {(index === 0 || localDay(message.createdAt) !== localDay(transcript.messages[index - 1].createdAt)) && (
-                  <div className="flex items-center justify-center my-4">
-                    <div className="flex-1 h-px bg-white/10"></div>
-                    <span className="px-4 text-xs text-gray-500">
-                      {messageDayLabel(message.createdAt)}
-                    </span>
-                    <div className="flex-1 h-px bg-white/10"></div>
-                  </div>
-                )}
-                <div
-                  data-message-id={message.id}
-                  className={`flex min-w-0 ${
-                    message.sender === "me" ? "justify-end" : "justify-start"
-                  }`}
-                >
+          <div
+            ref={pane}
+            onScroll={() => {
+              if (pane.current.scrollTop <= 80) loadOlder();
+            }}
+            className="min-w-0 min-h-0 flex-1 overflow-y-auto thin-scroll p-6 space-y-4"
+          >
+            {readError && (
+              <p className="text-sm text-red-400" role="alert">
+                {readError}
+              </p>
+            )}
+            {(authExpired || pollError) && (
+              <p className="text-sm text-red-400" role="alert">
+                {authExpired
+                  ? "Your session has expired. Sign in again to receive messages."
+                  : pollError}
+              </p>
+            )}
+            {currentTranscript && transcript.olderLoading && (
+              <p className="text-sm text-gray-400" role="status">
+                Loading older messages…
+              </p>
+            )}
+            {currentTranscript && transcript.olderError && (
+              <p className="text-sm text-red-400" role="alert">
+                {transcript.olderError}
+              </p>
+            )}
+            {recipientLoading ? (
+              <p className="text-sm text-gray-400" role="status">
+                Loading recipient…
+              </p>
+            ) : recipientError ? (
+              <p className="text-sm text-red-400" role="alert">
+                {recipientError}
+              </p>
+            ) : !selectedChat ? (
+              <p className="text-sm text-gray-400">Select a conversation.</p>
+            ) : transcriptLoading ? (
+              <p className="text-sm text-gray-400" role="status">
+                Loading messages…
+              </p>
+            ) : transcript.status === "error" ? (
+              <p className="text-sm text-red-400" role="alert">
+                Unable to load messages. Reselect the conversation to try again.
+              </p>
+            ) : transcript.messages.length === 0 ? (
+              <p className="text-sm text-gray-400">No messages yet.</p>
+            ) : null}
+            {currentTranscript &&
+              transcript.status === "ready" &&
+              transcript.messages.map((message, index) => (
+                <React.Fragment key={message.id}>
+                  {(index === 0 ||
+                    localDay(message.createdAt) !==
+                      localDay(transcript.messages[index - 1].createdAt)) && (
+                    <div className="flex items-center justify-center my-4">
+                      <div className="flex-1 h-px bg-white/10"></div>
+                      <span className="px-4 text-xs text-gray-500">
+                        {messageDayLabel(message.createdAt)}
+                      </span>
+                      <div className="flex-1 h-px bg-white/10"></div>
+                    </div>
+                  )}
                   <div
-                    className={`min-w-0 max-w-[70%] ${
-                      message.sender === "me" ? "order-2" : "order-1"
+                    data-message-id={message.id}
+                    className={`flex min-w-0 ${
+                      message.sender === "me" ? "justify-end" : "justify-start"
                     }`}
                   >
                     <div
-                      className={`rounded-2xl px-4 py-2.5 ${
-                        message.sender === "me"
-                          ? "bg-blue-600 text-white rounded-br-md"
-                          : "bg-[#2A2A2E] text-white rounded-bl-md"
+                      className={`min-w-0 max-w-[70%] ${
+                        message.sender === "me" ? "order-2" : "order-1"
                       }`}
                     >
-                      {message.text && <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>}
-                      {message.attachments?.map(attachment => <MessageAttachment key={attachment.id} messageId={message.id} attachment={attachment} token={sessionToken} />)}
+                      <div
+                        className={`rounded-2xl px-4 py-2.5 ${
+                          message.sender === "me"
+                            ? "bg-blue-600 text-white rounded-br-md"
+                            : "bg-[#2A2A2E] text-white rounded-bl-md"
+                        }`}
+                      >
+                        {message.text && (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+                            {message.text}
+                          </p>
+                        )}
+                        {message.attachments?.map((attachment) => (
+                          <MessageAttachment
+                            key={attachment.id}
+                            messageId={message.id}
+                            attachment={attachment}
+                            token={sessionToken}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 px-2">
+                        {messageTime(message.createdAt) || "Time unavailable"}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 px-2">
-                      {messageTime(message.createdAt) || "Time unavailable"}
-                    </p>
                   </div>
-                </div>
-              </React.Fragment>
-            ))}
+                </React.Fragment>
+              ))}
           </div>
 
           {/* Message Input */}
@@ -830,98 +1593,235 @@ export const Messages = () => {
             onSubmit={handleSendMessage}
             className="min-w-0 shrink-0 p-4 border-t border-white/10"
           >
-            {sendError && <p className="mb-2 text-sm text-red-400" role="alert">{sendError}</p>}
-            {selectedFiles.length > 0 && <ul className="mb-2 flex flex-wrap gap-2" aria-label="Selected attachments">
-              {selectedFiles.map(entry => <li key={entry.id} className="flex min-w-0 max-w-full items-center gap-2 rounded border border-white/10 px-2 text-sm text-gray-300">
-                <span className="[overflow-wrap:anywhere]">{entry.file.name}</span>
-                <button type="button" aria-label={`Remove ${entry.file.name}`} className="min-h-9 shrink-0 px-2 focus-visible:outline focus-visible:outline-2"
-                  onClick={() => setFileDrafts(previous => ({ ...previous, [recipient.key]: (previous[recipient.key] || []).filter(item => item.id !== entry.id) }))}>×</button>
-              </li>)}
-            </ul>}
+            {sendError && (
+              <p className="mb-2 text-sm text-red-400" role="alert">
+                {sendError}
+              </p>
+            )}
+            {selectedFiles.length > 0 && (
+              <ul
+                className="mb-2 flex flex-wrap gap-2"
+                aria-label="Selected attachments"
+              >
+                {selectedFiles.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex min-w-0 max-w-full items-center gap-2 rounded border border-white/10 px-2 text-sm text-gray-300"
+                  >
+                    <span className="[overflow-wrap:anywhere]">
+                      {entry.file.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${entry.file.name}`}
+                      className="min-h-9 shrink-0 px-2 focus-visible:outline focus-visible:outline-2"
+                      onClick={() =>
+                        setFileDrafts((previous) => ({
+                          ...previous,
+                          [recipient.key]: (
+                            previous[recipient.key] || []
+                          ).filter((item) => item.id !== entry.id),
+                        }))
+                      }
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="min-w-0 flex items-end gap-2 bg-[#0E0E10] rounded-lg px-4 py-2 border border-white/10">
               <textarea
                 ref={composer}
                 rows={1}
                 wrap="soft"
                 aria-label="Message"
-                disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
+                disabled={
+                  authExpired ||
+                  !selectedChat ||
+                  recipientLoading ||
+                  Boolean(recipientError)
+                }
                 placeholder="Enter Message..."
                 value={messageInput}
                 onChange={(e) => {
-                  draftRevisions.current.set(recipient.key, (draftRevisions.current.get(recipient.key) || 0) + 1);
+                  draftRevisions.current.set(
+                    recipient.key,
+                    (draftRevisions.current.get(recipient.key) || 0) + 1,
+                  );
                   setMessageInput(e.target.value);
                 }}
                 onSelect={rememberCaret}
                 onBlur={rememberCaret}
-                onCompositionStart={() => { composing.current = true; }}
-                onCompositionEnd={() => { composing.current = false; }}
+                onCompositionStart={() => {
+                  composing.current = true;
+                }}
+                onCompositionEnd={() => {
+                  composing.current = false;
+                }}
                 onKeyDown={(event) => {
-                  if (event.key !== "Enter" || event.shiftKey || composing.current
-                    || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+                  if (
+                    event.key !== "Enter" ||
+                    event.shiftKey ||
+                    composing.current ||
+                    event.nativeEvent.isComposing ||
+                    event.nativeEvent.keyCode === 229
+                  )
+                    return;
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();
                 }}
                 className="min-w-0 min-h-8 flex-1 resize-none overflow-x-hidden overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] py-1.5 leading-5 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm"
               />
-              <input ref={fileInput} type="file" multiple accept={MESSAGE_FILE_ACCEPT} className="hidden" aria-label="Choose message attachments"
-                onChange={event => {
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept={MESSAGE_FILE_ACCEPT}
+                className="hidden"
+                aria-label="Choose message attachments"
+                onChange={(event) => {
                   const owner = fileInputOwner.current;
-                  const chosen = Array.from(event.target.files || []); event.target.value = "";
-                  if (owner !== recipient.key || !selectedChat || authExpired) return;
+                  const chosen = Array.from(event.target.files || []);
+                  event.target.value = "";
+                  if (owner !== recipient.key || !selectedChat || authExpired)
+                    return;
                   const current = fileDrafts[owner] || [];
-                  const error = validateMessageFiles([...current.map(entry => entry.file), ...chosen]);
-                  if (error) { setSendError(error); return; }
+                  const error = validateMessageFiles([
+                    ...current.map((entry) => entry.file),
+                    ...chosen,
+                  ]);
+                  if (error) {
+                    setSendError(error);
+                    return;
+                  }
                   setSendError("");
-                  setFileDrafts(previous => ({ ...previous, [owner]: [...(previous[owner] || []), ...chosen.map(file => ({ id: crypto.randomUUID(), file }))] }));
-                }} />
+                  setFileDrafts((previous) => ({
+                    ...previous,
+                    [owner]: [
+                      ...(previous[owner] || []),
+                      ...chosen.map((file) => ({
+                        id: crypto.randomUUID(),
+                        file,
+                      })),
+                    ],
+                  }));
+                }}
+              />
               <button
-                type="button" aria-label="Add attachments" disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
-                onClick={() => { fileInputOwner.current = recipient.key; fileInput.current?.click(); }}
+                type="button"
+                aria-label="Add attachments"
+                disabled={
+                  authExpired ||
+                  !selectedChat ||
+                  recipientLoading ||
+                  Boolean(recipientError)
+                }
+                onClick={() => {
+                  fileInputOwner.current = recipient.key;
+                  fileInput.current?.click();
+                }}
                 className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
-              <Popover open={Boolean(emojiOwner && emojiOwner === recipient.key && selectedChat && !authExpired)} onOpenChange={open => {
-                setEmojiError("");
-                if (open) rememberCaret();
-                setEmojiOwner(open ? recipient.key : "");
-              }}>
+              <Popover
+                open={Boolean(
+                  emojiOwner &&
+                  emojiOwner === recipient.key &&
+                  selectedChat &&
+                  !authExpired,
+                )}
+                onOpenChange={(open) => {
+                  setEmojiError("");
+                  if (open) rememberCaret();
+                  setEmojiOwner(open ? recipient.key : "");
+                }}
+              >
                 <PopoverTrigger asChild>
-                  <button type="button" aria-label="Choose emoji"
-                    disabled={authExpired || !selectedChat || recipientLoading || Boolean(recipientError)}
-                    className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50">
+                  <button
+                    type="button"
+                    aria-label="Choose emoji"
+                    disabled={
+                      authExpired ||
+                      !selectedChat ||
+                      recipientLoading ||
+                      Boolean(recipientError)
+                    }
+                    className="mb-2 shrink-0 text-gray-400 hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-50"
+                  >
                     <Smile className="w-5 h-5" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent side="top" align="end" aria-label="Emoji picker"
-                  className="w-[min(350px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto border-white/10 bg-[#1A1A1E] p-0 text-white"
-                  onCloseAutoFocus={event => {
+                <PopoverContent
+                  side="top"
+                  align="end"
+                  aria-label="Emoji picker"
+                  className="w-[min(350px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto thin-scroll border-white/10 bg-[#1A1A1E] p-0 text-white"
+                  onCloseAutoFocus={(event) => {
                     const insertion = insertedCaret.current;
                     insertedCaret.current = null;
                     if (!insertion) return;
                     event.preventDefault();
-                    if (activeConversation.current.key !== insertion.key || localStorage.getItem("token") !== sessionToken) return;
+                    if (
+                      activeConversation.current.key !== insertion.key ||
+                      localStorage.getItem("token") !== sessionToken
+                    )
+                      return;
                     composer.current?.focus({ preventScroll: true });
-                    composer.current?.setSelectionRange(insertion.position, insertion.position);
-                  }}>
-                  {emojiPicker.status === "error" ? <div className="p-4 text-sm">
-                    <p role="alert">Unable to load emoji picker.</p>
-                    <button type="button" className="mt-2 rounded px-2 py-1 text-blue-400 focus-visible:outline focus-visible:outline-2"
-                      onClick={() => setEmojiLoadAttempt(value => value + 1)}>Try again</button>
-                  </div> : EmojiPicker ? <EmojiPicker
-                    emojiStyle="native" theme="dark" width="100%"
-                    previewConfig={{ showPreview: false }}
-                    skinTonesDisabled={true}
-                    height="min(420px, var(--radix-popover-content-available-height, 420px))"
-                    searchPlaceholder="Search emoji" autoFocusSearch
-                    onEmojiClick={selection => insertEmoji(selection.emoji)}
-                  /> : <p role="status" className="p-4 text-sm">Loading emoji picker…</p>}
-                  {emojiError && <p role="alert" className="p-2 text-sm text-red-400">{emojiError}</p>}
+                    composer.current?.setSelectionRange(
+                      insertion.position,
+                      insertion.position,
+                    );
+                  }}
+                >
+                  {emojiPicker.status === "error" ? (
+                    <div className="p-4 text-sm">
+                      <p role="alert">Unable to load emoji picker.</p>
+                      <button
+                        type="button"
+                        className="mt-2 rounded px-2 py-1 text-blue-400 focus-visible:outline focus-visible:outline-2"
+                        onClick={() =>
+                          setEmojiLoadAttempt((value) => value + 1)
+                        }
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : EmojiPicker ? (
+                    <EmojiPicker
+                      emojiStyle="native"
+                      theme="dark"
+                      width="100%"
+                      previewConfig={{ showPreview: false }}
+                      skinTonesDisabled={true}
+                      height="min(420px, var(--radix-popover-content-available-height, 420px))"
+                      searchPlaceholder="Search emoji"
+                      autoFocusSearch
+                      onEmojiClick={(selection) => insertEmoji(selection.emoji)}
+                    />
+                  ) : (
+                    <p role="status" className="p-4 text-sm">
+                      Loading emoji picker…
+                    </p>
+                  )}
+                  {emojiError && (
+                    <p role="alert" className="p-2 text-sm text-red-400">
+                      {emojiError}
+                    </p>
+                  )}
                 </PopoverContent>
               </Popover>
               <button
                 type="submit"
-                disabled={authExpired || !accountKey || sending || transcriptLoading || !selectedChat || (!messageInput.trim() && !selectedFiles.length)}
+                disabled={
+                  authExpired ||
+                  !accountKey ||
+                  sending ||
+                  transcriptLoading ||
+                  !selectedChat ||
+                  (!messageInput.trim() && !selectedFiles.length)
+                }
                 className="disabled:opacity-50 shrink-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 <Send className="w-4 h-4" />

@@ -209,7 +209,7 @@ export const TalentDirectory = () => {
               id="talent-filters"
               className={`${
                 filtersOpen ? "translate-x-0" : "-translate-x-full"
-              } fixed top-0 left-0 z-[58] h-full w-80 max-w-[90vw] overflow-y-auto bg-[#0F1419] p-4 transition-transform duration-300 lg:static lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:overflow-visible lg:bg-transparent lg:p-0`}
+              } fixed top-0 left-0 z-[58] h-full w-80 max-w-[90vw] overflow-y-auto thin-scroll bg-[#0F1419] p-4 transition-transform duration-300 lg:static lg:z-auto lg:h-auto lg:w-auto lg:max-w-none lg:translate-x-0 lg:overflow-visible lg:bg-transparent lg:p-0`}
             >
             <div className="rounded-xl bg-[#1A1F2E] p-6 space-y-6 lg:sticky lg:top-24">
               <div className="flex items-center justify-between">
