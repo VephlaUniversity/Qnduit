@@ -342,7 +342,9 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
   const jobUrl = job?._id ? `${window.location.origin}${jobPath(job)}` : "";
   const company = job?.employer?.companyName;
   useDocumentSeo({
-    title: job ? `${job.jobTitle}${company ? ` at ${company}` : ""} | QNDUIT` : "",
+    title: job
+      ? `${job.jobTitle}${company ? ` at ${company}` : ""} | QNDUIT`
+      : "",
     description: job
       ? shortText(job.jobDescription) ||
         `${job.jobTitle}${company ? ` at ${company}` : ""}${job.location ? ` in ${job.location}` : ""}. Apply on QNDUIT.`
@@ -361,7 +363,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
           <p>{loadError}</p>
           <Link
             to="/jobs"
-            className="px-6 py-2 border border-[#3B82F6] text-[#3B82F6] rounded-sm"
+            className="px-6 py-2 border border-blue-600 text-[#3B82F6] rounded-sm"
           >
             Browse jobs
           </Link>
@@ -414,7 +416,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                   <h1 className="text-2xl md:text-3xl font-bold text-white mb-3 break-words">
                     {job.jobTitle}{" "}
                     {job.verified && (
-                      <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2">
+                      <span className="bg-blue-600 inline-block p-1 rounded-full ml-2">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           width="15"
@@ -480,7 +482,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                     onClick={handleApply}
                     disabled={applying || applied}
                     aria-busy={applying}
-                    className="px-8 py-2 bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <span>
                       <svg
@@ -537,7 +539,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                 onClick={() => setActiveTab("about")}
                 className={`py-4 px-2 border-b-2 transition-colors ${
                   activeTab === "about"
-                    ? "border-[#3B82F6] text-white"
+                    ? "border-blue-600 text-white"
                     : "border-transparent text-muted-foreground"
                 }`}
               >
@@ -547,7 +549,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                 onClick={() => setActiveTab("jobs")}
                 className={`py-4 px-2 border-b-2 transition-colors ${
                   activeTab === "jobs"
-                    ? "border-[#3B82F6] text-white"
+                    ? "border-blue-600 text-white"
                     : "border-transparent text-muted-foreground"
                 }`}
               >
@@ -557,7 +559,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                 onClick={() => setActiveTab("reviews")}
                 className={`py-4 px-2 border-b-2 transition-colors ${
                   activeTab === "reviews"
-                    ? "border-[#3B82F6] text-white"
+                    ? "border-blue-600 text-white"
                     : "border-transparent text-muted-foreground"
                 }`}
               >

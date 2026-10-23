@@ -20,6 +20,8 @@ import { Modal } from "./Modal";
 import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 const statusStyle = {
   Open: "text-yellow-500",
@@ -149,6 +151,7 @@ const InfoField = (props) => {
 
 const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
   const [replying, setReplying] = useState(false);
+  const { busy, run } = useBusyAction();
   const [response, setResponse] = useState("");
 
   useEffect(() => {
@@ -220,11 +223,21 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
                   Cancel
                 </button>
                 <button
-                  onClick={sendResponse}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                  onClick={() => run("send", sendResponse)}
+                  disabled={!!busy}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Send className="w-4 h-4" />
-                  Send
+                  {busy === "send" ? (
+                    <>
+                      <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send
+                    </>
+                  )}
                 </button>
               </div>
             </div>

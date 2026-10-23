@@ -19,12 +19,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
+import { toast } from "sonner";
 import { API_BASE_URL } from "../utils/api";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 const OTHER_ROLE = "__other__";
 const ROLE_GROUPS = TALENT_OPTION_GROUPS;
 
 export const TalentSignup = () => {
+  const { busy, run } = useBusyAction();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     email: "",
@@ -96,7 +100,7 @@ export const TalentSignup = () => {
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) {
-      alert("Missing authentication token. Please verify your email first.");
+      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
       return;
     }
 
@@ -125,10 +129,11 @@ export const TalentSignup = () => {
     } catch (error) {
       console.error("Talent plan selection error:", error);
 
-      alert(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to select plan",
+      toast.error(
+        friendlyError(
+          error,
+          "We couldn't save your plan. Please try again.",
+        ),
       );
     }
   };
@@ -154,7 +159,7 @@ export const TalentSignup = () => {
       }
     } catch (error) {
       console.error(error);
-      alert(
+      toast.error(
         friendlyError(
           error,
           "We couldn't complete your registration. Please try again.",
@@ -206,8 +211,17 @@ export const TalentSignup = () => {
     const talentId = localStorage.getItem("talentId");
     const authToken = localStorage.getItem("authToken");
 
-    if (!talentId) return alert("Missing Talent ID");
-    if (!authToken) return alert("Missing authentication token");
+    if (!talentId) {
+      toast.error(
+        "We couldn't find your sign-up. Please start again from step 1.",
+        { duration: 6000 },
+      );
+      return;
+    }
+    if (!authToken) {
+      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
+      return;
+    }
 
     try {
       // Upload resume first
@@ -255,7 +269,7 @@ export const TalentSignup = () => {
       console.error("Profile update error:", error);
       console.error("Response:", error.response?.data);
 
-      alert(
+      toast.error(
         friendlyError(
           error,
           "We couldn't update your profile. Please try again.",
@@ -406,10 +420,20 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={handleRegisterTalent}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("register", handleRegisterTalent)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {busy === "register" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>
                 Create account as Talent
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -472,10 +496,20 @@ export const TalentSignup = () => {
             )}
 
             <button
-              onClick={handleVerifyEmail}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+              onClick={() => run("verify", handleVerifyEmail)}
+              disabled={!!busy}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
+              {busy === "verify" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Verifying…
+                </>
+              ) : (
+                <>
               Verify email address
+                </>
+              )}
             </button>
           </div>
         )}
@@ -700,10 +734,20 @@ export const TalentSignup = () => {
               </div>
 
               <button
-                onClick={handleProfileUpdate}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("profile", handleProfileUpdate)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {busy === "profile" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>
                 Create account as Talent
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -285,7 +285,7 @@ const StepCard = ({ step, index, isImageCard }) => {
             ease: [0.16, 1, 0.3, 1],
             delay: 0.1 + index * 0.08,
           }}
-          className="w-11 h-11 rounded-xl bg-[#3B82F6] flex items-center justify-center mb-5"
+          className="w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center mb-5"
         >
           {step.icon}
         </motion.div>

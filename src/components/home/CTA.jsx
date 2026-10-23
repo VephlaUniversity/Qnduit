@@ -82,14 +82,14 @@ export const CTA = () => {
             <button
               type="button"
               onClick={handleDashboardClick}
-              className="inline-flex min-h-11 items-center justify-center bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 cursor-pointer"
+              className="inline-flex min-h-11 items-center justify-center bg-blue-600 text-white px-8 py-4 rounded-full hover:bg-blue-700 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 cursor-pointer"
             >
               Go to your Dashboard
             </button>
           ) : (
             <Link
               to="/talent-signup"
-              className="inline-flex min-h-11 items-center justify-center bg-blue-500 text-white px-8 py-4 rounded-full hover:bg-blue-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4"
+              className="inline-flex min-h-11 items-center justify-center bg-blue-600 text-white px-8 py-4 rounded-full hover:bg-blue-700 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4"
             >
               Join as Talent
             </Link>

@@ -375,9 +375,18 @@ export const DashboardLayout = ({
               )}
             </div>
 
-            <button className="hidden sm:flex text-gray-400 hover:text-white transition-colors">
+            <NavLink
+              to={
+                userType === "talent"
+                  ? "/talent-dashboard/support"
+                  : "/dashboard/support"
+              }
+              aria-label="Help and support"
+              title="Help and support"
+              className="hidden sm:flex text-gray-400 hover:text-white transition-colors"
+            >
               <HelpCircle className="w-5 h-5" />
-            </button>
+            </NavLink>
             <NotificationPop>
               <button
                 type="button"

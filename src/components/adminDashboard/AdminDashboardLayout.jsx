@@ -87,9 +87,14 @@ export const AdminDashboardLayout = ({ children }) => {
 
           {/* Right */}
           <div className="flex items-center gap-3">
-            <button className="hidden sm:flex text-gray-400 hover:text-white transition-colors">
+            <NavLink
+              to="/admin-dashboard/support"
+              aria-label="Help and support"
+              title="Help and support"
+              className="hidden sm:flex text-gray-400 hover:text-white transition-colors"
+            >
               <HelpCircle className="w-5 h-5" />
-            </button>
+            </NavLink>
 
             <NotificationPop>
               <button className="text-gray-400 hover:text-white transition-colors relative">

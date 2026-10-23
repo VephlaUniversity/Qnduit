@@ -250,7 +250,7 @@ export const AllJobsPage = () => {
             placeholder="Job title, company..."
             value={search}
             onChange={(e) => handleFilterChange(setSearch, e.target.value)}
-            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3B82F6]"
+            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
           />
         </div>
       </div>
@@ -267,7 +267,7 @@ export const AllJobsPage = () => {
               onClick={() => handleFilterChange(setSelectedCategory, cat)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 selectedCategory === cat
-                  ? "bg-[#3B82F6] text-white"
+                  ? "bg-blue-600 text-white"
                   : "text-gray-400 hover:text-white hover:bg-[#0F1419]"
               }`}
             >
@@ -289,7 +289,7 @@ export const AllJobsPage = () => {
               onClick={() => handleFilterChange(setSelectedType, type)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 selectedType === type
-                  ? "bg-[#3B82F6] text-white"
+                  ? "bg-blue-600 text-white"
                   : "text-gray-400 hover:text-white hover:bg-[#0F1419]"
               }`}
             >
@@ -301,7 +301,7 @@ export const AllJobsPage = () => {
 
       <button
         onClick={resetFilters}
-        className="w-full bg-[#3B82F6] hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors text-sm"
       >
         Reset Filters
       </button>
@@ -430,7 +430,7 @@ export const AllJobsPage = () => {
                     setSortBy(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-[#191D23] border border-gray-700 text-white text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#3B82F6] w-full sm:w-auto"
+                  className="bg-[#191D23] border border-gray-700 text-white text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-blue-600 w-full sm:w-auto"
                 >
                   <option value="newest">Newest First</option>
                   <option value="salary">Highest Salary</option>
@@ -458,7 +458,7 @@ export const AllJobsPage = () => {
                   </p>
                   <button
                     onClick={resetFilters}
-                    className="bg-[#3B82F6] hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     Reset Filters
                   </button>
@@ -531,7 +531,7 @@ export const AllJobsPage = () => {
                           {job.salary}
                         </span>
                         <Link to={`/job/${job.id}`}>
-                          <button className="bg-[#3B82F6] hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
                             Apply Now →
                           </button>
                         </Link>
@@ -569,7 +569,7 @@ export const AllJobsPage = () => {
                       onClick={() => setCurrentPage(page)}
                       className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm ${
                         currentPage === page
-                          ? "bg-[#3B82F6] border-[#3B82F6] text-white"
+                          ? "bg-blue-600 border-blue-600 text-white"
                           : "border-gray-700 hover:bg-[#191D23] text-white"
                       }`}
                     >

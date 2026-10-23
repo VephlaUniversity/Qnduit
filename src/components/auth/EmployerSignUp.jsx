@@ -18,8 +18,12 @@ import { COUNTRIES } from "../data/countries";
 import axios from "axios";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
+import { toast } from "sonner";
+import ButtonSpinner from "../utils/ButtonSpinner";
+import { useBusyAction } from "../utils/useBusyAction";
 
 export const EmployerSignup = () => {
+  const { busy, run } = useBusyAction();
   const [currentStep, setCurrentStep] = useState(1);
   const [, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -55,10 +59,10 @@ export const EmployerSignup = () => {
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
-        alert("Email verified successfully!");
+        toast.success("Email verified successfully!");
         setCurrentStep(3);
       } else {
-        alert(
+        toast.error(
           safeText(
             res.data.message,
             "We couldn't complete that step. Please try again.",
@@ -74,12 +78,12 @@ export const EmployerSignup = () => {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      alert("Missing authentication token. Please verify your email first.");
+      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
       return;
     }
 
     if (!planType) {
-      alert("Please select a plan first");
+      toast.error("Please select a plan first");
       return;
     }
 
@@ -105,7 +109,7 @@ export const EmployerSignup = () => {
         );
 
         if (response.data?.success) {
-          alert("Your plan has been saved. You can complete payment later.");
+          toast.success("Your plan has been saved. You can complete payment later.");
           navigate("/dashboard");
           return;
         }
@@ -114,10 +118,11 @@ export const EmployerSignup = () => {
       } catch (error) {
         console.error("Employer plan action error:", error);
 
-        alert(
-          error.response?.data?.message ||
-            error.message ||
+        toast.error(
+          safeText(
+            error.response?.data?.message || error.message,
             "Something went wrong. Please try again.",
+          ),
         );
       } finally {
         setLoading(false);
@@ -156,7 +161,7 @@ export const EmployerSignup = () => {
       );
 
       if (res.data.success) {
-        alert("Profile updated successfully!");
+        toast.success("Profile updated successfully!");
 
         if (currentStep === 3) {
           setCurrentStep(4);
@@ -181,10 +186,10 @@ export const EmployerSignup = () => {
 
       if (res.data.success) {
         localStorage.setItem("employerId", res.data.employerId);
-        alert("Verification code sent to your email");
+        toast.success("Verification code sent to your email");
         setCurrentStep(2);
       } else {
-        alert(
+        toast.error(
           safeText(
             res.data.message,
             "We couldn't complete that step. Please try again.",
@@ -378,10 +383,20 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleSubmit}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("register", handleSubmit)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {busy === "register" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Creating account…
+                  </>
+                ) : (
+                  <>
                 Create account as Employer
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -444,10 +459,20 @@ export const EmployerSignup = () => {
             )}
 
             <button
-              onClick={handleVerifyEmail}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors"
+              onClick={() => run("verify", handleVerifyEmail)}
+              disabled={!!busy}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
+              {busy === "verify" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Verifying…
+                </>
+              ) : (
+                <>
               Verify email address
+                </>
+              )}
             </button>
           </div>
         )}
@@ -663,11 +688,20 @@ export const EmployerSignup = () => {
             </div>
 
             <button
-              onClick={handleAccountTypeContinue}
-              disabled={!formData.accountType}
+              onClick={() => run("account", handleAccountTypeContinue)}
+              disabled={!formData.accountType || !!busy}
               className="w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium disabled:opacity-50 transition-colors"
             >
+              {busy === "account" ? (
+                <>
+                  <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                  Please wait…
+                </>
+              ) : (
+                <>
               Continue as {formData.accountType || "..."}
+                </>
+              )}
             </button>
           </div>
         )}
@@ -792,10 +826,20 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleAccountTypeContinue}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("account", handleAccountTypeContinue)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {busy === "account" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Please wait…
+                  </>
+                ) : (
+                  <>
                 Create account as Employer
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -873,10 +917,20 @@ export const EmployerSignup = () => {
               </div>
 
               <button
-                onClick={handleAccountTypeContinue}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors"
+                onClick={() => run("account", handleAccountTypeContinue)}
+                disabled={!!busy}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
+                {busy === "account" ? (
+                  <>
+                    <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
+                    Please wait…
+                  </>
+                ) : (
+                  <>
                 Continue as a Individual
+                  </>
+                )}
               </button>
             </div>
           </div>

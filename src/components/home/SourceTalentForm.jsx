@@ -173,7 +173,7 @@ export const SourceTalentForm = () => {
         variants={fadeUp}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         type="submit"
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl transition-colors duration-200 mb-4"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl transition-colors duration-200 mb-4"
       >
         Source Talents
       </motion.button>

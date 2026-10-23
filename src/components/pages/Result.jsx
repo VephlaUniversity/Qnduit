@@ -195,7 +195,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
       <hr className="border-gray-700 mb-3" />
       <button
         onClick={() => onViewProfile(candidate)}
-        className="bg-transparent border border-[#3b82f6] hover:bg-[#3B82F6] text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
+        className="bg-transparent border border-blue-600 hover:bg-blue-600 text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
       >
         View Profile
       </button>
@@ -224,7 +224,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
           >
             Retry
           </button>
@@ -261,7 +261,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
             {/* Mobile filter button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden fixed bottom-6 right-6 z-50 bg-[#3B82F6] hover:bg-blue-600 text-white p-4 rounded-full shadow-lg"
+              className="lg:hidden fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg"
             >
               {sidebarOpen ? (
                 <X className="w-6 h-6" />
@@ -308,7 +308,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                         setKeywordSearch(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3B82F6]"
+                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
                     />
                   </div>
                 </div>
@@ -324,7 +324,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                         setCurrentPage(1);
                         setSidebarOpen(false);
                       }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]"
+                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
                     >
                       <option value="all">All Locations</option>
                       {locations.map((loc) => (
@@ -347,7 +347,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                         setWorkTypeFilter(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]"
+                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
                     >
                       <option value="all">All Types</option>
                       <option value="full-time">Full-time</option>
@@ -376,14 +376,14 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                     minStepsBetweenThumbs={1}
                   >
                     <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                      <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
+                      <Slider.Range className="absolute bg-blue-600 rounded-full h-full" />
                     </Slider.Track>
                     <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                      className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
                       aria-label="Min age"
                     />
                     <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                      className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
                       aria-label="Max age"
                     />
                   </Slider.Root>
@@ -393,7 +393,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                 <div>
                   <h3 className="text-white font-semibold mb-4">Experience</h3>
                   <div className="relative">
-                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
+                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600">
                       <option>Any experience</option>
                       <option>&lt; 1 year</option>
                       <option>1–3 years</option>
@@ -410,7 +410,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                     Qualification
                   </h3>
                   <div className="relative">
-                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-[#3B82F6]">
+                    <select className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600">
                       <option>Any qualification</option>
                       <option>Certificate</option>
                       <option>Bachelor Degree</option>
@@ -423,7 +423,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
 
                 <button
                   onClick={resetFilters}
-                  className="w-full bg-[#3B82F6] hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
                 >
                   Reset Filters
                 </button>
@@ -442,13 +442,13 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-2 rounded ${viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
+                    className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded ${viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
+                    className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>
@@ -509,7 +509,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                   </p>
                   <button
                     onClick={resetFilters}
-                    className="bg-[#3B82F6] hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                   >
                     Clear Filters
                   </button>
@@ -564,7 +564,7 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                           onClick={() => handlePageChange(page)}
                           className={`w-10 h-10 flex items-center justify-center rounded border ${
                             currentPage === page
-                              ? "bg-[#3B82F6] border-[#3B82F6] text-white"
+                              ? "bg-blue-600 border-blue-600 text-white"
                               : "bg-[#1A1F2E] border-gray-700 hover:bg-gray-700 text-white"
                           }`}
                         >

@@ -298,7 +298,7 @@ export const TalentJobs = () => {
             <h3 className="text-white text-lg mb-2">
               {job.jobTitle}
               {job.verified && (
-                <span className="bg-[#3B82F6] inline-block p-1 rounded-full ml-2 align-middle">
+                <span className="bg-blue-600 inline-block p-1 rounded-full ml-2 align-middle">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="12"
@@ -426,7 +426,7 @@ export const TalentJobs = () => {
                       setSearchKeyword(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -444,7 +444,7 @@ export const TalentJobs = () => {
                       setLocationFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6]"
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg pl-10 pr-4 py-2 text-white text-sm outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -458,7 +458,7 @@ export const TalentJobs = () => {
                     setWorkTypeFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-blue-600 appearance-none"
                 >
                   <option value="">All Work Types</option>
                   <option value="on-site">On-site</option>
@@ -476,7 +476,7 @@ export const TalentJobs = () => {
                     setJobTypeFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                  className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-blue-600 appearance-none"
                 >
                   <option value="">All Job Types</option>
                   <option value="full-time">Full-time</option>
@@ -509,14 +509,14 @@ export const TalentJobs = () => {
                   minStepsBetweenThumbs={1}
                 >
                   <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                    <Slider.Range className="absolute bg-[#3B82F6] rounded-full h-full" />
+                    <Slider.Range className="absolute bg-blue-600 rounded-full h-full" />
                   </Slider.Track>
                   <Slider.Thumb
-                    className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                    className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
                     aria-label="Min salary"
                   />
                   <Slider.Thumb
-                    className="block w-4 h-4 bg-white border-2 border-[#3B82F6] rounded-full shadow-lg focus:outline-none"
+                    className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
                     aria-label="Max salary"
                   />
                 </Slider.Root>
@@ -532,7 +532,7 @@ export const TalentJobs = () => {
                       setPostedAnytime(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-blue-600 appearance-none"
                   >
                     <option value="anytime">Posted Anytime</option>
                     <option value="today">Today</option>
@@ -553,7 +553,7 @@ export const TalentJobs = () => {
                       setSeniorityLevel(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-blue-600 appearance-none"
                   >
                     <option value="all">All Seniority Levels</option>
                     <option value="entry">Entry Level</option>
@@ -576,7 +576,7 @@ export const TalentJobs = () => {
                       setCompany(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-[#3B82F6] appearance-none"
+                    className="w-full bg-[#0F1419] border border-[#2A3142] rounded-lg px-4 py-2 text-gray-400 text-sm outline-none focus:border-blue-600 appearance-none"
                   >
                     <option value="">All Companies</option>
                     {companyOptions.map((name) => (
@@ -591,7 +591,7 @@ export const TalentJobs = () => {
 
               <button
                 onClick={resetFilters}
-                className="w-full bg-[#3B82F6] hover:bg-[#3077e8] text-white font-semibold py-3 rounded-lg transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 Reset Filters
               </button>
@@ -605,13 +605,13 @@ export const TalentJobs = () => {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded ${viewMode === "list" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
+                  className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                 >
                   <List className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded ${viewMode === "grid" ? "bg-[#3B82F6]" : "bg-[#1A1F2E]"}`}
+                  className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                 >
                   <Grid className="w-5 h-5" />
                 </button>
@@ -622,7 +622,7 @@ export const TalentJobs = () => {
                 >
                   <Filter className="w-5 h-5" />
                   {activeFilterCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#3B82F6] text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
                       {activeFilterCount}
                     </span>
                   )}
@@ -679,7 +679,7 @@ export const TalentJobs = () => {
                 <p className="text-gray-400 mb-6">{loadError}</p>
                 <button
                   onClick={() => setReloadKey((value) => value + 1)}
-                  className="bg-[#3B82F6] hover:bg-[#3077e8] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 >
                   Try again
                 </button>
@@ -695,7 +695,7 @@ export const TalentJobs = () => {
                 </p>
                 <button
                   onClick={resetFilters}
-                  className="bg-[#3B82F6] hover:bg-[#3077e8] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 >
                   Clear Filters
                 </button>
@@ -734,7 +734,7 @@ export const TalentJobs = () => {
                     onClick={() => handlePageChange(page)}
                     className={`w-10 h-10 flex items-center justify-center rounded border ${
                       currentPage === page
-                        ? "bg-[#3B82F6] border-[#3077e8] text-white"
+                        ? "bg-blue-600 border-blue-600 text-white"
                         : "bg-[#1A1F2E] border-[#2A3142] hover:bg-[#2A3142] text-white"
                     }`}
                   >
