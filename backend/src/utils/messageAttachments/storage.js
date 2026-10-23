@@ -1,9 +1,9 @@
 import process from "node:process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { mkdir, realpath, lstat, rm, writeFile, readFile, rename } from "node:fs/promises";
 import { v2 as cloudinary } from "cloudinary";
+import { applicationDirectory, isWithinDirectory } from "./stagingBoundary.js";
 
 export const attachmentError = (message, status = 400) => Object.assign(new Error(message), { status });
 
@@ -35,16 +35,15 @@ export async function cloudAttachmentStorage() {
   });
 
   const configured = path.resolve(process.env.MESSAGE_ATTACHMENT_DIR);
-  const repo = fileURLToPath(new URL("../../../../", import.meta.url));
-  const repoPath = path.resolve(repo);
-  if (configured === repoPath || configured.startsWith(repoPath + path.sep)) {
+  const applicationPath = await applicationDirectory(import.meta.url);
+  if (isWithinDirectory(configured, applicationPath)) {
     throw attachmentError("Temporary attachment staging must be outside the application directory.", 503);
   }
 
   await mkdir(configured, { recursive: true, mode: 0o700 });
   const root = await realpath(configured);
   const stat = await lstat(configured);
-  if (stat.isSymbolicLink() || !stat.isDirectory() || (stat.mode & 0o077) || root === repoPath || root.startsWith(repoPath + path.sep)) {
+  if (stat.isSymbolicLink() || !stat.isDirectory() || (stat.mode & 0o077) || isWithinDirectory(root, applicationPath)) {
     throw attachmentError("Temporary attachment staging is not safely configured.", 503);
   }
 
