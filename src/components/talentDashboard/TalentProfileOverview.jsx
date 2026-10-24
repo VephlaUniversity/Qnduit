@@ -1,7 +1,10 @@
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MapPin,
+  Check,
   Clock,
   Facebook,
   Linkedin,
@@ -18,6 +21,11 @@ import { friendlyError } from "../utils/userMessage";
 
 const TalentProfileOverview = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const actor = user?.userType === "talent" ? `talent:${user.id || user._id}` : null;
+  const token = browserSessions().find(owner => owner.actor === actor)?.token;
+  const ownerKey = actor && token ? `${actor}:${token}` : null;
+  const [loadedOwner, setLoadedOwner] = useState(null);
   const [resumeData, setResumeData] = useState(null);
   const [aboutData, setAboutData] = useState(null);
   const [showEditPopup, setShowEditPopup] = useState(false);
@@ -26,20 +34,22 @@ const TalentProfileOverview = () => {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const current = () => !controller.signal.aborted && browserSessions().some(owner => owner.actor === actor && owner.token === token);
 
     const fetchProfile = async () => {
       setLoading(true);
       setLoadError("");
-      const headers = {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      };
+      setAboutData(null);
+      setResumeData(null);
+      if (!ownerKey) { setLoadError("Please sign in with your Talent account to view your profile."); setLoadedOwner(ownerKey); setLoading(false); return; }
+      const options = { signal: controller.signal, headers: { Authorization: `Bearer ${token}` } };
 
       const [profileRes, resumeRes] = await Promise.allSettled([
-        axios.get(`${API_BASE_URL}/api/talents/profile`, { headers }),
-        axios.get(`${API_BASE_URL}/api/resume`, { headers }),
+        axios.get(`${API_BASE_URL}/api/talents/profile`, options),
+        axios.get(`${API_BASE_URL}/api/resume`, options),
       ]);
-      if (cancelled) return;
+      if (!current()) return;
 
       if (profileRes.status === "fulfilled") {
         setAboutData(profileRes.value.data.profile || null);
@@ -67,14 +77,15 @@ const TalentProfileOverview = () => {
         );
       }
 
+      setLoadedOwner(ownerKey);
       setLoading(false);
     };
 
     fetchProfile();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [reloadKey]);
+  }, [reloadKey, actor, token, ownerKey]);
 
   const displayName = aboutData?.fullName || "";
   const jobTitle = aboutData?.jobTitle || "";
@@ -117,7 +128,8 @@ const TalentProfileOverview = () => {
     { name: "youtube", icon: Youtube, url: aboutData?.socialNetworks?.youtube },
   ];
 
-  if (loading || loadError) {
+  const profileLoading = loading || loadedOwner !== ownerKey;
+  if (profileLoading || loadError) {
     return (
       <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
         <div className="flex items-center gap-3 mb-6">
@@ -127,7 +139,7 @@ const TalentProfileOverview = () => {
           </h1>
         </div>
         <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-10 flex flex-col items-center justify-center gap-4 text-gray-400">
-          {loading ? (
+          {profileLoading ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
               <span>Loading your profile...</span>
@@ -177,6 +189,7 @@ const TalentProfileOverview = () => {
               <p className="text-blue-500 text-sm font-medium">{jobTitle}</p>
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                 {displayName}
+                {aboutData?.hasVerificationBadge === true && <span role="img" aria-label="Admin verification badge" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600"><Check className="h-3 w-3 text-white" aria-hidden="true" /></span>}
                 <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded-full">
                   Available now
                 </span>

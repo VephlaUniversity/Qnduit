@@ -1,3 +1,4 @@
+import { authIdentity } from "../utils/authSession.js";
 import { verificationBadgeDTO } from "../services/verificationBadge.js";
 import Employer from "../models/Employer.js";
 import { employerGallerySelection } from "../utils/employerGallery.js";
@@ -81,7 +82,8 @@ export const verifyEmployerEmail = async (req, res, next) => {
     res.json({
       success: true,
       message: "Email verified successfully.",
-      token: generateToken(employer._id),
+      token: generateToken(employer._id, "employer"),
+      user: authIdentity(employer, "employer"),
     });
   } catch (error) {
     next(error);

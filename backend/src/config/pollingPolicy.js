@@ -1,6 +1,7 @@
 // Exact method/path classification is shared by the server and polling client.
 // Query strings and pagination never create another allowance.
 export const POLLING_ENDPOINTS = Object.freeze([
+  ["GET", "/api/auth/session", ["talent", "employer"]],
   ["GET", "/api/messages/unread", ["talent", "employer"]],
   ["POST", "/api/messages/heartbeat", ["talent", "employer"]],
   ["POST", "/api/messages/presence", ["talent", "employer"]],

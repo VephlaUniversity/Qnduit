@@ -1,3 +1,4 @@
+import { useEmployerPlanAction } from "../hooks/useEmployerPlanAction";
 import React, { useState } from "react";
 import "./authEnter.css";
 import { AuthHeader } from "./AuthHeader";
@@ -16,16 +17,17 @@ import {
 import { useNavigate } from "react-router-dom";
 import { COUNTRIES } from "../data/countries";
 import axios from "axios";
-import { friendlyError, safeText } from "../utils/userMessage";
-import { API_BASE_URL } from "../utils/api";
 import { toast } from "sonner";
 import ButtonSpinner from "../utils/ButtonSpinner";
 import { useBusyAction } from "../utils/useBusyAction";
+import { friendlyError, safeText } from "../utils/userMessage";
+import { API_BASE_URL } from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
 
 export const EmployerSignup = () => {
   const { busy, run } = useBusyAction();
   const [currentStep, setCurrentStep] = useState(1);
-  const [, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -45,6 +47,10 @@ export const EmployerSignup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+  const { verifySignup } = useAuth();
+  const [signupOwner, setSignupOwner] = useState(null);
+  const handlePlanSelection = useEmployerPlanAction(signupOwner, { directCheckout: true });
+  const signupSession = () => browserSessions().find(owner => signupOwner && owner.actor === signupOwner.actor && owner.token === signupOwner.token);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -52,86 +58,22 @@ export const EmployerSignup = () => {
 
   const handleVerifyEmail = async () => {
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/employers/verify`, {
+      const verified = await verifySignup("employer", {
         email: formData.email,
         verificationCode: formData.verificationCode,
       });
 
-      if (res.data.success) {
-        localStorage.setItem("token", res.data.token);
-        toast.success("Email verified successfully!");
-        setCurrentStep(3);
-      } else {
-        toast.error(
-          safeText(
-            res.data.message,
-            "We couldn't complete that step. Please try again.",
-          ),
-        );
-      }
+      setSignupOwner({ actor: `employer:${verified.user.id}`, token: verified.token });
+      toast.success("Email verified successfully!");
+      setCurrentStep(3);
     } catch (err) {
-      console.error("Verification failed:", err);
-    }
-  };
-
-  const handlePlanSelection = async (planType, actionType) => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
-      return;
-    }
-
-    if (!planType) {
-      toast.error("Please select a plan first");
-      return;
-    }
-
-    if (actionType === "payNow") {
-      navigate(
-        `/payment?plan=${encodeURIComponent(planType)}&userType=employer`,
-      );
-      return;
-    }
-
-    if (actionType === "payLater") {
-      try {
-        setLoading(true);
-
-        const response = await axios.post(
-          `${API_BASE_URL}/api/payments/employer/pay-later`,
-          { plan: planType },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        if (response.data?.success) {
-          toast.success("Your plan has been saved. You can complete payment later.");
-          navigate("/dashboard");
-          return;
-        }
-
-        throw new Error(response.data?.message || "Unable to save your plan");
-      } catch (error) {
-        console.error("Employer plan action error:", error);
-
-        toast.error(
-          safeText(
-            error.response?.data?.message || error.message,
-            "Something went wrong. Please try again.",
-          ),
-        );
-      } finally {
-        setLoading(false);
-      }
+      if (!axios.isCancel(err) && err.code !== "ERR_CANCELED") toast.error(friendlyError(err, "Unable to verify your email. Please try again."));
     }
   };
 
   const handleAccountTypeContinue = async () => {
-    const token = localStorage.getItem("token");
+    const token = signupSession()?.token;
+    if (!token) return toast.error("Please sign in again before continuing.");
 
     try {
       const res = await axios.put(

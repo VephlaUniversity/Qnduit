@@ -18,11 +18,13 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { friendlyError } from "../utils/userMessage";
 import { toast } from "sonner";
-import { API_BASE_URL } from "../utils/api";
 import ButtonSpinner from "../utils/ButtonSpinner";
 import { useBusyAction } from "../utils/useBusyAction";
+import { friendlyError } from "../utils/userMessage";
+import { API_BASE_URL } from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
 
 const OTHER_ROLE = "__other__";
 const ROLE_GROUPS = TALENT_OPTION_GROUPS;
@@ -50,6 +52,9 @@ export const TalentSignup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+  const { verifySignup } = useAuth();
+  const [signupOwner, setSignupOwner] = useState(null);
+  const signupSession = () => browserSessions().find(owner => signupOwner && owner.actor === signupOwner.actor && owner.token === signupOwner.token);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -93,14 +98,15 @@ export const TalentSignup = () => {
   };
 
   const handlePlanSelection = async (planType, actionType) => {
+    if (!signupSession()) return toast.error("Please sign in again before continuing.");
     if (actionType === "payLater") {
       navigate("/talent-dashboard");
       return;
     }
-    const authToken = localStorage.getItem("authToken");
+    const authToken = signupSession()?.token;
 
     if (!authToken) {
-      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
+      toast.error("Your session has expired. Please verify your email again to continue.");
       return;
     }
 
@@ -117,7 +123,7 @@ export const TalentSignup = () => {
         );
 
         if (response.data?.free) {
-          navigate("/dashboard");
+          navigate("/talent-dashboard");
           return;
         }
 
@@ -192,15 +198,13 @@ export const TalentSignup = () => {
   const handleVerifyEmail = async () => {
     if (!validateStep()) return;
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/talents/verify`, {
+      const verified = await verifySignup("talent", {
         email: formData.email,
         verificationCode: formData.verificationCode,
       });
 
-      if (response.data.success) {
-        localStorage.setItem("authToken", response.data.token);
-        setCurrentStep(3);
-      }
+      setSignupOwner({ actor: `talent:${verified.user.id}`, token: verified.token });
+      setCurrentStep(3);
     } catch (error) {
       console.error(error);
       setErrors({ verificationCode: "Verification failed" });
@@ -208,20 +212,11 @@ export const TalentSignup = () => {
   };
 
   const handleProfileUpdate = async () => {
-    const talentId = localStorage.getItem("talentId");
-    const authToken = localStorage.getItem("authToken");
+    const talentId = signupOwner?.actor.split(":")[1];
+    const authToken = signupSession()?.token;
 
-    if (!talentId) {
-      toast.error(
-        "We couldn't find your sign-up. Please start again from step 1.",
-        { duration: 6000 },
-      );
-      return;
-    }
-    if (!authToken) {
-      toast.error("Your session has expired. Please verify your email again to continue.", { duration: 6000 });
-      return;
-    }
+    if (!talentId) return toast.error("We couldn't find your sign-up. Please start again from step 1.");
+    if (!authToken) return toast.error("Your session has expired. Please verify your email again to continue.");
 
     try {
       // Upload resume first

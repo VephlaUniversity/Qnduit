@@ -1,19 +1,11 @@
 import { motion } from "framer-motion";
 import { EmployerPlans } from "../EmployerPlans";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { routeForPlan } from "../utils/planChoice";
+import { useEmployerPlanAction } from "../hooks/useEmployerPlanAction";
 import { useState } from "react";
 
 export const EmployerPricing = () => {
   const [selectedPlan, setSelectedPlan] = useState("");
-  const navigate = useNavigate();
-
-  const handlePlanAction = (planType) => {
-    const result = routeForPlan(planType);
-    if (result.to) navigate(result.to);
-    else toast.error(result.message);
-  };
+  const handlePlanAction = useEmployerPlanAction();
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-8 py-20">

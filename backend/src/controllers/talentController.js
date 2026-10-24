@@ -1,3 +1,5 @@
+import { withVerificationBadge } from "../services/verificationBadge.js";
+import { authIdentity } from "../utils/authSession.js";
 import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
@@ -104,7 +106,8 @@ export const verifyTalentEmail = async (req, res, next) => {
     res.json({
       success: true,
       message: "Email verified successfully.",
-      token: generateToken(talent._id),
+      token: generateToken(talent._id, "talent"),
+      user: authIdentity(talent, "talent"),
     });
   } catch (error) {
     next(error);
@@ -399,7 +402,7 @@ export const getTalentProfile = async (req, res, next) => {
     if (!talent)
       return res.status(404).json({ message: "Talent not found" });
 
-    const profile = {
+    const profile = withVerificationBadge({
     ...talent._doc,
     avatar: talent.avatar?.url || "",
     introVideo: talent.introVideo?.url || "",
@@ -415,7 +418,7 @@ export const getTalentProfile = async (req, res, next) => {
         instagram: "",
         youtube: "",
       },
-    };
+    });
 
     res.json({
       success: true,

@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Send, CheckCircle2, ChevronDown, Inbox, LifeBuoy } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { TICKET_CATEGORIES } from "../utils/supportTickets";
 import axios from "axios";
-import { API_BASE_URL } from "../utils/api";
 import ButtonSpinner from "../utils/ButtonSpinner";
-import { useBusyAction } from "../utils/useBusyAction";
+import { API_BASE_URL } from "../utils/api";
+import { browserSessions } from "../utils/requestSafety";
+import { createSupportSession } from "../utils/supportSession";
 
 const STATUS_STYLE = {
   Open: "bg-yellow-500/15 text-yellow-500",
@@ -15,15 +16,6 @@ const STATUS_STYLE = {
 };
 
 const MIN_MESSAGE_LENGTH = 10;
-
-const getHeaders = () => {
-  const token =
-    localStorage.getItem("token") || localStorage.getItem("authToken");
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-};
 
 const formatTicketDate = (date) =>
   date
@@ -43,9 +35,15 @@ export const UserSupport = () => {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [tickets, setTickets] = useState([]);
+  const [ticketOwner, setTicketOwner] = useState("");
+  const [pending, setPending] = useState(false), [reply, setReply] = useState("");
+  const actor = user && `${user.userType}:${user.id || user._id}`;
+  const token = browserSessions().find(owner => owner.actor === actor)?.token;
+  const session = useMemo(() => createSupportSession({ client: axios, baseUrl: API_BASE_URL,
+    readOwner: () => browserSessions().find(owner => owner.actor === actor && owner.token === token),
+  }), [actor, token]);
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { busy, run } = useBusyAction();
   const [requestError, setRequestError] = useState("");
 
   const email = user?.email || "";
@@ -55,13 +53,10 @@ export const UserSupport = () => {
     setRequestError("");
 
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/support/tickets/mine`,
-        { headers: getHeaders() },
-      );
-
+      const response = await session.request("GET", "/tickets/mine");
+      setTicketOwner(actor);
       setTickets(
-        (response.data.data || []).map((ticket) => ({
+        (response.data || []).map((ticket) => ({
           ...ticket,
           subject: ticket.category,
           fullSubject:
@@ -70,17 +65,20 @@ export const UserSupport = () => {
         })),
       );
     } catch (error) {
+      if (axios.isCancel(error)) return;
       setRequestError(
         error.response?.data?.message || "Unable to load your support tickets.",
       );
     } finally {
-      setLoading(false);
+      if (session.isCurrent()) setLoading(false);
     }
-  }, []);
+  }, [session, actor]);
 
   useEffect(() => {
+    setTickets([]); setTicketOwner(""); setExpandedId(null); setTitle(""); setMessage(""); setReply(""); setPending(false); setErrors({}); setSubmitted(false);
     refresh();
-  }, [refresh]);
+    return () => session.cancel();
+  }, [refresh, session]);
 
   useEffect(() => {
     if (!submitted) return;
@@ -107,16 +105,13 @@ export const UserSupport = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (pending || !validate()) return;
+    setPending(true);
 
     setRequestError("");
 
     try {
-      await axios.post(
-        `${API_BASE_URL}/api/support/tickets`,
-        { category, title, message },
-        { headers: getHeaders() },
-      );
+      await session.request("POST", "/tickets", { category, title, message });
 
       setTitle("");
       setMessage("");
@@ -126,12 +121,26 @@ export const UserSupport = () => {
 
       await refresh();
     } catch (error) {
+      if (axios.isCancel(error)) return;
       setRequestError(
         error.response?.data?.message ||
           "Unable to submit your support ticket.",
       );
-    }
+    } finally { if (session.isCurrent()) setPending(false); }
   };
+
+  const sendReply = async (event, ticketId) => {
+    event.preventDefault();
+    if (pending || !reply.trim() || reply.trim().length > 10000) return;
+    setPending(true); setRequestError("");
+    try {
+      await session.request("POST", `/tickets/${ticketId}/replies`, { message: reply.trim() });
+      setReply(""); await refresh();
+    } catch (error) {
+      if (!axios.isCancel(error)) setRequestError(error.response?.data?.message || "Unable to send your reply. Refresh before trying again.");
+    } finally { if (session.isCurrent()) setPending(false); }
+  };
+  const visibleTickets = ticketOwner === actor ? tickets : [];
 
   const inputBase =
     "w-full bg-[#0E0E10] border rounded-lg px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors";
@@ -151,10 +160,7 @@ export const UserSupport = () => {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Submit */}
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            run("ticket", () => handleSubmit(e));
-          }}
+          onSubmit={handleSubmit}
           noValidate
           className="xl:col-span-2 bg-[#1A1A1E] rounded-lg border border-white/5 p-6 h-fit"
         >
@@ -239,20 +245,10 @@ export const UserSupport = () => {
 
             <button
               type="submit"
-              disabled={!!busy}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={pending}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-medium text-sm transition-colors"
             >
-              {busy === "ticket" ? (
-                <>
-                  <ButtonSpinner />
-                  Submitting…
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Submit Ticket
-                </>
-              )}
+              {pending ? <><ButtonSpinner />Submitting…</> : <><Send className="w-4 h-4" />Submit Ticket</>}
             </button>
           </div>
         </form>
@@ -260,7 +256,7 @@ export const UserSupport = () => {
         {/* My tickets */}
         <div className="xl:col-span-3 bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
           <h2 className="text-lg font-semibold text-white mb-5">
-            My tickets <span className="text-gray-500">({tickets.length})</span>
+            My tickets <span className="text-gray-500">({visibleTickets.length})</span>
           </h2>
 
           {requestError && (
@@ -273,7 +269,7 @@ export const UserSupport = () => {
             <p className="py-10 text-center text-gray-400 text-sm">
               Loading support tickets...
             </p>
-          ) : tickets.length === 0 ? (
+          ) : visibleTickets.length === 0 ? (
             <div className="flex flex-col items-center text-center py-12 gap-3">
               <div className="w-12 h-12 rounded-full bg-[#2A2A2E] flex items-center justify-center">
                 <Inbox className="w-5 h-5 text-gray-500" />
@@ -284,7 +280,7 @@ export const UserSupport = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {tickets.map((ticket) => {
+              {visibleTickets.map((ticket) => {
                 const open = expandedId === ticket.id;
                 return (
                   <div
@@ -292,7 +288,7 @@ export const UserSupport = () => {
                     className="rounded-lg border border-white/5 bg-[#0E0E10]"
                   >
                     <button
-                      onClick={() => setExpandedId(open ? null : ticket.id)}
+                      onClick={() => { setExpandedId(open ? null : ticket.id); setReply(""); }}
                       className="w-full flex items-center justify-between gap-4 p-4 text-left"
                     >
                       <div className="flex items-start gap-3 min-w-0">
@@ -328,6 +324,11 @@ export const UserSupport = () => {
                             {ticket.message}
                           </p>
 
+                          <form onSubmit={event => sendReply(event, ticket.id)} className="mt-4 space-y-2">
+                            <label className="block text-sm text-gray-400" htmlFor={`support-reply-${ticket.id}`}>Your reply</label>
+                            <textarea id={`support-reply-${ticket.id}`} value={reply} onChange={event => setReply(event.target.value)} maxLength={10000} disabled={pending} className={`${inputBase} border-white/10`} />
+                            <button type="submit" disabled={pending || !reply.trim()} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{pending ? "Sending…" : "Send Reply"}</button>
+                          </form>
                           {ticket.replies?.length > 0 && (
                             <div className="mt-5 space-y-3">
                               <h3 className="text-sm font-semibold text-white">
@@ -341,7 +342,7 @@ export const UserSupport = () => {
                                 >
                                   <div className="flex flex-wrap justify-between gap-2 mb-2">
                                     <span className="text-sm font-medium text-blue-400">
-                                      {reply.adminName || "Support Team"}
+                                      {reply.authorRole && reply.authorRole !== "admin" ? "You" : reply.adminName || "Support Team"}
                                     </span>
 
                                     <span className="text-xs text-gray-500">

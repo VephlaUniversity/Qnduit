@@ -9,8 +9,11 @@ const supportReplySchema = new mongoose.Schema(
     },
     adminId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      required() { return !this.authorRole || this.authorRole === "admin"; },
     },
+    authorId: { type: mongoose.Schema.Types.ObjectId },
+    authorRole: { type: String, enum: ["talent", "employer", "admin"] },
+    authorName: String,
     adminName: {
       type: String,
       default: "Support Team",
@@ -25,6 +28,8 @@ const supportReplySchema = new mongoose.Schema(
 
 const supportTicketSchema = new mongoose.Schema(
   {
+    // No inferred legacy ownership: only new tickets receive this server identity.
+    ownerId: { type: mongoose.Schema.Types.ObjectId },
     name: {
       type: String,
       required: true,
@@ -74,6 +79,7 @@ const supportTicketSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+supportTicketSchema.index({ ownerId: 1, userType: 1, createdAt: -1 });
 supportTicketSchema.index({ createdAt: -1 });
 supportTicketSchema.index({ email: 1, createdAt: -1 });
 

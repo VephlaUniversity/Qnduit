@@ -1,3 +1,4 @@
+import { useEmployerPlanAction } from "../hooks/useEmployerPlanAction";
 import { useState } from "react";
 import { EmployerPlans } from "../EmployerPlans";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +10,7 @@ export const PricingSection = () => {
   const [pricingToggle, setPricingToggle] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("");
   const navigate = useNavigate();
+  const employerPlanAction = useEmployerPlanAction();
   const handlePlanAction = (planType) => {
     const result = routeForPlan(planType);
     if (result.to) navigate(result.to);
@@ -67,7 +69,7 @@ export const PricingSection = () => {
           <EmployerPlans
             selectedPlan={selectedPlan}
             onSelectPlan={setSelectedPlan}
-            onPlanAction={handlePlanAction}
+            onPlanAction={employerPlanAction}
             alwaysActive
           />
         )}

@@ -4,7 +4,7 @@ import { ArrowLeft, LogIn, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { resumePlanSelection } from "../utils/ResumePlanSelection";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 export const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -16,9 +16,9 @@ export const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, isAuthenticated } = useAuth();
+  const { signIn, isAuthenticated, sessionMessage } = useAuth();
 
-  const message = location.state?.message;
+  const message = location.state?.message || sessionMessage;
 
   // If user is already authenticated, redirect them
   useEffect(() => {
@@ -85,7 +85,7 @@ export const SignIn = () => {
       }
     } catch (err) {
       setErrors({
-        submit: err.message || "Invalid email or password. Please try again.",
+        submit: err.message || "Unable to sign in. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -97,7 +97,7 @@ export const SignIn = () => {
       <AuthHeader />
       <div className="container mx-auto px-4 py-12">
         {/* Back Button */}
-        <motion.button
+        <Motion.button
           onClick={() => navigate("/")}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-8"
           initial={{ opacity: 0, x: -12 }}
@@ -105,15 +105,15 @@ export const SignIn = () => {
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <ArrowLeft className="w-5 h-5" />
-        </motion.button>
+        </Motion.button>
 
-        <motion.div
+        <Motion.div
           className="w-full max-w-md mx-auto"
           initial="initial"
           animate="animate"
         >
           {/* Icon */}
-          <motion.div
+          <Motion.div
             className="flex justify-center mb-8"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -122,43 +122,43 @@ export const SignIn = () => {
             <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
               <LogIn className="w-8 h-8 text-blue-500" />
             </div>
-          </motion.div>
+          </Motion.div>
 
           {/* Heading */}
-          <motion.h1
+          <Motion.h1
             className="text-3xl font-semibold text-white text-center mb-2"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
           >
             Welcome Back
-          </motion.h1>
+          </Motion.h1>
 
-          <motion.p
+          <Motion.p
             className="text-gray-400 text-center mb-4"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
           >
             Sign in to continue to your account
-          </motion.p>
+          </Motion.p>
 
           {/* Redirect message */}
           {message && (
-            <motion.div
+            <Motion.div
               className="mb-6 p-3 bg-blue-600/20 border border-blue-600/50 rounded-lg text-center"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
             >
               <p className="text-blue-400 text-sm">{message}</p>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* Form Fields */}
           <div className="space-y-4">
             {/* Email */}
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
@@ -182,10 +182,10 @@ export const SignIn = () => {
               {errors.email && (
                 <p className="text-red-500 text-xs mt-1">{errors.email}</p>
               )}
-            </motion.div>
+            </Motion.div>
 
             {/* Password */}
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.25 }}
@@ -226,22 +226,22 @@ export const SignIn = () => {
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
               )}
-            </motion.div>
+            </Motion.div>
 
             {/* Submit error */}
             {errors.submit && (
-              <motion.div
+              <Motion.div
                 className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
                 <p className="text-red-400 text-sm">{errors.submit}</p>
-              </motion.div>
+              </Motion.div>
             )}
 
             {/* Remember me & Forgot password */}
-            <motion.div
+            <Motion.div
               className="flex justify-between items-center"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -257,10 +257,10 @@ export const SignIn = () => {
               >
                 Forgot password?
               </Link>
-            </motion.div>
+            </Motion.div>
 
             {/* Submit Button */}
-            <motion.button
+            <Motion.button
               onClick={handleSubmit}
               disabled={isLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 h-12 font-medium mt-6 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -269,10 +269,10 @@ export const SignIn = () => {
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.35 }}
             >
               {isLoading ? "Signing In..." : "Sign In"}
-            </motion.button>
+            </Motion.button>
 
             {/* Sign up links */}
-            <motion.p
+            <Motion.p
               className="text-center text-gray-400 text-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -292,9 +292,9 @@ export const SignIn = () => {
               >
                 Employer
               </Link>
-            </motion.p>
+            </Motion.p>
           </div>
-        </motion.div>
+        </Motion.div>
       </div>
     </div>
   );

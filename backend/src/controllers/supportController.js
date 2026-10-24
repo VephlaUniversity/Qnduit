@@ -52,7 +52,7 @@ export const createTicket = async (req, res) => {
       });
     }
 
-    if (!category?.trim() || !title?.trim() || !message?.trim()) {
+    if (![category, title, message].every(value => typeof value === "string" && value.trim())) {
       return res.status(400).json({
         success: false,
         message: "Category, subject, and message are required.",
@@ -83,6 +83,7 @@ export const createTicket = async (req, res) => {
     }
 
     const ticket = await SupportTicket.create({
+      ownerId: req.user._id,
       name: getAccountName(req.user),
       email,
       userType,
@@ -118,7 +119,7 @@ export const getMyTickets = async (req, res) => {
       });
     }
 
-    const filter = { email };
+    const filter = { ownerId: req.user._id, userType: req.user.role };
 
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
@@ -350,5 +351,21 @@ export const deleteTicket = async (req, res) => {
       success: false,
       message: "Failed to delete support ticket.",
     });
+  }
+};
+
+// Owner replies append atomically and never resolve/reopen a ticket implicitly.
+export const replyToOwnTicket = async (req, res) => {
+  const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (!mongoose.isValidObjectId(req.params.ticketId)) return res.status(400).json({ success: false, message: "Invalid ticket ID." });
+  if (!message || message.length > 10000) return res.status(400).json({ success: false, message: "A reply of 1 to 10,000 characters is required." });
+  try {
+    const ticket = await SupportTicket.findOneAndUpdate({ _id: req.params.ticketId, ownerId: req.user._id, userType: req.user.role }, {
+      $push: { replies: { message, authorId: req.user._id, authorRole: req.user.role, authorName: getAccountName(req.user), createdAt: new Date() } },
+    }, { new: true, runValidators: true });
+    if (!ticket) return res.status(404).json({ success: false, message: "Support ticket not found." });
+    return res.json({ success: true, data: formatTicket(ticket) });
+  } catch {
+    return res.status(500).json({ success: false, message: "Unable to save your reply." });
   }
 };

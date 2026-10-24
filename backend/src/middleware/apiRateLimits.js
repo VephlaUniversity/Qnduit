@@ -52,7 +52,7 @@ export function createApiRateLimits({ authenticate = resolveAuthentication, stor
         // Failed identities never acquire an account budget or reach controllers.
         return general(req, res, () => res.status(authError.status || 401).json({
           success: false, message: authError.message,
-          ...(authError.code === "ACCOUNT_SUSPENDED" ? { code: authError.code } : {}),
+          ...(authError.code ? { code: authError.code } : {}),
         }));
       }
       return run(account, req, res, next);

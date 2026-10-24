@@ -1,3 +1,4 @@
+import { allowsSuspendedAccess } from "../../../backend/src/config/accountAccess.js";
 import { pollingRoles } from "../../../backend/src/config/pollingPolicy.js";
 import { retryAfterMs } from "./pollingCooldown.js";
 
@@ -113,13 +114,13 @@ export function installRequestSafety(client, { apiBaseUrl, readSessions, events 
     if (bearer && !session) throw new client.CanceledError("Session changed");
     const method = (config.method || "get").toUpperCase();
     const polling = !!pollingRoles(method, url.pathname);
-    const context = { actor: session?.actor || null, token: session?.token, auth: isAuthRequest(method, url.pathname), controller: new AbortController(), signal: config.signal };
+    const suspensionAllowed = allowsSuspendedAccess(method, url.pathname);
+    const context = { suspensionAllowed, actor: session?.actor || null, token: session?.token, auth: isAuthRequest(method, url.pathname), controller: new AbortController(), signal: config.signal };
     context.abort = () => context.controller.abort();
     context.signal?.addEventListener("abort", context.abort, { once: true });
     if (context.signal?.aborted) context.abort();
     config.signal = context.controller.signal; config.__requestSafety = context; contexts.add(context);
-    const revalidate = config.requestSafetyRevalidate === true && method === "GET"
-      && url.pathname === (context.actor?.startsWith("talent:") ? "/api/talents/profile" : "/api/employers/profile");
+    const revalidate = suspensionAllowed;
     try {
       const reason = safety.blocked(context.actor, !polling, revalidate, context.auth);
       // Reads wait without replacing cached data. Mutations fail locally, never queue/replay.
@@ -152,6 +153,9 @@ export function installRequestSafety(client, { apiBaseUrl, readSessions, events 
       } else if (context.auth) channel?.postMessage({ scope: "auth-ip", until: safety.getSnapshot().authUntil });
     }
     if (context && current(context)) {
+      if (value?.status === 401 && ["AUTH_SESSION_EXPIRED", "AUTH_TOKEN_INVALID", "AUTH_ACCOUNT_MISSING"].includes(value.data?.code)) {
+        events.dispatchEvent(new CustomEvent("qnduit:auth-failure", { detail: { actor: context.actor, token: context.token, code: value.data.code } }));
+      }
       if (value?.status !== 429) safety.note(value, context.actor, { auth: context.auth });
       if (value?.status === 429 && (value.data?.scope || getHeader(value.headers, "RateLimit-Scope")) === "general-ip") {
         if ((error.config.method || "get").toUpperCase() === "GET") {
@@ -162,7 +166,7 @@ export function installRequestSafety(client, { apiBaseUrl, readSessions, events 
       }
       if (value?.status === 403 && value.data?.code === "ACCOUNT_SUSPENDED") channel?.postMessage({ scope: "suspended", actor: context.actor });
       if (value?.status === 403 && value.data?.code === "ACCOUNT_SUSPENDED") {
-        for (const other of contexts) if (other !== context && other.actor === context.actor) other.controller.abort();
+        for (const other of contexts) if (other !== context && other.actor === context.actor && !other.suspensionAllowed) other.controller.abort();
       }
     }
     release(context);

@@ -1,3 +1,5 @@
+import { AdminDeleteUserDialog } from "./AdminDeleteUserDialog";
+import { useAdminDeleteUser } from "../hooks/useAdminDeleteUser";
 import { AdminPasswordResetDialog } from "./AdminPasswordResetDialog";
 import { useAdminPasswordReset } from "../hooks/useAdminPasswordReset";
 import { AdminProfileDialog } from "./AdminProfileDialog";
@@ -176,7 +178,7 @@ const RowActions = ({ row, onChange, onResetPassword, onDelete, pending, resetDi
         <KeyRound className="w-4 h-4" />
         Reset Password
       </DropdownMenuItem>
-      <DropdownMenuItem disabled={pending} onSelect={() => onDelete?.(row)} className="cursor-pointer text-red-500 focus:bg-white/10 focus:text-red-500">
+      <DropdownMenuItem disabled={pending} onSelect={() => onDelete?.(row, trigger.current)} className="cursor-pointer text-red-500 focus:bg-white/10 focus:text-red-500">
         <Trash2 className="w-4 h-4" />
         Delete User
       </DropdownMenuItem>
@@ -236,7 +238,7 @@ const SignupTable = ({
                     pending={isPending(row._id)}
                     onResetPassword={onResetPassword}
                     resetDisabled={resetDisabled}
-                    onDelete={() => onDelete?.(row)}
+                    onDelete={onDelete}
                   />
                   <button
                     onClick={event => onViewProfile(row._id, event.currentTarget)}
@@ -354,6 +356,12 @@ export const AdminOverview = () => {
     loadDashboard();
   }, [loadDashboard]);
 
+  const deletion = useAdminDeleteUser((type, id) => {
+    const update = type === "talent" ? setCandidateRows : setEmployerRows;
+    update(rows => rows.filter(row => String(row._id) !== id));
+    loadDashboard();
+  });
+
   const statCards = [
     {
       icon: Briefcase,
@@ -428,9 +436,10 @@ export const AdminOverview = () => {
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <AdminProfileDialog subject={profileSubject} onClose={() => setProfileSubject(null)} />
       <AdminPasswordResetDialog flow={passwordReset} />
+      <AdminDeleteUserDialog flow={deletion} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-white">
+        <h1 tabIndex={-1} className="text-2xl md:text-3xl font-semibold text-white">
           Dashboard
         </h1>
       </div>
@@ -520,6 +529,7 @@ export const AdminOverview = () => {
 
       <SignupTable
         title="Recent Candidate Signups"
+        onDelete={(row, trigger) => deletion.open({ type: "talent", id: String(row._id), name: row.name, trigger })}
         rows={candidateTableRows}
         resetDisabled={passwordReset.disabled}
         onResetPassword={(row, trigger) => passwordReset.open({ type: "talent", id: row._id, name: row.name, email: row.email, trigger })}
@@ -533,6 +543,7 @@ export const AdminOverview = () => {
 
       <SignupTable
         title="Recent Employers Signups"
+        onDelete={(row, trigger) => deletion.open({ type: "employer", id: String(row._id), name: row.name, trigger })}
         rows={employerTableRows}
         resetDisabled={passwordReset.disabled}
         onResetPassword={(row, trigger) => passwordReset.open({ type: "employer", id: row._id, name: row.name, email: row.email, trigger })}
