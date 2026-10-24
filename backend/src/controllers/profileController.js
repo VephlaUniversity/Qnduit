@@ -10,9 +10,9 @@ import EmployerTalentFollow from "../models/EmployerTalentFollow.js";
 const models = { talent: Talent, employer: Employer };
 const fields = {
   talent:
-    "firstName lastName fullName jobTitle aboutMe address location categories tags avatar qualification experienceTime language",
+    "firstName lastName fullName jobTitle aboutMe address location categories tags avatar qualification experienceTime language introVideo",
   employer:
-    "companyName displayName accountType companyIndustry aboutCompany aboutYou address location categories logo",
+    "companyName displayName accountType companyIndustry aboutCompany aboutYou address location categories logo introVideo",
 };
 const strings = (values) =>
   Array.isArray(values)
@@ -43,6 +43,7 @@ const displayProfile = (type, record) => {
         experienceTime: text(record.experienceTime),
         language: text(record.language),
         tags: strings(record.tags),
+        introVideo: text(record.introVideo?.url),
       }
     : {
         ...common,
@@ -53,6 +54,7 @@ const displayProfile = (type, record) => {
         aboutCompany: text(record.aboutCompany),
         aboutYou: text(record.aboutYou),
         logo: image(record.logo),
+        introVideo: text(record.introVideo),
       };
 };
 

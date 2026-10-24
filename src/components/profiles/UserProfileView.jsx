@@ -9,6 +9,8 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, MapPin } from "lucide-react";
 import ProfileAvatar from "./ProfileAvatar";
 import { editorPlainText, profileName, profileRequest } from "./profileApi";
+import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
+import { getYouTubeVideoId } from "../utils/youtube";
 
 function ProfileContent({ userType, userId }) {
   const [result, setResult] = useState(null);
@@ -142,6 +144,16 @@ function ProfileContent({ userType, userId }) {
         ? profile.aboutYou || profile.aboutCompany
         : profile.aboutCompany,
   );
+  // Employer text is cleaned with the same allow-list the employer's own page
+  // uses, so bold, lists and links keep their formatting.
+  const aboutHtml = talent
+    ? ""
+    : sanitizeEmployerAbout(
+        profile.accountType === "individual"
+          ? profile.aboutYou || profile.aboutCompany
+          : profile.aboutCompany,
+      );
+  const introVideoId = getYouTubeVideoId(profile.introVideo);
   const image = talent ? profile.avatar : profile.logo;
   const title = talent ? profile.jobTitle : profile.companyIndustry;
 
@@ -193,10 +205,32 @@ function ProfileContent({ userType, userId }) {
         )}
         <section className="mt-8 border-t border-white/10 pt-6">
           <h2 className="text-lg font-semibold">About</h2>
-          <p className="mt-3 whitespace-pre-line leading-relaxed text-gray-300">
-            {about || "No about information available."}
-          </p>
+          {aboutHtml ? (
+            <div
+              className="mt-3 leading-relaxed text-gray-300 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
+              dangerouslySetInnerHTML={{ __html: aboutHtml }}
+            />
+          ) : (
+            <p className="mt-3 whitespace-pre-line leading-relaxed text-gray-300">
+              {about || "No about information available."}
+            </p>
+          )}
         </section>
+        {introVideoId && (
+          <section className="mt-6">
+            <h2 className="text-lg font-semibold">Introduction video</h2>
+            <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl bg-black">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${introVideoId}`}
+                title="Introduction video"
+                className="h-full w-full"
+                loading="lazy"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </section>
+        )}
         {profile.categories?.length > 0 && (
           <section className="mt-6">
             <h2 className="text-lg font-semibold">Categories</h2>
