@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createTicket,
+  replyToOwnTicket,
   getMyTickets,
   getAllTickets,
   updateTicketStatus,
@@ -25,6 +26,8 @@ router.get(
   authorize("talent", "employer"),
   getMyTickets
 );
+
+router.post("/tickets/:ticketId/replies", protect, authorize("talent", "employer"), replyToOwnTicket);
 
 // Admin routes
 router.get(

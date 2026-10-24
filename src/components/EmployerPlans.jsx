@@ -6,6 +6,7 @@ export const EmployerPlans = ({
   onSelectPlan,
   onPlanAction,
   alwaysActive = false,
+  showPayLater = true,
 }) => {
   const { pending, submit } = usePlanAction(onPlanAction);
 
@@ -86,6 +87,7 @@ export const EmployerPlans = ({
         pending={pending}
         variant="default"
         alwaysActive={alwaysActive}
+        showPayLater={showPayLater}
       />
 
       <PlanCard
@@ -106,6 +108,7 @@ export const EmployerPlans = ({
         pending={pending}
         variant="highlighted"
         alwaysActive={alwaysActive}
+        showPayLater={showPayLater}
       />
 
       <PlanCard
@@ -126,6 +129,7 @@ export const EmployerPlans = ({
         pending={pending}
         variant="default"
         alwaysActive={alwaysActive}
+        showPayLater={showPayLater}
       />
     </div>
   );

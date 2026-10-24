@@ -1,229 +1,71 @@
+import { useAccountSession } from "../hooks/useAccountSession";
 import { createContext, useState, useEffect } from "react";
- import {
-//   MOCK_EMPLOYER_CREDENTIALS,
-   MOCK_EMPLOYER_DATA,
-//   MOCK_TALENT_CREDENTIALS,
-   MOCK_TALENT_DATA,
-//   MOCK_ADMIN_CREDENTIALS,
-//   MOCK_ADMIN_DATA,
- } from "../utils/mockUser";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { API_BASE_URL } from "../utils/api"; // Make sure this points to your backend base URL
+import { API_BASE_URL } from "../utils/api";
+import { createAuthSessions } from "../utils/authSessions";
+import { friendlyError } from "../utils/userMessage";
 
 const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const [snapshot, setSnapshot] = useState({ user: null, adminUser: null, sessionMessage: "", adminSessionMessage: "" });
   const [isLoading, setIsLoading] = useState(true);
-  const [adminUser, setAdminUser] = useState(null);
-  const [isAdminLoading, setIsAdminLoading] = useState(true);
-
-  const checkAuth = async () => {
-    setIsLoading(true);
-
-    try {
-      const storedUser = localStorage.getItem("user");
-
-      if (!storedUser || storedUser === "undefined" || storedUser === "null") {
-        setUser(null);
-        return;
-      }
-
-      const parsedUser = JSON.parse(storedUser);
-
-      if (parsedUser && parsedUser.userType) {
-        setUser(parsedUser);
-      } else {
-        localStorage.removeItem("user");
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      localStorage.removeItem("user");
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const checkAdminAuth = async () => {
-    setIsAdminLoading(true);
-
-    try {
-      const storedAdmin = localStorage.getItem("adminUser");
-
-      if (
-        !storedAdmin ||
-        storedAdmin === "undefined" ||
-        storedAdmin === "null"
-      ) {
-        setAdminUser(null);
-        return;
-      }
-
-      const parsedAdmin = JSON.parse(storedAdmin);
-
-      if (parsedAdmin && parsedAdmin.userType === "admin") {
-        setAdminUser(parsedAdmin);
-      } else {
-        localStorage.removeItem("adminUser");
-        setAdminUser(null);
-      }
-    } catch (error) {
-      console.error("Admin auth check error:", error);
-      localStorage.removeItem("adminUser");
-      setAdminUser(null);
-    } finally {
-      setIsAdminLoading(false);
-    }
-  };
+  const [sessions] = useState(() => createAuthSessions({
+    storage: localStorage, events: window,
+    onChange(value) { setSnapshot(value); setIsLoading(false); },
+    onEnd(scope, message) {
+      // Expiry of an unrelated role must not interrupt the active dashboard.
+      const adminPage = window.location.pathname.startsWith("/admin-");
+      if (scope === "admin" && !adminPage || scope === "user" && adminPage) return;
+      navigate(scope === "admin" ? "/admin-signin" : "/signin", { replace: true, state: { message } });
+    },
+  }));
+  useEffect(() => sessions.start(), [sessions]);
 
   const signIn = async (email, password) => {
+    const revision = sessions.revision();
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
-        email,
-        password,
-      });
-
-      const { token, user } = res.data;
-
-      if (!user || !user.userType) {
-        throw new Error("Invalid user data returned from server");
-      }
-
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", token);
-
-      setUser(user);
-
-      return user;
+      const { data } = await axios.post(`${API_BASE_URL}/api/auth/login`, { email, password });
+      return sessions.adopt(data, "user", revision);
     } catch (error) {
-      console.error("Sign in error:", error);
-      throw new Error(
-        error.response?.data?.message || "Invalid email or password",
-      );
+      if (axios.isCancel(error) || error.code === "ERR_CANCELED") throw error;
+      throw new Error(friendlyError(error, "Unable to sign in. Please try again."));
     }
   };
-
+  const verifySignup = async (role, values) => {
+    if (!["talent", "employer"].includes(role)) throw Error("Unsupported signup role.");
+    const revision = sessions.revision();
+    const { data } = await axios.post(`${API_BASE_URL}/api/${role === "talent" ? "talents" : "employers"}/verify`, values);
+    if (data.success !== true || data.user?.userType !== role) throw Error("Unable to confirm the signup session.");
+    sessions.adopt(data, "user", revision);
+    return { user: data.user, token: data.token };
+  };
   const adminSignIn = async (email, password) => {
+    const revision = sessions.revision();
     try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/admin/auth/login`,
-        {
-          email,
-          password,
-        }
-      );
-
-      const { token, admin } = res.data;
-
-      if (!token || !admin) {
-        throw new Error("Invalid admin data returned from server");
-      }
-
-      const adminData = {
-        ...admin,
-        userType: "admin",
-      };
-
-      localStorage.setItem("adminUser", JSON.stringify(adminData));
-      localStorage.setItem("adminToken", token);
-
-      setAdminUser(adminData);
-
-      return adminData;
+      const { data } = await axios.post(`${API_BASE_URL}/api/admin/auth/login`, { email, password });
+      return sessions.adopt({ user: { ...data.admin, userType: "admin" }, token: data.token }, "admin", revision);
     } catch (error) {
-      console.error("Admin sign in error:", error);
-
-      throw new Error(
-        error.response?.data?.message ||
-          "Invalid email or password"
-      );
+      if (axios.isCancel(error) || error.code === "ERR_CANCELED") throw error;
+      throw new Error(friendlyError(error, "Unable to sign in. Please try again."));
     }
   };
-
-  const adminSignOut = async () => {
-    try {
-      setAdminUser(null);
-      localStorage.removeItem("adminUser");
-      localStorage.removeItem("adminToken");
-    } catch (error) {
-      console.error("Admin sign out error:", error);
-      throw error;
-    }
+  const ownerToken = scope => {
+    const current = sessions.read(scope), displayed = scope === "admin" ? snapshot.adminUser : snapshot.user;
+    return displayed && current?.user.userType === displayed.userType && String(current.user.id || current.user._id) === String(displayed.id || displayed._id) ? current.token : null;
   };
-
-  const signUp = async (email, password, userData) => {
-    try {
-      // Create user based on userType
-      const baseData =
-        userData.userType === "talent" ? MOCK_TALENT_DATA : MOCK_EMPLOYER_DATA;
-      const mockUser = {
-        ...baseData,
-        id: Math.random().toString(36).substr(2, 9),
-        email,
-        ...userData,
-      };
-      setUser(mockUser);
-      localStorage.setItem("user", JSON.stringify(mockUser));
-      return mockUser; // Return user data to determine redirect
-    } catch (error) {
-      console.error("Sign up error:", error);
-      throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      setUser(null);
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("pendingPlanSelection");
-      // Notify request owners even when context was already signed out.
-      window.dispatchEvent(new Event("qnduit:polling-session-changed"));
-    } catch (error) {
-      console.error("Sign out error:", error);
-      throw error;
-    }
-  };
-
-  useEffect(() => {
-    checkAuth();
-    checkAdminAuth();
-  }, []);
-
-  useEffect(() => {
-    const clearRemovedUserSession = (event) => {
-      if (event.storageArea !== localStorage ||
-        (event.key !== null && !["user", "token", "authToken"].includes(event.key))) return;
-      if (!localStorage.getItem("user") ||
-        (!localStorage.getItem("token") && !localStorage.getItem("authToken"))) setUser(null);
-    };
-    window.addEventListener("storage", clearRemovedUserSession);
-    return () => window.removeEventListener("storage", clearRemovedUserSession);
-  }, []);
-
-  useEffect(() => {
-    window.dispatchEvent(new Event("qnduit:polling-session-changed"));
-  }, [user, adminUser]);
-
+  const userToken = ownerToken("user"), adminToken = ownerToken("admin");
+  useAccountSession(snapshot.user);
   const value = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    signIn,
-    signUp,
-    signOut,
-    checkAuth,
-    adminUser,
-    isAdminAuthenticated: !!adminUser,
-    isAdminLoading,
-    adminSignIn,
-    adminSignOut,
-    checkAdminAuth,
+    ...snapshot, isLoading, isAdminLoading: isLoading,
+    isAuthenticated: !!snapshot.user, isAdminAuthenticated: !!snapshot.adminUser,
+    signIn, verifySignup, adminSignIn,
+    signOut: async () => sessions.clear("user", userToken),
+    adminSignOut: async () => sessions.clear("admin", adminToken),
+    checkAuth: async () => sessions.sync(), checkAdminAuth: async () => sessions.sync(),
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 

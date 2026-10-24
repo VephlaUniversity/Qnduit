@@ -1,3 +1,4 @@
+import { getEmployerPlan } from "../services/employerPlan.js";
 import process from "node:process";
 import { initiateSubscriptionCheckout, selectUnpaidSubscription, activateVerifiedSubscription, recordFailedSubscriptionPayment } from "../services/subscriptionLifecycle.js";
 import { resolveTalentPublication } from "../services/talentPublication.js";
@@ -521,23 +522,11 @@ export const getEmployerSubscription = async (
   next
 ) => {
   try {
-    const subscription =
-      await EmployerSubscription.findOne({
-        employer: req.user._id,
-      });
-
-    if (!subscription) {
-      return res.json({
-        success: true,
-        subscription: null,
-      });
-    }
-
-    return res.json({
-      success: true,
-      subscription,
-    });
+    res.set("Cache-Control", "private, no-store");
+    if (req.user.role !== "employer") return res.status(403).json({ success: false, message: "Employer account required." });
+    return res.json({ success: true, ...await getEmployerPlan(req.user._id) });
   } catch (error) {
+    if (error.code === "AUTH_ACCOUNT_MISSING") return res.status(401).json({ success: false, code: error.code, message: error.message });
     respondLifecycleError(error, res, next);
   }
 };

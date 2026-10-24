@@ -299,3 +299,14 @@ export async function recordSubscriptionDowngrade({ role, accountId, adminId, pr
     return { success: true, replayed: false, request: downgradeDto(record), message: "Downgrade request saved." };
   });
 }
+
+// Read only: older activations' requests must not describe a newer subscription.
+export async function currentPendingDowngrade({ role, accountId, subscription }) {
+  target(role, accountId);
+  if (!subscription || subscription.status !== "active") return null;
+  const state = await Lifecycle.findById(key(role, accountId)).select("generation").lean();
+  const selection = fingerprint(subscription, state);
+  const record = await Downgrade.findOne({ _id: downgradeId(role, accountId, selection), status: "pending" })
+    .select("fromPlan toPlan status requestedAt").lean();
+  return downgradeDto(record);
+}

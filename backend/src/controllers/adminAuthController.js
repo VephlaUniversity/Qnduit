@@ -32,14 +32,7 @@ export const adminLogin = async (req, res) => {
     if (!admin) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
-      });
-    }
-
-    if (!admin.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Admin account is inactive",
+        message: "Invalid email or password.",
       });
     }
 
@@ -48,7 +41,14 @@ export const adminLogin = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid email or password.",
+      });
+    }
+
+    if (!admin.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin account is inactive",
       });
     }
 

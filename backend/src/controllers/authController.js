@@ -1,3 +1,4 @@
+import { authIdentity } from "../utils/authSession.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/generateToken.js";
 import Talent from "../models/Talent.js";
@@ -7,6 +8,9 @@ export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
+    }
     let user = await Talent.findOne({ email });
     let userType = "talent";
 
@@ -16,31 +20,24 @@ export const loginUser = async (req, res, next) => {
     }
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (!user.isVerified) {
-      return res.status(403).json({ message: "Please verify your email first" });
+      return res.status(401).json({ message: "Invalid email or password." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid password" });
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+    if (!user.isVerified) {
+      return res.status(403).json({ message: "Please verify your email first" });
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, userType);
 
     res.json({
       success: true,
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        userType, 
-      },
+      user: authIdentity(user, userType),
     });
   } catch (error) {
     next(error);

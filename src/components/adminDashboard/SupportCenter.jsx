@@ -1,3 +1,4 @@
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
@@ -87,52 +88,24 @@ const getHeaders = () => {
   };
 };
 
-const RowActions = ({ onSetStatus }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const item = (Icon, label, status, danger) => (
-    <button
-      onClick={() => {
-        onSetStatus(status);
-        setOpen(false);
-      }}
-      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 hover:bg-white/10 transition-colors ${
-        danger ? "text-red-500" : "text-gray-200"
-      }`}
-    >
-      <Icon className="w-4 h-4 flex-shrink-0" />
-      {label}
-    </button>
-  );
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="text-gray-400 hover:text-white transition-colors p-1"
-      >
+// Portal content escapes the table's overflow and remains above the ticket modal.
+const RowActions = ({ onSetStatus, label }) => (
+  <DropdownMenu modal={false}>
+    <DropdownMenuTrigger asChild>
+      <button type="button" aria-label={`Actions for ${label}`} className="text-gray-400 hover:text-white transition-colors p-1">
         <MoreVertical className="w-4 h-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 mt-1 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 text-sm">
-          {item(PlayCircle, "Mark as In Progress", "In Progress")}
-          {item(CheckCircle2, "Mark as Resolved", "Resolved")}
-          {item(XCircle, "Mark as Closed", "Closed")}
-          {item(Trash2, "Delete", "__delete", true)}
-        </div>
-      )}
-    </div>
-  );
-};
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" sideOffset={6} avoidCollisions collisionPadding={8} sticky="always"
+      onEscapeKeyDown={event => event.stopPropagation()}
+      className="z-[70] w-48 max-w-[calc(100vw-1rem)] border-white/10 bg-[#2A2A2E] text-gray-200">
+      <DropdownMenuItem onSelect={() => onSetStatus("In Progress")} className="cursor-pointer focus:bg-white/10 focus:text-white"><PlayCircle className="h-4 w-4" />Mark as In Progress</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onSetStatus("Resolved")} className="cursor-pointer focus:bg-white/10 focus:text-white"><CheckCircle2 className="h-4 w-4" />Mark as Resolved</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onSetStatus("Closed")} className="cursor-pointer focus:bg-white/10 focus:text-white"><XCircle className="h-4 w-4" />Mark as Closed</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onSetStatus("__delete")} className="cursor-pointer text-red-500 focus:bg-white/10 focus:text-red-500"><Trash2 className="h-4 w-4" />Delete</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 const InfoField = (props) => {
   const Icon = props.icon;
@@ -189,7 +162,7 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
               {ticket.fullSubject || ticket.subject}
             </h2>
             <div className="flex items-center gap-3 flex-shrink-0">
-              <RowActions onSetStatus={onSetStatus} />
+              <RowActions label={ticket.title || ticket.subject} onSetStatus={onSetStatus} />
               <button
                 onClick={() => setReplying((r) => !r)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors whitespace-nowrap"
@@ -204,6 +177,14 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
           <p className="text-gray-400 whitespace-pre-line leading-relaxed mb-6">
             {ticket.message}
           </p>
+
+          {ticket.replies?.length > 0 && <section className="mb-6 space-y-3" aria-label="Ticket replies">
+            <h3 className="font-semibold text-white">Replies</h3>
+            {ticket.replies.map(reply => <div key={reply._id} className="rounded border border-white/10 p-3">
+              <p className="text-sm font-medium text-white">{reply.authorRole && reply.authorRole !== "admin" ? `${reply.authorName || "Account owner"} (${reply.authorRole})` : reply.adminName || "Support Team"}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-gray-300">{reply.message}</p>
+            </div>)}
+          </section>}
 
           {replying && (
             <div className="mb-8 bg-[#0E0E10] border border-white/10 rounded-lg p-4">
@@ -440,6 +421,7 @@ export const SupportCenter = () => {
                   <td className="py-4">
                     <div className="flex items-center justify-end gap-2">
                       <RowActions
+                        label={ticket.title || ticket.subject}
                         onSetStatus={(status) =>
                           updateStatus(ticket.id, status)
                         }

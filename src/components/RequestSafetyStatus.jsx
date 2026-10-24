@@ -23,19 +23,22 @@ export function RequestSafetyStatus() {
   const revalidate = async () => {
     setChecking(session.actor); setFeedback(null);
     try {
-      await axios.get(`${API_BASE_URL}/api/${session.actor.startsWith("talent:") ? "talents" : "employers"}/profile`, {
+      const { data } = await axios.get(`${API_BASE_URL}/api/auth/session`, {
         requestSafetyRevalidate: true, headers: { Authorization: `Bearer ${session.token}` },
       });
       if (browserSessions().some(row => row.actor === session.actor && row.token === session.token)) {
-        requestSafety.clearSuspension(session.actor);
-        setFeedback({ actor: session.actor, message: "Account access confirmed." });
+        if (!data.success || `${data.session?.role}:${data.session?.id}` !== session.actor) throw Error("Account status unavailable.");
+        if (data.session?.accountStatus === "active") {
+          requestSafety.clearSuspension(session.actor);
+          setFeedback({ actor: session.actor, message: "Account access confirmed." });
+        } else setFeedback({ actor: session.actor, message: "Your account is still suspended. Support remains available." });
       }
     } catch (error) {
       if (!axios.isCancel(error)) setFeedback({ actor: session.actor, message: error.response?.data?.message || "Account status is unavailable. Try again later." });
     } finally { setChecking(actor => actor === session.actor ? null : actor); }
   };
   return <aside role="status" aria-live="polite" className="sticky top-0 z-[100] border border-amber-500 bg-slate-950 p-4 text-white">
-    {suspended && <p>Your account is suspended. Automatic requests are paused. This is account status, separate from your verification badge. Contact support, then check account status.</p>}
+    {suspended && <p>Your account is suspended. Other automatic requests are paused; account-status checks and Support remain available. This is account status, separate from your verification badge. Contact support, then check account status.</p>}
     {!!seconds && <p>Requests from this connection are temporarily limited. Try actions again in {seconds} seconds. Automatic reads will wait. Cached information may be out of date; unavailable data does not mean there are no results.</p>}
     {suspended && <button type="button" disabled={checking || seconds > 0} onClick={revalidate} className="mt-2 rounded border p-2 disabled:opacity-50">{checking ? "Checking…" : "Check account status"}</button>}
     {feedback?.actor === session?.actor && <p>{feedback?.message}</p>}

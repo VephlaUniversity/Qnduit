@@ -6,7 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 // session can never grant, and an admin session can never be mistaken for,
 // access here.
 export const AdminProtectedRoute = ({ children }) => {
-  const { isAdminAuthenticated, isAdminLoading } = useAuth();
+  const { isAdminAuthenticated, isAdminLoading, adminSessionMessage } = useAuth();
   const location = useLocation();
 
   if (isAdminLoading) {
@@ -21,7 +21,7 @@ export const AdminProtectedRoute = ({ children }) => {
     return (
       <Navigate
         to="/admin-signin"
-        state={{ from: location }}
+        state={{ from: location, message: adminSessionMessage }}
         replace
       />
     );
