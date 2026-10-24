@@ -20,7 +20,6 @@ import {
   Lock,
   Trash2,
   LogOut,
-  Menu,
   X,
   HelpCircle,
   BellRing,
@@ -89,6 +88,7 @@ export const DashboardLayout = ({
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,6 +200,7 @@ export const DashboardLayout = ({
 
   const handleResultClick = (result) => {
     setShowDropdown(false);
+    setMobileSearchOpen(false);
     setSearchQuery("");
     navigate(
       `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(
@@ -212,6 +213,7 @@ export const DashboardLayout = ({
     event.preventDefault();
     if (!searchQuery.trim()) return;
     setShowDropdown(false);
+    setMobileSearchOpen(false);
     navigate(
       `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`,
     );
@@ -250,6 +252,15 @@ export const DashboardLayout = ({
   const handleLogout = async () => await signOut();
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [sidebarOpen]);
+
   return (
     <div className="min-h-screen bg-[#0E0E10]">
       <header className="fixed top-0 left-0 right-0 h-16 bg-[#1A1A1E] border-b border-white/10 z-50">
@@ -257,14 +268,29 @@ export const DashboardLayout = ({
           {/* Left */}
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={toggleSidebar}
-              className="lg:hidden text-white hover:text-blue-400 transition-colors"
+              aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+              aria-expanded={sidebarOpen}
+              className="lg:hidden relative flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
             >
-              {sidebarOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              <span className="relative block h-4 w-5" aria-hidden="true">
+                <span
+                  className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300 ${
+                    sidebarOpen ? "top-[7px] rotate-45" : "top-0"
+                  }`}
+                />
+                <span
+                  className={`absolute left-0 top-[7px] h-0.5 rounded-full bg-current transition-all duration-300 ${
+                    sidebarOpen ? "w-0 opacity-0" : "w-3.5 opacity-100"
+                  }`}
+                />
+                <span
+                  className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300 ${
+                    sidebarOpen ? "top-[7px] -rotate-45" : "top-[14px]"
+                  }`}
+                />
+              </span>
             </button>
             <button
               onClick={() => navigate("/")}
@@ -277,11 +303,31 @@ export const DashboardLayout = ({
 
           {/* Right */}
           <div className="flex items-center gap-3">
-            {/* ── Smart Search Bar ── */}
-            <div ref={searchRef} className="relative">
+            {/* ── Smart Search Bar (icon on phones, full bar from sm up) ── */}
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((open) => !open)}
+              aria-label={mobileSearchOpen ? "Close search" : "Open search"}
+              aria-expanded={mobileSearchOpen}
+              className="sm:hidden text-gray-400 hover:text-white transition-colors"
+            >
+              {mobileSearchOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Search className="w-5 h-5" />
+              )}
+            </button>
+            <div
+              ref={searchRef}
+              className={`${
+                mobileSearchOpen
+                  ? "fixed left-0 right-0 top-16 z-40 border-b border-white/10 bg-[#1A1A1E] p-3"
+                  : "hidden"
+              } sm:relative sm:top-auto sm:z-auto sm:block sm:border-0 sm:bg-transparent sm:p-0`}
+            >
               <form
                 onSubmit={submitSearch}
-                className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-20 sm:w-48 md:w-64 focus-within:border-white/25 transition-colors"
+                className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-[10px] px-3 py-2 w-full sm:w-48 md:w-64 focus-within:border-white/25 transition-colors"
               >
                 <button
                   type="submit"
@@ -309,7 +355,7 @@ export const DashboardLayout = ({
 
               {/* Dropdown */}
               {showDropdown && (
-                <div className="absolute top-full mt-2 right-0 w-72 bg-[#1A1A1E] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="absolute top-full mt-2 left-3 right-3 sm:left-auto sm:right-0 sm:w-72 bg-[#1A1A1E] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
                   {searchStatus === "loading" && (
                     <div className="px-4 py-5 flex items-center gap-3 text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -360,6 +406,7 @@ export const DashboardLayout = ({
                         <button
                           onClick={() => {
                             setShowDropdown(false);
+                            setMobileSearchOpen(false);
                             navigate(
                               `${config.resultsRoute}?${config.searchParamKey}=${encodeURIComponent(searchQuery.trim())}`,
                             );
@@ -383,7 +430,7 @@ export const DashboardLayout = ({
               }
               aria-label="Help and support"
               title="Help and support"
-              className="hidden sm:flex text-gray-400 hover:text-white transition-colors"
+              className="flex text-gray-400 hover:text-white transition-colors"
             >
               <HelpCircle className="w-5 h-5" />
             </NavLink>
