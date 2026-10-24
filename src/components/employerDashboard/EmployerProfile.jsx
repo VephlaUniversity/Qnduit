@@ -16,6 +16,7 @@ import L from "leaflet";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { formatJobDeadline } from "../utils/jobDeadline";
+import { useEmployerJobs } from "../hooks/useEmployerJobs";
 import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
 import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
@@ -35,7 +36,7 @@ export const EmployerProfile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const aboutCompanyHtml = useMemo(() => sanitizeEmployerAbout(profile?.aboutCompany), [profile?.aboutCompany]);
-  const [availableJobs] = useState([]);
+  const { jobs: availableJobs } = useEmployerJobs();
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
   useEffect(() => {
@@ -422,7 +423,7 @@ export const EmployerProfile = () => {
                 <div className="space-y-4">
                   {availableJobs.map((job) => (
                     <div
-                      key={job.id}
+                      key={job._id || job.id}
                       className="bg-[#0E0E10] rounded-lg p-6 border border-white/5 hover:border-blue-600/50 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -460,7 +461,11 @@ export const EmployerProfile = () => {
                                 </span>
                               </div>
                               <span>•</span>
-                              <span>{job.created}</span>
+                              <span>
+                                {job.createdAt
+                                  ? new Date(job.createdAt).toLocaleDateString()
+                                  : ""}
+                              </span>
                             </div>
                             <div className="flex flex-wrap gap-2 mb-3">
                               {job.jobCategory && (

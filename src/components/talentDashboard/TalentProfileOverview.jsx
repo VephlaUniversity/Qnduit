@@ -18,6 +18,7 @@ import RecentApplication from "./RecentApplication";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
+import { getYouTubeVideoId } from "../utils/youtube";
 
 const TalentProfileOverview = () => {
   const navigate = useNavigate();
@@ -101,6 +102,10 @@ const TalentProfileOverview = () => {
   const qualification = aboutData?.qualification || "";
   const aboutMe = aboutData?.aboutMe || resumeData?.aboutMe || "";
   const tags = aboutData?.tags || [];
+  const rawIntroVideo = aboutData?.introVideo || resumeData?.introVideo;
+  const introVideoId = getYouTubeVideoId(
+    typeof rawIntroVideo === "string" ? rawIntroVideo : rawIntroVideo?.url,
+  );
   const initials = displayName
     .split(" ")
     .map((n) => n[0])
@@ -320,6 +325,25 @@ const TalentProfileOverview = () => {
             <h3 className="text-xl font-semibold text-white mb-4">About Me</h3>
             <p className="text-gray-400 text-sm leading-relaxed">{aboutMe}</p>
           </div>
+
+          {/* Introduction Video */}
+          {introVideoId && (
+            <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">
+                Introduction Video
+              </h3>
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${introVideoId}`}
+                  title="Introduction video"
+                  className="h-full w-full"
+                  loading="lazy"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
 
           {/* Education */}
           {resumeData?.education?.length > 0 && (
