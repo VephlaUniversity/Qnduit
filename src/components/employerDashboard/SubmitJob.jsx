@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import { profileImageUrl } from "../profiles/profileApi";
+import { editorPlainText, profileImageUrl } from "../profiles/profileApi";
+import TextEditor from "../TextEditor";
 import { validateJobSalary } from "../utils/jobSalaryValidation";
 import { deadlineError, jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 import { useSearchParams } from "react-router-dom";
@@ -220,7 +221,7 @@ const SubmitJob = () => {
       return;
     }
 
-    if (!formData.jobDescription.trim()) {
+    if (!editorPlainText(formData.jobDescription).trim()) {
       toast({ title: "Error", description: "Job Description is required", variant: "destructive" });
       return;
     }
@@ -384,13 +385,12 @@ const SubmitJob = () => {
           <label className="block text-white font-medium mb-2">
             Job Description <span className="text-red-500">*</span>
           </label>
-          <textarea
-            name="jobDescription"
+          <TextEditor
             value={formData.jobDescription}
-            onChange={handleInputChange}
-            rows={6}
+            onChange={(val) =>
+              setFormData((prev) => ({ ...prev, jobDescription: val }))
+            }
             placeholder="Are you a User Experience Designer with a track record of delivering intuitive digital experiences..."
-            className={`${inputClass} resize-y`}
           />
         </div>
 

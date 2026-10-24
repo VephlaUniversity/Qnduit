@@ -102,7 +102,7 @@ const TalentProfileOverview = () => {
   const qualification = aboutData?.qualification || "";
   const aboutMe = aboutData?.aboutMe || resumeData?.aboutMe || "";
   const tags = aboutData?.tags || [];
-  const rawIntroVideo = aboutData?.introVideo || resumeData?.introVideo;
+  const rawIntroVideo = aboutData?.introVideo;
   const introVideoId = getYouTubeVideoId(
     typeof rawIntroVideo === "string" ? rawIntroVideo : rawIntroVideo?.url,
   );

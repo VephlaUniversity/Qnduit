@@ -3,7 +3,8 @@ import {
   MapPin,
   Edit,
   Star,
-  Heart,
+  Trash2,
+  Loader2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -36,12 +37,22 @@ export const EmployerProfile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const aboutCompanyHtml = useMemo(() => sanitizeEmployerAbout(profile?.aboutCompany), [profile?.aboutCompany]);
-  const { jobs: availableJobs } = useEmployerJobs();
+  const { jobs: allJobs, deleteJob, loaded: jobsLoaded } = useEmployerJobs();
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const RECENT_JOBS = 5;
+  const recentJobs = [...allJobs]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, RECENT_JOBS);
   const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
 
   useEffect(() => {
 
     const fetchProfile = async () => {
+      setProfileLoading(true);
+      setLoadError("");
       try {
 
         const user = JSON.parse(localStorage.getItem("user"));
@@ -62,12 +73,15 @@ export const EmployerProfile = () => {
 
       } catch (error) {
         console.log("Profile fetch error:", error);
+        setLoadError("We couldn't load your profile. Please try again.");
+      } finally {
+        setProfileLoading(false);
       }
     };
 
     fetchProfile();
 
-  }, []);
+  }, [reloadKey]);
 
   const socialIconMap = {
     facebook: Facebook,
@@ -118,6 +132,38 @@ export const EmployerProfile = () => {
   const handleThumbnailClick = (index) => {
     setCurrentGalleryIndex(index);
   };
+
+  if (profileLoading || loadError) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            Profile
+          </h1>
+        </div>
+        <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-10 flex flex-col items-center justify-center gap-4 text-gray-400">
+          {profileLoading ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Loading your profile...</span>
+            </>
+          ) : (
+            <>
+              <p>{loadError}</p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((key) => key + 1)}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -412,16 +458,32 @@ export const EmployerProfile = () => {
               </div>
             </div>
 
-            {/* Available Jobs */}
+            {/* Jobs Recently Posted */}
             <div>
-              <h3 className="text-xl font-semibold text-white mb-4">
-                Available Jobs
-              </h3>
-              {availableJobs.length === 0 ? (
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-white">
+                  Jobs Recently Posted
+                </h3>
+                {allJobs.length > RECENT_JOBS && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/dashboard/my-job")}
+                    className="text-sm text-blue-500 hover:text-blue-400 hover:underline"
+                  >
+                    View all ({allJobs.length})
+                  </button>
+                )}
+              </div>
+              {!jobsLoaded ? (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading jobs...</span>
+                </div>
+              ) : recentJobs.length === 0 ? (
                 <p className="text-gray-400">No jobs posted yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {availableJobs.map((job) => (
+                  {recentJobs.map((job) => (
                     <div
                       key={job._id || job.id}
                       className="bg-[#0E0E10] rounded-lg p-6 border border-white/5 hover:border-blue-600/50 transition-colors"
@@ -489,9 +551,52 @@ export const EmployerProfile = () => {
                             </div>
                           </div>
                         </div>
-                        <button className="p-2 hover:bg-white/5 rounded-lg transition-colors flex-shrink-0">
-                          <Heart className="w-6 h-6 text-gray-400 hover:text-red-500" />
-                        </button>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {confirmDeleteId === job._id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  deleteJob(job._id);
+                                  setConfirmDeleteId(null);
+                                }}
+                                className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded text-white text-sm transition-colors"
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-3 py-2 border border-white/10 hover:bg-white/5 rounded text-gray-300 text-sm transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(`/dashboard/submit-job?edit=${job._id}`)
+                                }
+                                className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
+                                title="Edit Job"
+                                aria-label={`Edit ${job.jobTitle}`}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(job._id)}
+                                className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors"
+                                title="Delete Job"
+                                aria-label={`Delete ${job.jobTitle}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
                         <div className="flex items-center gap-2 text-gray-400 text-sm">

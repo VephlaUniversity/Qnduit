@@ -18,6 +18,7 @@ import { jobDateKey, lagosDateKey } from "../utils/jobDeadline";
 
 import { formatAdminProfileDate } from "../utils/adminProfile";
 import { safeText } from "../utils/userMessage";
+import JobDescriptionText from "../utils/JobDescriptionText";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 
 const statusStyle = {
@@ -514,9 +515,11 @@ export const ManageJobs = () => {
 
                   <div className="border-b border-white/5 pb-3">
                     <p className="text-gray-400 mb-2">Description</p>
-                    <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
-                      {activeJob.jobDescription || "No description provided."}
-                    </p>
+                    <JobDescriptionText
+                      value={activeJob.jobDescription}
+                      emptyText="No description provided."
+                      className="text-gray-200 leading-relaxed"
+                    />
                   </div>
                 </div>
               </>

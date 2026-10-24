@@ -31,6 +31,7 @@ import {
   jobIdFromParam,
 } from "../utils/jobDisplay";
 import { buildJobPostingLd, shortText, useDocumentSeo } from "../utils/seo";
+import JobDescriptionText from "../utils/JobDescriptionText";
 
 // Employers cannot save jobs (saved jobs belong to talent accounts).
 const isEmployerSignedIn = () => {
@@ -580,9 +581,10 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                     <h2 className="text-2xl font-bold text-white mb-6">
                       Full Job Description
                     </h2>
-                    <div className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {job.jobDescription}
-                    </div>
+                    <JobDescriptionText
+                      value={job.jobDescription}
+                      className="text-muted-foreground leading-relaxed"
+                    />
 
                     <div className="mt-8">
                       <h3 className="text-xl font-semibold text-white mb-4">

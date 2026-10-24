@@ -69,7 +69,6 @@ const TalentResumes = () => {
   const [newPortfolio, setNewPortfolio] = useState([]); // [{ file, preview }]
 
   const [aboutMe, setAboutMe] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
   const [education, setEducation] = useState([]);
   const [experience, setExperience] = useState([]);
   const [skills, setSkills] = useState([]);
@@ -113,7 +112,6 @@ const TalentResumes = () => {
         const expList = exp.length ? exp : [blankExperience()];
 
         setAboutMe(resume.aboutMe || "");
-        setVideoUrl(resume.introVideo?.url || "");
         setEducation(eduList);
         setExperience(expList);
         setExpandedEducation(new Set([eduList[0].id]));
@@ -307,7 +305,6 @@ const TalentResumes = () => {
       );
 
       formData.append("aboutMe", aboutMe);
-      formData.append("videoUrl", videoUrl);
       formData.append("education", JSON.stringify(education));
       formData.append("experience", JSON.stringify(experience));
       formData.append("skills", JSON.stringify(skills));
@@ -540,20 +537,6 @@ const TalentResumes = () => {
             Select one or more images (PNG or JPG, 5MB each) ·{" "}
             {existingPortfolio.length + newPortfolio.length}/{MAX_PORTFOLIO}
           </span>
-        </section>
-
-        {/* Introduction Video */}
-        <section>
-          <label className="block text-gray-400 text-sm mb-2">
-            Introduction Video
-          </label>
-          <input
-            type="text"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-            placeholder="https://www.youtube.com/watch?v=..."
-          />
         </section>
 
         {/* Education */}
