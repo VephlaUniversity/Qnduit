@@ -49,8 +49,16 @@ export const EmployerSignup = () => {
   const navigate = useNavigate();
   const { verifySignup } = useAuth();
   const [signupOwner, setSignupOwner] = useState(null);
-  const handlePlanSelection = useEmployerPlanAction(signupOwner, { directCheckout: true });
-  const signupSession = () => browserSessions().find(owner => signupOwner && owner.actor === signupOwner.actor && owner.token === signupOwner.token);
+  const handlePlanSelection = useEmployerPlanAction(signupOwner, {
+    directCheckout: true,
+  });
+  const signupSession = () =>
+    browserSessions().find(
+      (owner) =>
+        signupOwner &&
+        owner.actor === signupOwner.actor &&
+        owner.token === signupOwner.token,
+    );
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -63,11 +71,17 @@ export const EmployerSignup = () => {
         verificationCode: formData.verificationCode,
       });
 
-      setSignupOwner({ actor: `employer:${verified.user.id}`, token: verified.token });
+      setSignupOwner({
+        actor: `employer:${verified.user.id}`,
+        token: verified.token,
+      });
       toast.success("Email verified successfully!");
       setCurrentStep(3);
     } catch (err) {
-      if (!axios.isCancel(err) && err.code !== "ERR_CANCELED") toast.error(friendlyError(err, "Unable to verify your email. Please try again."));
+      if (!axios.isCancel(err) && err.code !== "ERR_CANCELED")
+        toast.error(
+          friendlyError(err, "Unable to verify your email. Please try again."),
+        );
     }
   };
 
@@ -335,9 +349,7 @@ export const EmployerSignup = () => {
                     Creating account…
                   </>
                 ) : (
-                  <>
-                Create account as Employer
-                  </>
+                  <>Create account as Employer</>
                 )}
               </button>
             </div>
@@ -411,9 +423,7 @@ export const EmployerSignup = () => {
                   Verifying…
                 </>
               ) : (
-                <>
-              Verify email address
-                </>
+                <>Verify email address</>
               )}
             </button>
           </div>
@@ -438,7 +448,7 @@ export const EmployerSignup = () => {
                 onClick={() =>
                   handleInputChange("accountType", "institutional")
                 }
-                className={`p-8 cursor-pointer transition-all rounded-lg border ${
+                className={`relative min-h-[22rem] overflow-hidden p-8 cursor-pointer transition-all rounded-lg border ${
                   formData.accountType === "institutional"
                     ? "bg-blue-600/5 border-blue-600"
                     : "bg-transparent border-gray-700 hover:border-gray-600"
@@ -448,12 +458,13 @@ export const EmployerSignup = () => {
                 <p className="text-gray-400 text-sm mb-6">
                   For Organizations, and corporate guys
                 </p>
-                <div className="flex justify-end relative left-8 bottom-[-33px]">
+                <div className="pointer-events-none absolute bottom-0 right-0 flex">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="152"
-                    height="110"
-                    viewBox="0 0 152 110"
+                    width="150"
+                    height="127"
+                    viewBox="12 9 150 127"
+                    className="block"
                     fill="none"
                   >
                     <path
@@ -494,7 +505,7 @@ export const EmployerSignup = () => {
 
               <div
                 onClick={() => handleInputChange("accountType", "individual")}
-                className={`p-8 cursor-pointer transition-all rounded-lg border ${
+                className={`relative min-h-[22rem] overflow-hidden p-8 cursor-pointer transition-all rounded-lg border ${
                   formData.accountType === "individual"
                     ? "bg-blue-600/5 border-blue-600"
                     : "bg-transparent border-gray-700 hover:border-gray-600"
@@ -504,12 +515,13 @@ export const EmployerSignup = () => {
                 <p className="text-gray-400 text-sm mb-6">
                   For Hiring as a personal individual for gigs
                 </p>
-                <div className="flex justify-end relative left-8 bottom-[-33px]">
+                <div className="pointer-events-none absolute bottom-0 right-0 flex">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="212"
-                    height="198"
-                    viewBox="0 0 212 198"
+                    width="198"
+                    height="143"
+                    viewBox="7 25 198 143"
+                    className="block"
                     fill="none"
                   >
                     <path
@@ -640,9 +652,7 @@ export const EmployerSignup = () => {
                   Please wait…
                 </>
               ) : (
-                <>
-              Continue as {formData.accountType || "..."}
-                </>
+                <>Continue as {formData.accountType || "..."}</>
               )}
             </button>
           </div>
@@ -778,9 +788,7 @@ export const EmployerSignup = () => {
                     Please wait…
                   </>
                 ) : (
-                  <>
-                Create account as Employer
-                  </>
+                  <>Create account as Employer</>
                 )}
               </button>
             </div>
@@ -869,9 +877,7 @@ export const EmployerSignup = () => {
                     Please wait…
                   </>
                 ) : (
-                  <>
-                Continue as a Individual
-                  </>
+                  <>Continue as a Individual</>
                 )}
               </button>
             </div>
