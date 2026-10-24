@@ -743,6 +743,9 @@ const TalentAbout = () => {
                 placeholder="https://www.youtube.com/watch?v=..."
                 className={inputClass}
               />
+              <p className="mt-2 text-sm text-gray-500">
+                Paste a YouTube link. Links from other video sites are saved but will not play.
+              </p>
             </div>
           </div>
         </div>

@@ -19,6 +19,7 @@ import { formatJobDeadline } from "../utils/jobDeadline";
 import { profileImageUrl } from "../profiles/profileApi";
 import { hasValidCoordinates } from "../utils/employerProfileValidation";
 import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
+import { getYouTubeVideoId } from "../utils/youtube";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -29,12 +30,6 @@ L.Icon.Default.mergeOptions({
 });
 
 // Helper function to extract YouTube video ID
-const getYouTubeVideoId = (url) => {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return match && match[2].length === 11 ? match[2] : null;
-};
 
 export const EmployerProfile = () => {
   const navigate = useNavigate();
@@ -98,7 +93,13 @@ export const EmployerProfile = () => {
     }
   } catch { /* Missing or invalid websites remain plain text. */ }
 
-  const galleryItems = profile?.gallery || [];
+  // The introduction video is the first slide, followed by uploaded media.
+  const galleryItems = [
+    ...(youtubeVideoId
+      ? [{ type: "youtube", id: youtubeVideoId, url: `youtube:${youtubeVideoId}` }]
+      : []),
+    ...(profile?.gallery || []),
+  ];
   const hasGallery = galleryItems.length > 0;
 
   const handlePreviousGallery = () => {
@@ -282,7 +283,7 @@ export const EmployerProfile = () => {
               </h3>
               {aboutCompanyHtml ? (
                 <div
-                  className="text-gray-400 leading-relaxed"
+                  className="text-gray-400 leading-relaxed [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
                   dangerouslySetInnerHTML={{ __html: aboutCompanyHtml }}
                 />
               ) : (
@@ -293,18 +294,30 @@ export const EmployerProfile = () => {
               )}
             </div>
 
-            {/* Video Gallery */}
+            {/* Gallery */}
             <div>
               <h3 className="text-xl font-semibold text-white mb-4">
-                Video Gallery
+                Gallery
               </h3>
               <div
                 className="bg-[#0E0E10] rounded-lg overflow-hidden mb-4"
                 style={{ height: "320px" }}
               >
                 {hasGallery ? (
-                  // Show gallery items
-                  galleryItems[currentGalleryIndex].type === "video" ? (
+                  // Show the current slide
+                  galleryItems[currentGalleryIndex].type === "youtube" ? (
+                    <iframe
+                      key={galleryItems[currentGalleryIndex].url}
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${galleryItems[currentGalleryIndex].id}?mute=1`}
+                      title="Company Introduction Video"
+                      frameBorder="0"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                    ></iframe>
+                  ) : galleryItems[currentGalleryIndex].type === "video" ? (
                     <video
                       key={galleryItems[currentGalleryIndex].url}
                       src={profileImageUrl(galleryItems[currentGalleryIndex].url)}
@@ -322,18 +335,6 @@ export const EmployerProfile = () => {
                       className="w-full h-full object-cover"
                     />
                   )
-                ) : youtubeVideoId ? (
-                  // Fallback to YouTube intro video
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=1`}
-                    title="Company Introduction Video"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="w-full h-full"
-                  ></iframe>
                 ) : (
                   // No gallery or video
                   <div className="w-full h-full flex items-center justify-center">
@@ -366,7 +367,14 @@ export const EmployerProfile = () => {
                             : "opacity-60 hover:opacity-100"
                         }`}
                       >
-                        {item.type === "video" ? (
+                        {item.type === "youtube" ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-[#0E0E10] text-white">
+                            <span className="text-xl">▶</span>
+                            <span className="text-xs text-gray-400 mt-1">
+                              Intro video
+                            </span>
+                          </div>
+                        ) : item.type === "video" ? (
                           <video
                             src={profileImageUrl(item.url)}
                             className="w-full h-full object-cover"

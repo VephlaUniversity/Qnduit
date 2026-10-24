@@ -7,6 +7,7 @@ import { MapPin, Briefcase, ExternalLink, Linkedin, Globe } from "lucide-react";
 
 import { API_BASE_URL } from "../utils/api";
 import { profileImageUrl } from "./profileApi";
+import { getYouTubeVideoId } from "../utils/youtube";
 
 const safeExternalUrl = (value) => {
   if (typeof value !== "string") return "";
@@ -107,6 +108,7 @@ const PublicTalentProfile = () => {
     "Talent";
   const avatar = profileImageUrl(talent.avatar);
   const portfolioUrl = safeExternalUrl(talent.portfolioUrl);
+  const introVideoId = getYouTubeVideoId(talent.introVideo);
   const linkedinUrl = safeExternalUrl(talent.socialNetworks?.linkedin);
   const skills = Array.isArray(talent.tags) ? talent.tags : [];
   const experience = Array.isArray(talent.experience) ? talent.experience : [];
@@ -163,6 +165,22 @@ const PublicTalentProfile = () => {
               <p className="text-gray-300 leading-7 whitespace-pre-line">
                 {talent.aboutMe}
               </p>
+            </section>
+          )}
+
+          {introVideoId && (
+            <section className="mt-10">
+              <h2 className="text-xl font-bold mb-3">Introduction video</h2>
+              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${introVideoId}`}
+                  title="Introduction video"
+                  className="h-full w-full"
+                  loading="lazy"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
             </section>
           )}
 

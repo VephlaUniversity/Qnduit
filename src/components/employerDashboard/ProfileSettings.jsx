@@ -92,6 +92,9 @@ const ProfileSettings = () => {
   const { refresh: refreshOwnerAvatar } = useOwnerAvatar();
   const [categoryInput, setCategoryInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [logoPreview, setLogoPreview] = useState(null);
   const [galleryItems, setGalleryItems] = useState([]);
   const nextGalleryKey = useRef(0);
@@ -177,6 +180,8 @@ const ProfileSettings = () => {
     // Load saved profile data
     useEffect(() => {
     const fetchProfile = async () => {
+      setProfileLoading(true);
+      setLoadError("");
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         const token = localStorage.getItem("token");
@@ -235,11 +240,14 @@ const ProfileSettings = () => {
 
       } catch (error) {
         console.error("Error loading profile:", error);
+        setLoadError("We couldn't load your profile. Please try again.");
+      } finally {
+        setProfileLoading(false);
       }
     };
 
     fetchProfile();
-  }, []);
+  }, [reloadKey]);
 
 
   const handleInputChange = (field, value) => {
@@ -440,6 +448,38 @@ const ProfileSettings = () => {
   const inputClass =
     "w-full bg-[#0E0E10] border border-gray-700 text-white rounded-lg px-4 py-3 focus:border-blue-600 focus:outline-none";
   const selectClass = inputClass;
+
+  if (profileLoading || loadError) {
+    return (
+      <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 bg-blue-600 rounded-full" />
+          <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            Profile Setting
+          </h1>
+        </div>
+        <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-10 max-w-5xl flex flex-col items-center justify-center gap-4 text-gray-400">
+          {profileLoading ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Loading your profile...</span>
+            </>
+          ) : (
+            <>
+              <p>{loadError}</p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((key) => key + 1)}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={pageRef} className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
@@ -759,6 +799,9 @@ const ProfileSettings = () => {
               className={inputClass}
             />
                 {fieldError("introVideo")}
+            <p className="mt-2 text-sm text-gray-500">
+              Paste a YouTube link. Links from other video sites are saved but will not play.
+            </p>
           </div>
 
           {/* Social Network */}

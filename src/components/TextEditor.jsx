@@ -31,6 +31,15 @@ export const TextEditor = ({ value, onChange, placeholder }) => {
     }
   }, []);
 
+  // Show content that arrives after the editor has mounted (e.g. a saved
+  // profile loaded from the server). Never touch it while the user is typing.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || document.activeElement === editor) return;
+    const next = value || "";
+    if (editor.innerHTML !== next) editor.innerHTML = next;
+  }, [value]);
+
   const applyFormat = (command, val = null) => {
     editorRef.current?.focus();
     document.execCommand(command, false, val);
@@ -240,7 +249,7 @@ export const TextEditor = ({ value, onChange, placeholder }) => {
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        className="w-full min-h-[120px] p-4 text-white focus:outline-none"
+        className="w-full min-h-[120px] p-4 text-white focus:outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
         style={{ 
           textAlign,
           direction: "ltr", // Fix text direction
