@@ -588,23 +588,6 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
                     <div className="mt-8">
                       <h3 className="text-xl font-semibold text-white mb-4">
-                        Key Responsibilities:
-                      </h3>
-                      <ul className="space-y-3">
-                        {normalizeList(job.requirements).map((req, idx) => (
-                          <li
-                            key={idx}
-                            className="flex gap-3 text-muted-foreground"
-                          >
-                            <span className="text-[#3B82F6]">•</span>
-                            <span>{req}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-8">
-                      <h3 className="text-xl font-semibold text-white mb-4">
                         Qualifications:
                       </h3>
                       <ul className="space-y-3">
