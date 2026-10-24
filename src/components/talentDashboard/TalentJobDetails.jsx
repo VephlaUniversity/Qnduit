@@ -485,8 +485,8 @@ export const TalentJobDetails = () => {
       <div className="bg-[#262C36] px-6 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div className="flex gap-4 md:gap-6 min-w-0">
-              <div className="w-16 h-16 md:w-24 md:h-24 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
+            <div className="grid grid-cols-[4rem_1fr] md:grid-cols-[6rem_1fr] gap-x-4 md:gap-x-6 min-w-0">
+              <div className="w-16 h-16 md:w-24 md:h-24 md:row-span-2 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
                 {job.employer?.logo?.url && !logoFailed ? (
                   <img
                     src={job.employer.logo.url}
@@ -501,13 +501,15 @@ export const TalentJobDetails = () => {
                     .toUpperCase()
                 )}
               </div>
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+              <div className="self-center md:self-auto min-w-0">
+                <div className="flex items-center gap-3 md:mb-2">
                   <span className="text-[#3B82F6] text-sm">
                     {job.employer?.companyName}
                   </span>
                 </div>
                 <JobEmployerActions employerId={job.employer?._id} jobId={id} />
+              </div>
+              <div className="col-span-2 md:col-span-1 mt-4 md:mt-0 min-w-0">
                 <h1 className="text-2xl md:text-3xl font-bold text-white mb-3 break-words">
                   {job.jobTitle}{" "}
                   {job.verified && (
@@ -551,7 +553,7 @@ export const TalentJobDetails = () => {
               </div>
             </div>
 
-            <div className="flex flex-col md:items-end w-full md:w-auto">
+            <div className="flex flex-col md:items-end w-full md:w-auto md:shrink-0">
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleShare}
@@ -577,7 +579,7 @@ export const TalentJobDetails = () => {
                   onClick={handleApply}
                   disabled={applying || applied}
                   aria-busy={applying}
-                  className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span>
                     <svg
