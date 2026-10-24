@@ -1,4 +1,5 @@
 import { apiFetch } from "../utils/apiFetch";
+import useIsMobile from "../utils/useIsMobile";
 import { useState, useEffect, useRef } from "react";
 
 import * as Slider from "@radix-ui/react-slider";
@@ -21,10 +22,12 @@ import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 import { Link, useSearchParams } from "react-router-dom";
 
-function CandidateAvatar({ url, name }) {
+function CandidateAvatar({ url, name, small = false }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+    <div
+      className={`${small ? "w-12 h-12" : "w-16 h-16 text-lg"} bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold overflow-hidden`}
+    >
       {url && !failed ? (
         <img
           src={url}
@@ -270,7 +273,10 @@ const TalentsResultsPage = () => {
   const currentPage = search.page;
   const itemsPerPage = search.limit;
   const sortBy = search.sort;
-  const [viewMode, setViewMode] = useState("grid");
+  const [chosenView, setViewMode] = useState("grid");
+  const isMobile = useIsMobile();
+  // phones always use the list layout
+  const viewMode = isMobile ? "list" : chosenView;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { toast } = useToast();
@@ -397,22 +403,23 @@ const TalentsResultsPage = () => {
     setSidebarOpen(false);
   };
 
-  const CandidateCard = ({ candidate }) => (
-    <div className="bg-[#191D23] rounded-2xl p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex gap-4">
+  const CandidateCard = ({ candidate }) =>
+    viewMode === "list" ? (
+      // List view: one compact row per candidate (stacked on phones).
+      <div className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
+        <div className="flex items-center gap-3 min-w-0 md:w-64 md:shrink-0">
           <CandidateAvatar
             key={`${candidate.id}:${candidate.avatarUrl}`}
             url={candidate.avatarUrl}
             name={candidate.name}
+            small
           />
-          <div>
-            <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
-            <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-white font-semibold truncate">
               {candidate.name}
               {candidate.hasVerificationBadge === true && (
                 <span
-                  className="text-blue-400 text-xs"
+                  className="text-blue-400 text-xs ml-2"
                   role="img"
                   aria-label="Admin verification badge"
                 >
@@ -420,60 +427,154 @@ const TalentsResultsPage = () => {
                 </span>
               )}
             </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+            <h3 className="text-blue-400 text-sm truncate">
+              {candidate.title}
+            </h3>
+          </div>
+          <button
+            className="md:hidden ml-auto p-2 hover:bg-gray-700 rounded-full"
+            aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
+            aria-pressed={savedIds.has(candidate.id)}
+            disabled={!savedReady || savingIds.has(candidate.id)}
+            onClick={() => toggleSaved(candidate)}
+          >
+            <Heart
+              className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+            />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 md:flex-1">
+          <span
+            className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+              candidate.availability === "Available now"
+                ? "bg-green-500/20 text-green-400"
+                : "bg-yellow-500/20 text-yellow-400"
+            }`}
+          >
+            {candidate.availability}
+          </span>
+          <span className="text-gray-400 text-sm flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            {candidate.location}
+          </span>
+          <div className="hidden 2xl:flex gap-2 shrink-0">
+            {candidate.skills.slice(0, 3).map((skill, i) => (
               <span
-                className={`text-xs px-2 py-1 rounded ${
-                  candidate.availability === "Available now"
-                    ? "bg-green-500/20 text-green-400"
-                    : "bg-yellow-500/20 text-yellow-400"
-                }`}
+                key={i}
+                className="bg-[#F1F1F1] text-black px-3 py-1 rounded-full text-xs"
               >
-                {candidate.availability}
+                {skill}
               </span>
-              <span className="text-gray-400 text-sm flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {candidate.location}
+            ))}
+            {candidate.skills.length > 3 && (
+              <span className="text-gray-400 text-xs self-center">
+                +{candidate.skills.length - 3}
               </span>
-            </div>
+            )}
           </div>
         </div>
-        <button
-          className="p-2 hover:bg-gray-700 rounded-full"
-          aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
-          aria-pressed={savedIds.has(candidate.id)}
-          disabled={!savedReady || savingIds.has(candidate.id)}
-          onClick={() => toggleSaved(candidate)}
-        >
-          <Heart
-            className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`}
-          />
-        </button>
-      </div>
 
-      <div className="flex gap-2 mb-1 justify-between">
-        <div className="flex flex-wrap gap-2 mb-4">
-          {candidate.skills.map((skill, i) => (
-            <span
-              key={i}
-              className="bg-[#F1F1F1] text-black px-3 py-2 rounded-full text-sm"
-            >
-              {skill}
-            </span>
-          ))}
+        <div className="flex items-center justify-between gap-3 md:justify-end md:shrink-0">
+          <span className="text-gray-300 whitespace-nowrap text-sm">
+            {candidate.salary}
+          </span>
+          <Link
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-blue-500 px-5 text-sm text-blue-400 whitespace-nowrap focus-visible:outline focus-visible:outline-2"
+            to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?${params.toString()}`}
+          >
+            View Profile
+          </Link>
+          <button
+            className="hidden md:block p-2 hover:bg-gray-700 rounded-full"
+            aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
+            aria-pressed={savedIds.has(candidate.id)}
+            disabled={!savedReady || savingIds.has(candidate.id)}
+            onClick={() => toggleSaved(candidate)}
+          >
+            <Heart
+              className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+            />
+          </button>
         </div>
-        <span className="text-gray-400 flex items-center gap-1 whitespace-nowrap text-sm">
-          {candidate.salary}
-        </span>
       </div>
-      <hr className="border-gray-700 mb-3" />
-      <Link
-        className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-500 px-6 text-blue-400 focus-visible:outline focus-visible:outline-2"
-        to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?${params.toString()}`}
-      >
-        View Profile
-      </Link>
-    </div>
-  );
+    ) : (
+      <div className="bg-[#191D23] rounded-2xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex gap-4">
+            <CandidateAvatar
+              key={`${candidate.id}:${candidate.avatarUrl}`}
+              url={candidate.avatarUrl}
+              name={candidate.name}
+            />
+            <div>
+              <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
+              <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+                {candidate.name}
+                {candidate.hasVerificationBadge === true && (
+                  <span
+                    className="text-blue-400 text-xs"
+                    role="img"
+                    aria-label="Admin verification badge"
+                  >
+                    ⚡
+                  </span>
+                )}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span
+                  className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                    candidate.availability === "Available now"
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-yellow-500/20 text-yellow-400"
+                  }`}
+                >
+                  {candidate.availability}
+                </span>
+                <span className="text-gray-400 text-sm flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {candidate.location}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            className="p-2 hover:bg-gray-700 rounded-full"
+            aria-label={`${savedIds.has(candidate.id) ? "Unsave" : "Save"} ${candidate.name}`}
+            aria-pressed={savedIds.has(candidate.id)}
+            disabled={!savedReady || savingIds.has(candidate.id)}
+            onClick={() => toggleSaved(candidate)}
+          >
+            <Heart
+              className={`w-5 h-5 ${savedIds.has(candidate.id) ? "fill-red-500 text-red-500" : "text-gray-400"}`}
+            />
+          </button>
+        </div>
+
+        <div className="flex gap-2 mb-1 justify-between">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {candidate.skills.map((skill, i) => (
+              <span
+                key={i}
+                className="bg-[#F1F1F1] text-black px-3 py-2 rounded-full text-sm"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+          <span className="text-gray-400 flex items-center gap-1 whitespace-nowrap text-sm">
+            {candidate.salary}
+          </span>
+        </div>
+        <hr className="border-gray-700 mb-3" />
+        <Link
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-blue-500 px-6 text-blue-400 focus-visible:outline focus-visible:outline-2"
+          to={`/dashboard/users/talent/${encodeURIComponent(candidate.id)}?${params.toString()}`}
+        >
+          View Profile
+        </Link>
+      </div>
+    );
 
   return (
     <>
@@ -675,13 +776,13 @@ const TalentsResultsPage = () => {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>

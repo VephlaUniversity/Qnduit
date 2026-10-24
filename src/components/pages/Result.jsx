@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import useIsMobile from "../utils/useIsMobile";
 import { Link, useNavigate } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
 import {
@@ -46,7 +47,10 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
   const navigate = useNavigate();
   const { data: allCandidates, loading, error } = useCandidates();
 
-  const [viewMode, setViewMode] = useState("grid");
+  const [chosenView, setViewMode] = useState("grid");
+  const isMobile = useIsMobile();
+  // phones always use the list layout
+  const viewMode = isMobile ? "list" : chosenView;
   const [ageRange, setAgeRange] = useState([18, 65]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
@@ -140,67 +144,143 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
     setSidebarOpen(false);
   };
 
-  const CandidateCard = ({ candidate }) => (
-    <div className="bg-[#191D23] rounded-2xl p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex gap-4">
-          <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
+  const CandidateCard = ({ candidate }) =>
+    viewMode === "list" ? (
+      // List view: one compact row per candidate (stacked on phones).
+      <div className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
+        <div className="flex items-center gap-3 min-w-0 md:w-64 md:shrink-0">
+          <div className="w-12 h-12 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold">
             {candidate.name.charAt(0)}
           </div>
-          <div>
-            <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
-            <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+          <div className="min-w-0">
+            <h2 className="text-white font-semibold truncate">
               {candidate.name}
               {candidate.verified && (
-                <span className="text-blue-400 text-xs">⚡</span>
+                <span className="text-blue-400 text-xs ml-2">⚡</span>
               )}
             </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+            <h3 className="text-blue-400 text-sm truncate">
+              {candidate.title}
+            </h3>
+          </div>
+          <button
+            className="md:hidden ml-auto p-2 hover:bg-gray-700 rounded-full"
+            aria-label="Save candidate"
+          >
+            <Heart className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 md:flex-1">
+          <span
+            className={`text-xs px-2 py-1 rounded ${
+              candidate.availability === "Available now"
+                ? "bg-green-500/20 text-green-400"
+                : "bg-yellow-500/20 text-yellow-400"
+            }`}
+          >
+            {candidate.availability}
+          </span>
+          <span className="text-gray-400 text-sm flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            {candidate.location}
+          </span>
+          <div className="hidden lg:flex flex-wrap gap-2">
+            {candidate.skills.slice(0, 3).map((skill, i) => (
               <span
-                className={`text-xs px-2 py-1 rounded ${
-                  candidate.availability === "Available now"
-                    ? "bg-green-500/20 text-green-400"
-                    : "bg-yellow-500/20 text-yellow-400"
-                }`}
+                key={i}
+                className="bg-[#F1F1F1] text-black px-3 py-1 rounded-full text-xs"
               >
-                {candidate.availability}
+                {skill}
               </span>
-              <span className="text-gray-400 text-sm flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {candidate.location}
+            ))}
+            {candidate.skills.length > 3 && (
+              <span className="text-gray-400 text-xs self-center">
+                +{candidate.skills.length - 3}
               </span>
-            </div>
+            )}
           </div>
         </div>
-        <button className="p-2 hover:bg-gray-700 rounded-full">
-          <Heart className="w-5 h-5 text-gray-400" />
+
+        <div className="flex items-center justify-between gap-3 md:justify-end md:shrink-0">
+          <span className="text-gray-300 whitespace-nowrap text-sm">
+            {candidate.salary}
+          </span>
+          <button
+            onClick={() => onViewProfile(candidate)}
+            className="bg-transparent border border-blue-600 hover:bg-blue-600 text-white px-5 py-2 rounded-sm text-sm transition-colors whitespace-nowrap cursor-pointer"
+          >
+            View Profile
+          </button>
+          <button
+            className="hidden md:block p-2 hover:bg-gray-700 rounded-full"
+            aria-label="Save candidate"
+          >
+            <Heart className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="bg-[#191D23] rounded-2xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex gap-4">
+            <div className="w-16 h-16 bg-gray-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
+              {candidate.name.charAt(0)}
+            </div>
+            <div>
+              <h3 className="text-blue-400 text-sm">{candidate.title}</h3>
+              <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+                {candidate.name}
+                {candidate.verified && (
+                  <span className="text-blue-400 text-xs">⚡</span>
+                )}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    candidate.availability === "Available now"
+                      ? "bg-green-500/20 text-green-400"
+                      : "bg-yellow-500/20 text-yellow-400"
+                  }`}
+                >
+                  {candidate.availability}
+                </span>
+                <span className="text-gray-400 text-sm flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {candidate.location}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button className="p-2 hover:bg-gray-700 rounded-full">
+            <Heart className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="flex gap-2 mb-1 justify-between">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {candidate.skills.map((skill, i) => (
+              <span
+                key={i}
+                className="bg-[#F1F1F1] text-black px-3 py-2 rounded-full text-sm"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+          <span className="text-gray-400 flex items-center gap-1 whitespace-nowrap text-sm">
+            {candidate.salary}
+          </span>
+        </div>
+        <hr className="border-gray-700 mb-3" />
+        <button
+          onClick={() => onViewProfile(candidate)}
+          className="bg-transparent border border-blue-600 hover:bg-blue-600 text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
+        >
+          View Profile
         </button>
       </div>
-
-      <div className="flex gap-2 mb-1 justify-between">
-        <div className="flex flex-wrap gap-2 mb-4">
-          {candidate.skills.map((skill, i) => (
-            <span
-              key={i}
-              className="bg-[#F1F1F1] text-black px-3 py-2 rounded-full text-sm"
-            >
-              {skill}
-            </span>
-          ))}
-        </div>
-        <span className="text-gray-400 flex items-center gap-1 whitespace-nowrap text-sm">
-          {candidate.salary}
-        </span>
-      </div>
-      <hr className="border-gray-700 mb-3" />
-      <button
-        onClick={() => onViewProfile(candidate)}
-        className="bg-transparent border border-blue-600 hover:bg-blue-600 text-white px-6 py-3 rounded-sm text-sm transition-colors w-full text-center cursor-pointer"
-      >
-        View Profile
-      </button>
-    </div>
-  );
+    );
 
   // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) {
@@ -442,13 +522,13 @@ export const ResultsPage = ({ searchParams, onViewProfile }) => {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>
