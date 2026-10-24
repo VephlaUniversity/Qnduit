@@ -46,11 +46,9 @@ export function createAuthSessions({ storage, events, now = Date.now, timers = g
     const ended = [];
     for (const scope of ["user", "admin"]) {
       const session = read(scope);
-      if (!session && (storage.getItem(keys[scope].user) || storage.getItem(keys[scope].token) || scope === "user" && storage.getItem("authToken"))) {
-        const hadIdentity = Boolean(storage.getItem(keys[scope].user));
-        clear(scope, undefined, hadIdentity ? SESSION_EXPIRED_MESSAGE : "");
-        if (hadIdentity) ended.push(scope);
-      }
+      // Another tab can observe the separate token/user writes mid-adoption.
+      // read() fails closed for an incomplete/mismatched pair; an observer must
+      // not delete it while its owner is still publishing the new session.
       if (session && (tokenExpiry(session.token) === null || tokenExpiry(session.token) <= now())) {
         if (clear(scope, session.token, SESSION_EXPIRED_MESSAGE)) ended.push(scope);
       }
@@ -68,7 +66,9 @@ export function createAuthSessions({ storage, events, now = Date.now, timers = g
     onChange(snapshot);
     const deadlines = [user, admin].filter(Boolean).map(session => tokenExpiry(session.token));
     if (active && deadlines.length) timer = timers.setTimeout(sync, Math.min(2147483647, Math.max(1, Math.min(...deadlines) - now())));
-    ended.forEach(scope => onEnd(scope, SESSION_EXPIRED_MESSAGE));
+    ended.forEach(scope => {
+      if (!read(scope) && storage.getItem(keys[scope].notice) === SESSION_EXPIRED_MESSAGE) onEnd(scope, SESSION_EXPIRED_MESSAGE);
+    });
     return snapshot;
   };
   const changed = () => sync();

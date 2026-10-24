@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import Admin from "../models/Admin.js";
 
 const generateAdminToken = (id) => {
@@ -10,6 +11,7 @@ const generateAdminToken = (id) => {
     process.env.JWT_SECRET,
     {
       expiresIn: "7d",
+      jwtid: randomUUID(),
     }
   );
 };
