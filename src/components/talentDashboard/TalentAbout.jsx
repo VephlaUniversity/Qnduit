@@ -248,8 +248,8 @@ const TalentAbout = () => {
         if (value !== undefined && value !== null) data.append(key, value);
       });
 
-      const introVideoUrl = String(formData.introVideo || "").trim();
-      if (introVideoUrl) data.append("introVideo[url]", introVideoUrl);
+      // Always send it, even when empty, so removing the link clears the saved one.
+      data.append("introVideo[url]", String(formData.introVideo || "").trim());
 
       data.append("socialNetworks", JSON.stringify(formData.socialNetworks));
       data.append("categories", JSON.stringify(formData.categories));

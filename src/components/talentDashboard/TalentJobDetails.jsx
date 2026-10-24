@@ -29,6 +29,7 @@ import {
   normalizeList,
 } from "../utils/jobDisplay";
 import { useAuth } from "../hooks/useAuth";
+import JobDescriptionText from "../utils/JobDescriptionText";
 
 const followError = (error) => {
   const status = error.response?.status;
@@ -670,9 +671,10 @@ export const TalentJobDetails = () => {
                   <h2 className="text-2xl font-bold text-white mb-6">
                     Full Job Description
                   </h2>
-                  <div className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {job.jobDescription}
-                  </div>
+                  <JobDescriptionText
+                    value={job.jobDescription}
+                    className="text-muted-foreground leading-relaxed"
+                  />
 
                   <div className="mt-8">
                     <h3 className="text-xl font-semibold text-white mb-4">

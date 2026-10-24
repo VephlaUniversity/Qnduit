@@ -82,5 +82,6 @@ export function useEmployerJobs() {
       current.deletes.delete(jobId);
     }
   };
-  return { jobs: key && snapshot.key === key ? snapshot.jobs : [], deleteJob };
+  const loaded = Boolean(key && snapshot.key === key);
+  return { jobs: loaded ? snapshot.jobs : [], deleteJob, loaded };
 }
