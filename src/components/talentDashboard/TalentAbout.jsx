@@ -406,14 +406,6 @@ const TalentAbout = () => {
               </span>
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70 flex items-center gap-2"
-          >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : "Save Profile"}
-          </button>
         </div>
 
         {/* Information */}
@@ -592,9 +584,14 @@ const TalentAbout = () => {
                 className={inputClass}
               />
             </div>
-            <TalentOptionPicker label="Categories" kind="categories"
+            <TalentOptionPicker
+              label="Categories"
+              kind="categories"
               value={formData.categories}
-              onChange={categories => setFormData(previous => ({ ...previous, categories }))} />
+              onChange={(categories) =>
+                setFormData((previous) => ({ ...previous, categories }))
+              }
+            />
           </div>
 
           {/* Show my profile */}
@@ -629,7 +626,12 @@ const TalentAbout = () => {
           </div>
 
           <div className="mt-6">
-            <TalentOptionPicker label="Skills" kind="skills" value={tags} onChange={setTags} />
+            <TalentOptionPicker
+              label="Skills"
+              kind="skills"
+              value={tags}
+              onChange={setTags}
+            />
           </div>
         </div>
 
@@ -744,10 +746,22 @@ const TalentAbout = () => {
                 className={inputClass}
               />
               <p className="mt-2 text-sm text-gray-500">
-                Paste a YouTube link. Links from other video sites are saved but will not play.
+                Paste a YouTube link. Links from other video sites are saved but
+                will not play.
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70 flex items-center gap-2"
+          >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saving ? "Saving..." : "Save Profile"}
+          </button>
         </div>
       </div>
     </div>
