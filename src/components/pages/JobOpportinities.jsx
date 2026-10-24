@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import useIsMobile from "../utils/useIsMobile";
+import { motion as Motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
@@ -74,7 +76,10 @@ export const JobOpportunities = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // UI state
-  const [viewMode, setViewMode] = useState("grid");
+  const [chosenView, setViewMode] = useState("grid");
+  const isMobile = useIsMobile();
+  // phones always use the list layout
+  const viewMode = isMobile ? "list" : chosenView;
   const [favorites, setFavorites] = useState([]); // ids of jobs this talent has saved
   const [savingIds, setSavingIds] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -343,25 +348,22 @@ export const JobOpportunities = () => {
   });
 
   // Job Card
-  const JobCard = ({ job }) => (
-    <div
-      className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
-      onClick={(e) => {
-        // The title is a real link and the heart is a button; let them do their own thing.
-        if (e.target.closest("a, button")) return;
-        navigate(jobPath(job));
-      }}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex gap-4">
-          <div className="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
+  const JobCard = ({ job }) =>
+    viewMode === "list" ? (
+      // List view: one compact row per job (stacked on phones).
+      <div
+        className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 cursor-pointer hover:bg-[#1E232B] transition-colors flex flex-col gap-3 md:flex-row md:items-center md:gap-5"
+        onClick={(e) => {
+          if (e.target.closest("a, button")) return;
+          navigate(jobPath(job));
+        }}
+      >
+        <div className="flex items-center gap-3 min-w-0 md:flex-1">
+          <div className="w-12 h-12 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold">
             {job.employer?.companyName?.charAt(0) || "J"}
           </div>
-          <div className="flex-1">
-            <div className="text-[#3B82F6] text-sm mb-1">
-              {job.employer?.companyName}
-            </div>
-            <h3 className="text-white text-lg font-semibold mb-2">
+          <div className="min-w-0">
+            <h3 className="text-white font-semibold truncate">
               <Link
                 to={jobPath(job)}
                 className="hover:text-[#3B82F6] transition-colors"
@@ -369,86 +371,203 @@ export const JobOpportunities = () => {
                 {job.jobTitle}
               </Link>
               {job.verified && (
-                <span className="bg-blue-600 inline-block p-1 rounded-full ml-2 align-middle">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="12"
-                    height="12"
-                    viewBox="0 0 15 14"
-                    fill="none"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M8.40992 0.73096C8.55202 0.77565 8.67617 0.864507 8.76429 0.984609C8.85242 1.10471 8.89993 1.2498 8.89992 1.39876V4.89876H11.6999C11.828 4.8987 11.9536 4.93377 12.0631 5.00014C12.1726 5.06651 12.2618 5.16164 12.321 5.27518C12.3801 5.38872 12.4071 5.51632 12.3988 5.6441C12.3905 5.77187 12.3473 5.89492 12.2739 5.99986L7.37392 12.9999C7.28864 13.122 7.1666 13.2138 7.02556 13.2618C6.88452 13.3099 6.73183 13.3116 6.58971 13.2669C6.44759 13.2222 6.32345 13.1332 6.23537 13.0131C6.14728 12.8929 6.09983 12.7478 6.09992 12.5988V9.09876H3.29992C3.17188 9.09882 3.04627 9.06375 2.93677 8.99738C2.82727 8.93101 2.73808 8.83588 2.67889 8.72234C2.6197 8.6088 2.59279 8.4812 2.60108 8.35342C2.60937 8.22565 2.65255 8.1026 2.72592 7.99766L7.62592 0.99766C7.71133 0.875711 7.83339 0.784169 7.97438 0.736334C8.11537 0.688498 8.26794 0.686861 8.40992 0.73166V0.73096Z"
-                      fill="white"
-                    />
-                  </svg>
+                <span
+                  className="bg-blue-600 text-white text-[10px] rounded-full px-1.5 py-0.5 ml-2 align-middle"
+                  role="img"
+                  aria-label="Verified"
+                >
+                  ⚡
                 </span>
               )}
             </h3>
-            <div className="flex items-center gap-4 text-gray-400 text-sm">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
-                {job.location}
+            <div className="flex flex-wrap items-center gap-x-3 text-sm text-gray-400">
+              <span className="text-[#3B82F6] truncate">
+                {job.employer?.companyName}
               </span>
-              <span className="text-gray-500 text-xs">
-                {formatPosted(job.createdAt)}
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {job.location}
               </span>
             </div>
           </div>
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFavorite(job._id);
-          }}
-          disabled={savingIds.includes(job._id)}
-          aria-label={
-            favorites.includes(job._id) ? "Remove from saved jobs" : "Save job"
-          }
-          className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
-        >
-          <Heart
-            className={`w-5 h-5 ${
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(job._id);
+            }}
+            disabled={savingIds.includes(job._id)}
+            aria-label={
               favorites.includes(job._id)
-                ? "fill-red-500 text-red-500"
-                : "text-gray-400"
-            }`}
-          />
-        </button>
-      </div>
+                ? "Remove from saved jobs"
+                : "Save job"
+            }
+            className="md:hidden ml-auto p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
+          >
+            <Heart
+              className={`w-5 h-5 ${
+                favorites.includes(job._id)
+                  ? "fill-red-500 text-red-500"
+                  : "text-gray-400"
+              }`}
+            />
+          </button>
+        </div>
 
-      <div className="flex justify-between flex-wrap gap-2 mb-4">
-        <div className="flex flex-wrap gap-2">
-          {normalizeList(job.jobApplyType).map((type) => (
-            <span
-              key={type}
-              className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
-            >
-              {type}
-            </span>
-          ))}
+        <div className="hidden lg:flex flex-wrap gap-2 md:shrink-0">
+          {[
+            ...normalizeList(job.jobApplyType),
+            ...(job.workType ? [job.workType] : []),
+          ]
+            .slice(0, 2)
+            .map((type, idx) => (
+              <span
+                key={idx}
+                className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-xs"
+              >
+                {type}
+              </span>
+            ))}
+        </div>
 
-          {job.workType && (
-            <span className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm">
-              {job.workType}
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-4 text-sm md:justify-end md:shrink-0">
+          <span className="text-[#f1f1f1] flex items-center gap-1 whitespace-nowrap">
+            <DollarSign className="w-4 h-4" />
+            {formatSalary(job.salary)}
+          </span>
+          <span className="text-gray-400 whitespace-nowrap">
+            {daysLeftLabel(job.deadlineDate)}
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(job._id);
+            }}
+            disabled={savingIds.includes(job._id)}
+            aria-label={
+              favorites.includes(job._id)
+                ? "Remove from saved jobs"
+                : "Save job"
+            }
+            className="hidden md:block p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
+          >
+            <Heart
+              className={`w-5 h-5 ${
+                favorites.includes(job._id)
+                  ? "fill-red-500 text-red-500"
+                  : "text-gray-400"
+              }`}
+            />
+          </button>
         </div>
       </div>
+    ) : (
+      <div
+        className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
+        onClick={(e) => {
+          // The title is a real link and the heart is a button; let them do their own thing.
+          if (e.target.closest("a, button")) return;
+          navigate(jobPath(job));
+        }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex gap-4">
+            <div className="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
+              {job.employer?.companyName?.charAt(0) || "J"}
+            </div>
+            <div className="flex-1">
+              <div className="text-[#3B82F6] text-sm mb-1">
+                {job.employer?.companyName}
+              </div>
+              <h3 className="text-white text-lg font-semibold mb-2">
+                <Link
+                  to={jobPath(job)}
+                  className="hover:text-[#3B82F6] transition-colors"
+                >
+                  {job.jobTitle}
+                </Link>
+                {job.verified && (
+                  <span className="bg-blue-600 inline-block p-1 rounded-full ml-2 align-middle">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 15 14"
+                      fill="none"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M8.40992 0.73096C8.55202 0.77565 8.67617 0.864507 8.76429 0.984609C8.85242 1.10471 8.89993 1.2498 8.89992 1.39876V4.89876H11.6999C11.828 4.8987 11.9536 4.93377 12.0631 5.00014C12.1726 5.06651 12.2618 5.16164 12.321 5.27518C12.3801 5.38872 12.4071 5.51632 12.3988 5.6441C12.3905 5.77187 12.3473 5.89492 12.2739 5.99986L7.37392 12.9999C7.28864 13.122 7.1666 13.2138 7.02556 13.2618C6.88452 13.3099 6.73183 13.3116 6.58971 13.2669C6.44759 13.2222 6.32345 13.1332 6.23537 13.0131C6.14728 12.8929 6.09983 12.7478 6.09992 12.5988V9.09876H3.29992C3.17188 9.09882 3.04627 9.06375 2.93677 8.99738C2.82727 8.93101 2.73808 8.83588 2.67889 8.72234C2.6197 8.6088 2.59279 8.4812 2.60108 8.35342C2.60937 8.22565 2.65255 8.1026 2.72592 7.99766L7.62592 0.99766C7.71133 0.875711 7.83339 0.784169 7.97438 0.736334C8.11537 0.688498 8.26794 0.686861 8.40992 0.73166V0.73096Z"
+                        fill="white"
+                      />
+                    </svg>
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-4 text-gray-400 text-sm">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {job.location}
+                </span>
+                <span className="text-gray-500 text-xs">
+                  {formatPosted(job.createdAt)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(job._id);
+            }}
+            disabled={savingIds.includes(job._id)}
+            aria-label={
+              favorites.includes(job._id)
+                ? "Remove from saved jobs"
+                : "Save job"
+            }
+            className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
+          >
+            <Heart
+              className={`w-5 h-5 ${
+                favorites.includes(job._id)
+                  ? "fill-red-500 text-red-500"
+                  : "text-gray-400"
+              }`}
+            />
+          </button>
+        </div>
 
-      <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between">
-        <span className="text-[#f1f1f1] flex items-center gap-1 text-sm">
-          <DollarSign className="w-4 h-4" />
-          {formatSalary(job.salary)}
-        </span>
-        <span className="text-gray-400 text-sm">
-          {daysLeftLabel(job.deadlineDate)}
-        </span>
+        <div className="flex justify-between flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2">
+            {normalizeList(job.jobApplyType).map((type) => (
+              <span
+                key={type}
+                className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm"
+              >
+                {type}
+              </span>
+            ))}
+
+            {job.workType && (
+              <span className="px-3 py-1 bg-[#f1f1f1] text-black rounded-full text-sm">
+                {job.workType}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between">
+          <span className="text-[#f1f1f1] flex items-center gap-1 text-sm">
+            <DollarSign className="w-4 h-4" />
+            {formatSalary(job.salary)}
+          </span>
+          <span className="text-gray-400 text-sm">
+            {daysLeftLabel(job.deadlineDate)}
+          </span>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <AnimatedPage>
@@ -839,13 +958,13 @@ export const JobOpportunities = () => {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
+                    className={`hidden md:block p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>
@@ -934,7 +1053,11 @@ export const JobOpportunities = () => {
                   </button>
                 </div>
               ) : (
-                <div
+                <Motion.div
+                  key={viewMode}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
                   className={
                     viewMode === "grid"
                       ? "grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"
@@ -944,7 +1067,7 @@ export const JobOpportunities = () => {
                   {paginatedJobs.map((job) => (
                     <JobCard key={job._id} job={job} />
                   ))}
-                </div>
+                </Motion.div>
               )}
 
               {/* Pagination */}

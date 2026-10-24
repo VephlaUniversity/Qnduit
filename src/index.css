@@ -150,3 +150,26 @@ body {
 .thin-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.6);
 }
+
+/* Default for every scrolling area (page, tables, dialogs, tab bars, text boxes),
+   so no screen falls back to the browser's thick scrollbar. Classes such as
+   "thin-scroll" and the dashboard sidebar style are more specific and still win. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+/* Older Chromium/Safari */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
