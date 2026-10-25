@@ -1,6 +1,7 @@
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Talent from "../models/Talent.js";
+import Resume from "../models/Resume.js";
 import { jobDateKey, lagosDateKey } from "../utils/jobDeadline.js";
 import { applicationEvent } from "../services/notifications.js";
 
@@ -177,14 +178,23 @@ export const getEmployerApplications = async (req, res) => {
       JobApplication.countDocuments({ ...owner, status: "reviewed" }),
     ]);
 
+    // Resumes uploaded on the talent Resume page live in the Resume collection (cvFiles),
+    // not on the Talent record, so look them up and use the newest one as a fallback.
+    const applicantIds = [...new Set(applications.map(app => String(app.applicantId?._id || "")).filter(Boolean))];
+    const resumeDocs = applicantIds.length
+      ? await Resume.find({ talent: { $in: applicantIds } }).select("talent cvFiles").lean()
+      : [];
+    const cvByTalent = new Map(resumeDocs.map(doc => [String(doc.talent), [...(doc.cvFiles || [])].reverse().find(file => file?.url)?.url || ""]));
+    const talentResumeUrl = app => cvByTalent.get(String(app.applicantId?._id)) || app.applicantId?.resume?.url || "";
+
     const formatted = applications.map(app => ({
       id: app._id,
       status: app.status || "Pending",
       date: app.createdAt, // Preserve the legacy field for existing consumers.
       appliedAt: app.appliedAt ?? app.createdAt,
       createdAt: app.createdAt,
-      resumeUrl: app.resumeUrl?.trim() || app.applicantId?.resume?.url || "",
-      resumeSource: app.resumeUrl?.trim() ? "application" : app.applicantId?.resume?.url ? "talent" : null,
+      resumeUrl: app.resumeUrl?.trim() || talentResumeUrl(app),
+      resumeSource: app.resumeUrl?.trim() ? "application" : talentResumeUrl(app) ? "talent" : null,
 
       applicant: {
         id: app.applicantId?._id,
@@ -196,7 +206,7 @@ export const getEmployerApplications = async (req, res) => {
         jobTitle: app.applicantId?.jobTitle,
         experience: app.applicantId?.experienceTime,
         avatar: typeof app.applicantId?.avatar === "string" ? app.applicantId.avatar : app.applicantId?.avatar?.url,
-        resume: app.applicantId?.resume?.url,
+        resume: talentResumeUrl(app) || undefined,
       },
 
       job: {

@@ -404,34 +404,40 @@ const TalentProfileOverview = () => {
           )}
 
           {/* Skills */}
-          {resumeData?.skills?.length > 0 && (
+          {resumeData?.skills?.some((skill) => skill.title?.trim()) && (
             <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
               <h3 className="text-xl font-semibold text-white mb-6">Skills</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                {resumeData.skills.map((skill, i) => {
-                  const percent = Math.min(
-                    100,
-                    Math.max(0, parseInt(skill.percent) || 0),
-                  );
-                  return (
-                    <div key={i}>
-                      <p className="text-white text-sm font-medium mb-2">
-                        {skill.title}
-                      </p>
-                      <div className="relative h-2 bg-[#2A2A2E] rounded-full">
-                        <div
-                          className="absolute top-0 left-0 h-full bg-blue-600 rounded-full transition-all duration-500"
-                          style={{ width: `${percent}%` }}
-                        />
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-md transition-all duration-500"
-                          style={{ left: `calc(${percent}% - 8px)` }}
-                        />
+                {resumeData.skills
+                  .filter((skill) => skill.title?.trim())
+                  .map((skill, i) => {
+                    const percent = Math.min(
+                      100,
+                      Math.max(0, parseInt(skill.percent) || 0),
+                    );
+                    return (
+                      <div key={i}>
+                        <div className="flex items-baseline justify-between gap-3 mb-2">
+                          <p className="text-white text-sm font-medium truncate">
+                            {skill.title}
+                          </p>
+                          <p className="text-xs font-medium text-gray-300 whitespace-nowrap">
+                            {percent}%
+                          </p>
+                        </div>
+                        <div className="h-2 bg-[#2A2A2E] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
+              <p className="text-gray-500 text-xs mt-6">
+                Edit these on your Resumes page.
+              </p>
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { profileViewSummaryRange } from "../utils/profileViewSummary.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
+import Resume from "../models/Resume.js";
 import ProfileView, {
   ensureProfileViewIndexes,
 } from "../models/ProfileView.js";
@@ -58,6 +59,18 @@ const displayProfile = (type, record) => {
       };
 };
 
+// Skills a talent entered on their Resume page, cleaned for display to other people.
+export const publicSkills = async (talentId) => {
+  const resume = await Resume.findOne({ talent: talentId }).select("skills").lean();
+  return (resume?.skills || [])
+    .filter((skill) => typeof skill?.title === "string" && skill.title.trim())
+    .slice(0, 30)
+    .map((skill) => ({
+      title: skill.title.trim().slice(0, 60),
+      percent: Math.min(100, Math.max(0, Number.parseInt(skill.percent, 10) || 0)),
+    }));
+};
+
 const isSelf = (req) =>
   req.user.role === req.params.userType &&
   String(req.user._id) === req.params.userId.toLowerCase();
@@ -108,8 +121,10 @@ export const getUserProfile = async (req, res, next) => {
       );
     }
     res.set("Cache-Control", "private, no-store");
+    const profile = displayProfile(userType, target);
+    if (userType === "talent") profile.skills = await publicSkills(userId);
     res.json({
-      profile: displayProfile(userType, target),
+      profile,
       canFollow,
       isFollowing,
       isSelf: isSelf(req),

@@ -1,6 +1,8 @@
 import { withVerificationBadge } from "../services/verificationBadge.js";
 import { authIdentity } from "../utils/authSession.js";
 import Talent from "../models/Talent.js";
+import { addCvToResume } from "./resumeController.js";
+import { publicSkills } from "./profileController.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
@@ -352,6 +354,14 @@ export const uploadResume = async (req, res, next) => {
 
     await talent.save();
 
+    // Also list it on the talent's Resume page.
+    await addCvToResume(talent._id, {
+      url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+      type: extension === ".pdf" ? "PDF" : "Doc",
+      name: req.file.originalname,
+    });
+
     res.json({
       success: true,
       message: "Resume uploaded successfully",
@@ -588,6 +598,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
         ...talent.toObject(),
         avatar: talent.avatar?.url || "",
         introVideo: talent.introVideo?.url || "",
+        skills: await publicSkills(talent._id),
       },
     });
   } catch (error) {
