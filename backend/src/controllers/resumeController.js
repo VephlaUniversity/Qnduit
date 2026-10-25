@@ -1,4 +1,5 @@
 import Resume from "../models/Resume.js";
+import Talent from "../models/Talent.js";
 import multer from "multer";
 import path from "path";
 import cloudinary from "../utils/cloudinary.js";
@@ -17,6 +18,23 @@ const parseKeepList = (value) => {
   } catch {
     return null;
   }
+};
+
+// Keeps the sign-up upload and the Resume page in sync.
+export const addCvToResume = async (talentId, file) => {
+  if (!file?.url) return null;
+  let resume = await Resume.findOne({ talent: talentId });
+  if (!resume) resume = new Resume({ talent: talentId });
+  const exists = (resume.cvFiles || []).some(
+    (item) =>
+      item.url === file.url ||
+      (file.public_id && item.public_id === file.public_id),
+  );
+  if (!exists && (resume.cvFiles || []).length < MAX_CV_FILES) {
+    resume.cvFiles.push(file);
+    await resume.save();
+  }
+  return resume;
 };
 
 // Best-effort removal from Cloudinary
@@ -210,6 +228,16 @@ export const saveResume = async (req, res, next) => {
 
     await resume.save();
 
+    // If the removed file was the sign-up resume, clear that copy too so it is
+    // not shown again or sent to employers.
+    const removedIds = removedCv.map((f) => f.public_id).filter(Boolean);
+    if (removedIds.length) {
+      await Talent.updateOne(
+        { _id: talentId, "resume.public_id": { $in: removedIds } },
+        { $unset: { resume: "" } },
+      );
+    }
+
     // Only after the save succeeded: delete files the user removed.
     await removeFromCloudinary(removedCv, "raw");
     await removeFromCloudinary(removedPortfolio, "image");
@@ -229,9 +257,25 @@ export const getResume = async (req, res, next) => {
   try {
     const talentId = req.user._id;
 
-    const resume = await Resume.findOne({
+    let resume = await Resume.findOne({
       talent: talentId,
     });
+
+    // Talents who uploaded a resume at sign-up (before the two were linked) get
+    // that file added to their Resume page the first time they open it.
+    if (!resume?.cvFiles?.length) {
+      const talent = await Talent.findById(talentId).select("resume").lean();
+      if (talent?.resume?.url) {
+        const ext = path.extname(talent.resume.url.split("?")[0]).toLowerCase();
+        resume =
+          (await addCvToResume(talentId, {
+            url: talent.resume.url,
+            public_id: talent.resume.public_id,
+            type: ext === ".pdf" ? "PDF" : "Doc",
+            name: `Resume${ext}`,
+          })) || resume;
+      }
+    }
 
     if (!resume) {
       return res.status(404).json({

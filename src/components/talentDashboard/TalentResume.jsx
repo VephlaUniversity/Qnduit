@@ -7,6 +7,9 @@ import {
   ChevronUp,
   Calendar,
   Loader2,
+  Eye,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { useToast } from "../hooks/useToast";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +51,26 @@ const cvLabel = (item) => {
     );
   } catch {
     return "CV file";
+  }
+};
+
+// Saves a CV to the device (the browser would otherwise just open it).
+const downloadCvFile = async (file, onError) => {
+  let blobUrl;
+  try {
+    const response = await fetch(file.url, { credentials: "omit" });
+    if (!response.ok) throw new Error();
+    blobUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = cvLabel(file);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    onError?.();
   }
 };
 
@@ -382,63 +405,102 @@ const TalentResumes = () => {
         {/* CV File */}
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">CV File</h2>
-          <div className="flex gap-4 mb-4 flex-wrap">
+          <div className="space-y-3 mb-4">
+            {existingCv.length + newCvFiles.length === 0 && (
+              <p className="text-gray-500 text-sm">No CV uploaded yet.</p>
+            )}
             {existingCv.map((file) => (
               <div
                 key={file.public_id}
-                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10 max-w-full"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[#22262D] border border-white/5 rounded-xl p-3 sm:p-4"
               >
-                <div className="min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-11 h-11 rounded-lg bg-blue-600/15 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className="text-white text-sm font-medium truncate"
+                      title={cvLabel(file)}
+                    >
+                      {cvLabel(file)}
+                    </p>
+                    <p className="text-gray-400 text-xs mt-0.5">
+                      {file.type || "CV"} · Saved
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <a
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block truncate text-white text-sm font-medium hover:underline"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-blue-400 bg-blue-600/10 hover:bg-blue-600 hover:text-white transition-colors"
                   >
-                    {cvLabel(file)}
+                    <Eye className="w-4 h-4" />
+                    View
                   </a>
-                  <p className="text-gray-400 text-xs">
-                    {file.type || "CV"} · saved
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCvFile(file, () =>
+                        toast({
+                          title: "Unable to download CV",
+                          description: "Please try again later.",
+                          variant: "destructive",
+                        }),
+                      )
+                    }
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-200 bg-white/5 hover:bg-white/10 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove CV"
+                    title="Remove CV"
+                    onClick={() =>
+                      setExistingCv(
+                        existingCv.filter((f) => f.public_id !== file.public_id),
+                      )
+                    }
+                    className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <FileText className="w-8 h-8 text-blue-500" />
-                <button
-                  type="button"
-                  aria-label="Remove CV"
-                  onClick={() =>
-                    setExistingCv(
-                      existingCv.filter((f) => f.public_id !== file.public_id),
-                    )
-                  }
-                  className="absolute -right-2 -top-1 text-red-500 hover:text-red-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
             ))}
             {newCvFiles.map((file, index) => (
               <div
                 key={`new-${index}`}
-                className="relative flex items-center gap-3 bg-[#2A2A2E] rounded-full px-4 py-2 pr-10 max-w-full"
+                className="flex items-center gap-3 bg-[#22262D] border border-dashed border-blue-500/40 rounded-xl p-3 sm:p-4"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-white text-sm font-medium">
+                <div className="w-11 h-11 rounded-lg bg-blue-600/15 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="text-white text-sm font-medium truncate"
+                    title={file.name}
+                  >
                     {file.name}
                   </p>
-                  <p className="text-gray-400 text-xs">
+                  <p className="text-yellow-400/90 text-xs mt-0.5">
                     Will upload when you save
                   </p>
                 </div>
-                <FileText className="w-8 h-8 text-blue-500" />
                 <button
                   type="button"
                   aria-label="Remove CV"
+                  title="Remove CV"
                   onClick={() =>
                     setNewCvFiles(newCvFiles.filter((_, i) => i !== index))
                   }
-                  className="absolute -right-2 -top-1 text-red-500 hover:text-red-400"
+                  className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors flex-shrink-0"
                 >
-                  <X className="w-5 h-5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             ))}
@@ -767,43 +829,74 @@ const TalentResumes = () => {
 
         {/* Skills */}
         <section>
-          <h2 className="text-xl font-semibold text-white mb-4">Skill</h2>
-          <div className="space-y-4">
-            {skills.map((skill, index) => (
-              <div key={index} className="flex items-center gap-4">
-                <label className="text-gray-400 text-sm w-16 shrink-0">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={skill.title}
-                  onChange={(e) => updateSkill(index, "title", e.target.value)}
-                  className="px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500 w-40"
-                />
-                <label className="text-gray-400 text-sm shrink-0">
-                  Percent
-                </label>
-                <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-white mb-1">Skills</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Add your main skills and rate how strong you are in each one, from
+            0 to 100. They show as progress bars on your profile overview.
+          </p>
+          <div className="space-y-3">
+            {skills.map((skill, index) => {
+              const percent = Math.min(
+                100,
+                Math.max(0, parseInt(skill.percent) || 0),
+              );
+              return (
+                <div
+                  key={index}
+                  className="bg-[#22262D] border border-white/5 rounded-xl p-3 sm:p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={skill.title}
+                      placeholder="Skill, e.g. React"
+                      aria-label={`Skill ${index + 1} name`}
+                      onChange={(e) =>
+                        updateSkill(index, "title", e.target.value)
+                      }
+                      className="flex-1 min-w-0 px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500"
+                    />
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={skill.percent}
+                        aria-label={`Skill ${index + 1} level in percent`}
+                        onChange={(e) =>
+                          updateSkill(index, "percent", e.target.value)
+                        }
+                        className="w-16 px-3 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Remove skill"
+                      title="Remove skill"
+                      onClick={() => removeSkill(index)}
+                      className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                   <input
-                    type="text"
-                    value={skill.percent}
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={percent}
+                    aria-label={`Skill ${index + 1} level slider`}
                     onChange={(e) =>
                       updateSkill(index, "percent", e.target.value)
                     }
-                    className="w-16 px-4 py-2 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    className="w-full mt-3 accent-blue-600 cursor-pointer"
                   />
-                  <span className="text-gray-400">%</span>
                 </div>
-                <button
-                  onClick={() => removeSkill(index)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button
+            type="button"
             onClick={addSkill}
             className="w-full mt-4 py-3 border border-blue-600 text-blue-500 rounded-lg hover:bg-blue-600/10 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
           >

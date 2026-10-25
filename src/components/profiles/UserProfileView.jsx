@@ -1,4 +1,5 @@
 import { messageRecipient } from "../utils/messageRecipient";
+import SkillBars from "./SkillBars";
 import { applicantReturnQuery } from "../employerDashboard/applicantSearch";
 import {
   employerFollowParams,
@@ -244,6 +245,12 @@ function ProfileContent({ userType, userId }) {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+        {talent && profile.skills?.length > 0 && (
+          <section className="mt-6">
+            <h2 className="text-lg font-semibold">Skills</h2>
+            <SkillBars skills={profile.skills} />
           </section>
         )}
         {talent && profile.tags?.length > 0 && (

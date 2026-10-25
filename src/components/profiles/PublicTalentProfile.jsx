@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import SkillBars from "./SkillBars";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { NotFound } from "../pages/NotFound";
@@ -184,9 +185,20 @@ const PublicTalentProfile = () => {
             </section>
           )}
 
-          {skills.length > 0 && (
+          {Array.isArray(talent.skills) && talent.skills.length > 0 && (
             <section className="mt-10">
               <h2 className="text-xl font-bold mb-4">Skills</h2>
+              <SkillBars skills={talent.skills} />
+            </section>
+          )}
+
+          {skills.length > 0 && (
+            <section className="mt-10">
+              <h2 className="text-xl font-bold mb-4">
+                {Array.isArray(talent.skills) && talent.skills.length > 0
+                  ? "Tags"
+                  : "Skills"}
+              </h2>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill, index) => (
                   <span

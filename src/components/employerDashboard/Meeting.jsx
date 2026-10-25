@@ -8,6 +8,7 @@ import {
   Clock,
   Plus,
   Video,
+  Loader2,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Calendar } from "../ui/calendar";
@@ -28,6 +29,19 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
   return `${hours12}:${String(minutes).padStart(2, "0")} ${period}`;
 });
+
+// The API sends the date as an ISO string
+// Show it as a short month + day in the viewer's own time zone.
+const getDateBadge = (meeting) => {
+  const parsed = new Date(meeting.date);
+  if (!Number.isNaN(parsed.getTime())) {
+    return {
+      month: format(parsed, "MMM"),
+      day: format(parsed, "d"),
+    };
+  }
+  return { month: meeting.month || "", day: meeting.date || "" };
+};
 
 const DURATION_OPTIONS = ["15m", "30m", "45m", "1h", "1h 30m", "2h"];
 
@@ -174,7 +188,11 @@ export const Meeting = () => {
 
   const handleReschedule = (meeting) => {
     setSelectedMeeting(meeting);
-    setRescheduleDate(new Date());
+    setRescheduleDate(
+      Number.isNaN(new Date(meeting.date).getTime())
+        ? new Date()
+        : new Date(meeting.date),
+    );
     setRescheduleTime(meeting.time || "5:00 pm");
     setRescheduleDuration(meeting.duration || "30m");
     setRescheduleMessage("");
@@ -308,7 +326,7 @@ export const Meeting = () => {
             Meetings
           </h1>
           <span className="ml-1 px-2.5 py-0.5 bg-blue-600/20 text-blue-400 text-sm font-medium rounded-full">
-            {meetings.length}
+            {loading ? "…" : meetings.length}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -329,8 +347,20 @@ export const Meeting = () => {
         </div>
       </div>
 
+      {/* Loading state */}
+      {loading && (
+        <div
+          className="flex flex-col items-center justify-center py-24 text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+          <p className="text-gray-400 text-sm">Loading meetings...</p>
+        </div>
+      )}
+
       {/* Empty state */}
-      {meetings.length === 0 && (
+      {!loading && meetings.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4">
             <CalendarIcon className="w-8 h-8 text-gray-500" />
@@ -353,74 +383,75 @@ export const Meeting = () => {
 
       {/* Meetings list */}
       <div className="space-y-4">
-        {meetings.map((meeting) => (
-          <div
-            key={meeting._id}
-            className="bg-[#1A1A1E] rounded-xl border border-white/5 p-4 md:p-6 hover:border-white/10 transition-all"
-          >
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1">
-                {/* Date Badge */}
-                <div className="bg-white rounded-xl text-center p-3 min-w-[64px] flex-shrink-0 shadow-sm">
-                  <div className="text-blue-600 text-xs font-bold uppercase tracking-wide">
-                    {meeting.month}
+        {!loading &&
+          meetings.map((meeting) => (
+            <div
+              key={meeting._id}
+              className="bg-[#1A1A1E] rounded-xl border border-white/5 p-4 md:p-6 hover:border-white/10 transition-all"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Date Badge */}
+                  <div className="bg-white rounded-xl text-center p-3 min-w-[64px] flex-shrink-0 shadow-sm">
+                    <div className="text-blue-600 text-xs font-bold uppercase tracking-wide">
+                      {getDateBadge(meeting).month}
+                    </div>
+                    <div className="text-gray-900 text-2xl font-extrabold leading-none mt-0.5">
+                      {getDateBadge(meeting).day}
+                    </div>
                   </div>
-                  <div className="text-gray-900 text-2xl font-extrabold leading-none mt-0.5">
-                    {meeting.date}
+
+                  {/* Meeting Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold text-base md:text-lg mb-1 truncate">
+                      {meeting.title}
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-2">
+                      Meeting with:{" "}
+                      <span className="text-blue-400 font-medium">
+                        {meeting.attendee}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {meeting.time}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Hourglass className="w-3.5 h-3.5" />
+                        {meeting.duration}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Meeting Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-semibold text-base md:text-lg mb-1 truncate">
-                    {meeting.title}
-                  </h3>
-                  <p className="text-sm text-gray-400 mb-2">
-                    Meeting with:{" "}
-                    <span className="text-blue-400 font-medium">
-                      {meeting.attendee}
-                    </span>
-                  </p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      {meeting.time}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Hourglass className="w-3.5 h-3.5" />
-                      {meeting.duration}
-                    </span>
-                  </div>
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleMessage(meeting)}
+                    title="Open messages"
+                    className="p-2.5 bg-blue-600/10 hover:bg-blue-600 rounded-lg text-blue-400 hover:text-white transition-colors"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleReschedule(meeting)}
+                    title="Reschedule meeting"
+                    className="p-2.5 bg-blue-600/10 hover:bg-blue-600 rounded-lg text-blue-400 hover:text-white transition-colors"
+                  >
+                    <CalendarIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRequest(meeting)}
+                    title="Delete meeting"
+                    className="p-2.5 bg-red-500/10 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleMessage(meeting)}
-                  title="Open messages"
-                  className="p-2.5 bg-blue-600/10 hover:bg-blue-600 rounded-lg text-blue-400 hover:text-white transition-colors"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleReschedule(meeting)}
-                  title="Reschedule meeting"
-                  className="p-2.5 bg-blue-600/10 hover:bg-blue-600 rounded-lg text-blue-400 hover:text-white transition-colors"
-                >
-                  <CalendarIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDeleteRequest(meeting)}
-                  title="Delete meeting"
-                  className="p-2.5 bg-red-500/10 hover:bg-red-600 rounded-lg text-red-400 hover:text-white transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
 
       {/* ── Delete Confirmation ──────────────────────────────────────────── */}
