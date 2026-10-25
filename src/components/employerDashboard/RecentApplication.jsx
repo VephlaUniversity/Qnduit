@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { cvExtension } from "../utils/cvFile";
 import axios from "axios";
 import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
@@ -449,7 +450,7 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
       blobUrl = URL.createObjectURL(blob);
       const extension =
         new URL(applicant.cvUrl).pathname.match(/\.(pdf|docx?)$/i)?.[0] ||
-        (blob.type === "application/pdf" ? ".pdf" : "");
+        (await cvExtension(blob));
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = `${applicant.name.replace(/\s+/g, "_")}_CV${extension}`;

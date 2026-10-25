@@ -21,7 +21,11 @@ const parseKeepList = (value) => {
 };
 
 // Keeps the sign-up upload and the Resume page in sync.
-export const addCvToResume = async (talentId, file) => {
+export const addCvToResume = async (
+  talentId,
+  file,
+  { atStart = false } = {},
+) => {
   if (!file?.url) return null;
   let resume = await Resume.findOne({ talent: talentId });
   if (!resume) resume = new Resume({ talent: talentId });
@@ -31,7 +35,9 @@ export const addCvToResume = async (talentId, file) => {
       (file.public_id && item.public_id === file.public_id),
   );
   if (!exists && (resume.cvFiles || []).length < MAX_CV_FILES) {
-    resume.cvFiles.push(file);
+    // An older sign-up file synced later must not look like the newest upload.
+    if (atStart) resume.cvFiles.unshift(file);
+    else resume.cvFiles.push(file);
     await resume.save();
   }
   return resume;
@@ -118,10 +124,11 @@ export const saveResume = async (req, res, next) => {
           {
             folder: "qnduit/resumes/cv",
             resource_type: "raw",
+            // Keep the extension so the stored link opens and saves as a real PDF/Word file.
             public_id: `${talentId}-${Date.now()}-${path.basename(
               file.originalname,
               extension,
-            )}`,
+            )}${extension}`,
           },
           (error, result) => {
             if (error) {
@@ -268,12 +275,16 @@ export const getResume = async (req, res, next) => {
       if (talent?.resume?.url) {
         const ext = path.extname(talent.resume.url.split("?")[0]).toLowerCase();
         resume =
-          (await addCvToResume(talentId, {
-            url: talent.resume.url,
-            public_id: talent.resume.public_id,
-            type: ext === ".pdf" ? "PDF" : "Doc",
-            name: `Resume${ext}`,
-          })) || resume;
+          (await addCvToResume(
+            talentId,
+            {
+              url: talent.resume.url,
+              public_id: talent.resume.public_id,
+              type: ext === ".pdf" ? "PDF" : "Doc",
+              name: `Resume${ext}`,
+            },
+            { atStart: true },
+          )) || resume;
       }
     }
 
