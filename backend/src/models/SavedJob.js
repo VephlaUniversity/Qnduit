@@ -8,9 +8,11 @@ const savedJobSchema = new mongoose.Schema({
   },
   jobId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Job",
+    refPath: "jobModel",
     required: true,
   },
+  jobModel: { type: String, enum: ["Job", "AdminJob"], default: "Job" },
+  source: { type: String, enum: ["employer", "admin"], default: "employer" },
   savedAt: {
     type: Date,
     default: Date.now,

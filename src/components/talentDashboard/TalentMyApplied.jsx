@@ -1,3 +1,4 @@
+import { talentJobPath } from "../utils/jobDisplay";
 import React, { useState } from "react";
 import { Search, MapPin, Briefcase, MoreVertical, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -41,7 +42,8 @@ export const TalentMyApplied = () => {
         if (cancelled) return;
 
         const formatted = (res.data?.applications || []).map((app) => ({
-          id: app._id,
+          id: `${app.source || "employer"}:${app._id}`,
+          source: app.source || "employer",
           jobId: app.jobId?._id,
           title: app.jobId?.jobTitle || "Job no longer available",
           location: app.jobId?.location || "N/A",
@@ -254,7 +256,7 @@ export const TalentMyApplied = () => {
                         disabled={!application.jobId}
                         onClick={() =>
                           navigate(
-                            `/talent-dashboard/job-results/details/${application.jobId}`,
+                            talentJobPath({ _id: application.jobId, source: application.source }),
                           )
                         }
                         className="text-white hover:bg-white/10 cursor-pointer"

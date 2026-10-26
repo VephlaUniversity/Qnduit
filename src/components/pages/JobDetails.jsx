@@ -29,6 +29,7 @@ import {
   normalizeList,
   jobPath,
   jobIdFromParam,
+  jobKey,
 } from "../utils/jobDisplay";
 import { buildJobPostingLd, shortText, useDocumentSeo } from "../utils/seo";
 import JobDescriptionText from "../utils/JobDescriptionText";
@@ -49,6 +50,8 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
   const id = jobIdFromParam(idParam);
   const navigate = useNavigate();
   const routeLocation = useLocation();
+  const source = new URLSearchParams(routeLocation.search).get("source") || "employer";
+  const sourceQuery = source === "employer" ? "" : `?source=${encodeURIComponent(source)}`;
   const [job, setJob] = useState(null);
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("about");
@@ -66,10 +69,13 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     setJob(null);
     setLoadError("");
     setApplied(false);
+    setIsFavorite(false);
+    setBrokenMedia({});
+    setLogoFailed(false);
     setRelatedJobs([]);
     const fetchJob = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/jobs/public/${id}`);
+        const res = await axios.get(`${API_BASE_URL}/api/jobs/public/${id}${sourceQuery}`);
         if (active) setJob(res.data.job);
       } catch (error) {
         console.error("Failed to fetch job", error);
@@ -84,7 +90,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
     const fetchRelatedJobs = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/jobs/related/${id}`);
+        const res = await axios.get(`${API_BASE_URL}/api/jobs/related/${id}${sourceQuery}`);
         if (active) setRelatedJobs(res.data.jobs);
       } catch (error) {
         console.error("Failed to fetch related jobs", error);
@@ -96,7 +102,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // **** new route needed ****
   /*useEffect(() => {
@@ -128,14 +134,14 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
       .then((res) => {
         if (active)
           setIsFavorite(
-            (res.data.jobs || []).some((saved) => String(saved.id) === id),
+            (res.data.jobs || []).some((saved) => jobKey(saved) === jobKey({ _id: id, source })),
           );
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // Has this user already applied? Show "Applied"
   useEffect(() => {
@@ -150,7 +156,8 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
         if (!active) return;
         const hasApplied = (res.data?.applications || []).some(
           (application) =>
-            String(application.jobId?._id || application.jobId) === String(id),
+            String(application.jobId?._id || application.jobId) === String(id) &&
+            (application.source || "employer") === source,
         );
         if (hasApplied) setApplied(true);
       })
@@ -158,7 +165,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // Filter similar jobs dynamically based on job type and location
   const similarJobs = relatedJobs;
@@ -218,7 +225,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
     try {
       await axios.post(
         `${API_BASE_URL}/api/applications/apply`,
-        { jobId: id },
+        { jobId: id, source },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setApplied(true);
@@ -282,14 +289,14 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
       if (!isFavorite) {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs`,
-          { jobId: id },
+          { jobId: id, source },
           { headers },
         );
         toast.success("Job added to favorites!");
       } else {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs/remove-job`,
-          { jobId: id },
+          { jobId: id, source },
           { headers },
         );
         toast.success("Job removed from favorites!");
@@ -329,16 +336,16 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
 
   // Old links (/jobs/<id>) and links with an outdated title move to the current address.
   useEffect(() => {
-    if (!job?._id) return;
+    if (!job?._id || String(job._id) !== id || (job.source || "employer") !== source) return;
     const wanted = jobPath(job);
-    let current = routeLocation.pathname;
+    let current = routeLocation.pathname + routeLocation.search;
     try {
       current = decodeURIComponent(current);
     } catch {
       /* keep the raw path */
     }
     if (current !== wanted) navigate(wanted, { replace: true });
-  }, [job, routeLocation.pathname, navigate]);
+  }, [job, id, source, routeLocation.pathname, routeLocation.search, navigate]);
 
   const jobUrl = job?._id ? `${window.location.origin}${jobPath(job)}` : "";
   const company = job?.employer?.companyName;
@@ -701,7 +708,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                       <div className="space-y-6">
                         {similarJobs.map((relatedJob) => (
                           <div
-                            key={relatedJob._id}
+                            key={jobKey(relatedJob)}
                             className="bg-[#0F1419] rounded-xl p-6 hover:bg-[#141921] transition-colors"
                           >
                             <div className="flex items-start justify-between">
@@ -731,7 +738,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
                                     </span>
                                   </div>
                                   <div className="flex gap-2">
-                                    {relatedJob.jobApplyType?.map(
+                                    {normalizeList(relatedJob.jobApplyType).map(
                                       (type, idx) => (
                                         <span
                                           key={idx}
@@ -789,7 +796,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
             </div>
 
             {/* Right Sidebar */}
-            <div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
+            {source === "employer" && (<div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
               <div className="bg-[#191D23] rounded-xl p-6 space-y-4">
                 <div className="flex justify-between">
                   <h3 className=" text-[#64666C] text-sm">Website</h3>
@@ -878,7 +885,7 @@ export const JobDetails = ({ jobId: propJobId, onBack }) => {
               </div>
 
               <JobContactForm jobId={id} />
-            </div>
+            </div>) }
           </div>
         </div>
       </div>

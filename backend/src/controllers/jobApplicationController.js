@@ -1,4 +1,7 @@
 import JobApplication from "../models/JobApplication.js";
+import AdminJobApplication from "../models/AdminJobApplication.js";
+import { publicAdminJob } from "../services/publicAdminJob.js";
+import { applyForAdminJob } from "../services/adminJobApplication.js";
 import Job from "../models/Job.js";
 import Talent from "../models/Talent.js";
 import Resume from "../models/Resume.js";
@@ -7,6 +10,7 @@ import { applicationEvent } from "../services/notifications.js";
 
 // Apply for job
 export const applyForJob = async (req, res, next) => {
+  if (req.jobSource === "admin") return applyForAdminJob(req, res, next);
   try {
     const applicantId = req.user._id;
     const { jobId } = req.body;
@@ -98,10 +102,14 @@ export const getMyApplications = async (req, res, next) => {
       .populate("jobId")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      applications,
-    });
+    const adminApplications = await AdminJobApplication.find({ applicantId }).populate("jobId").lean();
+    const combined = [
+      ...applications.map(row => ({ ...row.toObject(), source: "employer" })),
+      ...adminApplications.map(row => ({ _id: row._id, source: "admin", applicantId: row.applicantId,
+        status: row.status, appliedAt: row.appliedAt, createdAt: row.createdAt,
+        jobId: row.jobId ? publicAdminJob(row.jobId) : null })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.status(200).json({ success: true, applications: combined });
   } catch (error) {
     next(error);
   }

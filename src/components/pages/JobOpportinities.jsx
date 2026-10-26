@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 import {
+  jobKey,
   daysLeftLabel,
   formatSalary,
   formatPosted,
@@ -133,7 +134,7 @@ export const JobOpportunities = () => {
       })
       .then((res) => {
         if (active)
-          setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+          setFavorites((res.data.jobs || []).map((j) => jobKey(j)));
       })
       .catch(() => {});
     return () => {
@@ -247,7 +248,8 @@ export const JobOpportunities = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const toggleFavorite = async (jobId) => {
+  const toggleFavorite = async (job) => {
+    const jobId = jobKey(job);
     const token = localStorage.getItem("token");
     if (!token) {
       toast.error("Please sign in to save this job");
@@ -265,7 +267,7 @@ export const JobOpportunities = () => {
     try {
       await axios.post(
         `${API_BASE_URL}/api/saved-jobs${wasSaved ? "/remove-job" : ""}`,
-        { jobId },
+        { jobId: String(job._id), source: job.source || "employer" },
         { headers },
       );
       setFavorites((prev) =>
@@ -393,11 +395,11 @@ export const JobOpportunities = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
-            disabled={savingIds.includes(job._id)}
+            disabled={savingIds.includes(jobKey(job))}
             aria-label={
-              favorites.includes(job._id)
+              favorites.includes(jobKey(job))
                 ? "Remove from saved jobs"
                 : "Save job"
             }
@@ -405,7 +407,7 @@ export const JobOpportunities = () => {
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(job._id)
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -440,11 +442,11 @@ export const JobOpportunities = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
-            disabled={savingIds.includes(job._id)}
+            disabled={savingIds.includes(jobKey(job))}
             aria-label={
-              favorites.includes(job._id)
+              favorites.includes(jobKey(job))
                 ? "Remove from saved jobs"
                 : "Save job"
             }
@@ -452,7 +454,7 @@ export const JobOpportunities = () => {
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(job._id)
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -518,11 +520,11 @@ export const JobOpportunities = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
-            disabled={savingIds.includes(job._id)}
+            disabled={savingIds.includes(jobKey(job))}
             aria-label={
-              favorites.includes(job._id)
+              favorites.includes(jobKey(job))
                 ? "Remove from saved jobs"
                 : "Save job"
             }
@@ -530,7 +532,7 @@ export const JobOpportunities = () => {
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(job._id)
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -1065,7 +1067,7 @@ export const JobOpportunities = () => {
                   }
                 >
                   {paginatedJobs.map((job) => (
-                    <JobCard key={job._id} job={job} />
+                    <JobCard key={jobKey(job)} job={job} />
                   ))}
                 </Motion.div>
               )}

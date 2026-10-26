@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError, safeText } from "../utils/userMessage";
 import {
+  jobKey,
+  talentJobPath,
   daysLeftLabel,
   formatSalary,
   formatPosted,
@@ -221,7 +223,7 @@ export const TalentJobs = () => {
       })
       .then((res) => {
         if (active)
-          setFavorites((res.data.jobs || []).map((j) => String(j.id)));
+          setFavorites((res.data.jobs || []).map((j) => jobKey(j)));
       })
       .catch(() => {});
     return () => {
@@ -229,13 +231,13 @@ export const TalentJobs = () => {
     };
   }, []);
 
-  const toggleFavorite = async (jobId) => {
+  const toggleFavorite = async (job) => {
     const token = localStorage.getItem("token");
     if (!token) {
       toast.error("Please sign in to save jobs");
       return;
     }
-    const id = String(jobId);
+    const id = jobKey(job);
     const saved = favorites.includes(id);
     const headers = { Authorization: `Bearer ${token}` };
     // optimistic update, rolled back on failure
@@ -246,13 +248,13 @@ export const TalentJobs = () => {
       if (saved) {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs/remove-job`,
-          { jobId: id },
+          { jobId: String(job._id), source: job.source || "employer" },
           { headers },
         );
       } else {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs`,
-          { jobId: id },
+          { jobId: String(job._id), source: job.source || "employer" },
           { headers },
         );
       }
@@ -290,7 +292,7 @@ export const TalentJobs = () => {
       <div
         className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 cursor-pointer hover:bg-[#1E232B] transition-colors flex flex-col gap-3 md:flex-row md:items-center md:gap-5"
         onClick={() =>
-          navigate(`/talent-dashboard/job-results/details/${job._id}`)
+          navigate(talentJobPath(job))
         }
       >
         <div className="flex items-center gap-3 min-w-0 md:flex-1">
@@ -323,14 +325,14 @@ export const TalentJobs = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
             aria-label="Save job"
             className="md:hidden ml-auto p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(String(job._id))
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -365,14 +367,14 @@ export const TalentJobs = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
             aria-label="Save job"
             className="hidden md:block p-2 rounded-lg hover:bg-[#2A3142] transition-colors disabled:opacity-60"
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(String(job._id))
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -384,7 +386,7 @@ export const TalentJobs = () => {
       <div
         className="bg-[#191D23] rounded-xl p-6 cursor-pointer hover:bg-[#1E232B] transition-colors"
         onClick={() =>
-          navigate(`/talent-dashboard/job-results/details/${job._id}`)
+          navigate(talentJobPath(job))
         }
       >
         <div className="flex items-start justify-between mb-4">
@@ -431,13 +433,13 @@ export const TalentJobs = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(job._id);
+              toggleFavorite(job);
             }}
             className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors"
           >
             <Heart
               className={`w-5 h-5 ${
-                favorites.includes(String(job._id))
+                favorites.includes(jobKey(job))
                   ? "fill-red-500 text-red-500"
                   : "text-gray-400"
               }`}
@@ -814,7 +816,7 @@ export const TalentJobs = () => {
                 }
               >
                 {paginatedJobs.map((job) => (
-                  <JobCard key={job._id} job={job} />
+                  <JobCard key={jobKey(job)} job={job} />
                 ))}
               </Motion.div>
             )}

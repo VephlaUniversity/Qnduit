@@ -31,9 +31,18 @@ export async function loadSubscriptionEvidence({ accountId, role, session = null
   const account = await adapter.account.findById(accountId).select(invoice
     ? "_id accountStatus selectedPlan paymentStatus email firstName lastName fullName companyName displayName"
     : "_id accountStatus selectedPlan paymentStatus").session(session).lean();
-  let query = adapter.subscription.findOne({ [adapter.ownerField]: accountId, ...(invoice ? { status: "active" } : {}) });
-  if (invoice) query = query.sort({ currentPeriodStart: -1, createdAt: -1, _id: -1 });
-  const subscription = await query.select("plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId").session(session).lean();
+  const subscriptionFields = "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId";
+  let subscription, ambiguousSubscription = false;
+  if (invoice) {
+    // Do not choose a plausible invoice if historical/migrated records violate
+    // the expected one-subscription-per-owner invariant.
+    const matches = await adapter.subscription.find({ [adapter.ownerField]: accountId, status: "active" })
+      .sort({ currentPeriodStart: -1, createdAt: -1, _id: -1 }).select(subscriptionFields).limit(2).session(session).lean();
+    subscription = matches[0] || null;
+    ambiguousSubscription = matches.length > 1;
+  } else {
+    subscription = await adapter.subscription.findOne({ [adapter.ownerField]: accountId }).select(subscriptionFields).session(session).lean();
+  }
   let payment = null, ambiguousPayment = false;
   if (subscription && (subscription.lastTxRef || subscription.lastTransactionId)) {
     const filter = { [adapter.ownerField]: accountId, plan: subscription.plan, provider: subscription.provider, status: "successful",
@@ -44,7 +53,7 @@ export async function loadSubscriptionEvidence({ accountId, role, session = null
       payment = matches[0] || null; ambiguousPayment = matches.length > 1;
     } else payment = await adapter.payment.findOne(filter).select("_id").session(session).lean();
   }
-  return { account, subscription, payment, ambiguousPayment };
+  return { account, subscription, payment, ambiguousPayment, ambiguousSubscription };
 }
 
 // Pure evaluation shared with invoice validation; its public DTO is unchanged.

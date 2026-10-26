@@ -14,8 +14,9 @@ export function AdminInvoiceDialog({ flow }) {
       <DialogHeader><DialogTitle ref={heading} tabIndex={-1}>Email Invoice?</DialogTitle><DialogDescription>Send the Invoice for this account’s active subscription.</DialogDescription></DialogHeader>
       {invoice && <dl className="space-y-2 [overflow-wrap:anywhere]">{[
         ["Account", invoice.name], ["Role", invoice.role === "talent" ? "Talent" : "Employer"], ["Recipient", invoice.recipient],
-        ["Plan", invoice.plan], ["Recorded payment amount", `${invoice.recordedPaymentAmount} ${invoice.currency}`],
-        ["Payment reference", invoice.reference], ["Recorded payment date", invoice.paymentDate],
+        ["Plan", invoice.plan], ["Recorded checkout amount", `${invoice.recordedPaymentAmount} ${invoice.currency}`],
+        ["Payment reference", invoice.reference], ["Recorded payment date (UTC)", invoice.paymentDate],
+        ["Subscription start (UTC)", invoice.subscriptionStartDate], ["Subscription end (UTC)", invoice.subscriptionEndDate],
       ].map(([label, value]) => <div key={label}><dt className="text-sm text-gray-400">{label}</dt><dd>{value}</dd></div>)}</dl>}
       <p role={result.status === "error" ? "alert" : "status"} aria-live="polite">{result.status === "requested" ? "Invoice email sent successfully." : result.status === "loading" ? "Loading Invoice preview…" : result.status === "sending" ? "Sending Invoice…" : result.message}</p>
       {result.blocked && <p role="status">A previous Invoice send is pending or unconfirmed. Check the inbox and request administrator review before another send.</p>}

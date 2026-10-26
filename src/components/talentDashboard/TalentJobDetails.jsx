@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import {
   MapPin,
   Share2,
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { JobContactForm } from "../pages/JobContactForm";
-import { shareLink, jobPath } from "../utils/jobDisplay";
+import { shareLink, jobPath, jobKey, talentJobPath } from "../utils/jobDisplay";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
@@ -166,6 +166,9 @@ const JobEmployerActions = ({ employerId, jobId }) => {
 export const TalentJobDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+  const source = new URLSearchParams(routeLocation.search).get("source") || "employer";
+  const sourceQuery = source === "employer" ? "" : `?source=${encodeURIComponent(source)}`;
   const [job, setJob] = useState(null);
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("about");
@@ -183,10 +186,13 @@ export const TalentJobDetails = () => {
     setJob(null);
     setLoadError("");
     setApplied(false);
+    setIsFavorite(false);
+    setBrokenMedia({});
+    setLogoFailed(false);
     setRelatedJobs([]);
     const fetchJob = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/jobs/public/${id}`);
+        const res = await axios.get(`${API_BASE_URL}/api/jobs/public/${id}${sourceQuery}`);
         if (active) setJob(res.data.job);
       } catch (error) {
         console.error("Failed to fetch job", error);
@@ -201,7 +207,7 @@ export const TalentJobDetails = () => {
 
     const fetchRelatedJobs = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/jobs/related/${id}`);
+        const res = await axios.get(`${API_BASE_URL}/api/jobs/related/${id}${sourceQuery}`);
         if (active) setRelatedJobs(res.data.jobs);
       } catch (error) {
         console.error("Failed to fetch related jobs", error);
@@ -213,7 +219,7 @@ export const TalentJobDetails = () => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // **** new route needed ****
   /*useEffect(() => {
@@ -245,14 +251,14 @@ export const TalentJobDetails = () => {
       .then((res) => {
         if (active)
           setIsFavorite(
-            (res.data.jobs || []).some((saved) => String(saved.id) === id),
+            (res.data.jobs || []).some((saved) => jobKey(saved) === jobKey({ _id: id, source })),
           );
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // Has this user already applied? Show "Applied"
   useEffect(() => {
@@ -267,7 +273,8 @@ export const TalentJobDetails = () => {
         if (!active) return;
         const hasApplied = (res.data?.applications || []).some(
           (application) =>
-            String(application.jobId?._id || application.jobId) === String(id),
+            String(application.jobId?._id || application.jobId) === String(id) &&
+            (application.source || "employer") === source,
         );
         if (hasApplied) setApplied(true);
       })
@@ -275,7 +282,7 @@ export const TalentJobDetails = () => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, source, sourceQuery]);
 
   // Filter similar jobs dynamically based on job type and location
   const similarJobs = relatedJobs;
@@ -335,7 +342,7 @@ export const TalentJobDetails = () => {
     try {
       await axios.post(
         `${API_BASE_URL}/api/applications/apply`,
-        { jobId: id },
+        { jobId: id, source },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setApplied(true);
@@ -394,14 +401,14 @@ export const TalentJobDetails = () => {
       if (!isFavorite) {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs`,
-          { jobId: id },
+          { jobId: id, source },
           { headers },
         );
         toast.success("Job added to favorites!");
       } else {
         await axios.post(
           `${API_BASE_URL}/api/saved-jobs/remove-job`,
-          { jobId: id },
+          { jobId: id, source },
           { headers },
         );
         toast.success("Job removed from favorites!");
@@ -793,7 +800,7 @@ export const TalentJobDetails = () => {
                     <div className="space-y-6">
                       {similarJobs.map((relatedJob) => (
                         <div
-                          key={relatedJob._id}
+                          key={jobKey(relatedJob)}
                           className="bg-[#0F1419] rounded-xl p-6 hover:bg-[#141921] transition-colors"
                         >
                           <div className="flex items-start justify-between">
@@ -804,7 +811,7 @@ export const TalentJobDetails = () => {
                                   {relatedJob.employer?.companyName}
                                 </div>
                                 <Link
-                                  to={`/talent-dashboard/job-results/details/${relatedJob._id}`}
+                                  to={talentJobPath(relatedJob)}
                                 >
                                   <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors">
                                     {relatedJob.jobTitle}{" "}
@@ -823,7 +830,7 @@ export const TalentJobDetails = () => {
                                   </span>
                                 </div>
                                 <div className="flex gap-2">
-                                  {relatedJob.jobApplyType?.map((type, idx) => (
+                                  {normalizeList(relatedJob.jobApplyType).map((type, idx) => (
                                     <span
                                       key={idx}
                                       className="px-3 py-1 bg-[#2A3142] text-white rounded-md text-sm"
@@ -879,7 +886,7 @@ export const TalentJobDetails = () => {
           </div>
 
           {/* Right Sidebar */}
-          <div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
+          {source === "employer" && (<div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
             <div className="bg-[#191D23] rounded-xl p-6 space-y-4">
               <div className="flex justify-between">
                 <h3 className=" text-[#64666C] text-sm">Website</h3>
@@ -958,7 +965,7 @@ export const TalentJobDetails = () => {
             </div>
 
             <JobContactForm jobId={id} />
-          </div>
+          </div>) }
         </div>
       </div>
     </div>

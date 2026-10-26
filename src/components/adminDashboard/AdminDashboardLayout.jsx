@@ -31,6 +31,7 @@ const menuItems = [
     path: "/admin-dashboard/employers",
   },
   { icon: Briefcase, label: "Manage Jobs", path: "/admin-dashboard/jobs" },
+  { icon: Briefcase, label: "Admin Jobs", path: "/admin-dashboard/admin-jobs" },
   {
     icon: ClipboardCheck,
     label: "Subscription & Plans",

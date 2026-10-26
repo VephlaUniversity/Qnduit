@@ -442,6 +442,7 @@ export const AdminOverview = () => {
         <h1 tabIndex={-1} className="text-2xl md:text-3xl font-semibold text-white">
           Dashboard
         </h1>
+        <button type="button" onClick={() => navigate("/admin-dashboard/admin-jobs?create=1")} className="ml-auto min-h-11 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">Post Job</button>
       </div>
 
       {/* Stats */}

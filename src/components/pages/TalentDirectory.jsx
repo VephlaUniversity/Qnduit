@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { PublicTalentImage } from "../profiles/PublicTalentMedia";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { Briefcase, ChevronLeft, ChevronRight, Filter, Heart, Loader2, MapPin, Search, UserRound, X } from "lucide-react";
+import { Briefcase, ChevronLeft, ChevronRight, Filter, Heart, Loader2, MapPin, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../hooks/useAuth";
 import { API_BASE_URL } from "../utils/api";
@@ -24,24 +25,6 @@ const isEmployerUser = () => {
     return false;
   }
 };
-
-function TalentAvatar({ src, name }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-500/10 text-blue-400">
-      {src && !failed ? (
-        <img
-          src={src}
-          alt={`${name} profile`}
-          className="h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <UserRound className="h-8 w-8" aria-hidden="true" />
-      )}
-    </div>
-  );
-}
 
 export const TalentDirectory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -374,10 +357,10 @@ export const TalentDirectory = () => {
                 {data.talents.map((talent) => (
                   <article
                     key={talent.username}
-                    className="bg-[#1A1F2E] rounded-2xl p-6 border border-white/5 flex flex-col"
+                    className="bg-[#191D23] rounded-2xl p-6 border border-white/5 flex flex-col transition-colors hover:border-blue-500/30"
                   >
                     <div className="flex items-center gap-4 mb-4 min-w-0">
-                      <TalentAvatar src={talent.avatar} name={talent.name} />
+                      <PublicTalentImage src={talent.avatar} alt={`${talent.name} profile`} avatar className="h-16 w-16 rounded-full border border-white/10" />
                       <div className="min-w-0 flex-1">
                         <h2 className="text-lg font-semibold truncate">{talent.name}</h2>
                         {talent.jobTitle && (
@@ -428,7 +411,7 @@ export const TalentDirectory = () => {
                         {talent.skills.map((skill) => (
                           <span
                             key={skill}
-                            className="px-3 py-1 bg-white/5 rounded-full text-xs text-gray-300 max-w-full truncate"
+                            className="px-3 py-1 bg-blue-500/10 rounded-full text-xs text-blue-300 max-w-full truncate"
                           >
                             {skill}
                           </span>

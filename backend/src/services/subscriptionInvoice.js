@@ -11,12 +11,14 @@ const email = value => typeof value === "string" && value.length <= 254 && /^[^\
 const reference = value => typeof value === "string" && value.length > 0 && value.length <= 512 && !Array.from(value).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
 const audience = "admin-subscription-invoice-preview";
 const cooldown = 60_000, hour = 3_600_000;
+const invoiceDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
 
 async function invoiceEvidence(role, accountId, now) {
   if (!["talent", "employer"].includes(role) || !/^[a-f\d]{24}$/i.test(accountId || "")) throw fail(400, "INVALID_INVOICE_TARGET", "A valid account role and ID are required.");
   const evidence = await loadSubscriptionEvidence({ accountId, role, invoice: true });
-  const { account, subscription, payment, ambiguousPayment } = evidence;
+  const { account, subscription, payment, ambiguousPayment, ambiguousSubscription } = evidence;
   if (!account) throw fail(404, "INVOICE_ACCOUNT_MISSING", "Account not found.");
+  if (ambiguousSubscription) throw fail(409, "INVOICE_SUBSCRIPTION_AMBIGUOUS", "More than one active subscription is recorded for this account. Review the billing records before sending an invoice.");
   if (ambiguousPayment) throw fail(409, "INVOICE_PAYMENT_AMBIGUOUS", "The subscription payment evidence is ambiguous.");
   const status = subscriptionStatusFromEvidence(evidence, { role, now });
   if (!status.paidEligible) throw fail(409, "INVOICE_EVIDENCE_UNAVAILABLE",
@@ -40,7 +42,9 @@ async function invoiceEvidence(role, accountId, now) {
     accountId: String(account._id), role, name: name || (role === "talent" ? "Talent" : "Employer"), recipient: account.email,
     subscriptionId: String(subscription._id), paymentId: String(payment._id), plan: subscription.plan,
     recordedPaymentAmount: payment.amount, currency, reference: paymentReference,
-    paymentDate: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(paidAt),
+    paymentDate: invoiceDate.format(paidAt),
+    subscriptionStartDate: invoiceDate.format(new Date(status.periodStart)),
+    subscriptionEndDate: invoiceDate.format(new Date(status.expiry)),
   };
   const fingerprint = createHash("sha256").update(JSON.stringify({ invoice, paidAt: paidAt.toISOString(),
     periodStart: status.periodStart, periodEnd: status.expiry, txRef: subscription.lastTxRef, transactionId: subscription.lastTransactionId })).digest("hex");
@@ -106,19 +110,21 @@ export async function sendInvoice({ role, accountId, adminId, previewToken, requ
     await Attempt.updateOne({ _id: requestId }, { $set: { status: "blocked", retryAt } });
     throw fail(429, "INVOICE_RESEND_LIMITED", "Invoice resend is limited. Wait before requesting another send.", { retryAt });
   }
-  let providerStarted = false;
+  let providerStarted = false, providerAccepted = false;
   try {
     // Detect changed evidence after the atomic claim, before contacting SendGrid.
     const current = await invoiceEvidence(role, accountId, now());
     if (current.fingerprint !== fingerprint) throw fail(409, "INVOICE_PREVIEW_STALE", "Subscription or payment details changed. Refresh the invoice preview.");
-    const message = renderSubscriptionEmail({ title: "Invoice", introduction: "Your subscription payment is recorded below.", fields: [
+    const message = renderSubscriptionEmail({ title: "Invoice", introduction: "Your linked subscription payment is recorded below. Amounts and dates reflect QNDUIT billing records.", fields: [
       ["Account", invoice.name], ["Role", role === "talent" ? "Talent" : "Employer"], ["Plan", invoice.plan],
-      ["Recorded payment amount", `${String(invoice.recordedPaymentAmount)} ${invoice.currency}`],
-      ["Payment reference", invoice.reference], ["Recorded payment date", invoice.paymentDate],
+      ["Recorded checkout amount", `${String(invoice.recordedPaymentAmount)} ${invoice.currency}`],
+      ["Payment reference", invoice.reference], ["Recorded payment date (UTC)", invoice.paymentDate],
+      ["Subscription start (UTC)", invoice.subscriptionStartDate], ["Subscription end (UTC)", invoice.subscriptionEndDate],
     ] });
     providerStarted = true;
     const response = await send({ to: invoice.recipient, ...message });
     if (response?.[0]?.statusCode !== 202) throw new Error("Acceptance unconfirmed");
+    providerAccepted = true;
     // Persist acceptance before releasing the gate. A failed audit write must
     // leave the gate locked, even when the provider might have accepted email.
     await Attempt.updateOne({ _id: requestId }, { $set: { status: "accepted" } });
@@ -126,7 +132,9 @@ export async function sendInvoice({ role, accountId, adminId, previewToken, requ
     return previousResult({ _id: requestId, status: "accepted" });
   } catch (error) {
     const providerStatus = Number(error.response?.statusCode || error.response?.status || error.code);
-    const definite = !providerStarted || providerStatus >= 400 && providerStatus < 500;
+    // A provider timeout can be ambiguous. After acceptance, an audit/database
+    // failure is never evidence of provider rejection; retain uncertain-send protection.
+    const definite = !providerStarted || !providerAccepted && providerStatus >= 400 && providerStatus < 500 && providerStatus !== 408;
     await Attempt.updateOne({ _id: requestId }, { $set: { status: definite ? "failed" : "uncertain" } });
     if (definite) await Gate.updateOne({ _id: scope, pending: requestId }, { $set: { pending: null } });
     if (!providerStarted && error.status) throw error;
