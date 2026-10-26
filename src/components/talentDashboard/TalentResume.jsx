@@ -16,6 +16,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
+import { cvExtension, nameWithExtension } from "../utils/cvFile";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 const MAX_CV_FILES = 5;
 const MAX_PORTFOLIO = 10;
@@ -60,10 +62,11 @@ const downloadCvFile = async (file, onError) => {
   try {
     const response = await fetch(file.url, { credentials: "omit" });
     if (!response.ok) throw new Error();
-    blobUrl = URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+    blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
-    link.download = cvLabel(file);
+    link.download = await nameWithExtension(cvLabel(file), blob);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -73,6 +76,70 @@ const downloadCvFile = async (file, onError) => {
     onError?.();
   }
 };
+
+// Shows a CV inside the app. PDFs are displayed in a viewer; Word files cannot be displayed by a browser, so the person is pointed to Download instead.
+function CvPreview({ file }) {
+  const [state, setState] = useState({ loading: true, url: "", message: "" });
+  useEffect(() => {
+    const controller = new AbortController();
+    let pdfUrl;
+    (async () => {
+      try {
+        const response = await fetch(file.url, {
+          signal: controller.signal,
+          credentials: "omit",
+        });
+        if (!response.ok) throw new Error();
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        if ((await cvExtension(blob)) !== ".pdf") {
+          setState({
+            loading: false,
+            url: "",
+            message:
+              "Preview is not available for Word files. Use Download to open it.",
+          });
+          return;
+        }
+        pdfUrl = URL.createObjectURL(
+          new Blob([blob], { type: "application/pdf" }),
+        );
+        setState({ loading: false, url: pdfUrl, message: "" });
+      } catch {
+        if (!controller.signal.aborted)
+          setState({
+            loading: false,
+            url: "",
+            message: "Unable to load this CV. Please try again.",
+          });
+      }
+    })();
+    return () => {
+      controller.abort();
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [file.url]);
+
+  if (state.loading)
+    return (
+      <p role="status" className="flex items-center gap-2 text-gray-400">
+        <Loader2 className="w-4 h-4 animate-spin" /> Loading CV...
+      </p>
+    );
+  if (!state.url)
+    return (
+      <p role="status" className="text-gray-300 text-sm">
+        {state.message}
+      </p>
+    );
+  return (
+    <iframe
+      src={state.url}
+      title={`Preview of ${cvLabel(file)}`}
+      className="w-full h-[65dvh] min-h-64 rounded border border-white/10 bg-white"
+    />
+  );
+}
 
 const TalentResumes = () => {
   const { toast } = useToast();
@@ -87,6 +154,7 @@ const TalentResumes = () => {
 
   // Files already saved on the server, and files picked in this session.
   const [existingCv, setExistingCv] = useState([]);
+  const [previewCv, setPreviewCv] = useState(null);
   const [newCvFiles, setNewCvFiles] = useState([]);
   const [existingPortfolio, setExistingPortfolio] = useState([]);
   const [newPortfolio, setNewPortfolio] = useState([]); // [{ file, preview }]
@@ -401,6 +469,41 @@ const TalentResumes = () => {
         </h1>
       </div>
 
+      <Dialog
+        open={Boolean(previewCv)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewCv(null);
+        }}
+      >
+        <DialogContent className="bg-[#1A1A1E] text-white border-white/10 sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">
+              {previewCv ? cvLabel(previewCv) : "CV"}
+            </DialogTitle>
+          </DialogHeader>
+          {previewCv && (
+            <CvPreview key={previewCv.public_id} file={previewCv} />
+          )}
+          {previewCv && (
+            <button
+              type="button"
+              onClick={() =>
+                downloadCvFile(previewCv, () =>
+                  toast({
+                    title: "Unable to download CV",
+                    description: "Please try again later.",
+                    variant: "destructive",
+                  }),
+                )
+              }
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white justify-self-start text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+          )}
+        </DialogContent>
+      </Dialog>
       <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 md:p-8 max-w-5xl space-y-8">
         {/* CV File */}
         <section>
@@ -431,30 +534,13 @@ const TalentResumes = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setPreviewCv(file)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-blue-400 bg-blue-600/10 hover:bg-blue-600 hover:text-white transition-colors"
                   >
                     <Eye className="w-4 h-4" />
-                    View
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadCvFile(file, () =>
-                        toast({
-                          title: "Unable to download CV",
-                          description: "Please try again later.",
-                          variant: "destructive",
-                        }),
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-200 bg-white/5 hover:bg-white/10 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
+                    Preview
                   </button>
                   <button
                     type="button"
@@ -462,7 +548,9 @@ const TalentResumes = () => {
                     title="Remove CV"
                     onClick={() =>
                       setExistingCv(
-                        existingCv.filter((f) => f.public_id !== file.public_id),
+                        existingCv.filter(
+                          (f) => f.public_id !== file.public_id,
+                        ),
                       )
                     }
                     className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors"
@@ -831,8 +919,8 @@ const TalentResumes = () => {
         <section>
           <h2 className="text-xl font-semibold text-white mb-1">Skills</h2>
           <p className="text-gray-400 text-sm mb-4">
-            Add your main skills and rate how strong you are in each one, from
-            0 to 100. They show as progress bars on your profile overview.
+            Add your main skills and rate how strong you are in each one, from 0
+            to 100. They show as progress bars on your profile overview.
           </p>
           <div className="space-y-3">
             {skills.map((skill, index) => {
