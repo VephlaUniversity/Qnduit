@@ -31,12 +31,12 @@ import {
 } from "../utils/jobDisplay";
 
 export const TalentJobs = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const jobTitle = searchParams.get("jobTitle") || "";
   const location = searchParams.get("location") || "";
-  const workType = searchParams.get("workType") || "";
+  const workType = (searchParams.get("workType") || "").toLowerCase();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -94,6 +94,7 @@ export const TalentJobs = () => {
     setLocationFilter(location);
     setWorkTypeFilter(workType);
     setCompany("");
+    setCurrentPage(1);
   }, [jobTitle, location, workType]);
 
   const companyOptions = [
@@ -274,15 +275,23 @@ export const TalentJobs = () => {
   };
 
   const resetFilters = () => {
-    setSearchKeyword(jobTitle);
-    setLocationFilter(location);
-    setWorkTypeFilter(workType);
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      for (const key of ["jobTitle", "location", "workType"]) next.delete(key);
+      return next;
+    });
+    setSearchKeyword("");
+    setLocationFilter("");
+    setWorkTypeFilter("");
     setJobTypeFilter("");
     setSalaryRange([0, 240000]);
     setPostedAnytime("anytime");
     setSeniorityLevel("all");
     setCompany("");
     setCurrentPage(1);
+    setSortBy("default");
+    setItemsPerPage(6);
+    setSidebarOpen(false);
   };
 
   // Job Card
