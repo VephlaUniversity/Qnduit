@@ -56,6 +56,7 @@ import AdminOverview from "./components/adminDashboard/AdminOverview";
 import ManageCandidates from "./components/adminDashboard/ManageCandidates";
 import ManageEmployers from "./components/adminDashboard/ManageEmployers";
 import ManageJobs from "./components/adminDashboard/ManageJobs";
+import ManageAdminJobs from "./components/adminDashboard/ManageAdminJobs";
 import SubscriptionPlans from "./components/adminDashboard/SubscriptionPlans";
 import SubscribedEmployers from "./components/adminDashboard/SubscribedEmployers";
 import SubscribedCandidates from "./components/adminDashboard/SubscribedCandidates";
@@ -397,6 +398,7 @@ const AppContent = () => {
               </AdminProtectedRoute>
             }
           />
+          <Route path="/admin-dashboard/admin-jobs" element={<AdminProtectedRoute><AdminDashboardLayout><ManageAdminJobs /></AdminDashboardLayout></AdminProtectedRoute>} />
           <Route
             path="/admin-dashboard/subscription"
             element={

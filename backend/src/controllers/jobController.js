@@ -1,4 +1,5 @@
 import Job from "../models/Job.js";
+import { findPublicAdminJob } from "../services/publicAdminJob.js";
 import { nonDeletedJobFilter } from "../services/jobVisibility.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
@@ -342,6 +343,11 @@ const searchPipeline = (
       },
     },
     { $unwind: "$employer" },
+    { $set: { source: "employer" } },
+    { $unionWith: { coll: "adminjobs", pipeline: [
+      { $match: matchStage },
+      { $set: { source: "admin", employer: { companyName: { $ifNull: ["$organization", "QNDUIT"] } } } },
+    ] } },
   ];
 
   if (q) {
@@ -377,7 +383,7 @@ const searchPipeline = (
         },
       },
     },
-    { $sort: { planPriority: 1, createdAt: -1 } },
+    { $sort: { planPriority: 1, createdAt: -1, _id: -1, source: 1 } },
     ...extraStages,
   );
   return pipeline;
@@ -388,6 +394,7 @@ const SEARCH_POOL = 1500;
 
 const SEARCH_PROJECT = {
   _id: 1,
+  source: 1,
   jobTitle: 1,
   jobDescription: 1,
   location: 1,
@@ -401,8 +408,8 @@ const SEARCH_PROJECT = {
   qualification: 1,
   deadlineDate: 1,
   salary: 1,
-  featuredImage: 1,
-  gallery: 1,
+  featuredImage: { url: "$featuredImage.url" },
+  gallery: { $map: { input: { $ifNull: ["$gallery", []] }, as: "media", in: { url: "$$media.url", type: "$$media.type" } } },
   createdAt: 1,
   "employer._id": 1,
   "employer.companyName": 1,
@@ -488,6 +495,7 @@ export const quickSearchJobs = async (req, res, next) => {
           $project: {
             _id: 1,
             id: "$_id",
+            source: 1,
             jobTitle: 1,
             location: 1,
             companyName: "$employer.companyName",
@@ -504,6 +512,10 @@ export const quickSearchJobs = async (req, res, next) => {
 
 export const getPublicJobDetails = async (req, res, next) => {
   try {
+    if (req.jobSource === "admin") {
+      const job = await findPublicAdminJob(req.params.id);
+      return job ? res.json({ success: true, job }) : res.status(404).json({ success: false, message: "Job not found" });
+    }
     const job = await Job.findOne({
       _id: req.params.id,
       status: "published",
@@ -522,6 +534,7 @@ export const getPublicJobDetails = async (req, res, next) => {
 
     const jobData = {
       ...job.toObject(),
+      source: "employer",
       jobApplyType: job.jobApplyType
         ? Array.isArray(job.jobApplyType)
           ? job.jobApplyType
@@ -548,55 +561,19 @@ export const getPublicJobDetails = async (req, res, next) => {
   }
 };
 
-export const getRelatedJobs = async (req, res) => {
+export const getRelatedJobs = async (req, res, next) => {
   try {
-    const job = await Job.findOne({
-      _id: req.params.id,
-      ...nonDeletedJobFilter(),
-    });
-
-    if (!job) {
-      return res.status(404).json({
-        success: false,
-        message: "Job not found",
-      });
-    }
-
-    const keyword = job.jobTitle?.split(" ")[0] || "";
-
-    const relatedJobs = await Job.find({
-      _id: { $ne: job._id }, // exclude current job
-      status: "published",
-      ...nonDeletedJobFilter(),
-      $or: [
-        { location: job.location },
-        { jobApplyType: job.jobApplyType },
-        ...(keyword ? [{ jobTitle: { $regex: keyword, $options: "i" } }] : []),
-      ],
-    })
-      .limit(5)
-      .populate("employer", "companyName");
-
-    const normalizedJobs = relatedJobs.map((j) => ({
-      ...j.toObject(),
-      jobApplyType: j.jobApplyType
-        ? Array.isArray(j.jobApplyType)
-          ? j.jobApplyType
-          : [j.jobApplyType]
-        : [],
-    }));
-
-    res.json({
-      success: true,
-      jobs: normalizedJobs,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
+    const source = req.jobSource || "employer";
+    const job = source === "admin" ? await findPublicAdminJob(req.params.id) :
+      await Job.findOne({ _id: req.params.id, ...nonDeletedJobFilter() }).lean();
+    if (!job) return res.status(404).json({ success: false, message: "Job not found" });
+    const pool = await Job.aggregate(searchPipeline({}, [{ $limit: SEARCH_POOL }, { $project: SEARCH_PROJECT }]));
+    const keyword = String(job.jobTitle || "").split(" ")[0].toLowerCase();
+    const jobs = pool.filter(candidate => !(candidate.source === source && String(candidate._id) === String(job._id)))
+      .filter(candidate => candidate.location === job.location || candidate.jobApplyType === job.jobApplyType ||
+        (keyword && String(candidate.jobTitle || "").toLowerCase().includes(keyword))).slice(0, 5);
+    res.json({ success: true, jobs });
+  } catch (error) { next(error); }
 };
 
 // A signed-in user writes to whoever posted the job (route requires `protect`).

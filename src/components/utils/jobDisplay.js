@@ -100,7 +100,7 @@ export function jobPath(job) {
   const slug = slugify(
     [job.jobTitle, job.employer?.companyName].filter(Boolean).join(" "),
   );
-  return slug ? `/jobs/${slug}-${job._id}` : `/jobs/${job._id}`;
+  return (slug ? `/jobs/${slug}-${job._id}` : `/jobs/${job._id}`) + jobSourceQuery(job);
 }
 
 // Takes what is in the address bar and returns the id.
@@ -108,3 +108,8 @@ export function jobIdFromParam(param) {
   const match = /([a-f0-9]{24})$/i.exec(String(param || ""));
   return match ? match[1] : String(param || "");
 }
+
+export const jobSource = job => job?.source === "admin" ? "admin" : "employer";
+export const jobKey = job => `${jobSource(job)}:${job?._id || job?.id || ""}`;
+export const jobSourceQuery = job => jobSource(job) === "admin" ? "?source=admin" : "";
+export const talentJobPath = job => `/talent-dashboard/job-results/details/${job._id || job.id}${jobSourceQuery(job)}`;

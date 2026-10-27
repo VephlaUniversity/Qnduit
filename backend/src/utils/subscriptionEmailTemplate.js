@@ -1,7 +1,6 @@
 const escapeHtml = value => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-// Shared presentation only. Future confirmations can reuse this renderer;
-// existing confirmation senders do not call it in this batch.
+// Shared presentation for Admin invoices and automatic subscription confirmations.
 export function renderSubscriptionEmail({ title, introduction, fields }) {
   return {
     subject: `Qnduit ${title}`,

@@ -2,7 +2,8 @@ import { withVerificationBadge } from "../services/verificationBadge.js";
 import { authIdentity } from "../utils/authSession.js";
 import Talent from "../models/Talent.js";
 import { addCvToResume } from "./resumeController.js";
-import { publicSkills } from "./profileController.js";
+import Resume from "../models/Resume.js";
+import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto, publicTalentCard } from "../utils/publicTalentProfile.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
@@ -446,6 +447,7 @@ const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$
 // Public directory of talents. Same eligibility rule as getPublicTalentProfile:
 // verified, active, profile shown, public listing enabled and a live paid subscription.
 export const listPublicTalents = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(24, Math.max(1, parseInt(req.query.limit, 10) || 12));
@@ -517,25 +519,20 @@ export const listPublicTalents = async (req, res, next) => {
         .lean(),
     ]);
 
+    const resumes = await Resume.find({ talent: { $in: talents.map(row => row._id) } }).select("talent skills").lean();
+    const byTalent = new Map();
+    for (const resume of resumes) {
+      const id = String(resume.talent);
+      // Ambiguous Resume records are omitted rather than merged or guessed.
+      byTalent.set(id, byTalent.has(id) ? null : resume);
+    }
     return res.status(200).json({
       success: true,
       page,
       limit,
       total,
       pages: Math.ceil(total / limit),
-      talents: talents.map((talent) => ({
-        id: String(talent._id),
-        username: talent.username,
-        name:
-          talent.fullName ||
-          `${talent.firstName || ""} ${talent.lastName || ""}`.trim() ||
-          "Talent",
-        jobTitle: talent.jobTitle || "",
-        location: talent.location || "",
-        experienceTime: talent.experienceTime || "",
-        skills: (talent.tags || []).slice(0, 5),
-        avatar: talent.avatar?.url || "",
-      })),
+      talents: talents.map(talent => publicTalentCard(talent, byTalent.get(String(talent._id)))),
     });
   } catch (error) {
     next(error);
@@ -543,6 +540,7 @@ export const listPublicTalents = async (req, res, next) => {
 };
 
 export const getPublicTalentProfile = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const { username } = req.params;
 
@@ -554,28 +552,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
       selectedPlan: "public",
       paymentStatus: "active",
       publicProfileEnabled: true,
-    }).select(
-      [
-        "username",
-        "fullName",
-        "firstName",
-        "lastName",
-        "jobTitle",
-        "qualification",
-        "experienceTime",
-        "location",
-        "aboutMe",
-        "categories",
-        "tags",
-        "avatar",
-        "introVideo",
-        "socialNetworks",
-        "portfolioUrl",
-        "portfolio",
-        "experience",
-        "profileUpdatedAt",
-      ].join(" ")
-    );
+    }).select(PUBLIC_TALENT_FIELDS).lean();
 
     if (!talent) {
       return res.status(404).json({
@@ -592,15 +569,10 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      talent: {
-        ...talent.toObject(),
-        avatar: talent.avatar?.url || "",
-        introVideo: talent.introVideo?.url || "",
-        skills: await publicSkills(talent._id),
-      },
-    });
+    const resumes = await Resume.find({ talent: talent._id }).select(PUBLIC_RESUME_FIELDS).limit(2).lean();
+    const resume = resumes.length === 1 ? resumes[0] : null;
+    res.set("Cache-Control", "private, no-store");
+    return res.status(200).json({ success: true, talent: publicTalentProfileDto(talent, resume) });
   } catch (error) {
     next(error);
   }

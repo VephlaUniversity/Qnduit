@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
-import { formatSalary, jobPath } from "../utils/jobDisplay";
+import { formatSalary, jobPath, jobKey } from "../utils/jobDisplay";
 import { friendlyError } from "../utils/userMessage";
 
 const MAX_JOBS = 6;
@@ -86,7 +86,7 @@ export const JobListings = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {jobs.map((job) => (
             <div
-              key={job._id}
+              key={jobKey(job)}
               className="bg-gray-800 rounded-2xl p-6 hover:bg-gray-750 transition-colors flex flex-col"
             >
               <div className="h-12 w-12 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center text-lg font-bold text-white/80 mb-4">

@@ -45,7 +45,7 @@ export function createAdminInvoiceSession({ client, baseUrl, readOwner, makeId =
         if (current()) {
           const code = error.response?.data?.code;
           const definite = ["INVOICE_EMAIL_FAILED", "INVOICE_RESEND_LIMITED"].includes(code);
-          const rejected = [400, 401, 403, 404, 422].includes(error.response?.status) || code === "INVOICE_EVIDENCE_UNAVAILABLE" || code === "INVOICE_PAYMENT_AMBIGUOUS";
+          const rejected = [400, 401, 403, 404, 422].includes(error.response?.status) || code === "INVOICE_EVIDENCE_UNAVAILABLE" || code === "INVOICE_PAYMENT_AMBIGUOUS" || code === "INVOICE_SUBSCRIPTION_AMBIGUOUS";
           const delay = retryAfterMs(error.response?.headers?.["retry-after"] ?? error.response?.headers?.["Retry-After"], error.response?.headers?.date, now()) || 0;
           update({ ...preview, status: definite ? "retry" : code === "INVOICE_PREVIEW_STALE" ? "stale" : rejected ? "error" : "unconfirmed",
             until: definite ? now() + delay + 100 : preview.until || 0,

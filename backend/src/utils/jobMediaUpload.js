@@ -38,7 +38,7 @@ export async function removeNewJobMedia(assets) {
   if (removed.some(success => !success)) console.warn("Some new job media could not be cleaned up after a failed creation.");
 }
 
-export async function uploadJobMedia(files = {}, { onUploaded = () => {} } = {}) {
+export async function uploadJobMedia(files = {}, { onUploaded = () => {}, folderPrefix = "qnduit" } = {}) {
   // Validate every input before starting any uploads. Multer keeps files in memory.
   for (const file of [...(files.featuredImage || []), ...(files.photos || [])]) {
     if (!Buffer.isBuffer(file.buffer) || !file.buffer.length) {
@@ -49,13 +49,13 @@ export async function uploadJobMedia(files = {}, { onUploaded = () => {} } = {})
   }
   const media = {};
   if (files.featuredImage) {
-    media.featuredImage = await uploadBuffer(files.featuredImage[0], "qnduit/job-featured-images", "image", onUploaded);
+    media.featuredImage = await uploadBuffer(files.featuredImage[0], `${folderPrefix}/job-featured-images`, "image", onUploaded);
   }
   if (files.photos) {
     media.gallery = [];
     for (const file of files.photos) {
       const type = (file.mimetype.startsWith("video") || /\.mp4$/i.test(file.originalname || "")) ? "video" : "image";
-      const uploaded = await uploadBuffer(file, "qnduit/job-gallery", type, onUploaded);
+      const uploaded = await uploadBuffer(file, `${folderPrefix}/job-gallery`, type, onUploaded);
       media.gallery.push({ ...uploaded, type });
     }
   }

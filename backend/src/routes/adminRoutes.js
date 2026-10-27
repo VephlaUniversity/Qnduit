@@ -1,3 +1,4 @@
+import { requireEmployerJobSource } from "../middleware/requireEmployerJobSource.js";
 import express from "express";
 import { previewDowngrade, requestDowngrade } from "../controllers/subscriptionDowngradeController.js";
 import { previewCancellation, cancelActiveSubscription } from "../controllers/subscriptionCancellationController.js";
@@ -45,6 +46,7 @@ router.use((req, res, next) => {
 
 router.use(protect);
 router.use(authorize("admin"));
+router.use("/jobs", requireEmployerJobSource);
 
 router.get("/subscriptions/:role/:accountId/downgrade", previewDowngrade);
 router.post("/subscriptions/:role/:accountId/downgrade", requestDowngrade);

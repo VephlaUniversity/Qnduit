@@ -1,3 +1,4 @@
+import { talentJobPath, jobKey } from "../utils/jobDisplay";
 import React, { useState, useEffect } from "react";
 import { Search, MapPin, Calendar, MoreVertical, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,7 @@ export const TalentSavedJobs = () => {
           return {
             // The API returns `id`; older responses used `_id`.
             id: job.id || job._id,
+            source: job.source || "employer",
             title: job.title || "Untitled job",
             company: job.company || "",
             category,
@@ -108,19 +110,20 @@ export const TalentSavedJobs = () => {
   });
 
   // Handle remove job
-  const handleRemoveJob = async (id) => {
+  const handleRemoveJob = async (job) => {
+    const id = jobKey(job);
     setRemovingId(id);
     try {
       await axios.post(
         `${API_BASE_URL}/api/saved-jobs/remove-job`,
-        { jobId: id },
+        { jobId: job.id, source: job.source },
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         },
       );
-      setSavedJobs((prev) => prev.filter((job) => job.id !== id));
+      setSavedJobs((prev) => prev.filter((row) => jobKey(row) !== id));
     } catch (err) {
       toast.error(
         friendlyError(err, "We couldn't remove this job. Please try again."),
@@ -201,7 +204,7 @@ export const TalentSavedJobs = () => {
         ) : (
           sortedJobs.map((job, index) => (
             <div
-              key={job.id}
+              key={jobKey(job)}
               className={`px-6 py-5 ${
                 index !== sortedJobs.length - 1 ? "border-b border-white/5" : ""
               } hover:bg-white/5 transition-colors`}
@@ -250,7 +253,7 @@ export const TalentSavedJobs = () => {
                       <DropdownMenuItem
                         onClick={() =>
                           navigate(
-                            `/talent-dashboard/job-results/details/${job.id}`,
+                            talentJobPath(job),
                           )
                         }
                         className="text-white hover:bg-white/10 cursor-pointer"
@@ -258,11 +261,11 @@ export const TalentSavedJobs = () => {
                         View Job
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => handleRemoveJob(job.id)}
-                        disabled={removingId === job.id}
+                        onClick={() => handleRemoveJob(job)}
+                        disabled={removingId === jobKey(job)}
                         className="text-red-400 hover:bg-white/10 cursor-pointer"
                       >
-                        {removingId === job.id ? "Removing..." : "Remove Job"}
+                        {removingId === jobKey(job) ? "Removing..." : "Remove Job"}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

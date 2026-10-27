@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import process from "node:process";
 import { createHash } from "node:crypto";
 import jwt from "jsonwebtoken";
+import { confirmationId, recordSubscriptionConfirmation, dispatchSubscriptionConfirmation } from "./subscriptionConfirmation.js";
 import { loadSubscriptionEvidence, subscriptionStatusFromEvidence } from "./subscriptionStatus.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
@@ -104,7 +105,7 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
   const { Payment } = adapterForRole(role);
   const owner = await Payment.findById(paymentId).select(role).lean();
   if (!owner) throw failure(404, "SUBSCRIPTION_PAYMENT_MISSING", "Payment not found.");
-  return serialized(role, owner[role], async ({ Account, Subscription, Payment, account, state, session }) => {
+  const result = await serialized(role, owner[role], async ({ Account, Subscription, Payment, account, state, session }) => {
     const payment = await Payment.findById(paymentId).session(session);
     const amount = Number(transaction?.amount);
     if (!transaction?.id || transaction.status !== "successful" || transaction.tx_ref !== payment.txRef
@@ -143,7 +144,7 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     await payment.save({ session });
     if (reason) return { recorded: true, activated: false, reason };
     const end = new Date(now); end.setMonth(end.getMonth() + 1); // Preserve existing period semantics.
-    await Subscription.findOneAndUpdate({ [role]: account._id }, { $set: {
+    const subscription = await Subscription.findOneAndUpdate({ [role]: account._id }, { $set: {
       [role]: account._id, provider: payment.provider, plan: payment.plan, status: "active",
       currentPeriodStart: now, currentPeriodEnd: end, cancelAtPeriodEnd: false,
       canceledAt: null, endedAt: null, lastTxRef: payment.txRef, lastTransactionId: payment.transactionId,
@@ -160,8 +161,16 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     } else { tracking.planExpiresAt = end; tracking.isTrial = false; }
     await Account.updateOne({ _id: account._id }, { $set: tracking }, { session });
     await Lifecycle.updateOne({ _id: state._id }, { $set: { activePayment: payment._id, pendingPayment: null } }, { session });
+    await recordSubscriptionConfirmation({ role, account, payment, subscription, session });
     return { recorded: true, activated: true, reason: "activated" };
   });
+  // withTransaction has committed before any provider call. Replays can recover
+  // an existing pending event but never create emails for legacy activations.
+  if (result.activated) {
+    try { await dispatchSubscriptionConfirmation(confirmationId(role, paymentId)); }
+    catch { /* Email/database delivery failure cannot undo or fail activation. */ }
+  }
+  return result;
 }
 
 export async function recordFailedSubscriptionPayment({ role, paymentId }) {
