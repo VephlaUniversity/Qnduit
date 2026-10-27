@@ -2,11 +2,38 @@
 
 QNDUIT connects Talent and Employers through public profiles, jobs, applications, messaging and subscription plans. Admins manage accounts, jobs, subscriptions and Support. This document describes the repository at the PR #56 merge (`bd53884`); verify behavior and deployment settings against the revision you run.
 
+## Interface examples
+
+These screenshots were captured during local testing with synthetic job and Admin data. They illustrate the interface; they are not evidence of production deployment or provider delivery.
+
+<details>
+<summary>Talent job discovery: Employer and Admin jobs</summary>
+
+![Talent job discovery showing synthetic Employer and Admin jobs](documentation/screenshots/talent-job-discovery.png)
+
+</details>
+
+<details>
+<summary>Admin job creation form</summary>
+
+![Admin job creation form with synthetic data](documentation/screenshots/admin-job-form.png)
+
+</details>
+
 ## Architecture and stack
 
 The Vite frontend is a React 19 single-page application with React Router, Tailwind CSS, Axios and Radix UI components. The backend is an Express 5 API running on Node.js, using Mongoose and MongoDB. Authentication uses JWTs and bcrypt. Flutterwave handles the mounted payment flow; SendGrid sends email; Cloudinary stores uploaded media and authenticated message attachments. Leaflet/OpenStreetMap support map UI. The current deployment uses a cPanel-hosted frontend and Railway backend; deployment and external-service settings are managed separately from this repository.
 
 The browser calls the Express API, which checks identity and role, reads or writes MongoDB, and calls providers for payments, email and media. Subscription activation and other multi-document workflows use MongoDB transactions. A transaction-capable replica set or sharded deployment is therefore needed for those workflows; a standalone MongoDB server is insufficient.
+
+```mermaid
+flowchart LR
+    Browser["React frontend"] --> API["Express API"]
+    API --> DB[("MongoDB")]
+    API --> Payments["Flutterwave"]
+    API --> Email["SendGrid"]
+    API --> Media["Cloudinary"]
+```
 
 ## Repository layout
 
