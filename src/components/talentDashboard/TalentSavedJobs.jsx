@@ -13,6 +13,7 @@ import axios from "axios";
 import dayjs from "dayjs";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
+import JobImage from "../jobs/JobImage";
 
 export const TalentSavedJobs = () => {
   const navigate = useNavigate();
@@ -46,6 +47,9 @@ export const TalentSavedJobs = () => {
             source: job.source || "employer",
             title: job.title || "Untitled job",
             company: job.company || "",
+            featuredImage: job.featuredImage,
+            gallery: job.gallery,
+            employer: job.employer,
             category,
             categoryColor:
               category === "Full Time"
@@ -212,7 +216,7 @@ export const TalentSavedJobs = () => {
               <div className="grid grid-cols-2 md:grid-cols-12 gap-4 items-center">
                 {/* Job Info */}
                 <div className="col-span-2 md:col-span-5 flex items-center gap-4 min-w-0">
-                  <div className="w-14 h-14 bg-gray-400 rounded-lg flex-shrink-0"></div>
+                  <JobImage job={job} className="w-14 h-14 bg-gray-400 rounded-lg font-bold text-white/80" />
                   <div className="min-w-0">
                     <h3 className="text-white font-semibold mb-1">
                       {job.title}

@@ -366,8 +366,8 @@ const TalentAbout = () => {
 
       <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 md:p-8 max-w-5xl">
         {/* Avatar Upload */}
-        <div className="flex items-start gap-6 mb-8">
-          <div className="relative w-32 h-32 bg-[#2A2A2E] rounded-lg flex items-center justify-center border border-white/10">
+        <div className="flex flex-col sm:flex-row items-start gap-6 mb-8">
+          <div className="relative w-32 h-32 shrink-0 bg-[#2A2A2E] rounded-lg flex items-center justify-center border border-white/10">
             {avatarPreview ? (
               <img
                 src={avatarPreview}
@@ -378,12 +378,12 @@ const TalentAbout = () => {
               <Camera className="w-12 h-12 text-gray-500" />
             )}
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <label className="block text-white font-medium mb-2">
               Upload a new avatar:
             </label>
             <p className="text-gray-400 text-sm mb-4">JPG 80×80px</p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <input
                 ref={avatarInputRef}
                 type="file"

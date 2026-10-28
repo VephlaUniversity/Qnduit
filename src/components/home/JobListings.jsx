@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 import { formatSalary, jobPath, jobKey } from "../utils/jobDisplay";
 import { friendlyError } from "../utils/userMessage";
+import JobImage from "../jobs/JobImage";
 
 const MAX_JOBS = 6;
 
@@ -89,23 +90,7 @@ export const JobListings = () => {
               key={jobKey(job)}
               className="bg-gray-800 rounded-2xl p-6 hover:bg-gray-750 transition-colors flex flex-col"
             >
-              <div className="h-12 w-12 rounded-lg bg-gray-700 overflow-hidden flex items-center justify-center text-lg font-bold text-white/80 mb-4">
-                {job.employer?.logo?.url ? (
-                  <img
-                    src={job.employer.logo.url}
-                    alt={`${job.employer?.companyName || "Company"} logo`}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  (job.employer?.companyName || "?")
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase()
-                )}
-              </div>
+              <JobImage job={job} className="h-12 w-12 rounded-lg bg-gray-700 text-lg font-bold text-white/80 mb-4" />
 
               <h3 className="text-xl font-semibold mb-1">{job.jobTitle}</h3>
               {job.employer?.companyName && (

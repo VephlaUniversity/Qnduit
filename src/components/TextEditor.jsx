@@ -249,7 +249,7 @@ export const TextEditor = ({ value, onChange, placeholder }) => {
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        className="w-full min-h-[120px] p-4 text-white focus:outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
+        className="w-full min-h-[120px] p-4 text-white [overflow-wrap:anywhere] focus:outline-none [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
         style={{ 
           textAlign,
           direction: "ltr", // Fix text direction
@@ -264,7 +264,7 @@ export const TextEditor = ({ value, onChange, placeholder }) => {
           content: attr(data-placeholder);
           color: #6B7280;
           pointer-events: none;
-          position: absolute;
+          display: block;
         }
         
         [contenteditable] {

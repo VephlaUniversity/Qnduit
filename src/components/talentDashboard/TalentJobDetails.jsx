@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import JobImage from "../jobs/JobImage";
 import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import {
   MapPin,
@@ -174,7 +175,6 @@ export const TalentJobDetails = () => {
   const [activeTab, setActiveTab] = useState("about");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
   const [brokenMedia, setBrokenMedia] = useState({});
-  const [logoFailed, setLogoFailed] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [applying, setApplying] = useState(false);
@@ -188,7 +188,6 @@ export const TalentJobDetails = () => {
     setApplied(false);
     setIsFavorite(false);
     setBrokenMedia({});
-    setLogoFailed(false);
     setRelatedJobs([]);
     const fetchJob = async () => {
       try {
@@ -493,21 +492,7 @@ export const TalentJobDetails = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div className="grid grid-cols-[4rem_1fr] md:grid-cols-[6rem_1fr] gap-x-4 md:gap-x-6 min-w-0">
-              <div className="w-16 h-16 md:w-24 md:h-24 md:row-span-2 bg-muted rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl font-bold text-white/80">
-                {job.employer?.logo?.url && !logoFailed ? (
-                  <img
-                    src={job.employer.logo.url}
-                    alt={`${job.employer?.companyName || "Company"} logo`}
-                    onError={() => setLogoFailed(true)}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  (job.employer?.companyName || "?")
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase()
-                )}
-              </div>
+              <JobImage job={job} className="w-16 h-16 md:w-24 md:h-24 md:row-span-2 bg-muted rounded-lg text-3xl font-bold text-white/80" />
               <div className="self-center md:self-auto min-w-0">
                 <div className="flex items-center gap-3 md:mb-2">
                   <span className="text-[#3B82F6] text-sm">
@@ -805,7 +790,7 @@ export const TalentJobDetails = () => {
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex gap-4 flex-1">
-                              <div className="w-16 h-16 bg-muted rounded-lg flex-shrink-0" />
+                              <JobImage job={relatedJob} className="w-16 h-16 bg-muted rounded-lg font-bold text-white/80" />
                               <div className="flex-1">
                                 <div className="text-[#3B82F6] text-sm mb-1">
                                   {relatedJob.employer?.companyName}

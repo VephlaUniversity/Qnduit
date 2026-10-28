@@ -2,6 +2,7 @@
 import SavedJob from "../models/SavedJob.js";
 import { createHash } from "node:crypto";
 import { findPublicAdminJob } from "../services/publicAdminJob.js";
+import { publicImageUrl } from "../utils/publicTalentProfile.js";
 
 // Get saved jobs for a user
 export const getSavedJobs = async (req, res) => {
@@ -10,20 +11,31 @@ export const getSavedJobs = async (req, res) => {
 
     const savedJobs = await SavedJob.find({ userId }).populate({ path: "jobId", match: { isDeleted: false } }).sort({ savedAt: -1 });
     for (const saved of savedJobs) {
-      if (saved.jobId && saved.source !== "admin") await saved.jobId.populate({ path: "employer", select: "companyName" });
+      if (saved.jobId && saved.source !== "admin") await saved.jobId.populate({ path: "employer", select: "companyName logo" });
     }
 
    
     const jobs = savedJobs
       .filter(sj => sj.jobId && sj.jobId.isDeleted === false)
-      .map(sj => ({
-        id: sj.jobId._id,
-        source: sj.source || "employer",
-        title: sj.jobId.jobTitle,
-        company: sj.source === "admin" ? sj.jobId.organization || "QNDUIT" : sj.jobId.employer?.companyName || "Unknown",
-        category: sj.jobId.jobCategory,
-        datePost: sj.jobId.createdAt,
-      }));
+      .map(sj => {
+        const company = sj.source === "admin" ? sj.jobId.organization || "QNDUIT" : sj.jobId.employer?.companyName || "Unknown";
+        const featuredImage = publicImageUrl(sj.jobId.featuredImage?.url);
+        const logo = sj.source === "admin" ? "" : publicImageUrl(
+          typeof sj.jobId.employer?.logo === "string" ? sj.jobId.employer.logo : sj.jobId.employer?.logo?.url,
+        );
+        return {
+          id: sj.jobId._id,
+          source: sj.source || "employer",
+          title: sj.jobId.jobTitle,
+          company,
+          ...(featuredImage ? { featuredImage: { url: featuredImage } } : {}),
+          gallery: (sj.jobId.gallery || []).filter(item => publicImageUrl(item.url))
+            .map(item => ({ url: publicImageUrl(item.url), type: item.type })),
+          employer: { companyName: company, ...(logo ? { logo: { url: logo } } : {}) },
+          category: sj.jobId.jobCategory,
+          datePost: sj.jobId.createdAt,
+        };
+      });
 
     res.json({ success: true, jobs });
   } catch (err) {

@@ -1,26 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import dayjs from "dayjs";
 import { toast } from "sonner";
 import {
   useTalentSubscription,
   hasCurrentPublicSubscription,
 } from "../hooks/useTalentSubscription";
 import { TalentPlans } from "../TalentPlans";
-
-const STATUS_LABELS = {
-  active: "Active",
-  past_due: "Payment overdue",
-  pending: "Awaiting payment",
-  canceled: "Cancelled",
-};
+import SubscriptionDates from "../subscriptions/SubscriptionDates";
+import { subscriptionStatusLabel } from "../utils/subscriptionDates";
 
 const TalentPackages = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const navigate = useNavigate();
-  const { subscription, loading, error, refresh } = useTalentSubscription();
+  const { subscription, subscriptionStatus, pendingDowngrade, loading, error, refresh } = useTalentSubscription();
   const currentPlan = hasCurrentPublicSubscription(subscription);
+  const displayPublic = subscriptionStatus?.paidEligible === true && subscriptionStatus.effectivePlan === "public";
 
   const handlePlanAction = (planType, actionType) => {
     if (actionType === "payLater") {
@@ -82,17 +77,11 @@ const TalentPackages = () => {
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">
             <p className="text-gray-400 text-sm mb-1">Your current plan</p>
             <p className="text-white text-xl font-semibold">
-              {currentPlan ? "Public Listing" : "Free Account"}
+              {displayPublic ? "Public Listing" : "Free Account"}
             </p>
-            {subscription && (
-              <p className="text-gray-400 text-sm mt-2">
-                Status:{" "}
-                {STATUS_LABELS[subscription.status] || subscription.status}
-                {currentPlan && subscription.currentPeriodEnd
-                  ? ` · Renews or ends ${dayjs(subscription.currentPeriodEnd).format("MMMM D, YYYY")}`
-                  : ""}
-              </p>
-            )}
+            <p className="text-gray-400 text-sm mt-2">Status: {subscriptionStatusLabel(subscriptionStatus?.status)}</p>
+            <SubscriptionDates subscription={subscription} status={subscriptionStatus} pendingDowngrade={pendingDowngrade} />
+            {pendingDowngrade && <p role="status" className="mt-3 text-sm text-gray-400">A downgrade to Free is awaiting processing. Current access stays active.</p>}
           </div>
 
           <TalentPlans

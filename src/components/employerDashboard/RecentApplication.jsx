@@ -14,6 +14,7 @@ import {
 } from "../ui/dialog";
 import { readApplicantSearch, writeApplicantSearch } from "./applicantSearch";
 import { useToast } from "../hooks/useToast";
+import { applicationStatusLabels as statusLabels } from "../utils/applicationStatus";
 
 const formatAppliedDate = (value) => {
   if (!value) return "Date unavailable";
@@ -120,13 +121,6 @@ function ResumePreview({ applicant }) {
   );
 }
 
-const statusLabels = {
-  pending: "Pending",
-  reviewed: "Reviewed",
-  shortlisted: "Shortlisted",
-  rejected: "Rejected",
-  hired: "Hired",
-};
 const nextStatus = {
   pending: "reviewed",
   reviewed: "shortlisted",

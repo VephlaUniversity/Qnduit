@@ -2,20 +2,14 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import axios from "axios";
-import dayjs from "dayjs";
 import { toast } from "sonner";
 import { TalentPlans } from "../TalentPlans";
+import SubscriptionDates from "../subscriptions/SubscriptionDates";
+import { subscriptionStatusLabel } from "../utils/subscriptionDates";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
 import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
 import { planFromUrl } from "../utils/planChoice";
-
-const STATUS_LABELS = {
-  active: "Active",
-  past_due: "Payment overdue",
-  pending: "Awaiting payment",
-  canceled: "Cancelled",
-};
 
 export const TalentMyPlan = () => {
   const [searchParams] = useSearchParams();
@@ -23,7 +17,7 @@ export const TalentMyPlan = () => {
   const [selectedPlan, setSelectedPlan] = useState(
     urlPlan === "public" ? "public" : "",
   );
-  const { subscription, publicProfile, loading, error: loadError, refresh } = useTalentSubscription();
+  const { subscription, subscriptionStatus, pendingDowngrade, publicProfile, loading, error: loadError, refresh } = useTalentSubscription();
   const [processing, setProcessing] = useState(false);
 
   const handlePlanAction = async (planType) => {
@@ -70,6 +64,7 @@ export const TalentMyPlan = () => {
   };
 
   const live = hasCurrentPublicSubscription(subscription);
+  const displayPublic = subscriptionStatus?.paidEligible === true && subscriptionStatus.effectivePlan === "public";
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -100,17 +95,11 @@ export const TalentMyPlan = () => {
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">
             <p className="text-gray-400 text-sm mb-1">Current plan</p>
             <p className="text-white text-xl font-semibold">
-              {live ? "Public Listing" : "Free Account"}
+              {displayPublic ? "Public Listing" : "Free Account"}
             </p>
-            {subscription && (
-              <p className="text-gray-400 text-sm mt-2">
-                Status:{" "}
-                {STATUS_LABELS[subscription.status] || subscription.status}
-                {live && subscription.currentPeriodEnd
-                  ? ` · Renews or ends ${dayjs(subscription.currentPeriodEnd).format("MMMM D, YYYY")}`
-                  : ""}
-              </p>
-            )}
+            <p className="text-gray-400 text-sm mt-2">Status: {subscriptionStatusLabel(subscriptionStatus?.status)}</p>
+            <SubscriptionDates subscription={subscription} status={subscriptionStatus} pendingDowngrade={pendingDowngrade} />
+            {pendingDowngrade && <p role="status" className="mt-3 text-sm text-gray-400">A downgrade to Free is awaiting processing. Current access stays active.</p>}
           </div>
 
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">

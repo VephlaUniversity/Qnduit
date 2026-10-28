@@ -891,7 +891,7 @@ const ProfileSettings = () => {
                 Location is optional. Supply both coordinates or leave both blank. Blank coordinates keep any saved location. Click the map to select a location:
               </p>
             </div>
-            <div className="rounded-lg overflow-hidden border border-white/5 mb-6 h-72">
+            <div className="relative isolate z-0 rounded-lg overflow-hidden border border-white/5 mb-6 h-72">
               <MapContainer
                 center={mapPosition}
                 zoom={13}

@@ -177,7 +177,7 @@ export const EmployerProfile = () => {
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5 mb-6">
         {/* Profile Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="w-20 h-20 rounded-lg bg-gray-600 flex-shrink-0 overflow-hidden">
               {profile?.logo ? (
                 <img
@@ -217,12 +217,12 @@ export const EmployerProfile = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Company Info */}
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             {/* Map - shows saved location */}
             {hasValidCoordinates(profile?.lat, profile?.lng) && (
               <div
-                className="rounded-lg overflow-hidden"
-                style={{ height: "200px", zIndex: 0 }}
+                className="relative isolate z-0 rounded-lg overflow-hidden"
+                style={{ height: "200px" }}
               >
                 <MapContainer
                   center={[parseFloat(profile.lat), parseFloat(profile.lng)]}
@@ -254,7 +254,7 @@ export const EmployerProfile = () => {
 
             {/* Company Details */}
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Website</span>
                 {websiteHref ? <a
                   href={websiteHref}
@@ -265,17 +265,17 @@ export const EmployerProfile = () => {
                   {website}
                 </a> : <span className="text-white">{website || "N/A"}</span>}
               </div>
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Email</span>
                 <span className="text-white">{profile?.companyEmail || "N/A"}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Industry</span>
                 <span className="text-white">
                   {profile?.categories?.[0] || "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Company size</span>
                 <span className="text-white">
                   {profile?.companySize
@@ -283,13 +283,13 @@ export const EmployerProfile = () => {
                     : "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Headquarters</span>
                 <span className="text-white">
                   {profile?.mapLocation || "N/A"}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-3 [&>span:first-child]:shrink-0 [&>:last-child]:min-w-0 [&>:last-child]:text-right [&>:last-child]:[overflow-wrap:anywhere]">
                 <span className="text-gray-400">Founded</span>
                 <span className="text-white">
                   {profile?.foundedYear || "N/A"}
@@ -322,7 +322,7 @@ export const EmployerProfile = () => {
           </div>
 
           {/* Right Column - About, Gallery, Jobs */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="min-w-0 lg:col-span-2 space-y-6">
             {/* About Company */}
             <div>
               <h3 className="text-xl font-semibold text-white mb-4">

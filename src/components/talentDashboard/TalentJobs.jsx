@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import useIsMobile from "../utils/useIsMobile";
+import JobImage from "../jobs/JobImage";
 import { motion as Motion } from "framer-motion";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
@@ -305,9 +306,7 @@ export const TalentJobs = () => {
         }
       >
         <div className="flex items-center gap-3 min-w-0 md:flex-1">
-          <div className="w-12 h-12 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold">
-            {job.employer?.companyName?.charAt(0) || "J"}
-          </div>
+          <JobImage job={job} className="w-12 h-12 bg-gray-700 rounded-lg text-white font-bold" />
           <div className="min-w-0">
             <h3 className="text-white font-semibold truncate">
               {job.jobTitle}
@@ -400,9 +399,7 @@ export const TalentJobs = () => {
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex gap-4">
-            <div className="w-16 h-16 bg-gray-700 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-bold text-lg">
-              {job.employer?.companyName?.charAt(0) || "J"}
-            </div>
+            <JobImage job={job} className="w-16 h-16 bg-gray-700 rounded-lg text-white font-bold text-lg" />
             <div className="flex-1">
               <div className="text-[#3B82F6] text-sm mb-1">
                 {job.employer?.companyName}

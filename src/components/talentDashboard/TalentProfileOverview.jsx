@@ -177,9 +177,9 @@ const TalentProfileOverview = () => {
 
       {/* Profile Banner */}
       <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 mb-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-[#2A2A2E] rounded-lg flex items-center justify-center text-gray-400 text-2xl font-bold border border-white/10">
+        <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+          <div className="flex min-w-0 max-w-full xl:flex-1 flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-20 h-20 shrink-0 bg-[#2A2A2E] rounded-lg flex items-center justify-center text-gray-400 text-2xl font-bold border border-white/10">
               {aboutData?.avatar ? (
                 <img
                   src={aboutData.avatar}
@@ -190,9 +190,9 @@ const TalentProfileOverview = () => {
                 initials
               )}
             </div>
-            <div>
+            <div className="min-w-0 [overflow-wrap:anywhere]">
               <p className="text-blue-500 text-sm font-medium">{jobTitle}</p>
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <h2 className="text-xl font-semibold text-white flex flex-wrap items-center gap-2">
                 {displayName}
                 {aboutData?.hasVerificationBadge === true && <span role="img" aria-label="Admin verification badge" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600"><Check className="h-3 w-3 text-white" aria-hidden="true" /></span>}
                 <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded-full">
@@ -219,11 +219,11 @@ const TalentProfileOverview = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-1 text-gray-400 text-sm">
+          <div className="flex max-w-full flex-wrap xl:flex-nowrap xl:shrink-0 items-center gap-4 xl:gap-6">
+            <div className="flex min-w-0 items-center gap-1 text-gray-400 text-sm [overflow-wrap:anywhere] [&>svg]:shrink-0">
               <MapPin className="w-4 h-4" /> {location}
             </div>
-            <div className="flex items-center gap-1 text-gray-400 text-sm">
+            <div className="flex min-w-0 items-center gap-1 text-gray-400 text-sm [overflow-wrap:anywhere] [&>svg]:shrink-0">
               <Clock className="w-4 h-4" /> {salary}
             </div>
             <div className="relative">
@@ -239,7 +239,7 @@ const TalentProfileOverview = () => {
                     className="fixed inset-0 z-40"
                     onClick={() => setShowEditPopup(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-48 bg-[#2A2A2E] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
                     <button
                       onClick={() => {
                         setShowEditPopup(false);
@@ -282,9 +282,9 @@ const TalentProfileOverview = () => {
               { label: "Age", value: age },
               { label: "Qualification", value: qualification },
             ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">{item.label}</span>
-                <span className="text-white text-sm font-medium">
+              <div key={i} className="flex items-start justify-between gap-3">
+                <span className="shrink-0 text-gray-400 text-sm">{item.label}</span>
+                <span className="min-w-0 text-right text-white text-sm font-medium [overflow-wrap:anywhere]">
                   {item.value}
                 </span>
               </div>
@@ -319,7 +319,7 @@ const TalentProfileOverview = () => {
         </div>
 
         {/* Right Content */}
-        <div className="flex-1 space-y-6">
+        <div className="min-w-0 flex-1 space-y-6 [overflow-wrap:anywhere]">
           {/* About Me */}
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
             <h3 className="text-xl font-semibold text-white mb-4">About Me</h3>
@@ -354,7 +354,7 @@ const TalentProfileOverview = () => {
               <div className="space-y-6">
                 {resumeData.education.map((edu, i) => (
                   <div key={edu._id || i}>
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                       <span className="text-white font-semibold text-sm">
                         {edu.academy}
                       </span>
@@ -383,7 +383,7 @@ const TalentProfileOverview = () => {
               <div className="space-y-6">
                 {resumeData.experience.map((exp, i) => (
                   <div key={exp._id || i}>
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                       <span className="text-white font-semibold text-sm">
                         {exp.company}
                       </span>
