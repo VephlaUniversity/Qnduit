@@ -24,8 +24,12 @@ export function publicImageUrl(value) {
   const safe = publicExternalUrl(value);
   if (!safe) return "";
   const url = new URL(safe);
-  if (/\/(?:raw|authenticated|private|resumes?|cv)(?:\/|$)|\.(?:pdf|docx?)(?:$|\/)/i.test(url.pathname)
-    || [...url.searchParams.keys()].some(key => /token|signature|authorization/i.test(key))) return "";
+  if (
+    /\/(?:raw|authenticated|private)(?:\/|$)|\/resumes\/cv(?:\/|$)|\/cv(?:\/|$)|\.(?:pdf|docx?)(?:$|\/)/i.test(url.pathname) ||
+    [...url.searchParams.keys()].some(key => /token|signature|authorization/i.test(key))
+  ) {
+    return "";
+  }
   return safe;
 }
 function videoUrl(value) {
