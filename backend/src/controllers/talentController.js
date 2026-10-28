@@ -540,6 +540,7 @@ export const listPublicTalents = async (req, res, next) => {
 };
 
 
+
 export const getPublicTalentProfile = async (req, res, next) => {
   res.set("Cache-Control", "private, no-store");
 
@@ -574,21 +575,31 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    // Fetch the Resume document directly (temp)
     const resume = await Resume.findOne({
       talent: talent._id,
     })
       .select(PUBLIC_RESUME_FIELDS)
       .lean();
 
+    const publicTalent = publicTalentProfileDto(talent, resume);
+
+    console.log("[Public Portfolio Check]", {
+      talentId: String(talent._id),
+      resumeFound: Boolean(resume),
+      portfolioImageCount: resume?.portfolioImages?.length ?? 0,
+      galleryImageCount: publicTalent.gallery.length,
+      gallery: publicTalent.gallery,
+    });
+
     return res.status(200).json({
       success: true,
-      talent: publicTalentProfileDto(talent, resume),
+      talent: publicTalent,
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 
  
