@@ -22,6 +22,13 @@ export const Header = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = React.useState(false);
 
+  const publicTalentProfileRegex = /^\/[^/]+\/?$/;
+  const isPublicTalentProfile = publicTalentProfileRegex.test(
+    location.pathname,
+  );
+
+  if (isPublicTalentProfile) return null;
+
   const isActive = (path) => location.pathname === path;
 
   React.useEffect(() => {
