@@ -57,7 +57,44 @@ export default function PublicTalentContent({ talent }) {
           {(item.title || item.description || publicExternalUrl(item.projectUrl)) && <div className="space-y-3 p-4">{item.title && <h3 className="break-words font-semibold">{item.title}</h3>}{item.description && <JobDescriptionText value={item.description} className={textClass} />}{publicExternalUrl(item.projectUrl) && <a href={publicExternalUrl(item.projectUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300">View project<ExternalLink className="h-4 w-4" /></a>}</div>}
         </article>)}</div></section>}
         {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><div className="aspect-video overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${video}`} title="Introduction video" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div></section>}
-        <History title="Experience" rows={talent.experience} owner="company" /><History title="Education" rows={talent.education} owner="academy" />
+        <History title="Experience" rows={talent.experience} owner="company" />
+        <History title="Education" rows={talent.education} owner="academy" />
+
+        {(talent.gallery?.length > 0 || talent.portfolio?.length > 0) && (
+          <section className={sectionClass} aria-label="Portfolio">
+            <h2 className={headingClass}>Portfolio</h2>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {[...(talent.portfolio || []), ...(talent.gallery || [])].map(
+                (item, index) => {
+                  const imageUrl = item.imageUrl;
+                  if (!imageUrl) return null;
+
+                  return (
+                    <article
+                      key={`${imageUrl}-${index}`}
+                      className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]"
+                    >
+                      <PublicTalentImage
+                        src={imageUrl}
+                        alt={item.title || `Portfolio image ${index + 1}`}
+                        className="aspect-video w-full"
+                      />
+
+                      {item.title && (
+                        <div className="p-4">
+                          <h3 className="break-words font-semibold text-white">
+                            {item.title}
+                          </h3>
+                        </div>
+                      )}
+                    </article>
+                  );
+                },
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   </div></main>;
