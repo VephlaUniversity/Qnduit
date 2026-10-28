@@ -11,6 +11,7 @@ import EmployerSubscription from "../models/EmployerSubscription.js";
 import TalentPayment from "../models/TalentPayment.js";
 import EmployerPayment from "../models/EmployerPayment.js";
 import { SubscriptionLifecycle as Lifecycle, SubscriptionCancellation as Cancellation, SubscriptionCharge as Charge, SubscriptionDowngrade as Downgrade } from "../models/SubscriptionLifecycle.js";
+import { generateTalentUsername } from "../utils/generateTalentUsername.js";
 
 const adapters = {
   talent: { Account: Talent, Subscription: TalentSubscription, Payment: TalentPayment, plans: ["public"] },
@@ -154,9 +155,14 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     if (role === "talent") {
       tracking.publicProfileEnabled = true;
       if (!account.username) {
-        const name = account.fullName || `${account.firstName || ""} ${account.lastName || ""}`;
-        const slug = name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-        tracking.username = `${slug || "talent"}-${String(account._id).slice(-6)}`;
+        const name =
+          account.fullName ||
+          `${account.firstName || ""} ${account.lastName || ""}`;
+
+        tracking.username = await generateTalentUsername(name, {
+          excludeId: account._id,
+          session,
+        });
       }
     } else { tracking.planExpiresAt = end; tracking.isTrial = false; }
     await Account.updateOne({ _id: account._id }, { $set: tracking }, { session });
