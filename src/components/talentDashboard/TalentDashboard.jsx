@@ -66,7 +66,7 @@ const menuItems = [
   {
     icon: Package,
     label: "My Packages",
-    path: "/talent-dashboard/packages",
+    path: "/talent-dashboard/my-plan",
   },
   { icon: Video, label: "Meeting", path: "/talent-dashboard/meeting" },
   { icon: LifeBuoy, label: "Support", path: "/talent-dashboard/support" },
