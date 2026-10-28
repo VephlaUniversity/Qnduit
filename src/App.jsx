@@ -72,6 +72,39 @@ import TalentDirectory from "./components/pages/TalentDirectory";
 
 const AppContent = () => {
   const location = useLocation();
+
+  const publicTalentProfileRegex = /^\/[^/]+\/?$/;
+
+  const reservedRoutes = new Set([
+    "/talents",
+    "/employers",
+    "/pricing",
+    "/how-it-works",
+    "/contact",
+    "/about-us",
+    "/blog",
+    "/privacy-policy",
+    "/terms-of-service",
+    "/testimonials",
+    "/find-talents",
+    "/feature-talents",
+    "/jobs",
+    "/talent-signup",
+    "/employer-signup",
+    "/signin",
+    "/forgot-password",
+    "/payment",
+    "/payment-success",
+    "/admin-signin",
+    "/admin-dashboard",
+    "/dashboard",
+    "/talent-dashboard",
+  ]);
+
+  const isPublicTalentProfile =
+    publicTalentProfileRegex.test(location.pathname) &&
+    !reservedRoutes.has(location.pathname);
+  
   const isAuthPage =
     [
       "/talent-signup",
@@ -129,7 +162,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen bg-[#0E0E10] text-white">
       <ScrollToTop />
-      {!isAuthPage && <Header />}
+      {!isAuthPage && !isPublicTalentProfile && <Header />}
       <AnimatePresence mode="wait">
         <Routes key={location.pathname} location={location}>
           <Route path="/" element={<QnduitLanding />} />
@@ -454,7 +487,7 @@ const AppContent = () => {
           />
         </Routes>
       </AnimatePresence>
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !isPublicTalentProfile && <Footer />}
       <Toaster />
       <SonnerToaster theme="dark" position="top-right" richColors closeButton />
     </div>
