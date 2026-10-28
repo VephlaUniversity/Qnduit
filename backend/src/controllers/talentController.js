@@ -539,8 +539,10 @@ export const listPublicTalents = async (req, res, next) => {
   }
 };
 
+
 export const getPublicTalentProfile = async (req, res, next) => {
   res.set("Cache-Control", "private, no-store");
+
   try {
     const { username } = req.params;
 
@@ -552,7 +554,9 @@ export const getPublicTalentProfile = async (req, res, next) => {
       selectedPlan: "public",
       paymentStatus: "active",
       publicProfileEnabled: true,
-    }).select(PUBLIC_TALENT_FIELDS).lean();
+    })
+      .select(PUBLIC_TALENT_FIELDS)
+      .lean();
 
     if (!talent) {
       return res.status(404).json({
@@ -562,6 +566,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
     }
 
     const publication = await resolveTalentPublication(talent._id);
+
     if (publication.publicProfile.status !== "published") {
       return res.status(404).json({
         success: false,
@@ -569,10 +574,17 @@ export const getPublicTalentProfile = async (req, res, next) => {
       });
     }
 
-    const resumes = await Resume.find({ talent: talent._id }).select(PUBLIC_RESUME_FIELDS).limit(2).lean();
-    const resume = resumes.length === 1 ? resumes[0] : null;
-    res.set("Cache-Control", "private, no-store");
-    return res.status(200).json({ success: true, talent: publicTalentProfileDto(talent, resume) });
+    // Fetch the Resume document directly (temp)
+    const resume = await Resume.findOne({
+      talent: talent._id,
+    })
+      .select(PUBLIC_RESUME_FIELDS)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      talent: publicTalentProfileDto(talent, resume),
+    });
   } catch (error) {
     next(error);
   }
