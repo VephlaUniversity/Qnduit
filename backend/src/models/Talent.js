@@ -170,6 +170,13 @@ const talentSchema = new mongoose.Schema(
         description: String,
         imageUrl: String,
         projectUrl: String,
+        portfolioItemId: String,
+        legacyImageValue: String,
+        skills: {
+          type: [String],
+          default: undefined,
+          validate: value => !value || (value.length <= 20 && value.every(skill => skill.length <= 80)),
+        },
       },
     ],
   },
