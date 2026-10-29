@@ -1,0 +1,202 @@
+/* Landing hero. Desktop: copy on the left, staggered talent cards on the right (scales with the width).
+   Phones/tablets: the hero stays one screen tall and the cards drift slowly in columns behind the copy. */
+.qh {
+  --qh-bg: #08090d;
+  --qh-gold: #f4c21b;
+  --qh-blue: #3f7df5;
+  --qh-star: #ffe600;
+  --qh-card: #14161c;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(180deg, #0f1b36 0, #0a1020 140px, var(--qh-bg) 560px);
+}
+.qh-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1.2px);
+  background-size: 34px 34px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 80%);
+  mask-image: linear-gradient(180deg, #000 0, transparent 80%);
+}
+.qh-inner {
+  position: relative;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+.qh-stage {
+  container-type: inline-size;
+  position: relative;
+  aspect-ratio: 2000 / 1247;
+}
+.qh-stage::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 14%;
+  background: linear-gradient(180deg, transparent, var(--qh-bg) 92%);
+  z-index: 3;
+  pointer-events: none;
+}
+.qh-copy {
+  position: absolute;
+  left: 7%;
+  top: 9%;
+  width: 52%;
+  z-index: 4;
+}
+.qh-title {
+  margin: 0;
+  font-weight: 500;
+  font-size: 5.5cqw;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  color: #fff;
+  background: linear-gradient(180deg, #fff 20%, #b9bec9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.qh-title em {
+  font-style: normal;
+  color: var(--qh-gold);
+  -webkit-text-fill-color: var(--qh-gold);
+  background: none;
+}
+.qh-lede {
+  margin: 2.6cqw 0 0;
+  max-width: 34cqw;
+  font-size: 1.36cqw;
+  line-height: 1.5;
+  color: #dde1e8;
+}
+.qh-cta {
+  display: flex;
+  gap: 1cqw;
+  margin-top: 3.4cqw;
+}
+.qh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.9cqw;
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: 1.25cqw;
+  font-weight: 500;
+  padding: 0 3cqw;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.2s;
+}
+.qh-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.qh-btn:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.qh-btn-blue { background: var(--qh-blue); color: #fff; min-width: 13cqw; }
+.qh-btn-white { background: #fff; color: #0b1020; border: 2px solid #b8c7ee; min-width: 11.6cqw; }
+
+.qh-cards { display: contents; }
+.qh-col, .qh-col-in { display: contents; }
+.qh-card {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 18.6%;
+  aspect-ratio: 372 / 413;
+  border-radius: 1.6cqw;
+  overflow: hidden;
+  background: var(--qh-card);
+  box-shadow: 0 1cqw 3cqw rgba(0, 0, 0, 0.45);
+  transition: transform 0.35s ease;
+}
+.qh-card:hover { transform: translateY(-0.5cqw) scale(1.015); z-index: 2; }
+.qh-card img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.qh-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 52%, rgba(12, 13, 18, 0.78) 80%, #0c0d12 100%);
+}
+.qh-card.is-partial img { height: auto; object-fit: initial; }
+.qh-cap { position: absolute; left: 5.6%; right: 5.6%; bottom: 4.4%; z-index: 2; }
+.qh-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qh-row + .qh-row { margin-top: 0.2cqw; }
+.qh-nm { font-size: 1.2cqw; font-weight: 500; white-space: nowrap; }
+.qh-rl, .qh-rt { font-size: 1.05cqw; color: #c3c8d2; white-space: nowrap; }
+.qh-stars { display: inline-flex; gap: 0.18cqw; }
+.qh-stars svg { width: 1.05cqw; height: 1.05cqw; fill: var(--qh-star); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .qh-card { animation: qh-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .qh-card:nth-child(2n) { animation-delay: 0.08s; }
+  .qh-card:nth-child(3n) { animation-delay: 0.16s; }
+  @keyframes qh-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+}
+
+/* Phones and tablets */
+@media (max-width: 900px) {
+  .qh-stage {
+    aspect-ratio: auto;
+    container-type: normal;
+    height: clamp(580px, calc(100svh - 64px), 860px);
+    overflow: hidden;
+  }
+  .qh-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(8, 9, 13, 0.93) 0, rgba(8, 9, 13, 0.86) 50%, rgba(8, 9, 13, 0.35) 100%);
+  }
+  .qh-stage::after { height: 90px; }
+  .qh-dots { display: none; }
+  .qh-stage { display: flex; align-items: center; }
+  .qh-copy {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+  }
+  .qh-title { font-size: clamp(2.4rem, 12vw, 4.2rem); }
+  .qh-lede { font-size: clamp(0.98rem, 3.5vw, 1.15rem); max-width: 34ch; margin-top: 16px; }
+  .qh-cta { gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .qh-btn { height: 52px; font-size: 1rem; padding: 0 28px; min-width: 0; }
+  .qh-cards {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 0 10px;
+    overflow: hidden;
+  }
+  .qh-col { display: block; }
+  .qh-col-in { display: block; animation: qh-drift 46s linear infinite; }
+  .qh-col:nth-child(2) .qh-col-in { animation-direction: reverse; animation-duration: 54s; }
+  .qh-col:nth-child(3) .qh-col-in { animation-duration: 50s; }
+  @keyframes qh-drift { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+  .qh-card {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: auto;
+    margin-bottom: 10px;
+    border-radius: 14px;
+    animation: none;
+  }
+  .qh-card:hover { transform: none; }
+  .qh-cap { left: 8px; right: 8px; bottom: 8px; }
+  .qh-nm { font-size: 0.62rem; }
+  .qh-rl, .qh-rt, .qh-stars { display: none; }
+}
+@media (min-width: 600px) and (max-width: 900px) {
+  .qh-cards { grid-template-columns: repeat(4, 1fr); }
+  .qh-col:nth-child(4) .qh-col-in { animation-duration: 58s; animation-direction: reverse; }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .qh-col-in { animation: none; }
+}

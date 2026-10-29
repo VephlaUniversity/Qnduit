@@ -1,136 +1,267 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import "./HeroSection.css";
+
+import talentA from "../../assets/hero/talent-a.jpg";
+import talentB from "../../assets/hero/talent-b.jpg";
+import talentC from "../../assets/hero/talent-c.jpg";
+import talentD from "../../assets/hero/talent-d.jpg";
+import talentE from "../../assets/hero/talent-e.jpg";
+import talentF from "../../assets/hero/talent-f.jpg";
+import talentG from "../../assets/hero/talent-g.jpg";
+import talentH from "../../assets/hero/talent-h.jpg";
+import talentI from "../../assets/hero/talent-i.jpg";
+import talentJ from "../../assets/hero/talent-j.jpg";
+
+// Card positions come from the design (x / y as a share of the 2000 x 1247 stage).
+// Names and roles are sample data until these cards are driven by real talents.
+const CARDS = [
+  {
+    id: "a",
+    name: "",
+    role: "Frontend Developer",
+    img: talentA,
+    x: 1614,
+    y: 55,
+  },
+  {
+    id: "b",
+    name: "",
+    role: "Product Designer",
+    img: talentB,
+    x: 1214,
+    y: 221,
+  },
+  {
+    id: "c",
+    name: "",
+    role: "Data Analyst",
+    img: talentC,
+    x: 1614,
+    y: 497,
+  },
+  {
+    id: "d",
+    name: "",
+    role: "Backend Engineer",
+    img: talentD,
+    x: 814,
+    y: 414,
+  },
+  {
+    id: "e",
+    name: "",
+    role: "Project Manager",
+    img: talentE,
+    x: 1214,
+    y: 662,
+  },
+  {
+    id: "f",
+    name: "",
+    role: "UI/UX Designer",
+    img: talentF,
+    x: 414,
+    y: 797,
+  },
+  {
+    id: "g",
+    name: "",
+    role: "DevOps Engineer",
+    img: talentG,
+    x: 814,
+    y: 855,
+  },
+  {
+    id: "h",
+    name: "",
+    role: "Content Strategist",
+    img: talentH,
+    x: 14,
+    y: 920,
+  },
+  {
+    id: "i",
+    name: "",
+    role: "Mobile Developer",
+    img: talentI,
+    x: 1614,
+    y: 938,
+  },
+  {
+    id: "j",
+    name: "",
+    role: "QA Engineer",
+    img: talentJ,
+    x: 1214,
+    y: 1104,
+    partial: true,
+  },
+];
+
+const Star = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <path d="M10 1.2l2.6 5.6 6.1.7-4.5 4.2 1.2 6L10 14.7 4.6 17.7l1.2-6L1.3 7.5l6.1-.7z" />
+  </svg>
+);
+
+const TalentCard = ({ card, style, hidden }) => (
+  <article
+    className={`qh-card${card.partial ? " is-partial" : ""}`}
+    style={style}
+    aria-hidden={hidden || undefined}
+  >
+    <img src={card.img} alt="" loading="eager" decoding="async" />
+    <div className="qh-cap">
+      <div className="qh-row">
+        <span className="qh-nm">{card.name}</span>
+        <span className="qh-stars">
+          {[0, 1, 2, 3, 4].map((n) => (
+            <Star key={n} />
+          ))}
+        </span>
+      </div>
+      <div className="qh-row">
+        <span className="qh-rl">{card.role}</span>
+        <span className="qh-rt">100% Rated</span>
+      </div>
+    </div>
+  </article>
+);
+
+// "small" = phones and tablets, where the cards become drifting columns
+const useSmallScreen = () => {
+  const query = "(max-width: 900px)";
+  const [small, setSmall] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+  const [cols, setCols] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth >= 600 ? 4 : 3,
+  );
+  useEffect(() => {
+    const update = () => {
+      setSmall(window.matchMedia(query).matches);
+      setCols(window.innerWidth >= 600 ? 4 : 3);
+    };
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return { small, cols };
+};
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
   animate: { opacity: 1, y: 0 },
 };
-
-const staggerContainer = {
+const stagger = {
   initial: {},
   animate: { transition: { staggerChildren: 0.1 } },
 };
+const ease = [0.16, 1, 0.3, 1];
 
 export const HeroSection = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { small, cols } = useSmallScreen();
 
   const handleDashboardClick = () => {
     const user = JSON.parse(localStorage.getItem("user") || "null");
     navigate(user?.userType === "talent" ? "/talent-dashboard" : "/dashboard");
   };
 
-  const popularTitles = [
-    "UI/UX Designer",
-    "Full Stack Engineer",
-    "Motion Designer",
-    "Ghost Writer",
-  ];
+  const full = CARDS.filter((c) => !c.partial);
+
+  const renderCards = () => {
+    if (!small) {
+      return CARDS.map((c) => (
+        <TalentCard
+          key={c.id}
+          card={c}
+          style={{
+            "--x": `${(c.x / 2000) * 100}%`,
+            "--y": `${(c.y / 1247) * 100}%`,
+          }}
+        />
+      ));
+    }
+    // Each column repeats its cards three times, then once more as an aria-hidden copy so the loop never shows a gap.
+    return Array.from({ length: cols }, (_, col) => {
+      const mine = full.filter((_, i) => i % cols === col);
+      const set = (suffix, hidden) =>
+        [0, 1, 2].flatMap((rep) =>
+          mine.map((c) => (
+            <TalentCard
+              key={`${c.id}-${rep}-${suffix}`}
+              card={c}
+              hidden={hidden}
+            />
+          )),
+        );
+      return (
+        <div className="qh-col" key={col}>
+          <div className="qh-col-in">
+            {set("a", false)}
+            {set("b", true)}
+          </div>
+        </div>
+      );
+    });
+  };
 
   return (
-    <section className="relative min-h-screen flex items-center">
-      {/* Background */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none"
-        aria-hidden="true"
-      >
-        <img
-          src="/images/hero-bg.png"
-          alt=""
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[#0E0E10]/90 to-[#0E0E10]/95" />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-20">
-        <motion.div
-          className="text-center mb-12"
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-        >
-          {/* Heading */}
-          <motion.h1
-            variants={fadeUp}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="text-4xl lg:text-6xl xl:text-7xl mb-6 leading-tight"
-          >
-            Where Talents Get Seen,
-            <br />
-            Valued, and <span className="text-[#F5C518]">Hired Fast!</span>
-          </motion.h1>
-
-          {/* Subtext */}
-          <motion.p
-            variants={fadeUp}
-            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-            className="text-xl lg:text-2xl text-gray-300 mb-8"
-          >
-            Qnduit connects skilled professionals with teams
-            <br className="hidden sm:block" />
-            ready to hire, turning visibility into opportunity.
-          </motion.p>
-
-          {/* Buttons */}
+    <section className="qh" aria-labelledby="hero-title">
+      <div className="qh-dots" aria-hidden="true" />
+      <div className="qh-inner">
+        <div className="qh-stage">
           <motion.div
-            variants={fadeUp}
-            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col sm:flex-row gap-4 justify-center pb-6"
+            className="qh-copy"
+            variants={stagger}
+            initial="initial"
+            animate="animate"
           >
-            {isAuthenticated ? (
-              <button
-                type="button"
-                onClick={handleDashboardClick}
-                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 transition-colors cursor-pointer"
-              >
-                Go to your Dashboard
-              </button>
-            ) : (
-              <Link
-                to="/talent-signup"
-                className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 transition-colors cursor-pointer"
-              >
-                Join as Talent
-              </Link>
-            )}
-            <Link
-              to="/employers"
-              className="inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 bg-white text-black px-8 py-3 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+            <motion.h1
+              id="hero-title"
+              className="qh-title"
+              variants={fadeUp}
+              transition={{ duration: 0.7, ease }}
             >
-              Hire Talent
-            </Link>
-          </motion.div>
-
-          {/* Popular Titles */}
-          <motion.div
-            className="max-w-4xl mx-auto mb-12"
-            variants={fadeUp}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
-              <motion.span
-                variants={fadeUp}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="text-gray-400 text-sm md:text-base w-full sm:w-auto mb-2 sm:mb-0"
-              >
-                Popular Titles
-              </motion.span>
-              {popularTitles.map((title, index) => (
-                <motion.span
-                  key={index}
-                  variants={fadeUp}
-                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  className="px-4 py-2 md:px-6 md:py-2 text-sm md:text-base bg-[#666666] text-[#fff] rounded-full border border-gray-700 hover:bg-gray-700 hover:text-white transition-all duration-200"
+              Where Talents Get Seen, Valued, and <em>Hired Fast!</em>
+            </motion.h1>
+            <motion.p
+              className="qh-lede"
+              variants={fadeUp}
+              transition={{ duration: 0.65, ease }}
+            >
+              Qnduit connects skilled professionals with teams ready to hire,
+              turning visibility into opportunity.
+            </motion.p>
+            <motion.div
+              className="qh-cta"
+              variants={fadeUp}
+              transition={{ duration: 0.65, ease }}
+            >
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={handleDashboardClick}
+                  className="qh-btn qh-btn-blue"
                 >
-                  {title}
-                </motion.span>
-              ))}
-            </div>
+                  Go to your Dashboard
+                </button>
+              ) : (
+                <Link to="/talent-signup" className="qh-btn qh-btn-blue">
+                  Join as Talent
+                </Link>
+              )}
+              <Link to="/employers" className="qh-btn qh-btn-white">
+                Hire Talent
+              </Link>
+            </motion.div>
           </motion.div>
-        </motion.div>
+          <div className="qh-cards">{renderCards()}</div>
+        </div>
       </div>
     </section>
   );
