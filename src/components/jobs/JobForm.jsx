@@ -28,7 +28,7 @@ function JobMediaPreview({ media, imageOnly = false }) {
 
 export default function JobForm({ isEditing, formData, setFormData, featuredImage, featuredImageRef, photos, photosRef,
   handleFeaturedImage, handlePhotosUpload, removePhoto, setFeaturedImage, handleInputChange,
-  salaryErrors = {}, deadlineMessage = "", savedDeadline = "", saving, onCancel, onSubmit, formError = "" }) {
+  salaryErrors = {}, applicationErrors = {}, deadlineMessage = "", savedDeadline = "", saving, onCancel, onSubmit, formError = "" }) {
   const [featuredImageError, setFeaturedImageError] = useState("");
   const selectFeaturedImage = event => {
     const file = event.target.files?.[0];
@@ -200,6 +200,26 @@ export default function JobForm({ isEditing, formData, setFormData, featuredImag
               <option>Project</option>
             </JobFormSelect>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="min-w-0">
+            <label htmlFor="job-applicationType" className="block text-gray-400 text-sm mb-2">Application Type</label>
+            <JobFormSelect id="job-applicationType" name="applicationType" value={formData.applicationType ?? "internal"}
+              onChange={handleInputChange} className={selectClass} aria-invalid={Boolean(applicationErrors.applicationType)}
+              aria-describedby={applicationErrors.applicationType ? "job-applicationType-error" : undefined}>
+              <option value="internal">Internal</option>
+              <option value="external">External</option>
+            </JobFormSelect>
+            {applicationErrors.applicationType && <p id="job-applicationType-error" role="alert" className="mt-2 text-sm text-red-400">{applicationErrors.applicationType}</p>}
+          </div>
+          {formData.applicationType === "external" && <div className="min-w-0">
+            <label htmlFor="job-applicationUrl" className="block text-gray-400 text-sm mb-2">Application URL <span className="text-red-500">*</span></label>
+            <input id="job-applicationUrl" name="applicationUrl" type="url" value={formData.applicationUrl || ""}
+              onChange={handleInputChange} placeholder="https://example.com/careers/apply" className={`${inputClass} min-w-0`}
+              aria-invalid={Boolean(applicationErrors.applicationUrl)} aria-describedby={applicationErrors.applicationUrl ? "job-applicationUrl-error" : undefined} />
+            {applicationErrors.applicationUrl && <p id="job-applicationUrl-error" role="alert" className="mt-2 text-sm text-red-400 break-words">{applicationErrors.applicationUrl}</p>}
+          </div>}
         </div>
 
         {/* Min & Max Salary */}

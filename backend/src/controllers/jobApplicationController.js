@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { jobApplicationMetadata, usesInternalApplications, internalApplicationFilter } from "../utils/jobApplicationMetadata.js";
 import JobApplication from "../models/JobApplication.js";
 import AdminJobApplication from "../models/AdminJobApplication.js";
 import { publicAdminJob } from "../services/publicAdminJob.js";
@@ -12,75 +14,60 @@ import { publicImageUrl } from "../utils/publicTalentProfile.js";
 // Apply for job
 export const applyForJob = async (req, res, next) => {
   if (req.jobSource === "admin") return applyForAdminJob(req, res, next);
+  let session;
+  const rejection = (status, message, code) => Object.assign(new Error(message), { status, ...(code ? { code } : {}) });
   try {
     const applicantId = req.user._id;
     const { jobId } = req.body;
 
     if (typeof jobId !== "string" || !/^[a-f\d]{24}$/i.test(jobId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid job ID." });
+      return res.status(400).json({ success: false, message: "Invalid job ID." });
     }
 
-    const job = await Job.findById(jobId);
+    session = await mongoose.startSession();
+    let application;
+    await session.withTransaction(async () => {
+      // Every retry rechecks the current job and duplicate state in its snapshot.
+      const job = await Job.findById(jobId).session(session);
+      if (!job || job.isDeleted || job.status !== "published") {
+        throw rejection(404, "Job not found or no longer available");
+      }
+      if (job.deadlineDate && jobDateKey(job.deadlineDate) < lagosDateKey()) {
+        throw rejection(400, "The application deadline for this job has passed");
+      }
+      if (!usesInternalApplications(job)) {
+        throw rejection(400, "This job does not accept QNDUIT applications. Use its application link.", "JOB_APPLICATION_EXTERNAL");
+      }
+      if (await JobApplication.findOne({ jobId, applicantId }).session(session)) {
+        throw rejection(400, "You already applied for this job");
+      }
 
-    if (!job || job.isDeleted || job.status !== "published") {
-      return res.status(404).json({
-        success: false,
-        message: "Job not found or no longer available",
-      });
-    }
+      // The job write conflicts with method/availability edits, forcing a retry
+      // or rejection. Keep the saved deadline and legacy missing-field behavior.
+      const accepted = await Job.findOneAndUpdate({
+        _id: jobId,
+        status: "published",
+        isDeleted: { $ne: true },
+        deadlineDate: job.deadlineDate ?? null,
+        $and: [internalApplicationFilter()],
+      }, { $inc: { applicantsCount: 1 } }, { new: true, session });
+      if (!accepted) throw rejection(404, "Job not found or no longer available");
 
-    if (job.deadlineDate && jobDateKey(job.deadlineDate) < lagosDateKey()) {
-      return res.status(400).json({
-        success: false,
-        message: "The application deadline for this job has passed",
-      });
-    }
-
-    const existingApplication = await JobApplication.findOne({
-      jobId,
-      applicantId,
-    });
-
-    if (existingApplication) {
-      return res.status(400).json({
-        success: false,
-        message: "You already applied for this job",
-      });
-    }
-
-    const intent =
-      req.user.role === "talent"
+      // Pure intent construction and database writes only. Delivery remains in
+      // the existing reconciler, which cannot see this intent before commit.
+      const intent = req.user.role === "talent"
         ? applicationEvent("application", { employerId: job.employer })
         : null;
-    let application;
-    try {
-      application = await JobApplication.create({
+      [application] = await JobApplication.create([{
         jobId,
         applicantId,
         employerId: job.employer,
-        ...(intent
-          ? {
-              notificationOutbox: [intent],
-              notificationNextAttemptAt: intent.occurredAt,
-            }
-          : {}),
-      });
-    } catch (error) {
-      // Double-click / concurrent request: the unique (jobId, applicantId) index won the race.
-      if (error.code === 11000) {
-        return res.status(400).json({
-          success: false,
-          message: "You already applied for this job",
-        });
-      }
-      throw error;
-    }
-
-    await Job.findByIdAndUpdate(jobId, {
-      $inc: { applicantsCount: 1 },
-    });
+        ...(intent ? {
+          notificationOutbox: [intent],
+          notificationNextAttemptAt: intent.occurredAt,
+        } : {}),
+      }], { session });
+    }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" }, readPreference: "primary" });
 
     res.status(201).json({
       success: true,
@@ -88,7 +75,15 @@ export const applyForJob = async (req, res, next) => {
       application,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: "You already applied for this job" });
+    }
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message, ...(error.code ? { code: error.code } : {}) });
+    }
     next(error);
+  } finally {
+    await session?.endSession().catch(() => {});
   }
 };
 
@@ -107,6 +102,7 @@ export const getMyApplications = async (req, res, next) => {
     const combined = [
       ...applications.map(row => {
         const application = row.toObject();
+        if (application.jobId) Object.assign(application.jobId, jobApplicationMetadata(application.jobId));
         if (application.jobId?.employer?.logo) {
           const url = publicImageUrl(application.jobId.employer.logo.url);
           application.jobId.employer.logo = url ? { url } : undefined;

@@ -1,4 +1,5 @@
 // backend/controllers/savedJobController.js
+import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 import SavedJob from "../models/SavedJob.js";
 import { createHash } from "node:crypto";
 import { findPublicAdminJob } from "../services/publicAdminJob.js";
@@ -24,6 +25,8 @@ export const getSavedJobs = async (req, res) => {
           typeof sj.jobId.employer?.logo === "string" ? sj.jobId.employer.logo : sj.jobId.employer?.logo?.url,
         );
         return {
+          ...jobApplicationMetadata(sj.jobId),
+          status: sj.jobId.status, isDeleted: sj.jobId.isDeleted, deadlineDate: sj.jobId.deadlineDate,
           id: sj.jobId._id,
           source: sj.source || "employer",
           title: sj.jobId.jobTitle,

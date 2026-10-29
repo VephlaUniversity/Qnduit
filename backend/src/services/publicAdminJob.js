@@ -1,3 +1,4 @@
+import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 import AdminJob from "../models/AdminJob.js";
 import { lagosDateKey } from "../utils/jobDeadline.js";
 
@@ -7,7 +8,7 @@ export const availableAdminJob = () => ({ status: "published", isDeleted: false,
 });
 // Deliberate public allowlist: no postedBy identity, private contact or storage IDs.
 export function publicAdminJob(job) {
-  const result = { source: "admin", employer: { companyName: job.organization || "QNDUIT" }, planPriority: 4 };
+  const result = { ...jobApplicationMetadata(job), status: job.status, isDeleted: job.isDeleted, source: "admin", employer: { companyName: job.organization || "QNDUIT" }, planPriority: 4 };
   for (const key of ["_id", "jobTitle", "jobDescription", "organization", "category", "jobCategory", "jobApplyType", "workType", "experience", "careerLevel", "qualification", "address", "location", "salary", "deadlineDate", "createdAt"])
     if (job[key] !== undefined) result[key] = job[key];
   if (job.featuredImage?.url) result.featuredImage = { url: job.featuredImage.url };

@@ -45,6 +45,8 @@ export const TalentSavedJobs = () => {
             // The API returns `id`; older responses used `_id`.
             id: job.id || job._id,
             source: job.source || "employer",
+            applicationType: job.applicationType ?? "internal", applicationUrl: job.applicationUrl || "",
+            status: job.status, isDeleted: job.isDeleted, deadlineDate: job.deadlineDate,
             title: job.title || "Untitled job",
             company: job.company || "",
             featuredImage: job.featuredImage,

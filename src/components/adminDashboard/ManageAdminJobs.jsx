@@ -1,3 +1,4 @@
+import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Flag, Trash2, MapPin, Pencil, Plus } from "lucide-react";
@@ -21,9 +22,9 @@ import { safeText } from "../utils/userMessage";
 
 const statuses = ["draft", "published", "closed"];
 const fields = [["jobTitle", "Job title", true], ["organization", "Organization"], ["location", "Location"], ["category", "Category"], ["experience", "Experience"], ["careerLevel", "Career level"], ["qualification", "Qualification"], ["address", "Address"]];
-const formFields = ["jobTitle", "jobDescription", "category", "jobCategory", "jobApplyType", "salaryType", "minSalary", "maxSalary", "experience", "careerLevel", "qualification", "deadlineDate", "address", "location"];
+const formFields = ["applicationType", "applicationUrl", "jobTitle", "jobDescription", "category", "jobCategory", "jobApplyType", "salaryType", "minSalary", "maxSalary", "experience", "careerLevel", "qualification", "deadlineDate", "address", "location"];
 const sortOptions = [{ value: "newest", label: "Newest first" }, { value: "oldest", label: "Oldest first" }, { value: "title-asc", label: "Title (A-Z)" }];
-const blank = () => ({ jobTitle: "", jobDescription: "", organization: "", location: "", category: "", experience: "", careerLevel: "", qualification: "", address: "", jobCategory: "", jobApplyType: "", workType: "On-site", minSalary: "", maxSalary: "", salaryType: "", deadlineDate: "", status: "draft" });
+const blank = () => ({ applicationType: "internal", applicationUrl: "", jobTitle: "", jobDescription: "", organization: "", location: "", category: "", experience: "", careerLevel: "", qualification: "", address: "", jobCategory: "", jobApplyType: "", workType: "On-site", minSalary: "", maxSalary: "", salaryType: "", deadlineDate: "", status: "draft" });
 const readOwner = () => browserSessions().find(row => row.actor.startsWith("admin:"));
 const inputClass = "w-full rounded-lg border border-white/10 bg-[#0E0E10] p-3 text-sm text-white";
 const buttonClass = "min-h-11 rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50";
@@ -75,6 +76,7 @@ export default function ManageAdminJobs() {
       else {
         const row = data.job;
         setDraft({ ...blank(), ...Object.fromEntries(fields.map(([key]) => [key, row[key] || ""])), jobDescription: row.jobDescription,
+          applicationType: row.applicationType ?? "internal", applicationUrl: row.applicationType === "external" ? row.applicationUrl || "" : "",
           jobCategory: row.jobCategory || "", jobApplyType: row.jobApplyType || "", workType: row.workType, minSalary: row.salary?.min ?? "", maxSalary: row.salary?.max ?? "", salaryType: row.salary?.type || "", deadlineDate: jobDateKey(row.deadlineDate) });
         setFeaturedImage(row.featuredImage?.url ? { preview: profileImageUrl(row.featuredImage.url) } : null);
         setPhotos((row.gallery || []).map((item, index) => ({ key: `saved-${item._id || index}`, id: item._id, preview: profileImageUrl(item.url), type: item.type })));
@@ -86,13 +88,14 @@ export default function ManageAdminJobs() {
     if (pending) return;
     if (!draft.jobTitle.trim()) { setFormError("Job Title is required"); return; }
     if (!editorPlainText(draft.jobDescription).trim()) { setFormError("Job Description is required"); return; }
-    const validation = validateJobSalary(draft), deadline = deadlineError(draft.deadlineDate, jobDateKey(editor.job?.deadlineDate));
+    const application = jobApplicationConfiguration(draft);
+    const validation = { ...validateJobSalary(draft), ...application.errors }, deadline = deadlineError(draft.deadlineDate, jobDateKey(editor.job?.deadlineDate));
     if (deadline) validation.deadlineDate = deadline;
     if (Object.keys(validation).length) { setErrors(validation); setFormError(Object.values(validation)[0]); requestAnimationFrame(() => document.getElementById(`job-${Object.keys(validation)[0]}`)?.focus()); return; }
     setPending(true); setFormError(""); setErrors({});
     try {
       const body = new FormData();
-      formFields.forEach(key => body.append(key, draft[key] ?? ""));
+      formFields.forEach(key => body.append(key, application.configuration[key] ?? draft[key] ?? ""));
       if (featuredImage instanceof File) body.append("featuredImage", featuredImage);
       body.append("retainedGalleryIds", JSON.stringify(photos.filter(photo => !photo.file).map(photo => photo.id)));
       body.append("removeFeaturedImage", String(Boolean(editor.job?.featuredImage?.url && !featuredImage)));
@@ -124,7 +127,7 @@ export default function ManageAdminJobs() {
     finally { if (mounted.current) setPending(false); }
   };
   const ask = (kind, job, trigger) => { actionTrigger.current = trigger; setFormError(""); setAction({ kind, job, status: job.status }); };
-  const setField = (key, value) => setDraft(previous => ({ ...previous, [key]: value }));
+  const setField = (key, value) => { setDraft(previous => ({ ...previous, [key]: value, ...(key === "applicationType" && value === "internal" ? { applicationUrl: "" } : {}) })); if (["applicationType", "applicationUrl"].includes(key)) setErrors(previous => ({ ...previous, applicationType: undefined, applicationUrl: undefined })); };
   const handleInputChange = event => setField(event.target.name, event.target.value);
   const handleFeaturedImage = event => { const file = event.target.files[0]; if (file) setFeaturedImage(file); };
   const handlePhotosUpload = event => {
@@ -137,7 +140,7 @@ export default function ManageAdminJobs() {
   if (editor) return <JobForm isEditing={!editor.creating} formData={draft} setFormData={setDraft}
     {...{ featuredImage, featuredImageRef, photos, photosRef, setFeaturedImage, handleInputChange, handleFeaturedImage, handlePhotosUpload, formError }}
     removePhoto={index => setPhotos(previous => previous.filter((_, i) => i !== index))}
-    salaryErrors={errors} deadlineMessage={errors.deadlineDate || ""} savedDeadline={jobDateKey(editor.job?.deadlineDate)} saving={pending}
+    applicationErrors={errors} salaryErrors={errors} deadlineMessage={errors.deadlineDate || ""} savedDeadline={jobDateKey(editor.job?.deadlineDate)} saving={pending}
     onCancel={() => { if (!pending) setEditor(null); }} onSubmit={save} />;
   return <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8 text-white">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -158,7 +161,7 @@ export default function ManageAdminJobs() {
             <td className="py-5"><div className="flex justify-end gap-2"><button className={buttonClass} disabled={pending} aria-label={`${job.flagged ? "Unflag" : "Flag"} ${job.jobTitle}`} onClick={() => flag(job)}><Flag className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} aria-label={`Edit ${job.jobTitle}`} onClick={() => details(job, true)}><Pencil className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} onClick={event => ask("status", job, event.currentTarget)}>Change status</button><button className="min-h-11 rounded bg-red-600 px-3 disabled:opacity-50" disabled={pending} aria-label={`Delete ${job.jobTitle}`} onClick={event => ask("delete", job, event.currentTarget)}><Trash2 className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} onClick={() => details(job)}>View Job Info</button></div></td></tr>)}
         </tbody></table></div><PaginationBar page={pagination.page} totalPages={pagination.totalPages} onChange={setPage} />
     </div>
-    <Dialog open={!!view} onOpenChange={open => { if (!open) setView(null); }}><DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-white/10 bg-[#1A1A1E] text-white"><DialogHeader><DialogTitle>{view?.jobTitle || "Admin job"}</DialogTitle><DialogDescription>Admin post details</DialogDescription></DialogHeader>{view && <><dl className="grid grid-cols-2 gap-3 text-sm">{[["Organization", view.organization], ["Location", view.location], ["Work type", view.workType], ["Job type", view.jobCategory], ["Job Apply Type", view.jobApplyType], ["Status", view.effectiveStatus], ["Posted by", view.postedByName || "Admin account unavailable"], ["Admin ID", view.postedBy], ["Created", formatAdminProfileDate(view.createdAt)], ["Expiry", formatAdminProfileDate(jobDateKey(view.deadlineDate))], ["Salary period", view.salary?.type], ["Minimum salary", view.salary?.min], ["Maximum salary", view.salary?.max], ["Experience", view.experience], ["Qualification", view.qualification], ["Career level", view.careerLevel], ["Category", view.category], ["Address", view.address]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="break-words">{value ?? "Not specified"}</dd></div>)}</dl>{view.featuredImage?.url && <img src={profileImageUrl(view.featuredImage.url)} alt="Featured job" className="max-h-60 w-full rounded-lg object-cover" />}
+    <Dialog open={!!view} onOpenChange={open => { if (!open) setView(null); }}><DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-white/10 bg-[#1A1A1E] text-white"><DialogHeader><DialogTitle>{view?.jobTitle || "Admin job"}</DialogTitle><DialogDescription>Admin post details</DialogDescription></DialogHeader>{view && <><dl className="grid grid-cols-2 gap-3 text-sm">{[["Organization", view.organization], ["Location", view.location], ["Work type", view.workType], ["Job type", view.jobCategory], ["Job Apply Type", view.jobApplyType], ["Application Type", view.applicationType === "external" ? "External" : "Internal"], ["Application URL", view.applicationType === "external" ? view.applicationUrl : "Not required"], ["Status", view.effectiveStatus], ["Posted by", view.postedByName || "Admin account unavailable"], ["Admin ID", view.postedBy], ["Created", formatAdminProfileDate(view.createdAt)], ["Expiry", formatAdminProfileDate(jobDateKey(view.deadlineDate))], ["Salary period", view.salary?.type], ["Minimum salary", view.salary?.min], ["Maximum salary", view.salary?.max], ["Experience", view.experience], ["Qualification", view.qualification], ["Career level", view.careerLevel], ["Category", view.category], ["Address", view.address]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="break-words">{value ?? "Not specified"}</dd></div>)}</dl>{view.featuredImage?.url && <img src={profileImageUrl(view.featuredImage.url)} alt="Featured job" className="max-h-60 w-full rounded-lg object-cover" />}
       {view.gallery?.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{view.gallery.map(item => item.type === "video" ? <video key={item._id} src={profileImageUrl(item.url)} controls playsInline className="w-full rounded-lg" /> : <img key={item._id} src={profileImageUrl(item.url)} alt="Job gallery" className="w-full rounded-lg" />)}</div>}
       <JobDescriptionText value={view.jobDescription} className="text-sm leading-relaxed text-gray-200" /></>}</DialogContent></Dialog>
     <Dialog open={!!action} onOpenChange={open => { if (!open && !pending) setAction(null); }}><DialogContent className="border-white/10 bg-[#1A1A1E] text-white" onOpenAutoFocus={event => { event.preventDefault(); cancelButton.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); (actionTrigger.current?.isConnected ? actionTrigger.current : heading.current)?.focus(); }}><DialogHeader><DialogTitle>{action?.kind === "delete" ? "Delete Admin job?" : "Change Admin job status?"}</DialogTitle><DialogDescription>Confirm the action for “{action?.job.jobTitle}”.</DialogDescription></DialogHeader>

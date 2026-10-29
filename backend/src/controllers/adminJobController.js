@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration.js";
 import AdminJob from "../models/AdminJob.js";
 import { uploadJobMedia, removeNewJobMedia } from "../utils/jobMediaUpload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
@@ -7,7 +8,7 @@ import { jobSalaryUpdate } from "../utils/jobSalaryValidation.js";
 
 const fail = (status, message, errors) => Object.assign(new Error(message), { status, errors });
 const textFields = ["jobTitle", "jobDescription", "organization", "category", "experience", "careerLevel", "qualification", "address", "location"];
-const editable = [...textFields, "jobCategory", "jobApplyType", "workType", "salary", "minSalary", "maxSalary", "salaryType", "deadlineDate", "retainedGalleryIds", "removeFeaturedImage"];
+const editable = [...textFields, "applicationType", "applicationUrl", "jobCategory", "jobApplyType", "workType", "salary", "minSalary", "maxSalary", "salaryType", "deadlineDate", "retainedGalleryIds", "removeFeaturedImage"];
 const hash = value => createHash("sha256").update(value).digest("hex");
 const poster = { path: "postedBy", select: "name", transform: (doc, id) => doc || { _id: id } };
 const dto = job => ({
@@ -15,6 +16,7 @@ const dto = job => ({
   featuredImage: job.featuredImage?.url ? { url: job.featuredImage.url } : null,
   gallery: (job.gallery || []).map(item => ({ _id: String(item._id), url: item.url, type: item.type })),
   ...Object.fromEntries([...textFields, "jobCategory", "jobApplyType", "workType", "salary", "deadlineDate", "status", "flagged", "revision", "createdAt", "updatedAt"].map(key => [key, job[key]])),
+  applicationType: job.applicationType ?? "internal", applicationUrl: job.applicationType === "external" ? job.applicationUrl || "" : "",
   effectiveStatus: job.status === "published" && jobDateKey(job.deadlineDate) && jobDateKey(job.deadlineDate) < lagosDateKey() ? "expired" : job.status,
 });
 function bodyFor(req, allowed) {
@@ -25,7 +27,8 @@ function bodyFor(req, allowed) {
   return body;
 }
 function fields(body, existing, creating = false) {
-  const data = {}, errors = {};
+  const application = jobApplicationConfiguration(body, existing || {});
+  const data = { ...application.configuration }, errors = { ...application.errors };
   for (const field of textFields) {
     if (!Object.hasOwn(body, field) && !creating) continue;
     const value = body[field] ?? "";
