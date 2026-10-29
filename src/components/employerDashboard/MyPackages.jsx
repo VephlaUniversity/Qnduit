@@ -4,6 +4,7 @@ import { useEmployerSubscription } from "../hooks/useEmployerSubscription";
 import { useEmployerPlanAction } from "../hooks/useEmployerPlanAction";
 import { employerPlanName, employerStatusName } from "../utils/employerSubscription";
 import SubscriptionDates from "../subscriptions/SubscriptionDates";
+import UserSubscriptionCancellation from "../subscriptions/UserSubscriptionCancellation";
 
 export const MyPackages = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -29,6 +30,11 @@ export const MyPackages = () => {
       {!status.paidEligible && subscription?.status === "active" && <p>The recorded subscription is still marked active. Contact Support to reconcile it before making another plan selection.</p>}
       {data.unpaidSelection && <p>Unpaid selection: {employerPlanName(data.unpaidSelection)}. This does not activate paid access.</p>}
       <SubscriptionDates subscription={subscription} status={status} pendingDowngrade={data.pendingDowngrade} showTimezone={false} showRenewalNote={false} />
+      {status.paidEligible && (
+        <UserSubscriptionCancellation
+          onCancelled={refresh}
+        />
+      )}
       {status.cancellation.scheduled && status.paidEligible && <p>Cancellation is scheduled for the end of the paid period.</p>}
       {data.pendingDowngrade && <p role="status">{employerPlanName(data.pendingDowngrade.fromPlan)} → {employerPlanName(data.pendingDowngrade.toPlan)}: awaiting processing. Current access stays active.</p>}
     </section>}

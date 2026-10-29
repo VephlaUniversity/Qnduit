@@ -10,6 +10,7 @@ import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
 import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
 import { planFromUrl } from "../utils/planChoice";
+import UserSubscriptionCancellation from "../subscriptions/UserSubscriptionCancellation";
 
 export const TalentMyPlan = () => {
   const [searchParams] = useSearchParams();
@@ -99,6 +100,11 @@ export const TalentMyPlan = () => {
             </p>
             <p className="text-gray-400 text-sm mt-2">Status: {subscriptionStatusLabel(subscriptionStatus?.status)}</p>
             <SubscriptionDates subscription={subscription} status={subscriptionStatus} pendingDowngrade={pendingDowngrade} />
+            {displayPublic && (
+              <UserSubscriptionCancellation
+                onCancelled={refresh}
+              />
+            )}
             {pendingDowngrade && <p role="status" className="mt-3 text-sm text-gray-400">A downgrade to Free is awaiting processing. Current access stays active.</p>}
           </div>
 
