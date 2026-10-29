@@ -1,6 +1,9 @@
-import { Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
+import { API_BASE_URL } from "../utils/api";
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -12,9 +15,6 @@ const staggerContainer = {
   animate: { transition: { staggerChildren: 0.12 } },
 };
 
-// A smooth, endless sideways scroll done with CSS only (no slider library), so it
-// never stutters at the loop point. Cards per row: 4, then 3 / 2 / 1 as the
-// screen narrows. Pauses on hover and stops for visitors who prefer less motion.
 const marqueeCss = `
 .talent-marquee { --cards: 4; container-type: inline-size; overflow: hidden; }
 .talent-marquee-track {
@@ -54,79 +54,94 @@ const MarqueeRow = ({ talents, reverse = false, label }) => (
   </div>
 );
 
-const TalentCard = ({ talent }) => (
-  <div className="px-2 sm:px-3">
-    <div className="rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-full max-w-[250px] mx-auto bg-gray-800 hover:scale-105 transform transition-all duration-300">
-      <img
-        src={talent.gradient}
-        alt={talent.name}
-        className="w-full h-full object-cover"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-        <h3 className="font-semibold mb-1">{talent.name}</h3>
-        <p className="text-sm mb-2 text-gray-200">{talent.role}</p>
-        <div className="flex items-center">
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className="w-4 h-4 fill-[#F5C518] text-[#F5C518]"
-              />
-            ))}
+const initialsOf = (name) =>
+  (name || "T")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+
+const TalentCard = ({ talent }) => {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = talent.avatar && !photoFailed;
+  return (
+    <div className="px-2 sm:px-3">
+      <Link
+        to={`/${encodeURIComponent(talent.username)}`}
+        className="block rounded-2xl overflow-hidden relative h-64 sm:h-72 md:h-80 lg:h-80 w-full max-w-[250px] mx-auto bg-[#141a2b] hover:scale-105 transform transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-400"
+        aria-label={`View ${talent.name}'s profile`}
+      >
+        {showPhoto ? (
+          <img
+            src={talent.avatar}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+            onError={() => setPhotoFailed(true)}
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1b2a52] to-[#0c1226] text-5xl font-semibold text-white/80"
+            aria-hidden="true"
+          >
+            {initialsOf(talent.name)}
           </div>
-          <span className="ml-2 text-sm text-gray-200">{talent.rating}</span>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+          <h3 className="font-semibold mb-1 truncate">{talent.name}</h3>
+          {talent.jobTitle && (
+            <p className="text-sm mb-2 text-gray-200 truncate">
+              {talent.jobTitle}
+            </p>
+          )}
+          {talent.location && (
+            <p className="flex items-center gap-1 text-xs text-gray-300 truncate">
+              <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{talent.location}</span>
+            </p>
+          )}
         </div>
-      </div>
+      </Link>
     </div>
-  </div>
-);
+  );
+};
+
+// Real, public talents only: the same list as "Browse all talents" (verified, active and on a paid public profile).
+const useFeaturedTalents = () => {
+  const [talents, setTalents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const controller = new AbortController();
+    axios
+      .get(`${API_BASE_URL}/api/talents/public`, {
+        params: { limit: 12 },
+        signal: controller.signal,
+      })
+      .then(({ data }) =>
+        setTalents(Array.isArray(data?.talents) ? data.talents : []),
+      )
+      .catch(() => {})
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+  return { talents, loading };
+};
 
 export const FeaturedTalents = () => {
-  const featuredTalents = [
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/1.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/2.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/3.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/4.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/5.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/6.jpg",
-    },
-    {
-      name: "Oreoluwa Ajayi",
-      role: "Frontend Developer",
-      rating: "100% Rated",
-      gradient: "/images/7.jpg",
-    },
-  ];
+  const { talents, loading } = useFeaturedTalents();
+  // A short list is repeated so the sliding rows always fill the width.
+  const rowTalents =
+    talents.length > 0 && talents.length < 8
+      ? Array.from(
+          { length: Math.ceil(8 / talents.length) * talents.length },
+          (_, i) => talents[i % talents.length],
+        )
+      : talents;
+  const hasTalents = talents.length > 0;
 
   return (
     <section className="max-w-7xl mx-auto px-6 lg:px-8 py-12 overflow-hidden">
@@ -142,27 +157,55 @@ export const FeaturedTalents = () => {
         Featured Talents
       </motion.h2>
 
+      {loading && (
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16"
+          aria-hidden="true"
+        >
+          {[0, 1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className={`h-64 md:h-80 rounded-2xl bg-white/5 animate-pulse ${n > 1 ? "hidden md:block" : ""}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && !hasTalents && (
+        <p className="text-center text-gray-400 mb-12">
+          Featured talents will appear here soon.
+        </p>
+      )}
+
       {/* Top Row */}
-      <motion.div
-        className="mb-6"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-      >
-        <MarqueeRow talents={featuredTalents} label="top" />
-      </motion.div>
+      {hasTalents && (
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <MarqueeRow talents={rowTalents} label="top" />
+        </motion.div>
+      )}
 
       {/* Bottom Row */}
-      <motion.div
-        className="hidden md:block mb-16"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
-      >
-        <MarqueeRow talents={featuredTalents} reverse label="bottom" />
-      </motion.div>
+      {hasTalents && (
+        <motion.div
+          className="hidden md:block mb-16"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
+        >
+          <MarqueeRow
+            talents={[...rowTalents].reverse()}
+            reverse
+            label="bottom"
+          />
+        </motion.div>
+      )}
 
       {/* Link to the full public directory */}
       <div className="text-center mt-6 md:-mt-8">
