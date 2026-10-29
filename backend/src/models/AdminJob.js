@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration.js";
 
 // Independent from Employer Job. Attribution is the immutable Admin database ID.
 // Provision collection/indexes deliberately before deployment.
@@ -10,6 +11,8 @@ const schema = new mongoose.Schema({
   category: { type: String, trim: true },
   jobCategory: { type: String, enum: ["Full Time", "Part Time", "Contract", "Freelance", "Internship"] },
   jobApplyType: { type: String, enum: ["Full Time", "Part Time", "Contract", "Freelance", "Internship"] },
+  applicationType: { type: String, enum: ["internal", "external"], default: "internal" },
+  applicationUrl: { type: String, default: "" },
   featuredImage: { url: String, public_id: String },
   gallery: [{ url: String, type: { type: String, enum: ["image", "video"] }, public_id: String }],
   workType: { type: String, enum: ["Remote", "On-site", "Hybrid"], default: "On-site" },
@@ -28,5 +31,10 @@ const schema = new mongoose.Schema({
   deletedAt: Date,
   creationFingerprint: { type: String, required: true, immutable: true, select: false },
 }, { timestamps: true, versionKey: false, collection: "adminjobs", autoCreate: false, autoIndex: false, strict: "throw" });
+schema.pre("validate", function () {
+  const { errors, configuration } = jobApplicationConfiguration({ applicationType: this.applicationType, applicationUrl: this.applicationUrl });
+  for (const [field, message] of Object.entries(errors)) this.invalidate(field, message);
+  if (!Object.keys(errors).length) this.set(configuration);
+});
 schema.index({ isDeleted: 1, createdAt: -1, _id: -1 });
 export default mongoose.model("AdminJob", schema);

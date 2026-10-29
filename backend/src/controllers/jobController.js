@@ -1,3 +1,5 @@
+import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration.js";
+import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 import Job from "../models/Job.js";
 import { findPublicAdminJob } from "../services/publicAdminJob.js";
 import { nonDeletedJobFilter } from "../services/jobVisibility.js";
@@ -57,7 +59,12 @@ export const createJob = async (req, res) => {
         errors,
       });
 
+    const application = jobApplicationConfiguration(req.body);
+    if (Object.keys(application.errors).length)
+      return res.status(400).json({ success: false, message: "Please check the application details.", errors: application.errors });
+
     const job = new Job({
+      ...application.configuration,
       employer: employerId,
       jobTitle,
       jobDescription,
@@ -150,6 +157,10 @@ export const updateJob = async (req, res) => {
 
     if (!job) return res.status(404).json({ message: "Job not found" });
 
+    const application = jobApplicationConfiguration(req.body, job);
+    if (Object.keys(application.errors).length)
+      return res.status(400).json({ success: false, message: "Please check the application details.", errors: application.errors });
+    job.set(application.configuration);
     const gallery = jobGallerySelection(req.body, job.gallery);
     if (gallery.error)
       return res.status(400).json({ success: false, message: gallery.error });
@@ -402,6 +413,10 @@ const SEARCH_PROJECT = {
   category: 1,
   jobCategory: 1,
   jobApplyType: 1,
+  applicationType: { $ifNull: ["$applicationType", "internal"] },
+  applicationUrl: 1,
+  status: 1,
+  isDeleted: 1,
   workType: 1,
   experience: 1,
   careerLevel: 1,
@@ -434,7 +449,7 @@ export const searchJobs = async (req, res, next) => {
       ]),
     );
 
-    const jobs = rankJobs(pool, { q, location });
+    const jobs = rankJobs(pool, { q, location }).map(job => ({ ...job, ...jobApplicationMetadata(job) }));
 
     res.json({ success: true, count: jobs.length, jobs });
   } catch (error) {
@@ -496,6 +511,8 @@ export const quickSearchJobs = async (req, res, next) => {
             _id: 1,
             id: "$_id",
             source: 1,
+            applicationType: { $ifNull: ["$applicationType", "internal"] },
+            applicationUrl: 1, status: 1, isDeleted: 1, deadlineDate: 1,
             jobTitle: 1,
             location: 1,
             companyName: "$employer.companyName",
@@ -504,7 +521,7 @@ export const quickSearchJobs = async (req, res, next) => {
       ]),
     );
 
-    res.json({ success: true, count: jobs.length, jobs });
+    res.json({ success: true, count: jobs.length, jobs: jobs.map(job => ({ ...job, ...jobApplicationMetadata(job) })) });
   } catch (error) {
     next(error);
   }
@@ -534,6 +551,7 @@ export const getPublicJobDetails = async (req, res, next) => {
 
     const jobData = {
       ...job.toObject(),
+      ...jobApplicationMetadata(job),
       source: "employer",
       jobApplyType: job.jobApplyType
         ? Array.isArray(job.jobApplyType)
@@ -572,7 +590,7 @@ export const getRelatedJobs = async (req, res, next) => {
     const jobs = pool.filter(candidate => !(candidate.source === source && String(candidate._id) === String(job._id)))
       .filter(candidate => candidate.location === job.location || candidate.jobApplyType === job.jobApplyType ||
         (keyword && String(candidate.jobTitle || "").toLowerCase().includes(keyword))).slice(0, 5);
-    res.json({ success: true, jobs });
+    res.json({ success: true, jobs: jobs.map(job => ({ ...job, ...jobApplicationMetadata(job) })) });
   } catch (error) { next(error); }
 };
 

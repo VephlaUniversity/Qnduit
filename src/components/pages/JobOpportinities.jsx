@@ -1,3 +1,4 @@
+import { ExternalJobApplyAction } from "../jobs/JobApplyAction";
 import { useState, useEffect } from "react";
 import useIsMobile from "../utils/useIsMobile";
 import JobImage from "../jobs/JobImage";
@@ -362,7 +363,7 @@ export const JobOpportunities = () => {
     viewMode === "list" ? (
       // List view: one compact row per job (stacked on phones).
       <div
-        className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 cursor-pointer hover:bg-[#1E232B] transition-colors flex flex-col gap-3 md:flex-row md:items-center md:gap-5"
+        className="bg-[#191D23] rounded-xl px-4 py-3 md:px-5 cursor-pointer hover:bg-[#1E232B] transition-colors flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:gap-5"
         onClick={(e) => {
           if (e.target.closest("a, button")) return;
           navigate(jobPath(job));
@@ -467,6 +468,7 @@ export const JobOpportunities = () => {
             />
           </button>
         </div>
+        <ExternalJobApplyAction job={job} className="md:basis-full" />
       </div>
     ) : (
       <div
@@ -572,6 +574,7 @@ export const JobOpportunities = () => {
             {daysLeftLabel(job.deadlineDate)}
           </span>
         </div>
+        <ExternalJobApplyAction job={job} className="mt-4" />
       </div>
     );
 

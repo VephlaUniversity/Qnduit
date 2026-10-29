@@ -1,3 +1,5 @@
+import JobApplyAction from "../jobs/JobApplyAction";
+import { jobApplicationAction } from "../utils/jobApplicationAction";
 import { useState, useEffect } from "react";
 import JobImage from "../jobs/JobImage";
 import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
@@ -328,7 +330,7 @@ export const TalentJobDetails = () => {
     : "";
 
   const handleApply = async () => {
-    if (applying || applied) return;
+    if (jobApplicationAction(job).kind !== "internal" || applying || applied) return;
     const token = localStorage.getItem("token");
 
     if (!token) {
@@ -546,7 +548,7 @@ export const TalentJobDetails = () => {
             </div>
 
             <div className="flex flex-col md:items-end w-full md:w-auto md:shrink-0">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleShare}
                   aria-label="Share job"
@@ -567,11 +569,9 @@ export const TalentJobDetails = () => {
                   />
                 </button>
 
-                <button
-                  onClick={handleApply}
-                  disabled={applying || applied}
-                  aria-busy={applying}
-                  className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                <JobApplyAction job={job} applied={applied} applying={applying}
+                  onApply={handleApply}
+                  className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 whitespace-normal justify-center text-center transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span>
                     <svg
@@ -597,8 +597,7 @@ export const TalentJobDetails = () => {
                       />
                     </svg>
                   </span>
-                  {applying ? "Applying..." : applied ? "Applied" : "Apply Now"}
-                </button>
+                </JobApplyAction>
               </div>
 
               <div className="flex flex-col mt-6 pt-6">

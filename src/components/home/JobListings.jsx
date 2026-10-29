@@ -1,3 +1,4 @@
+import JobApplyAction from "../jobs/JobApplyAction";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
@@ -109,12 +110,9 @@ export const JobListings = () => {
                 <span className="text-sm font-semibold text-gray-100">
                   {formatSalary(job.salary)}
                 </span>
-                <Link
-                  to={jobPath(job)}
-                  className="bg-blue-600 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-700 transition-colors whitespace-nowrap"
-                >
-                  Apply Now →
-                </Link>
+                <JobApplyAction job={job} internalHref={jobPath(job)} internalLabel="Apply Now →"
+                  className="bg-blue-600 text-white text-sm px-3.5 py-1.5 rounded-md hover:bg-blue-700 transition-colors whitespace-normal text-center"
+                />
               </div>
             </div>
           ))}

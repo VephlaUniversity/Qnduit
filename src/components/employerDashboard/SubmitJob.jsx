@@ -1,3 +1,4 @@
+import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration";
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
@@ -16,6 +17,7 @@ const SubmitJob = () => {
   const photosRef = useRef(null);
   const nextPhotoKey = useRef(0);
   const [saving, setSaving] = useState(false);
+  const [applicationErrors, setApplicationErrors] = useState({});
   const [salaryErrors, setSalaryErrors] = useState({});
   const [deadlineMessage, setDeadlineMessage] = useState("");
   const [savedDeadline, setSavedDeadline] = useState("");
@@ -29,6 +31,8 @@ const SubmitJob = () => {
     category: "",
     jobCategory: "",
     jobApplyType: "",
+    applicationType: "internal",
+    applicationUrl: "",
     salaryType: "",
     minSalary: "",
     maxSalary: "",
@@ -48,12 +52,13 @@ const SubmitJob = () => {
 
   useEffect(() => {
 
+    setApplicationErrors({});
     setEditingJobId(null);
     setJobError("");
     setDeadlineMessage("");
     setSavedDeadline("");
     if (!isEditing) {
-      setFormData(prev => Object.fromEntries(Object.keys(prev).map(key => [key, ""])));
+      setFormData(prev => Object.fromEntries(Object.keys(prev).map(key => [key, key === "applicationType" ? "internal" : ""])));
       setFeaturedImage(null);
       setPhotos([]);
       setLoadingJob(false);
@@ -98,6 +103,8 @@ const SubmitJob = () => {
           category: job.category || "",
           jobCategory: job.jobCategory || "",
           jobApplyType: job.jobApplyType || "",
+          applicationType: job.applicationType ?? "internal",
+          applicationUrl: job.applicationType === "external" ? job.applicationUrl || "" : "",
           salaryType: job.salary?.type || "",
           minSalary: job.salary?.min ?? "",
           maxSalary: job.salary?.max ?? "",
@@ -135,7 +142,8 @@ const SubmitJob = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value, ...(name === "applicationType" && value === "internal" ? { applicationUrl: "" } : {}) }));
+    if (["applicationType", "applicationUrl"].includes(name)) setApplicationErrors({});
   };
 
   const handleFeaturedImage = (e) => {
@@ -204,6 +212,12 @@ const SubmitJob = () => {
       return;
     }
 
+    const application = jobApplicationConfiguration(formData);
+    setApplicationErrors(application.errors);
+    if (Object.keys(application.errors).length) {
+      requestAnimationFrame(() => document.getElementById(`job-${Object.keys(application.errors)[0]}`)?.focus());
+      return;
+    }
     const errors = validateJobSalary(formData);
     if (Object.keys(errors).length) { reportSalaryErrors(errors); return; }
     setSalaryErrors({});
@@ -217,6 +231,8 @@ const SubmitJob = () => {
     Object.keys(formData).forEach(key => {
       form.append(key, formData[key]);
     });
+
+    for (const [key, value] of Object.entries(application.configuration)) form.set(key, value);
 
     if(featuredImage instanceof File){
       form.append("featuredImage", featuredImage);
@@ -259,7 +275,8 @@ const SubmitJob = () => {
     } catch (err) {
 
       const errors = err.response?.data?.errors;
-      if (errors?.deadlineDate) reportDeadlineError(errors.deadlineDate);
+      if (errors?.applicationType || errors?.applicationUrl) setApplicationErrors(errors);
+      else if (errors?.deadlineDate) reportDeadlineError(errors.deadlineDate);
       else if (errors && (errors.minSalary || errors.maxSalary)) reportSalaryErrors(errors);
       else toast({
         title: "Error",
@@ -293,7 +310,7 @@ const SubmitJob = () => {
 
   return <JobForm {...{ isEditing, formData, setFormData, featuredImage, featuredImageRef, photos, photosRef,
     handleFeaturedImage, handlePhotosUpload, removePhoto, setFeaturedImage, handleInputChange,
-    salaryErrors, deadlineMessage, savedDeadline, saving }} onCancel={() => navigate("/dashboard/my-job")} onSubmit={handleSubmit} />;
+    salaryErrors, applicationErrors, deadlineMessage, savedDeadline, saving }} onCancel={() => navigate("/dashboard/my-job")} onSubmit={handleSubmit} />;
 };
 
 export default SubmitJob;
