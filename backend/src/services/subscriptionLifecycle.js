@@ -187,6 +187,7 @@ export async function recordFailedSubscriptionPayment({ role, paymentId }) {
 }
 
 const audience = "admin-subscription-cancel";
+const userCancellationAudience = "user-subscription-cancel";
 export async function previewSubscriptionCancellation({ role, accountId, adminId }) {
   accountId = String(accountId).toLowerCase();
   const { Account, Subscription } = target(role, accountId);
@@ -201,14 +202,300 @@ export async function previewSubscriptionCancellation({ role, accountId, adminId
   previewToken: jwt.sign({ role, accountId, fingerprint: selection }, process.env.JWT_SECRET, { algorithm: "HS256", audience, subject: String(adminId), expiresIn: "10m" }) };
 }
 
-async function deactivate({ role, Account, Subscription, account, subscription, state, session, now }) {
-  const updated = await Subscription.updateOne({ _id: subscription._id, [role]: account._id, status: "active" },
-    { $set: { status: "canceled", cancelAtPeriodEnd: false, canceledAt: now, endedAt: now } }, { session });
-  if (updated.matchedCount !== 1) throw failure(409, "SUBSCRIPTION_SELECTION_STALE", "The active subscription changed.");
-  const tracking = { selectedPlan: "free", paymentStatus: "cancelled", ...(role === "talent" ? { publicProfileEnabled: false } : { isTrial: false }) };
-  await Account.updateOne({ _id: account._id }, { $set: tracking, ...(role === "employer" ? { $unset: { planExpiresAt: "", trialEndsAt: "" } } : {}) }, { session });
-  await Lifecycle.updateOne({ _id: state._id }, { $set: { generation: generation(state) + 1, pendingPayment: null, activePayment: null } }, { session });
+
+export async function previewOwnSubscriptionCancellation({
+  role,
+  accountId,
+}) {
+  accountId = String(accountId).toLowerCase();
+  const { Account, Subscription } = target(role, accountId);
+
+  const account = await Account.findById(accountId)
+    .select("firstName lastName fullName companyName displayName email")
+    .lean();
+
+  if (!account) {
+    throw failure(
+      404,
+      "SUBSCRIPTION_ACCOUNT_MISSING",
+      "Account not found.",
+    );
+  }
+
+  const statuses =
+    role === "talent" ? ["active", "past_due"] : ["active"];
+
+  const subscription = await Subscription.findOne({
+    [role]: accountId,
+    status: { $in: statuses },
+  })
+    .sort({ currentPeriodStart: -1, createdAt: -1, _id: -1 })
+    .lean();
+
+  if (!subscription) {
+    throw failure(
+      409,
+      "SUBSCRIPTION_NOT_ACTIVE",
+      "No active subscription is available to cancel.",
+    );
+  }
+
+  const state = await Lifecycle.findById(key(role, accountId)).lean();
+  const selection = fingerprint(subscription, state);
+
+  return {
+    subscription: {
+      accountId,
+      role,
+      id: String(subscription._id),
+      plan: subscription.plan,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+    },
+    previewToken: jwt.sign(
+      {
+        role,
+        accountId,
+        fingerprint: selection,
+      },
+      process.env.JWT_SECRET,
+      {
+        algorithm: "HS256",
+        audience: userCancellationAudience,
+        subject: accountId,
+        expiresIn: "10m",
+      },
+    ),
+  };
 }
+
+export async function cancelOwnSubscription({
+  role,
+  accountId,
+  previewToken,
+  requestId,
+}) {
+  accountId = String(accountId).toLowerCase();
+  target(role, accountId);
+
+  if (
+    typeof requestId !== "string" ||
+    !/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(
+      requestId,
+    )
+  ) {
+    throw failure(
+      400,
+      "SUBSCRIPTION_REQUEST_INVALID",
+      "A valid request ID is required.",
+    );
+  }
+
+  let selected;
+
+  try {
+    selected = jwt.verify(previewToken, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+      audience: userCancellationAudience,
+      subject: accountId,
+    });
+  } catch {
+    throw failure(
+      409,
+      "SUBSCRIPTION_SELECTION_STALE",
+      "Refresh the cancellation confirmation before continuing.",
+    );
+  }
+
+  if (
+    selected.role !== role ||
+    selected.accountId !== accountId
+  ) {
+    throw failure(
+      409,
+      "SUBSCRIPTION_SELECTION_STALE",
+      "The selected subscription changed. Refresh the confirmation.",
+    );
+  }
+
+  return serialized(role, accountId, async (context) => {
+    const {
+      Account,
+      Subscription,
+      account,
+      state,
+      session,
+    } = context;
+
+    // Idempotent retry: the same request cannot cancel a newer subscription.
+    const previous = await Cancellation.findById(requestId)
+      .session(session)
+      .lean();
+
+    if (previous) {
+      if (
+        previous.role !== role ||
+        String(previous.account) !== accountId ||
+        previous.actorType !== "user" ||
+        String(previous.actorAccount || "") !== accountId ||
+        previous.fingerprint !== selected.fingerprint
+      ) {
+        throw failure(
+          409,
+          "SUBSCRIPTION_REQUEST_CONFLICT",
+          "This request ID belongs to a different cancellation.",
+        );
+      }
+
+      const superseded =
+        generation(state) !== previous.generation;
+
+      return {
+        success: true,
+        status: "canceled",
+        replayed: true,
+        superseded,
+        message: "Subscription cancelled immediately.",
+        ...(superseded
+          ? {
+              notice:
+                "The selected subscription was already cancelled. A newer subscription state was left unchanged.",
+            }
+          : {}),
+      };
+    }
+
+    const statuses =
+      role === "talent" ? ["active", "past_due"] : ["active"];
+
+    const subscription = await Subscription.findOne({
+      [role]: accountId,
+      status: { $in: statuses },
+    })
+      .sort({ currentPeriodStart: -1, createdAt: -1, _id: -1 })
+      .session(session)
+      .lean();
+
+    if (
+      !subscription ||
+      fingerprint(subscription, state) !== selected.fingerprint
+    ) {
+      throw failure(
+        409,
+        "SUBSCRIPTION_SELECTION_STALE",
+        "The subscription changed. Refresh the cancellation confirmation.",
+      );
+    }
+
+    const now = new Date();
+
+    await deactivate({
+      ...context,
+      role,
+      subscription,
+      now,
+    });
+
+    await Cancellation.create(
+      [
+        {
+          _id: requestId,
+          role,
+          account: account._id,
+          subscription: subscription._id,
+          actorType: "user",
+          actorAccount: account._id,
+          fingerprint: selected.fingerprint,
+          generation: generation(state) + 1,
+          lastTxRef: subscription.lastTxRef,
+          lastTransactionId: subscription.lastTransactionId,
+          canceledAt: now,
+        },
+      ],
+      { session },
+    );
+
+    return {
+      success: true,
+      status: "canceled",
+      replayed: false,
+      canceledAt: now.toISOString(),
+      message: "Subscription cancelled immediately.",
+    };
+  });
+}
+
+
+async function deactivate({
+  role,
+  Account,
+  Subscription,
+  account,
+  subscription,
+  state,
+  session,
+  now,
+}) {
+  const allowedStatuses =
+    role === "talent" ? ["active", "past_due"] : ["active"];
+
+  const updated = await Subscription.updateOne(
+    {
+      _id: subscription._id,
+      [role]: account._id,
+      status: { $in: allowedStatuses },
+    },
+    {
+      $set: {
+        status: "canceled",
+        cancelAtPeriodEnd: false,
+        canceledAt: now,
+        endedAt: now,
+      },
+    },
+    { session },
+  );
+
+  if (updated.matchedCount !== 1) {
+    throw failure(
+      409,
+      "SUBSCRIPTION_SELECTION_STALE",
+      "The active subscription changed.",
+    );
+  }
+
+  const tracking = {
+    selectedPlan: "free",
+    paymentStatus: "cancelled",
+    ...(role === "talent"
+      ? { publicProfileEnabled: false }
+      : { isTrial: false }),
+  };
+
+  await Account.updateOne(
+    { _id: account._id },
+    {
+      $set: tracking,
+      ...(role === "employer"
+        ? { $unset: { planExpiresAt: "", trialEndsAt: "" } }
+        : {}),
+    },
+    { session },
+  );
+
+  await Lifecycle.updateOne(
+    { _id: state._id },
+    {
+      $set: {
+        generation: generation(state) + 1,
+        pendingPayment: null,
+        activePayment: null,
+      },
+    },
+    { session },
+  );
+}
+
 
 export async function cancelSubscription({ role, accountId, adminId, previewToken, requestId }) {
   accountId = String(accountId).toLowerCase();
@@ -233,7 +520,7 @@ export async function cancelSubscription({ role, accountId, adminId, previewToke
     const now = new Date();
     await deactivate({ ...context, role, subscription, now });
     await Lifecycle.updateOne({ _id: state._id }, { $set: { adminCanceledAt: now } }, { session });
-    await Cancellation.create([{ _id: requestId, role, account: accountId, subscription: subscription._id, admin: adminId,
+    await Cancellation.create([{ _id: requestId, role, account: accountId, subscription: subscription._id, admin: adminId, actorType: "admin", actorAccount: adminId,
       fingerprint: selected.fingerprint, generation: generation(state) + 1, lastTxRef: subscription.lastTxRef,
       lastTransactionId: subscription.lastTransactionId, canceledAt: now }], { session });
     return { success: true, status: "canceled", replayed: false, message: "Application subscription cancelled." };

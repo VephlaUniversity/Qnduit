@@ -8,18 +8,44 @@ const lifecycle = new mongoose.Schema({
   activePayment: mongoose.Schema.Types.ObjectId,
   adminCanceledAt: Date,
 }, { timestamps: true });
+
 const cancellation = new mongoose.Schema({
-  _id: String,
-  role: { type: String, enum: ["talent", "employer"], required: true },
-  account: { type: mongoose.Schema.Types.ObjectId, required: true },
-  subscription: { type: mongoose.Schema.Types.ObjectId, required: true },
-  admin: { type: mongoose.Schema.Types.ObjectId, required: true },
+  _id: String, // Idempotency key: requestId
+  role: {
+    type: String,
+    enum: ["talent", "employer"],
+    required: true,
+  },
+  account: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
+  subscription: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
+
+  // Populated for admin-initiated cancellations.
+  admin: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: false,
+  },
+
+  // Records who initiated the cancellation.
+  actorType: {
+    type: String,
+    enum: ["user", "admin"],
+    required: true,
+  },
+  actorAccount: mongoose.Schema.Types.ObjectId,
+
   fingerprint: { type: String, required: true },
   generation: Number,
   lastTxRef: String,
   lastTransactionId: String,
   canceledAt: Date,
 }, { timestamps: true });
+
 
 export const SubscriptionLifecycle = mongoose.model("SubscriptionLifecycle", lifecycle);
 export const SubscriptionCancellation = mongoose.model("SubscriptionCancellation", cancellation);
