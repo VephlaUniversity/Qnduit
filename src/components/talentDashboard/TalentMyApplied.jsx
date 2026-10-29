@@ -12,6 +12,8 @@ import {
 import { useEffect } from "react";
 import { API_BASE_URL } from "../utils/api";
 import axios from "axios";
+import { applicationStatusLabel } from "../utils/applicationStatus";
+import JobImage from "../jobs/JobImage";
 
 export const TalentMyApplied = () => {
   const navigate = useNavigate();
@@ -44,12 +46,13 @@ export const TalentMyApplied = () => {
         const formatted = (res.data?.applications || []).map((app) => ({
           id: `${app.source || "employer"}:${app._id}`,
           source: app.source || "employer",
+          job: { ...app.jobId, source: app.source || "employer" },
           jobId: app.jobId?._id,
           title: app.jobId?.jobTitle || "Job no longer available",
           location: app.jobId?.location || "N/A",
           category: app.jobId?.jobCategory || app.jobId?.category || "General",
-          status: mapStatus(app.status),
-          statusColor: getStatusColor(mapStatus(app.status)),
+          status: app.status,
+          statusColor: getStatusColor(app.status),
           appliedAt: app.createdAt,
           dateApplied: new Date(app.createdAt).toLocaleDateString(),
         }));
@@ -75,27 +78,18 @@ export const TalentMyApplied = () => {
     };
   }, [reloadKey]);
 
-  const mapStatus = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case "reviewed":
       case "shortlisted":
       case "hired":
-        return "Responded";
-      case "rejected":
-        return "Rejected";
-      default:
-        return "Pending";
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Responded":
         return "text-blue-500";
-      case "Rejected":
+      case "rejected":
         return "text-red-500";
-      default:
+      case "pending":
         return "text-yellow-500";
+      default:
+        return "text-gray-400";
     }
   };
 
@@ -106,7 +100,7 @@ export const TalentMyApplied = () => {
       app.title.toLowerCase().includes(query) ||
       app.location.toLowerCase().includes(query) ||
       app.category.toLowerCase().includes(query) ||
-      app.status.toLowerCase().includes(query)
+      applicationStatusLabel(app.status).toLowerCase().includes(query)
     );
   });
 
@@ -119,7 +113,7 @@ export const TalentMyApplied = () => {
           new Date(a.appliedAt || 0).getTime()
         );
       case "Status":
-        return a.status.localeCompare(b.status);
+        return applicationStatusLabel(a.status).localeCompare(applicationStatusLabel(b.status));
       case "Title A-Z":
         return a.title.localeCompare(b.title);
       default:
@@ -208,7 +202,7 @@ export const TalentMyApplied = () => {
               <div className="grid grid-cols-2 md:grid-cols-12 gap-4 items-center">
                 {/* Job Info */}
                 <div className="col-span-2 md:col-span-5 flex items-center gap-4 min-w-0">
-                  <div className="w-14 h-14 bg-gray-400 rounded-lg flex-shrink-0"></div>
+                  <JobImage job={application.job} className="w-14 h-14 bg-gray-400 rounded-lg" />
                   <div className="min-w-0">
                     <h3 className="text-white font-semibold mb-1">
                       {application.title}
@@ -229,7 +223,7 @@ export const TalentMyApplied = () => {
                 {/* Status */}
                 <div className="md:col-span-2">
                   <span className={`font-medium ${application.statusColor}`}>
-                    {application.status}
+                    {applicationStatusLabel(application.status)}
                   </span>
                 </div>
 

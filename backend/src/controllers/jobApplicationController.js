@@ -7,6 +7,7 @@ import Talent from "../models/Talent.js";
 import Resume from "../models/Resume.js";
 import { jobDateKey, lagosDateKey } from "../utils/jobDeadline.js";
 import { applicationEvent } from "../services/notifications.js";
+import { publicImageUrl } from "../utils/publicTalentProfile.js";
 
 // Apply for job
 export const applyForJob = async (req, res, next) => {
@@ -99,12 +100,19 @@ export const getMyApplications = async (req, res, next) => {
     const applications = await JobApplication.find({
       applicantId,
     })
-      .populate("jobId")
+      .populate({ path: "jobId", populate: { path: "employer", select: "companyName logo.url" } })
       .sort({ createdAt: -1 });
 
     const adminApplications = await AdminJobApplication.find({ applicantId }).populate("jobId").lean();
     const combined = [
-      ...applications.map(row => ({ ...row.toObject(), source: "employer" })),
+      ...applications.map(row => {
+        const application = row.toObject();
+        if (application.jobId?.employer?.logo) {
+          const url = publicImageUrl(application.jobId.employer.logo.url);
+          application.jobId.employer.logo = url ? { url } : undefined;
+        }
+        return { ...application, source: "employer" };
+      }),
       ...adminApplications.map(row => ({ _id: row._id, source: "admin", applicantId: row.applicantId,
         status: row.status, appliedAt: row.appliedAt, createdAt: row.createdAt,
         jobId: row.jobId ? publicAdminJob(row.jobId) : null })),

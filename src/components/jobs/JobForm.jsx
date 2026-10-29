@@ -3,6 +3,7 @@ import { X, Loader2 } from "lucide-react";
 import TextEditor from "../TextEditor";
 import JobFormSelect from "./JobFormSelect";
 import { lagosDateKey } from "../utils/jobDeadline";
+import { COUNTRIES } from "../data/countries";
 
 // Each mounted preview owns only its temporary URL, never a saved media URL.
 function JobMediaPreview({ media, imageOnly = false }) {
@@ -28,6 +29,19 @@ function JobMediaPreview({ media, imageOnly = false }) {
 export default function JobForm({ isEditing, formData, setFormData, featuredImage, featuredImageRef, photos, photosRef,
   handleFeaturedImage, handlePhotosUpload, removePhoto, setFeaturedImage, handleInputChange,
   salaryErrors = {}, deadlineMessage = "", savedDeadline = "", saving, onCancel, onSubmit, formError = "" }) {
+  const [featuredImageError, setFeaturedImageError] = useState("");
+  const selectFeaturedImage = event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!/\.(png|jpe?g)$/i.test(file.name)) {
+      setFeaturedImageError("Choose a PNG, JPG or JPEG featured image.");
+      event.target.value = "";
+      return;
+    }
+    setFeaturedImageError("");
+    handleFeaturedImage(event);
+    event.target.value = "";
+  };
   const inputClass = "w-full px-4 py-3 bg-[#0E0E10] border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500";
   const selectClass = inputClass;
   return (
@@ -50,8 +64,10 @@ export default function JobForm({ isEditing, formData, setFormData, featuredImag
             <input
               ref={featuredImageRef}
               type="file"
-              accept="image/*"
-              onChange={handleFeaturedImage}
+              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+              onChange={selectFeaturedImage}
+              aria-describedby="job-featured-image-help"
+              aria-invalid={Boolean(featuredImageError)}
               name="featuredImage"
               className="hidden"
             />
@@ -65,6 +81,10 @@ export default function JobForm({ isEditing, formData, setFormData, featuredImag
               {featuredImage ? "Image selected" : "Upload Image"}
             </span>
           </div>
+          <p id="job-featured-image-help" role={featuredImageError ? "alert" : undefined}
+            className={`mt-2 text-sm ${featuredImageError ? "text-red-400" : "text-gray-400"}`}>
+            {featuredImageError || "PNG, JPG or JPEG."}
+          </p>
           {featuredImage && (
             <div className="mt-3 relative w-32 h-20">
               <JobMediaPreview media={featuredImage} imageOnly />
@@ -368,6 +388,9 @@ export default function JobForm({ isEditing, formData, setFormData, featuredImag
                 className={selectClass}
               >
                 <option value="">Select Location</option>
+                {COUNTRIES.map(country => (
+                  <option key={country} value={country}>{country}</option>
+                ))}
                 <option>Tokyo</option>
                 <option>New York</option>
                 <option>London</option>

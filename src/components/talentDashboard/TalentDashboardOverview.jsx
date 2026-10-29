@@ -267,7 +267,7 @@ export const TalentDashboard = () => {
       </div>
 
       {/* Job Applied Recently */}
-      <RecentApplication />
+      <RecentApplication pageSize={6} />
     </div>
   );
 };

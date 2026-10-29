@@ -45,6 +45,7 @@ export function useTalentSubscription(enabled = true) {
             subscription: data?.subscription || null,
             subscriptionStatus: data?.subscriptionStatus,
             publicProfile: data?.publicProfile,
+            pendingDowngrade: data?.pendingDowngrade,
           });
       })
       .catch((error) => {

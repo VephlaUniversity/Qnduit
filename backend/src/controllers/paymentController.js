@@ -1,6 +1,7 @@
 import { getEmployerPlan } from "../services/employerPlan.js";
 import process from "node:process";
-import { initiateSubscriptionCheckout, selectUnpaidSubscription, activateVerifiedSubscription, recordFailedSubscriptionPayment } from "../services/subscriptionLifecycle.js";
+import { initiateSubscriptionCheckout, selectUnpaidSubscription, activateVerifiedSubscription, recordFailedSubscriptionPayment, currentPendingDowngrade } from "../services/subscriptionLifecycle.js";
+import { loadSubscriptionEvidence } from "../services/subscriptionStatus.js";
 import { resolveTalentPublication } from "../services/talentPublication.js";
 import flutterwave from "../utils/flutterwave.js";
 import crypto from "crypto";
@@ -306,10 +307,16 @@ export const getMySubscription = async (req, res, next) => {
     });
 
     const publication = await resolveTalentPublication(req.user._id);
+    // Match the existing downgrade reader's projected activation evidence.
+    const pendingDowngrade = publication.subscriptionStatus.paidEligible
+      ? await currentPendingDowngrade({ role: "talent", accountId: req.user._id,
+        subscription: (await loadSubscriptionEvidence({ role: "talent", accountId: req.user._id })).subscription })
+      : null;
     res.json({
       success: true,
       subscription,
       ...publication,
+      pendingDowngrade,
     });
   } catch (error) {
     respondLifecycleError(error, res, next);
