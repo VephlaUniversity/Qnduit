@@ -20,7 +20,7 @@ import talentJ from "../../assets/hero/talent-j.jpg";
 const CARDS = [
   {
     id: "a",
-    name: "",
+    name: "Oreoluwa Ajayi",
     role: "Frontend Developer",
     img: talentA,
     x: 1614,
@@ -28,7 +28,7 @@ const CARDS = [
   },
   {
     id: "b",
-    name: "",
+    name: "Sophie Laurent",
     role: "Product Designer",
     img: talentB,
     x: 1214,
@@ -36,7 +36,7 @@ const CARDS = [
   },
   {
     id: "c",
-    name: "",
+    name: "Sarah Mitchell",
     role: "Data Analyst",
     img: talentC,
     x: 1614,
@@ -44,7 +44,7 @@ const CARDS = [
   },
   {
     id: "d",
-    name: "",
+    name: "Daniel Reyes",
     role: "Backend Engineer",
     img: talentD,
     x: 814,
@@ -52,7 +52,7 @@ const CARDS = [
   },
   {
     id: "e",
-    name: "",
+    name: "Emma Lindberg",
     role: "Project Manager",
     img: talentE,
     x: 1214,
@@ -60,7 +60,7 @@ const CARDS = [
   },
   {
     id: "f",
-    name: "",
+    name: "Isabella Moreno",
     role: "UI/UX Designer",
     img: talentF,
     x: 414,
@@ -68,7 +68,7 @@ const CARDS = [
   },
   {
     id: "g",
-    name: "",
+    name: "Lucas Bennett",
     role: "DevOps Engineer",
     img: talentG,
     x: 814,
@@ -76,7 +76,7 @@ const CARDS = [
   },
   {
     id: "h",
-    name: "",
+    name: "Emily Carter",
     role: "Content Strategist",
     img: talentH,
     x: 14,
@@ -84,7 +84,7 @@ const CARDS = [
   },
   {
     id: "i",
-    name: "",
+    name: "Marco Rinaldi",
     role: "Mobile Developer",
     img: talentI,
     x: 1614,
@@ -92,7 +92,7 @@ const CARDS = [
   },
   {
     id: "j",
-    name: "",
+    name: "Hannah Fischer",
     role: "QA Engineer",
     img: talentJ,
     x: 1214,
