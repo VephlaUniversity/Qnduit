@@ -50,6 +50,16 @@ const dateText = value => {
   return "";
 };
 const strings = value => [...new Set(list(value).map(item => text(item, 120)).filter(Boolean))].slice(0, 30);
+const projectSkills = value => {
+  const seen = new Set();
+  return list(value).map(item => text(item, 80)).filter(item => {
+    const key = item.toLowerCase();
+    if (!item || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 20);
+};
+const hasProjectDetails = row => Boolean(row.title || row.description || row.projectUrl || row.skills?.length);
 export function publicResumeSkills(resume) {
   return list(resume?.skills).slice(0, 30).map(row => {
     const title = text(row?.title, 60), raw = row?.percent;
@@ -71,15 +81,32 @@ export function publicTalentProfileDto(talent, resume) {
     title: text(row?.title, 160), [owner]: text(row?.[owner], 160), description: content(row?.description),
     startDate: dateText(row?.startDate), endDate: dateText(row?.endDate),
   })).filter(row => Object.values(row).some(Boolean));
-  const portfolio = list(talent.portfolio).slice(0, 50).map(row => ({
-    title: text(row?.title, 160), description: content(row?.description), imageUrl: publicImageUrl(row?.imageUrl), projectUrl: publicExternalUrl(row?.projectUrl),
-  })).filter(row => Object.values(row).some(Boolean));
-  const images = new Set(portfolio.map(row => row.imageUrl).filter(Boolean));
-  const gallery = [];
-  for (const row of list(resume?.portfolioImages).slice(0, 20)) {
-    const imageUrl = publicImageUrl(row?.url);
-    if (imageUrl && !images.has(imageUrl)) { images.add(imageUrl); gallery.push({ imageUrl }); }
-  }
+  const portfolioRows = list(talent.portfolio).slice(0, 50).map(row => {
+    const skills = projectSkills(row?.skills);
+    return {
+      title: text(row?.title, 160), description: content(row?.description),
+      imageUrl: publicImageUrl(typeof row === "string" ? row : row?.imageUrl),
+      projectUrl: publicExternalUrl(row?.projectUrl), ...(skills.length ? { skills } : {}),
+    };
+  });
+  const galleryRows = list(resume?.portfolioImages).slice(0, 20).map(row => {
+    const description = content(row?.description), projectUrl = publicExternalUrl(row?.projectUrl), skills = projectSkills(row?.skills);
+    return {
+      imageUrl: publicImageUrl(typeof row === "string" ? row : row?.url),
+      ...(description ? { description } : {}), ...(projectUrl ? { projectUrl } : {}), ...(skills.length ? { skills } : {}),
+    };
+  });
+  // Suppress only redundant bare images. Separate projects may share an asset;
+  // never discard or combine their distinct descriptions, links or skills.
+  const detailedImages = new Set([...portfolioRows, ...galleryRows].filter(hasProjectDetails).map(row => row.imageUrl).filter(Boolean));
+  const images = new Set();
+  const retainProject = row => {
+    if (hasProjectDetails(row)) return true;
+    if (!row.imageUrl || detailedImages.has(row.imageUrl) || images.has(row.imageUrl)) return false;
+    images.add(row.imageUrl);
+    return true;
+  };
+  const portfolio = portfolioRows.filter(retainProject), gallery = galleryRows.filter(retainProject);
   const socialNetworks = Object.fromEntries(["linkedin", "facebook", "twitter", "instagram", "pinterest", "youtube"]
     .map(key => [key, publicExternalUrl(talent.socialNetworks?.[key])]).filter(([, value]) => value));
   return {

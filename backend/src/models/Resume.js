@@ -22,6 +22,13 @@ const resumeSchema = new mongoose.Schema(
       {
         url: String,
         public_id: String,
+        description: { type: String, maxlength: 2000 },
+        projectUrl: { type: String, maxlength: 2048 },
+        skills: {
+          type: [String],
+          default: undefined,
+          validate: value => !value || (value.length <= 20 && value.every(skill => skill.length <= 80)),
+        },
       },
     ],
     introVideo: {

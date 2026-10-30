@@ -2,12 +2,14 @@ import Resume from "../models/Resume.js";
 import Talent from "../models/Talent.js";
 import multer from "multer";
 import path from "path";
+import { isDeepStrictEqual } from "node:util";
 import cloudinary from "../utils/cloudinary.js";
+import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortfolio.js";
+import { editorRevision, talentDraft } from "../utils/talentPortfolioDraft.js";
 
 const storage = multer.memoryStorage();
 
 const MAX_CV_FILES = 5;
-const MAX_PORTFOLIO_IMAGES = 10;
 
 // Parses a JSON array of public_ids sent by the client; returns null if absent/invalid.
 const parseKeepList = (value) => {
@@ -27,8 +29,10 @@ export const addCvToResume = async (
   { atStart = false } = {},
 ) => {
   if (!file?.url) return null;
-  let resume = await Resume.findOne({ talent: talentId });
-  if (!resume) resume = new Resume({ talent: talentId });
+  const stored = await Resume.findOne({ talent: talentId }).lean();
+  const resume = stored
+    ? Resume.hydrate({ ...stored, portfolioImages: normalizePortfolioImages(stored.portfolioImages, talentId) })
+    : new Resume({ talent: talentId });
   const exists = (resume.cvFiles || []).some(
     (item) =>
       item.url === file.url ||
@@ -83,14 +87,31 @@ export const uploadResumeFiles = multer({
 
 // Save or update resume
 export const saveResume = async (req, res, next) => {
+  const uploadedCVs = [], uploadedImages = [];
+  let persisted = false, persistenceAttempted = false;
   try {
     const talentId = req.user._id;
 
-    let resume = await Resume.findOne({ talent: talentId });
-
-    if (!resume) {
-      resume = new Resume({ talent: talentId });
+    const stored = await Resume.findOne({ talent: talentId }).lean();
+    const existingPortfolio = normalizePortfolioImages(stored?.portfolioImages, talentId);
+    const resume = stored
+      ? Resume.hydrate({ ...stored, portfolioImages: existingPortfolio })
+      : new Resume({ talent: talentId });
+    const newImages = req.files?.portfolioImages || [];
+    // Validate all project references/metadata and other JSON before provider work.
+    const portfolio = preparePortfolio(req.body, existingPortfolio, newImages);
+    const parsed = {};
+    for (const field of ["education", "experience", "skills"]) {
+      if (req.body[field] !== undefined) {
+        try { parsed[field] = typeof req.body[field] === "string" ? JSON.parse(req.body[field]) : req.body[field]; }
+        catch { throw Object.assign(new Error(`Invalid ${field}.`), { statusCode: 400 }); }
+        if (!Array.isArray(parsed[field])) throw Object.assign(new Error(`Invalid ${field}.`), { statusCode: 400 });
+        resume[field] = parsed[field];
+      }
     }
+    if (req.body.aboutMe !== undefined) resume.aboutMe = req.body.aboutMe;
+    if (req.body.videoUrl !== undefined) resume.introVideo = { url: req.body.videoUrl, public_id: "" };
+    await resume.validate();
 
     // =========================
     // CV FILES
@@ -113,8 +134,6 @@ export const saveResume = async (req, res, next) => {
         message: `You can keep up to ${MAX_CV_FILES} CV files.`,
       });
     }
-
-    const uploadedCVs = [];
 
     for (const file of newCvFiles) {
       const extension = path.extname(file.originalname).toLowerCase();
@@ -156,27 +175,7 @@ export const saveResume = async (req, res, next) => {
     // PORTFOLIO IMAGES
     // =========================
 
-    const keepPortfolio = parseKeepList(req.body.keepPortfolioIds);
-    const existingPortfolio = resume.portfolioImages || [];
-    const keptPortfolio = keepPortfolio
-      ? existingPortfolio.filter((f) =>
-          keepPortfolio.includes(String(f.public_id)),
-        )
-      : existingPortfolio;
-    const removedPortfolio = existingPortfolio.filter(
-      (f) => !keptPortfolio.includes(f),
-    );
-    const newImages = req.files?.portfolioImages || [];
-
-    if (keptPortfolio.length + newImages.length > MAX_PORTFOLIO_IMAGES) {
-      return res.status(400).json({
-        success: false,
-        message: `You can keep up to ${MAX_PORTFOLIO_IMAGES} portfolio images.`,
-      });
-    }
-
-    const uploadedImages = [];
-
+    const uploadedByReference = new Map();
     for (const file of newImages) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -196,44 +195,38 @@ export const saveResume = async (req, res, next) => {
         stream.end(file.buffer);
       });
 
-      uploadedImages.push({
-        url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
-      });
+      const image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
+      uploadedImages.push(image);
+      uploadedByReference.set(file.originalname, image);
     }
 
-    resume.portfolioImages = [...keptPortfolio, ...uploadedImages];
+    resume.portfolioImages = portfolio.items.map(item => ({
+      ...(item.previous || uploadedByReference.get(item.file.originalname)),
+      ...item.metadata,
+    }));
 
-    // =========================
-    // OTHER DATA
-    // =========================
-
-    const { aboutMe, videoUrl, education, experience, skills } = req.body;
-
-    if (aboutMe !== undefined) {
-      resume.aboutMe = aboutMe;
+    persistenceAttempted = true;
+    try {
+      await resume.save();
+    } catch {
+      // A rejected write can already have committed. Only an exact owner-scoped
+      // majority read confirms success; absence/mismatch cannot prove an abort.
+      let confirmed;
+      try {
+        confirmed = await Resume.collection.findOne(
+          { _id: resume._id, talent: talentId },
+          { readConcern: { level: "majority" } },
+        );
+      } catch { /* Unavailable confirmation must retain every new asset. */ }
+      if (!isDeepStrictEqual(confirmed, resume.toObject())) {
+        return res.status(503).json({
+          success: false,
+          saveState: "pending",
+          message: "Save outcome could not be confirmed. Uploaded files are retained. Reload to check your saved data before retrying.",
+        });
+      }
     }
-
-    if (videoUrl !== undefined) {
-      resume.introVideo = {
-        url: videoUrl,
-        public_id: "",
-      };
-    }
-
-    if (education) {
-      resume.education = JSON.parse(education);
-    }
-
-    if (experience) {
-      resume.experience = JSON.parse(experience);
-    }
-
-    if (skills) {
-      resume.skills = JSON.parse(skills);
-    }
-
-    await resume.save();
+    persisted = true;
 
     // If the removed file was the sign-up resume, clear that copy too so it is
     // not shown again or sent to employers.
@@ -247,7 +240,8 @@ export const saveResume = async (req, res, next) => {
 
     // Only after the save succeeded: delete files the user removed.
     await removeFromCloudinary(removedCv, "raw");
-    await removeFromCloudinary(removedPortfolio, "image");
+    // Stored portfolio removals are unlink-only, including legacy clients.
+
 
     res.json({
       success: true,
@@ -255,6 +249,11 @@ export const saveResume = async (req, res, next) => {
       resume,
     });
   } catch (error) {
+    // A post-save housekeeping error must never remove assets now referenced in DB.
+    if (!persisted && !persistenceAttempted) {
+      await removeFromCloudinary(uploadedCVs, "raw");
+      await removeFromCloudinary(uploadedImages, "image");
+    }
     next(error);
   }
 };
@@ -266,7 +265,7 @@ export const getResume = async (req, res, next) => {
 
     let resume = await Resume.findOne({
       talent: talentId,
-    });
+    }).lean();
 
     // Talents who uploaded a resume at sign-up (before the two were linked) get
     // that file added to their Resume page the first time they open it.
@@ -288,15 +287,15 @@ export const getResume = async (req, res, next) => {
       }
     }
 
-    if (!resume) {
-      return res.status(404).json({
-        message: "Resume not found",
-      });
-    }
-
+    const record = await Resume.collection.findOne({ talent: talentId });
+    const talent = await Talent.collection.findOne({ _id: talentId }, { projection: { portfolio: 1 } });
+    const revision = editorRevision(talent, record);
+    res.set("Cache-Control", "private, no-store");
     res.json({
       success: true,
-      resume,
+      resume: { ...(record || {}), portfolioImages: normalizePortfolioImages(record?.portfolioImages, talentId) },
+      portfolioRevision: revision,
+      talentProjects: talentDraft(talent?.portfolio || [], talentId, revision),
     });
   } catch (error) {
     next(error);

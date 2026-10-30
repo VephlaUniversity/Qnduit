@@ -17,6 +17,9 @@ import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 import { cvExtension, nameWithExtension } from "../utils/cvFile";
+import PortfolioItemFields from "./PortfolioItemFields";
+import TalentPortfolioProjects from "./TalentPortfolioProjects";
+import { portfolioMetadata } from "../../../backend/src/utils/portfolioMetadata.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 const MAX_CV_FILES = 5;
@@ -157,7 +160,14 @@ const TalentResumes = () => {
   const [previewCv, setPreviewCv] = useState(null);
   const [newCvFiles, setNewCvFiles] = useState([]);
   const [existingPortfolio, setExistingPortfolio] = useState([]);
-  const [newPortfolio, setNewPortfolio] = useState([]); // [{ file, preview }]
+  const [newPortfolio, setNewPortfolio] = useState([]);
+  const [portfolioErrors, setPortfolioErrors] = useState({});
+  const [talentProjects, setTalentProjects] = useState([]);
+  const [portfolioRevision, setPortfolioRevision] = useState("");
+  const [awaitingReceipt, setAwaitingReceipt] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const saveAttempt = useRef(null);
+  const initialFields = useRef({});
 
   const [aboutMe, setAboutMe] = useState("");
   const [education, setEducation] = useState([]);
@@ -189,6 +199,8 @@ const TalentResumes = () => {
         if (cancelled) return;
 
         const resume = data.resume || {};
+        setTalentProjects(data.talentProjects || []);
+        setPortfolioRevision(data.portfolioRevision || "");
         const edu = (resume.education || []).map((item) => ({
           ...blankEducation(),
           ...item,
@@ -202,6 +214,10 @@ const TalentResumes = () => {
         const eduList = edu.length ? edu : [blankEducation()];
         const expList = exp.length ? exp : [blankExperience()];
 
+        initialFields.current = {
+          aboutMe: resume.aboutMe || "", education: eduList, experience: expList,
+          skills: resume.skills?.length ? resume.skills : [{ title: "", percent: "" }],
+        };
         setAboutMe(resume.aboutMe || "");
         setEducation(eduList);
         setExperience(expList);
@@ -311,7 +327,7 @@ const TalentResumes = () => {
       else if (file.size > 5 * 1024 * 1024) tooBig += 1;
       else if (room <= 0) noRoom += 1;
       else {
-        accepted.push({ file, preview: URL.createObjectURL(file) });
+        accepted.push({ _id: nextId(), file, preview: URL.createObjectURL(file), description: "", projectUrl: "", skills: [] });
         room -= 1;
       }
     }
@@ -332,10 +348,10 @@ const TalentResumes = () => {
     }
   };
 
-  const removeNewPortfolio = (index) => {
+  const removeNewPortfolio = (id) => {
     setNewPortfolio((prev) => {
-      URL.revokeObjectURL(prev[index]?.preview);
-      return prev.filter((_, i) => i !== index);
+      URL.revokeObjectURL(prev.find(item => item._id === id)?.preview);
+      return prev.filter(item => item._id !== id);
     });
   };
 
@@ -374,53 +390,110 @@ const TalentResumes = () => {
     );
   };
 
+  const updatePortfolio = (id, field, value, isNew) => {
+    const setter = isNew ? setNewPortfolio : setExistingPortfolio;
+    setter(previous => previous.map(item => item._id === id ? { ...item, [field]: value } : item));
+    setPortfolioErrors(previous => ({ ...previous, [id]: "" }));
+  };
+
+  const updateTalentProject = (id, field, value) => {
+    setTalentProjects(previous => previous.map(item => item.id === id ? { ...item, [field]: value } : item));
+    setPortfolioErrors(previous => ({ ...previous, [`talent:${id}`]: "" }));
+  };
+  const removeTalentProject = id => setTalentProjects(previous => previous.map(item =>
+    item.id === id ? { ...item, removed: !item.removed } : item));
+
+  const finishSave = data => {
+    if (data.saveState === "committed") {
+      saveAttempt.current = null;
+      setAwaitingReceipt(false);
+      setSaveMessage("");
+      toast({ title: "Saved!", description: "All changes have been saved successfully." });
+      navigate("/talent-dashboard/profile");
+      return;
+    }
+    if (data.saveState === "failed") {
+      saveAttempt.current = null;
+      setAwaitingReceipt(false);
+    } else setAwaitingReceipt(true);
+    setSaveMessage(data.message || "Save status could not be confirmed. Your draft is retained. Check the save status again.");
+  };
+
   const handleSave = async () => {
+    if (saveAttempt.current) {
+      setSaving(true);
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/resume/save-receipts/${saveAttempt.current}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        finishSave(data);
+      } catch (error) {
+        if (error.response?.data?.saveState === "failed") finishSave(error.response.data);
+        else setSaveMessage("Save status could not be confirmed. Your draft and files are retained. Check the save status again.");
+      } finally { setSaving(false); }
+      return;
+    }
+    const errors = {};
+    const metadata = new Map();
+    for (const item of [...existingPortfolio, ...newPortfolio]) {
+      try { metadata.set(item._id, portfolioMetadata(item)); }
+      catch (error) { errors[item._id] = error.message; }
+    }
+    for (const item of talentProjects.filter(row => !row.removed)) {
+      try { portfolioMetadata(item); }
+      catch (error) { errors[`talent:${item.id}`] = error.message; }
+    }
+    setPortfolioErrors(errors);
+    if (Object.keys(errors).length) {
+      toast({ title: "Check your portfolio", description: "Please correct the project details highlighted below.", variant: "destructive" });
+      return;
+    }
     try {
       setSaving(true);
 
+      setSaveMessage("");
       const formData = new FormData();
+      const requestId = crypto.randomUUID();
+      formData.append("saveRequestId", requestId);
+      formData.append("portfolioRevision", portfolioRevision);
+      formData.append("talentItems", JSON.stringify(talentProjects.map(item => item.removed
+        ? { ref: item.ref, remove: true } : { ref: item.ref, ...portfolioMetadata(item) })));
 
       newCvFiles.forEach((file) => formData.append("cvFiles", file));
-      newPortfolio.forEach((item) =>
-        formData.append("portfolioImages", item.file),
-      );
+      const uploadReference = item => `${item._id}.${item.file.type === "image/png" ? "png" : "jpg"}`;
+      newPortfolio.forEach(item => formData.append("portfolioImages", item.file, uploadReference(item)));
+      formData.append("portfolioItems", JSON.stringify([
+        ...existingPortfolio.map(item => ({ id: item._id, ...metadata.get(item._id) })),
+        ...newPortfolio.map(item => ({ upload: uploadReference(item), ...metadata.get(item._id) })),
+      ]));
 
       // Tell the server which saved files to keep; the rest are removed.
       formData.append(
         "keepCvIds",
         JSON.stringify(existingCv.map((f) => f.public_id)),
       );
-      formData.append(
-        "keepPortfolioIds",
-        JSON.stringify(existingPortfolio.map((f) => f.public_id)),
-      );
 
-      formData.append("aboutMe", aboutMe);
-      formData.append("education", JSON.stringify(education));
-      formData.append("experience", JSON.stringify(experience));
-      formData.append("skills", JSON.stringify(skills));
+      // Unchanged page fields (including blank UI placeholders) must not rewrite stored data.
+      for (const [key, value] of Object.entries({ aboutMe, education, experience, skills })) {
+        if (JSON.stringify(value) !== JSON.stringify(initialFields.current[key])) {
+          formData.append(key, typeof value === "string" ? value : JSON.stringify(value));
+        }
+      }
 
-      await axios.put(`${API_BASE_URL}/api/resume`, formData, {
+      saveAttempt.current = requestId;
+      const { data } = await axios.put(`${API_BASE_URL}/api/resume`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
 
-      toast({
-        title: "Saved!",
-        description: "Your resume has been saved successfully.",
-      });
-
-      navigate("/talent-dashboard/profile");
+      finishSave(data);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: friendlyError(
-          error,
-          "We couldn't save your resume. Please try again.",
-        ),
-        variant: "destructive",
-      });
+      if (error.response?.data?.saveState === "failed") finishSave(error.response.data);
+      else if (saveAttempt.current) {
+        setAwaitingReceipt(true);
+        setSaveMessage("Save status could not be confirmed. Your draft and files are retained. Check the save status again.");
+      } else setSaveMessage(friendlyError(error, "Unable to save. Your draft is retained."));
     } finally {
       setSaving(false);
     }
@@ -505,6 +578,7 @@ const TalentResumes = () => {
         </DialogContent>
       </Dialog>
       <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-6 md:p-8 max-w-5xl space-y-8">
+        <fieldset disabled={saving || awaitingReceipt} className="min-w-0 space-y-8">
         {/* CV File */}
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">CV File</h2>
@@ -615,53 +689,27 @@ const TalentResumes = () => {
         </section>
 
         {/* Portfolio */}
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-4">Portfolio</h2>
+        <fieldset disabled={saving} className="min-w-0">
+          <legend className="text-xl font-semibold text-white mb-4">Portfolio</legend>
+          <TalentPortfolioProjects projects={talentProjects} errors={portfolioErrors}
+            onChange={updateTalentProject} onRemove={removeTalentProject} />
           {existingPortfolio.length + newPortfolio.length > 0 && (
-            <div className="flex gap-4 mb-4 flex-wrap">
-              {existingPortfolio.map((img, index) => (
-                <div key={img.public_id} className="relative group">
-                  <div className="w-40 h-32 bg-[#2A2A2E] rounded-lg overflow-hidden border border-white/10">
-                    <img
-                      src={img.url}
-                      alt={`Portfolio ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+            <div className="grid min-w-0 grid-cols-1 gap-6 mb-4 md:grid-cols-2">
+              {[...existingPortfolio, ...newPortfolio].map((item, index) => (
+                <article key={item._id} aria-label={`Portfolio project ${index + 1}`} className="min-w-0 space-y-4 rounded-lg border border-white/10 p-4">
+                  <div className="relative group w-40 max-w-full">
+                    <div className="h-32 bg-[#2A2A2E] rounded-lg overflow-hidden border border-white/10">
+                      <img src={item.preview || item.url} alt={`Portfolio ${index + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                    <button type="button" aria-label={`Remove portfolio image ${index + 1}`}
+                      onClick={() => item.file ? removeNewPortfolio(item._id) : setExistingPortfolio(previous => previous.filter(row => row._id !== item._id))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity">
+                      <X className="w-3 h-3 text-white" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Remove image"
-                    onClick={() =>
-                      setExistingPortfolio(
-                        existingPortfolio.filter(
-                          (f) => f.public_id !== img.public_id,
-                        ),
-                      )
-                    }
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
-                </div>
-              ))}
-              {newPortfolio.map((item, index) => (
-                <div key={item.preview} className="relative group">
-                  <div className="w-40 h-32 bg-[#2A2A2E] rounded-lg overflow-hidden border border-blue-500/40">
-                    <img
-                      src={item.preview}
-                      alt={`New portfolio ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Remove image"
-                    onClick={() => removeNewPortfolio(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
-                </div>
+                  <PortfolioItemFields item={item} error={portfolioErrors[item._id]}
+                    onChange={(field, value) => updatePortfolio(item._id, field, value, Boolean(item.file))} />
+                </article>
               ))}
             </div>
           )}
@@ -681,13 +729,12 @@ const TalentResumes = () => {
             }
             className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors disabled:opacity-50"
           >
-            Browse
+            Add portfolio images
           </button>
-          <span className="ml-3 text-gray-400 text-sm">
-            Select one or more images (PNG or JPG, 5MB each) ·{" "}
-            {existingPortfolio.length + newPortfolio.length}/{MAX_PORTFOLIO}
-          </span>
-        </section>
+          <p className="mt-1 text-sm text-gray-400">
+            PNG/JPG · 5 MB per image · {existingPortfolio.length + newPortfolio.length}/{MAX_PORTFOLIO} images
+          </p>
+        </fieldset>
 
         {/* Education */}
         <section>
@@ -992,6 +1039,8 @@ const TalentResumes = () => {
           </button>
         </section>
 
+        </fieldset>
+        {saveMessage && <p role="alert" className="text-sm text-red-400">{saveMessage}</p>}
         {/* Save Button */}
         <div className="flex justify-end pt-4">
           <button
@@ -1000,7 +1049,7 @@ const TalentResumes = () => {
             className="px-8 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-70 flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : awaitingReceipt ? "Check save status" : "Save Changes"}
           </button>
         </div>
       </div>
