@@ -16,8 +16,11 @@ import {
 } from "../controllers/userSubscriptionCancellationController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import { getOwnPlanRequests, submitOwnPlanRequest } from "../controllers/employerPlanRequestController.js";
 
 const router = express.Router();
+router.get("/employer/plan-requests", protect, getOwnPlanRequests);
+router.post("/employer/plan-requests", protect, submitOwnPlanRequest);
 
 // Talent Routes
 router.post(

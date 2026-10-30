@@ -23,15 +23,16 @@ export function useAdminSubscriptionAction(action, onSaved) {
   }, [target, until]);
   return {
     target, result, seconds: Math.max(0, Math.ceil((until - Math.max(clock, Date.now())) / 1000)),
-    open(row, trigger) {
+    open(row, trigger, direction) {
+      if (action === "plan-request" && result.status === "sending") return;
       session.cancel(); owner.current = JSON.stringify(readOwner());
-      const selection = { type: row.type, accountId: row.accountId, trigger };
+      const selection = { type: row.type, accountId: row.accountId, trigger, ...(direction ? { direction } : {}) };
       setTarget(selection); session.load(selection, setResult);
     },
     selectPlan(toPlan) {
-      if (result.status === "ready" && !result.pending && result.lowerPlans?.includes(toPlan)) setResult({ ...result, toPlan });
+      if (result.status === "ready" && (action === "plan-request" || !result.pending) && !result.lockedPlan && (result.lowerPlans || result.allowedPlans)?.includes(toPlan)) setResult({ ...result, toPlan });
     },
-    close() { session.cancel(); setTarget(null); },
+    close() { if (action === "plan-request" && result.status === "sending") return; session.cancel(); setTarget(null); },
     refresh() { if (target) session.load(target, setResult); },
     send() { if (target && until <= Date.now()) session.send(target, result, setResult, onSaved); },
   };

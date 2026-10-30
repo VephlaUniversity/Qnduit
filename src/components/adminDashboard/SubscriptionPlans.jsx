@@ -1,5 +1,6 @@
 import { useAdminSubscriptionAction } from "../hooks/useAdminSubscriptionAction";
 import { AdminDowngradeSubscriptionDialog } from "./AdminDowngradeSubscriptionDialog";
+import { AdminEmployerPlanRequestDialog } from "./AdminEmployerPlanRequestDialog";
 import { useAdminCancellation } from "../hooks/useAdminCancellation";
 import { AdminCancelSubscriptionDialog } from "./AdminCancelSubscriptionDialog";
 import { useAdminInvoice } from "../hooks/useAdminInvoice";
@@ -189,6 +190,7 @@ export const SubscriptionPlans = () => {
   const [revision, setRevision] = useState(0);
   const cancellation = useAdminCancellation(() => setRevision(value => value + 1));
   const downgrade = useAdminSubscriptionAction("downgrade");
+  const employerRequest = useAdminSubscriptionAction("plan-request", () => setRevision(value => value + 1));
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -283,6 +285,7 @@ export const SubscriptionPlans = () => {
       <AdminInvoiceDialog flow={invoice} />
       <AdminCancelSubscriptionDialog flow={cancellation} />
       <AdminDowngradeSubscriptionDialog flow={downgrade} />
+      <AdminEmployerPlanRequestDialog flow={employerRequest} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full" />
 
@@ -368,7 +371,7 @@ export const SubscriptionPlans = () => {
           }
           onInvoice={invoice.open}
           onCancel={cancellation.open}
-          onDowngrade={downgrade.open}
+          onDowngrade={(row, trigger) => employerRequest.open(row, trigger, "downgrade")}
           onViewDetails={setActiveEmployer}
         />
       </div>

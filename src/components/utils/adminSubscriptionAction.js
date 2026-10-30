@@ -1,6 +1,7 @@
 const ownerKey = owner => owner ? `${owner.actor}:${owner.token}` : "";
 
 export function createAdminSubscriptionActionSession({ client, baseUrl, readOwner, action = "cancel", makeId = () => crypto.randomUUID() }) {
+  if (action === "plan-request") return createAdminEmployerPlanRequestSession({ client, baseUrl, readOwner, makeId });
   if (!["cancel", "downgrade"].includes(action)) throw Error("Unsupported subscription action");
   const isDowngrade = action === "downgrade";
   let version = 0, controller, sending = false, requestId;
@@ -59,3 +60,4 @@ export function createAdminSubscriptionActionSession({ client, baseUrl, readOwne
     },
   };
 }
+import { createAdminEmployerPlanRequestSession } from "./adminEmployerPlanRequest.js";

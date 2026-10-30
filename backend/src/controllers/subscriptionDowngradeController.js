@@ -3,6 +3,7 @@ import { previewSubscriptionDowngrade, recordSubscriptionDowngrade } from "../se
 const respond = async (req, res, recording) => {
   res.set("Cache-Control", "private, no-store");
   try {
+    if (req.params.role === "employer") return res.status(409).json({ success: false, code: "SUBSCRIPTION_SELECTION_STALE", message: "Use the immediate Employer downgrade confirmation." });
     if (recording && (!req.body || Object.keys(req.body).some(key => !["previewToken", "toPlan"].includes(key)))) {
       return res.status(400).json({ success: false, code: "SUBSCRIPTION_REQUEST_INVALID", message: "Only the preview token and lower plan may be supplied." });
     }

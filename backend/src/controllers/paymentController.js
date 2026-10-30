@@ -1,3 +1,5 @@
+import { EMPLOYER_PLANS } from "../config/employerPlans.js";
+import { createEmployerUpgradeCheckout } from "./employerUpgradeController.js";
 import { getEmployerPlan } from "../services/employerPlan.js";
 import process from "node:process";
 import { initiateSubscriptionCheckout, selectUnpaidSubscription, activateVerifiedSubscription, recordFailedSubscriptionPayment, currentPendingDowngrade } from "../services/subscriptionLifecycle.js";
@@ -20,33 +22,6 @@ const respondLifecycleError = (error, res, next) => {
 };
 
 // EMPLOYER PLANS
-
-const EMPLOYER_PLANS = {
-  bronze: {
-    amount: 6.99,
-    currency: "USD",
-    paymentPlanId: Number(
-      process.env.FLW_EMPLOYER_BRONZE_PLAN_ID
-    ),
-  },
-
-  silver: {
-    amount: 8.99,
-    currency: "USD",
-    paymentPlanId: Number(
-      process.env.FLW_EMPLOYER_SILVER_PLAN_ID
-    ),
-  },
-
-  platinum: {
-    amount: 12.99,
-    currency: "USD",
-    paymentPlanId: Number(
-      process.env.FLW_EMPLOYER_PLATINUM_PLAN_ID
-    ),
-  },
-};
-
 
 // TALENT PLANS
 
@@ -333,6 +308,7 @@ export const createEmployerCheckoutSession = async (
 ) => {
   try {
     if (req.user.role !== "employer") return res.status(403).json({ message: "Employer account required." });
+    if (req.body && (Object.hasOwn(req.body, "requestId") || Object.hasOwn(req.body, "previewToken"))) return createEmployerUpgradeCheckout(req, res, next);
     const employerId = req.user._id;
     const { plan } = req.body;
 

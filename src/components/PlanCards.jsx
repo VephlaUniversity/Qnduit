@@ -25,10 +25,11 @@ export const PlanCard = ({
   pending = false,
   alwaysActive = false,
   showPayLater = true,
+  primaryLabel: suppliedPrimaryLabel,
 }) => {
   const buttonsDisabled =
     pending || (disableWhenNotSelected && !isSelected && !alwaysActive);
-  const primaryLabel = alwaysActive && ctaText ? ctaText : "Subscribe Now →";
+  const primaryLabel = suppliedPrimaryLabel || (alwaysActive && ctaText ? ctaText : "Subscribe Now →");
   const hidePayLater = !showPayLater || (alwaysActive && price === 0);
   const getBackground = () => {
     if (variant === "highlighted") {
