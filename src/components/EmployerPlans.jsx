@@ -7,8 +7,15 @@ export const EmployerPlans = ({
   onPlanAction,
   alwaysActive = false,
   showPayLater = true,
+  requestMode = false,
+  upgradePlans = [],
+  currentPlan,
+  disabled = false,
 }) => {
   const { pending, submit } = usePlanAction(onPlanAction);
+  const planOrder = ["free", "bronze", "silver", "platinum"];
+  const unavailable = plan => plan === currentPlan || planOrder.indexOf(plan) > planOrder.indexOf(currentPlan) && !upgradePlans.includes(plan);
+  const requestLabel = plan => plan === currentPlan ? "Current plan" : planOrder.indexOf(plan) > planOrder.indexOf(currentPlan) ? "Upgrade" : "Downgrade";
 
   const bronzeIcon = (
     <svg
@@ -84,7 +91,8 @@ export const EmployerPlans = ({
         isSelected={selectedPlan === "bronze"}
         onSelect={onSelectPlan}
         onCTAClick={submit}
-        pending={pending}
+        pending={pending || disabled || requestMode && unavailable("bronze")}
+        primaryLabel={requestMode ? requestLabel("bronze") : undefined}
         variant="default"
         alwaysActive={alwaysActive}
         showPayLater={showPayLater}
@@ -105,7 +113,8 @@ export const EmployerPlans = ({
         isSelected={selectedPlan === "silver"}
         onSelect={onSelectPlan}
         onCTAClick={submit}
-        pending={pending}
+        pending={pending || disabled || requestMode && unavailable("silver")}
+        primaryLabel={requestMode ? requestLabel("silver") : undefined}
         variant="highlighted"
         alwaysActive={alwaysActive}
         showPayLater={showPayLater}
@@ -126,7 +135,8 @@ export const EmployerPlans = ({
         isSelected={selectedPlan === "platinum"}
         onSelect={onSelectPlan}
         onCTAClick={submit}
-        pending={pending}
+        pending={pending || disabled || requestMode && unavailable("platinum")}
+        primaryLabel={requestMode ? requestLabel("platinum") : undefined}
         variant="default"
         alwaysActive={alwaysActive}
         showPayLater={showPayLater}

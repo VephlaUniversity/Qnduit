@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { resolveSubscriptionStatus } from "../services/subscriptionStatus.js";
 import { ADMIN_PROFILE_FIELDS, adminProfileDTO } from "../services/adminProfile.js";
 import { verificationBadgeDTO, withVerificationBadge } from "../services/verificationBadge.js";
 import Talent from "../models/Talent.js";
@@ -1110,48 +1111,9 @@ export const getAdminSubscriptions = async (req, res) => {
       });
     }
 
-    const employerMatch = {};
-
-    if (searchTerm) {
-      employerMatch.$or = [
-        {
-          "employer.firstName": {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-        {
-          "employer.lastName": {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-        {
-          "employer.companyName": {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-        {
-          "employer.displayName": {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-        {
-          "employer.email": {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-        {
-          plan: {
-            $regex: searchTerm,
-            $options: "i",
-          },
-        },
-      ];
-    }
+    // Plan search must use the same validated effective access as the displayed row.
+    const effectiveSearch = searchTerm ? new RegExp(searchTerm, "i") : null;
+    const effectiveAccess = new Map();
 
     const employerPipeline = [
       {
@@ -1170,17 +1132,13 @@ export const getAdminSubscriptions = async (req, res) => {
         },
       },
 
-      ...(searchTerm
-        ? [{ $match: employerMatch }]
-        : []),
-
       {
         $sort: {
           createdAt: sortDirection,
         },
       },
 
-      {
+      ...(!effectiveSearch ? [{
         $facet: {
           data: [
             {
@@ -1197,7 +1155,7 @@ export const getAdminSubscriptions = async (req, res) => {
             },
           ],
         },
-      },
+      }] : []),
     ];
 
     const result =
@@ -1205,10 +1163,24 @@ export const getAdminSubscriptions = async (req, res) => {
         employerPipeline
       );
 
-    const data = result[0]?.data || [];
-
-    const total =
-      result[0]?.total?.[0]?.count || 0;
+    let data = result[0]?.data || [];
+    let total = result[0]?.total?.[0]?.count || 0;
+    if (effectiveSearch) {
+      // Resolve before filtering/pagination so invalid or expired paid evidence
+      // cannot be matched as a paid plan, and totals describe the displayed rows.
+      const matches = await Promise.all(result.map(async subscription => {
+        const accountId = String(subscription.employer._id);
+        const access = await resolveSubscriptionStatus({ role: "employer", accountId });
+        effectiveAccess.set(accountId, access);
+        const employer = subscription.employer;
+        return [employer.firstName, employer.lastName, employer.companyName,
+          employer.displayName, employer.email, access.effectivePlan]
+          .some(value => effectiveSearch.test(value || ""));
+      }));
+      const filtered = result.filter((_subscription, index) => matches[index]);
+      total = filtered.length;
+      data = filtered.slice(skip, skip + limitNumber);
+    }
 
     const rows = await Promise.all(
       data.map(async (subscription) => {
@@ -1220,6 +1192,8 @@ export const getAdminSubscriptions = async (req, res) => {
             .sort({ createdAt: -1 })
             .lean();
 
+        const access = effectiveAccess.get(String(subscription.employer._id))
+          || await resolveSubscriptionStatus({ role: "employer", accountId: subscription.employer._id });
         return {
           id: subscription._id,
           type: "employer",
@@ -1235,7 +1209,8 @@ export const getAdminSubscriptions = async (req, res) => {
           email:
             subscription.employer.email || "",
 
-          plan: subscription.plan,
+          plan: access.effectivePlan,
+          fundedPlan: subscription.plan,
 
           status: subscription.status,
 

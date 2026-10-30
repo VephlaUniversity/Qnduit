@@ -1,5 +1,5 @@
 import { useAdminSubscriptionAction } from "../hooks/useAdminSubscriptionAction";
-import { AdminDowngradeSubscriptionDialog } from "./AdminDowngradeSubscriptionDialog";
+import { AdminEmployerPlanRequestDialog } from "./AdminEmployerPlanRequestDialog";
 import { useAdminCancellation } from "../hooks/useAdminCancellation";
 import { AdminCancelSubscriptionDialog } from "./AdminCancelSubscriptionDialog";
 import { useAdminInvoice } from "../hooks/useAdminInvoice";
@@ -86,7 +86,7 @@ export const SubscribedEmployers = () => {
   const invoice = useAdminInvoice();
   const [revision, setRevision] = useState(0);
   const cancellation = useAdminCancellation(() => setRevision(value => value + 1));
-  const downgrade = useAdminSubscriptionAction("downgrade");
+  const planRequest = useAdminSubscriptionAction("plan-request", () => setRevision(value => value + 1));
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
@@ -177,7 +177,7 @@ export const SubscribedEmployers = () => {
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
       <AdminInvoiceDialog flow={invoice} />
       <AdminCancelSubscriptionDialog flow={cancellation} />
-      <AdminDowngradeSubscriptionDialog flow={downgrade} />
+      <AdminEmployerPlanRequestDialog flow={planRequest} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full" />
 
@@ -264,7 +264,7 @@ export const SubscribedEmployers = () => {
 
                     <td className="py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <SubscriptionActionMenu onDowngrade={trigger => downgrade.open(row, trigger)} onCancel={trigger => cancellation.open(row, trigger)} onSendInvoice={trigger => invoice.open(row, trigger)} />
+                        <SubscriptionActionMenu onDowngrade={trigger => planRequest.open(row, trigger, "downgrade")} onCancel={trigger => cancellation.open(row, trigger)} onSendInvoice={trigger => invoice.open(row, trigger)} />
 
                         <button
                           onClick={() => setActive(row)}

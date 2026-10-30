@@ -56,6 +56,11 @@ const employerSubscriptionSchema = new mongoose.Schema(
       type: Date,
     },
 
+    // Funded plan above stays immutable during access-only downgrades.
+    accessPlan: { type: String, enum: ["bronze", "silver"] },
+    accessPlanHistory: String,
+    accessPlanGeneration: Number,
+
     lastTransactionId: {
       type: String,
       index: true,

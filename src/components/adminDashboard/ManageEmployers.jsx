@@ -1,5 +1,7 @@
+import { useAdminSubscriptionAction } from "../hooks/useAdminSubscriptionAction";
+import { AdminEmployerPlanRequestDialog } from "./AdminEmployerPlanRequestDialog";
 import { AdminProfileDialog } from "./AdminProfileDialog";
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   MoreHorizontal,
   MapPin,
@@ -37,12 +39,15 @@ const formatDate = (date) =>
       })
     : "-";
 
-const RowMenu = ({ onVerify, onUnverify, onDelete, pending }) => (
+const RowMenu = ({ onVerify, onUnverify, onDelete, onDowngrade, pending }) => {
+  const trigger = useRef(null);
+  return (
   <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
       <button
         type="button"
         aria-label="Employer actions"
+        ref={trigger}
         className="w-9 h-9 rounded-lg bg-[#2A2A2E] hover:bg-blue-600 flex items-center justify-center text-white"
       >
         <MoreHorizontal className="w-4 h-4" />
@@ -64,6 +69,7 @@ const RowMenu = ({ onVerify, onUnverify, onDelete, pending }) => (
         <BadgeMinus className="w-4 h-4 text-yellow-500" />
         Unverify User
       </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => onDowngrade(trigger.current)} className="cursor-pointer focus:bg-white/10 focus:text-white">Downgrade</DropdownMenuItem>
       <DropdownMenuItem disabled={pending} onSelect={onDelete} className="cursor-pointer text-red-400 focus:bg-white/10 focus:text-red-400">
         <Trash2 className="w-4 h-4" />
         Delete
@@ -71,8 +77,10 @@ const RowMenu = ({ onVerify, onUnverify, onDelete, pending }) => (
     </DropdownMenuContent>
   </DropdownMenu>
 );
+};
 
 export const ManageEmployers = () => {
+  const planRequest = useAdminSubscriptionAction("plan-request");
   const [profileSubject, setProfileSubject] = useState(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("name-asc");
@@ -168,6 +176,7 @@ export const ManageEmployers = () => {
 
   return (
     <div className="min-h-screen bg-[#0E0E10] p-4 md:p-6 lg:p-8">
+      <AdminEmployerPlanRequestDialog flow={planRequest} />
       <AdminProfileDialog subject={profileSubject} onClose={() => setProfileSubject(null)} />
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
@@ -270,6 +279,7 @@ export const ManageEmployers = () => {
                       <div className="flex items-center justify-end gap-2">
                         <RowMenu
                           pending={badges.pending("employer", employer._id)}
+                          onDowngrade={trigger => planRequest.open({ type: "employer", accountId: String(employer._id) }, trigger, "downgrade")}
                           onVerify={() => badges.setBadge("employer", employer._id, true)}
                           onUnverify={() => badges.setBadge("employer", employer._id, false)}
                           onDelete={() => deleteEmployer(employer._id)}

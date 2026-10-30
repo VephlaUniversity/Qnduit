@@ -11,6 +11,7 @@ import EmployerSubscription from "../models/EmployerSubscription.js";
 import TalentPayment from "../models/TalentPayment.js";
 import EmployerPayment from "../models/EmployerPayment.js";
 import { SubscriptionLifecycle as Lifecycle, SubscriptionCancellation as Cancellation, SubscriptionCharge as Charge, SubscriptionDowngrade as Downgrade } from "../models/SubscriptionLifecycle.js";
+import { planRequestHash, employerPlanAction } from "../utils/employerPlanRequest.js";
 import { generateTalentUsername } from "../utils/generateTalentUsername.js";
 
 const adapters = {
@@ -35,6 +36,7 @@ const linked = (subscription, payment) => Boolean(subscription && (subscription.
 const fingerprint = (subscription, state) => createHash("sha256").update(JSON.stringify({
   id: String(subscription._id), generation: generation(state), status: subscription.status, plan: subscription.plan,
   provider: subscription.provider, start: subscription.currentPeriodStart, end: subscription.currentPeriodEnd,
+  accessPlan: subscription.accessPlan, accessPlanHistory: subscription.accessPlanHistory, accessPlanGeneration: subscription.accessPlanGeneration,
   lastTxRef: subscription.lastTxRef, lastTransactionId: subscription.lastTransactionId, updatedAt: subscription.updatedAt,
 })).digest("hex");
 
@@ -56,6 +58,10 @@ async function serialized(role, accountId, work) {
     throw error;
   } finally { await session.endSession(); }
 }
+
+// Internal foundations share the existing lock/session; these exports expose no route.
+export const withSubscriptionLifecycleTransaction = serialized;
+export const subscriptionActivationFingerprint = fingerprint;
 
 export async function initiateSubscriptionCheckout({ role, accountId, plan, txRef, amount, currency, paymentPlanId }) {
   target(role, accountId);
@@ -123,8 +129,8 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     if (["successful", "refunded"].includes(payment.status)) {
       // Legacy successful records can be read/replayed but never grant access
       // afresh. No paidAt, period, references or account flags are rewritten.
-      return { recorded: true, activated: payment.status === "successful" && account.isVerified &&
-        subscriptionStatusFromEvidence({ account, subscription: current, payment: linked(current, payment) ? payment : null }, { role }).paidEligible,
+      return { recorded: true, activated: payment.status === "successful" && account.isVerified && linked(current, payment) &&
+        subscriptionStatusFromEvidence(role === "employer" ? await loadSubscriptionEvidence({ role, accountId: account._id, session }) : { account, subscription: current, payment: linked(current, payment) ? payment : null }, { role }).paidEligible,
       reason: "already_recorded", replayed: true };
     }
     const now = new Date();
@@ -134,18 +140,39 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     payment.flwRef = transaction.flw_ref;
     payment.metadata = { ...(payment.metadata || {}), flutterwaveStatus: transaction.status,
       paymentType: transaction.payment_type, chargedAmount: transaction.charged_amount };
+    const upgradeId = role === "employer" ? payment.metadata?.upgradeRequest : null;
+    const upgrade = upgradeId ? await Downgrade.findById(upgradeId).session(session) : null;
+    let upgradeEvidence, upgradeStatus, sourceSelection;
+    if (upgradeId) {
+      upgradeEvidence = await loadSubscriptionEvidence({ role, accountId: account._id, session });
+      upgradeStatus = subscriptionStatusFromEvidence(upgradeEvidence, { role, now });
+      sourceSelection = upgradeEvidence.subscription ? fingerprint(upgradeEvidence.subscription, state)
+        : planRequestHash(["no-subscription", String(account._id).toLowerCase(), generation(state)]);
+    }
+    const validUpgrade = Boolean(upgrade && upgrade.executionPolicy === "payment-upgrade-v1" && upgrade.role === "employer" &&
+      String(upgrade.account) === String(account._id) && String(upgrade.requestedBy) === String(account._id) && upgrade.actorRole === "employer" &&
+      String(upgrade.payment) === String(payment._id) && upgrade.toPlan === payment.plan && ["awaiting_payment", "failed"].includes(upgrade.status) &&
+      upgrade.generation === generation(state) && upgrade.activationFingerprint === sourceSelection && upgrade.fromPlan === upgradeStatus.effectivePlan &&
+      employerPlanAction(upgrade.fromPlan, upgrade.toPlan) === "upgrade" &&
+      ["active", "unpaid", "expired", "cancelled"].includes(upgradeStatus.status) && !["successful_payment_not_linked", "subscription_pending"].includes(upgradeStatus.reason));
     let reason;
-    if (!Number.isSafeInteger(payment.activationGeneration)) reason = "legacy_checkout_without_generation";
+    if (upgradeId && !validUpgrade) reason = "upgrade_source_changed";
+    else if (!Number.isSafeInteger(payment.activationGeneration)) reason = "legacy_checkout_without_generation";
     else if (!adapters[role].plans.includes(payment.plan) || !Number.isSafeInteger(payment.metadata?.paymentPlanId) || payment.metadata.paymentPlanId <= 0) reason = "invalid_checkout_evidence";
     else if (payment.type !== "subscription") reason = "not_explicit_checkout";
     else if (payment.activationGeneration !== generation(state) || String(state.pendingPayment || "") !== String(payment._id)) reason = "superseded_checkout";
     else if (account.accountStatus !== "active" || !account.isVerified) reason = "account_unavailable";
-    else if (current?.status === "active") reason = "newer_or_existing_activation";
+    else if (current?.status === "active" && !validUpgrade) reason = "newer_or_existing_activation";
     payment.activationOutcome = reason || "activated";
     await payment.save({ session });
-    if (reason) return { recorded: true, activated: false, reason };
+    if (reason) {
+      if (upgrade && upgrade.executionPolicy === "payment-upgrade-v1" && String(upgrade.account) === String(account._id) && String(upgrade.payment) === String(payment._id) && ["awaiting_payment", "failed"].includes(upgrade.status)) {
+        upgrade.status = "superseded"; upgrade.outcome = "superseded"; upgrade.outcomeReason = reason; await upgrade.save({ session });
+      }
+      return { recorded: true, activated: false, reason };
+    }
     const end = new Date(now); end.setMonth(end.getMonth() + 1); // Preserve existing period semantics.
-    const subscription = await Subscription.findOneAndUpdate({ [role]: account._id }, { $set: {
+    const subscription = await Subscription.findOneAndUpdate({ [role]: account._id }, { ...(role === "employer" ? { $unset: { accessPlan: "", accessPlanHistory: "", accessPlanGeneration: "" } } : {}), $set: {
       [role]: account._id, provider: payment.provider, plan: payment.plan, status: "active",
       currentPeriodStart: now, currentPeriodEnd: end, cancelAtPeriodEnd: false,
       canceledAt: null, endedAt: null, lastTxRef: payment.txRef, lastTransactionId: payment.transactionId,
@@ -166,7 +193,13 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
       }
     } else { tracking.planExpiresAt = end; tracking.isTrial = false; }
     await Account.updateOne({ _id: account._id }, { $set: tracking }, { session });
-    await Lifecycle.updateOne({ _id: state._id }, { $set: { activePayment: payment._id, pendingPayment: null } }, { session });
+    await Lifecycle.updateOne({ _id: state._id }, { $set: { activePayment: payment._id, pendingPayment: null,
+      ...(validUpgrade ? { generation: generation(state) + 1 } : {}) } }, { session });
+    if (validUpgrade) {
+      upgrade.status = "applied"; upgrade.outcome = "applied"; upgrade.appliedPlan = payment.plan;
+      upgrade.actualEffectiveAt = now; upgrade.appliedGeneration = generation(state) + 1; upgrade.outcomeReason = undefined;
+      await upgrade.save({ session });
+    }
     await recordSubscriptionConfirmation({ role, account, payment, subscription, session });
     return { recorded: true, activated: true, reason: "activated" };
   });
@@ -182,6 +215,18 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
 export async function recordFailedSubscriptionPayment({ role, paymentId }) {
   // A late failure must never downgrade a successful/refunded payment or access.
   const adapter = adapterForRole(role);
+  if (role === "employer") {
+    const linkedPayment = await adapter.Payment.findById(paymentId).select("employer metadata").lean();
+    if (linkedPayment?.metadata?.upgradeRequest) return serialized(role, linkedPayment.employer, async ({ Payment, session }) => {
+      const payment = await Payment.findById(paymentId).session(session);
+      if (["successful", "refunded"].includes(payment.status)) return;
+      payment.status = "failed"; payment.failureReason = "Payment verification failed"; await payment.save({ session });
+      const request = await Downgrade.findById(payment.metadata.upgradeRequest).session(session);
+      if (request?.executionPolicy === "payment-upgrade-v1" && String(request.account) === String(payment.employer) && String(request.payment) === String(payment._id) && request.status === "awaiting_payment") {
+        request.status = "failed"; request.outcome = "failed"; request.outcomeReason = "Payment verification failed"; await request.save({ session });
+      }
+    });
+  }
   await adapter.Payment.updateOne({ _id: paymentId, status: { $nin: ["successful", "refunded"] } },
     { $set: { status: "failed", failureReason: "Payment verification failed" } });
 }
@@ -497,6 +542,9 @@ async function deactivate({
 }
 
 
+// Shared access deactivation; does not contact providers or alter payment evidence.
+export const deactivateSubscriptionAccess = deactivate;
+
 export async function cancelSubscription({ role, accountId, adminId, previewToken, requestId }) {
   accountId = String(accountId).toLowerCase();
   target(role, accountId);
@@ -593,6 +641,11 @@ export async function recordSubscriptionDowngrade({ role, accountId, adminId, pr
     if (previous) {
       if (previous.toPlan !== toPlan) throw failure(409, "SUBSCRIPTION_DOWNGRADE_PENDING", "A different downgrade request is already pending for this activation.");
       return { success: true, replayed: true, request: downgradeDto(previous), message: "Downgrade request saved." };
+    }
+    // Internal V2 history shares this activation lock with the legacy writer.
+    if (await Downgrade.exists({ role, account: accountId, requestVersion: 2,
+      activationFingerprint: selection, status: { $in: ["pending", "awaiting_payment", "scheduled"] } }).session(session)) {
+      throw failure(409, "SUBSCRIPTION_DOWNGRADE_PENDING", "A plan-change request is already pending for this activation.");
     }
     const [record] = await Downgrade.create([{ _id: id, role, account: accountId, subscription: subscription._id,
       generation: generation(state), activationFingerprint: selection, lastTxRef: subscription.lastTxRef,

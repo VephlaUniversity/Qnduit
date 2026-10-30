@@ -1,6 +1,7 @@
 import { requireEmployerJobSource } from "../middleware/requireEmployerJobSource.js";
 import express from "express";
 import { previewDowngrade, requestDowngrade } from "../controllers/subscriptionDowngradeController.js";
+import { previewAdminEmployerPlanRequest, submitAdminEmployerPlanRequest } from "../controllers/adminEmployerPlanRequestController.js";
 import { previewCancellation, cancelActiveSubscription } from "../controllers/subscriptionCancellationController.js";
 import { previewInvoice, emailInvoice } from "../controllers/subscriptionInvoiceController.js";
 
@@ -39,7 +40,7 @@ const router = express.Router();
 
 // Include authorization/validation failures in the detail cache policy too.
 router.use((req, res, next) => {
-  if (/^\/subscriptions\/[^/]+\/[^/]+\/(invoice-email|cancel|downgrade)\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
+  if (/^\/subscriptions\/[^/]+\/[^/]+\/(invoice-email|cancel|downgrade|plan-request)\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   if (req.method === "GET" && /^\/(talents|employers)\/[^/]+\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   next();
 });
@@ -47,6 +48,8 @@ router.use((req, res, next) => {
 router.use(protect);
 router.use(authorize("admin"));
 router.use("/jobs", requireEmployerJobSource);
+router.get("/subscriptions/employer/:accountId/plan-request", previewAdminEmployerPlanRequest);
+router.post("/subscriptions/employer/:accountId/plan-request", submitAdminEmployerPlanRequest);
 
 router.get("/subscriptions/:role/:accountId/downgrade", previewDowngrade);
 router.post("/subscriptions/:role/:accountId/downgrade", requestDowngrade);
