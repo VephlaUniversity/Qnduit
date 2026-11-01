@@ -450,13 +450,13 @@ export const TalentJobDetails = () => {
   if (loadError) {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center gap-4 text-white"
+        className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center gap-4 p-4 md:p-6 lg:p-8 text-white"
         role="alert"
       >
         <p>{loadError}</p>
         <button
           onClick={() => navigate(-1)}
-          className="px-6 py-2 border border-blue-600 text-[#3B82F6] rounded-sm"
+          className="min-h-11 px-6 py-2 border border-blue-600 text-blue-400 rounded-lg"
         >
           Go back
         </button>
@@ -467,7 +467,7 @@ export const TalentJobDetails = () => {
   if (!job) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center text-white"
+        className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 text-white"
         role="status"
       >
         <div className="text-center">
@@ -479,32 +479,32 @@ export const TalentJobDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1419] text-white">
+    <div className="min-h-[calc(100vh-4rem)] min-w-0 bg-[#0E0E10] p-4 md:p-6 lg:p-8 text-white">
       {/* Header Banner */}
-      <div className="max-w-7xl mx-auto px-6 pt-6">
+      <div className="mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors mb-4"
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Jobs
         </button>
       </div>
-      <div className="bg-[#262C36] px-6 py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div className="grid grid-cols-[4rem_1fr] md:grid-cols-[6rem_1fr] gap-x-4 md:gap-x-6 min-w-0">
-              <JobImage job={job} className="w-16 h-16 md:w-24 md:h-24 md:row-span-2 bg-muted rounded-lg text-3xl font-bold text-white/80" />
-              <div className="self-center md:self-auto min-w-0">
-                <div className="flex items-center gap-3 md:mb-2">
+      <div className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6 mb-6">
+        <div className="min-w-0">
+          <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+            <div className="grid flex-1 grid-cols-[4rem_minmax(0,1fr)] gap-x-4 min-w-0">
+              <JobImage job={job} className="w-16 h-16 sm:row-span-2 bg-[#0E0E10] rounded-lg text-2xl font-semibold text-white/80" />
+              <div className="self-center sm:self-auto min-w-0 break-words">
+                <div className="flex items-center gap-3 mb-2">
                   <span className="text-[#3B82F6] text-sm">
                     {job.employer?.companyName}
                   </span>
                 </div>
                 <JobEmployerActions employerId={job.employer?._id} jobId={id} />
               </div>
-              <div className="col-span-2 md:col-span-1 mt-4 md:mt-0 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-white mb-3 break-words">
+              <div className="col-span-2 sm:col-span-1 mt-4 sm:mt-0 min-w-0">
+                <h1 className="text-2xl md:text-3xl font-semibold text-white mb-3 break-words">
                   {job.jobTitle}{" "}
                   {job.verified && (
                     <span className="bg-blue-600 inline-block p-1 rounded-full ml-2">
@@ -525,20 +525,20 @@ export const TalentJobDetails = () => {
                     </span>
                   )}
                 </h1>
-                <div className="flex items-center gap-6 text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-400">
                   <span className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     {job.location}
                   </span>
                   <span>⏰ {formatPosted(job.createdAt)}</span>
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-4">
                   {normalizeList(job.jobApplyType)
                     .concat(job.workType ? [job.workType] : [])
                     .map((type, idx) => (
                       <span
                         key={idx}
-                        className="px-4 py-2 bg-[#f1f1f1] text-black rounded-full text-sm"
+                        className="max-w-full px-3 py-1 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-md text-xs font-medium break-words"
                       >
                         {type}
                       </span>
@@ -547,12 +547,12 @@ export const TalentJobDetails = () => {
               </div>
             </div>
 
-            <div className="flex flex-col md:items-end w-full md:w-auto md:shrink-0">
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col gap-4 w-full min-w-0 xl:w-72 xl:shrink-0 border-t border-white/10 pt-5 xl:border-t-0 xl:border-l xl:pl-6 xl:pt-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={handleShare}
                   aria-label="Share job"
-                  className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors"
+                  className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
                 >
                   <Share2 className="w-5 h-5" />
                 </button>
@@ -562,7 +562,7 @@ export const TalentJobDetails = () => {
                   aria-label={
                     isFavorite ? "Remove from saved jobs" : "Save job"
                   }
-                  className="w-12 h-12 flex items-center justify-center rounded-full border border-[#2A3142] hover:bg-[#2A3142] transition-colors"
+                  className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
                 >
                   <Heart
                     className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : "text-white"}`}
@@ -571,7 +571,7 @@ export const TalentJobDetails = () => {
 
                 <JobApplyAction job={job} applied={applied} applying={applying}
                   onApply={handleApply}
-                  className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm flex items-center gap-2 whitespace-normal justify-center text-center transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="min-h-11 min-w-0 flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm break-words font-medium rounded-lg flex items-center gap-2 whitespace-normal justify-center text-center transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span>
                     <svg
@@ -600,9 +600,9 @@ export const TalentJobDetails = () => {
                 </JobApplyAction>
               </div>
 
-              <div className="flex flex-col mt-6 pt-6">
+              <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground text-sm">
+                  <span className="text-gray-400 text-sm">
                     {daysLeftLabel(job.deadlineDate, "left to apply")}
                   </span>
                 </div>
@@ -616,35 +616,35 @@ export const TalentJobDetails = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-[#1A1F2E]">
-        <div className="max-w-7xl mx-auto px-6">
+      <div className="border-b border-white/10 mb-6">
+        <div className="min-w-0">
           <div className="flex gap-4 md:gap-8 overflow-x-auto thin-scroll whitespace-nowrap">
             <button
               onClick={() => setActiveTab("about")}
-              className={`py-4 px-2 border-b-2 transition-colors ${
+              className={`shrink-0 py-3 px-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "about"
                   ? "border-blue-600 text-white"
-                  : "border-transparent text-muted-foreground"
+                  : "border-transparent text-gray-400 hover:text-white"
               }`}
             >
               About
             </button>
             <button
               onClick={() => setActiveTab("jobs")}
-              className={`py-4 px-2 border-b-2 transition-colors ${
+              className={`shrink-0 py-3 px-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "jobs"
                   ? "border-blue-600 text-white"
-                  : "border-transparent text-muted-foreground"
+                  : "border-transparent text-gray-400 hover:text-white"
               }`}
             >
               Related Jobs ({similarJobs.length})
             </button>
             <button
               onClick={() => setActiveTab("reviews")}
-              className={`py-4 px-2 border-b-2 transition-colors ${
+              className={`shrink-0 py-3 px-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "reviews"
                   ? "border-blue-600 text-white"
-                  : "border-transparent text-muted-foreground"
+                  : "border-transparent text-gray-400 hover:text-white"
               }`}
             >
               Reviews
@@ -654,22 +654,22 @@ export const TalentJobDetails = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="min-w-0">
+        <div className="flex flex-col xl:flex-row gap-6">
           {/* Left Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "about" && (
-              <div className="space-y-8">
-                <section className="rounded-xl p-5 md:p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6">
+              <div className="space-y-6">
+                <section className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6">
+                  <h2 className="text-xl font-semibold text-white mb-4">
                     Full Job Description
                   </h2>
                   <JobDescriptionText
                     value={job.jobDescription}
-                    className="text-muted-foreground leading-relaxed"
+                    className="text-gray-400 text-sm leading-7 break-words"
                   />
 
-                  <div className="mt-8">
+                  <div className="mt-6">
                     <h3 className="text-xl font-semibold text-white mb-4">
                       Qualifications:
                     </h3>
@@ -677,7 +677,7 @@ export const TalentJobDetails = () => {
                       {normalizeList(job.qualifications).map((qual, idx) => (
                         <li
                           key={idx}
-                          className="flex gap-3 text-muted-foreground"
+                          className="flex gap-3 text-gray-400"
                         >
                           <span className="text-[#3B82F6]">•</span>
                           <span>{qual}</span>
@@ -689,12 +689,12 @@ export const TalentJobDetails = () => {
 
                 {/* Portfolio Section: only when the employer added media */}
                 {portfolioItems.length > 0 && (
-                  <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8">
-                    <h2 className="text-2xl font-bold text-white mb-6">
+                  <section className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6">
+                    <h2 className="text-xl font-semibold text-white mb-4">
                       Portfolio
                     </h2>
                     <div className="relative">
-                      <div className="aspect-video bg-muted rounded-xl mb-4 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-video bg-[#0E0E10] rounded-xl mb-4 flex items-center justify-center overflow-hidden">
                         {activePortfolioItem.type === "video" ? (
                           <video
                             key={activePortfolioItem.url}
@@ -732,7 +732,7 @@ export const TalentJobDetails = () => {
                                 key={`${item.url}-${idx}`}
                                 onClick={() => setCurrentPortfolioIndex(idx)}
                                 aria-label={`Show item ${idx + 1}`}
-                                className={`relative w-28 shrink-0 aspect-video rounded-lg bg-muted overflow-hidden ${
+                                className={`relative w-28 shrink-0 aspect-video rounded-lg bg-[#0E0E10] overflow-hidden ${
                                   activePortfolioIndex === idx
                                     ? "ring-2 ring-[#3B82F6]"
                                     : ""
@@ -774,10 +774,10 @@ export const TalentJobDetails = () => {
             )}
 
             {activeTab === "jobs" && (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {/* Similar Jobs */}
-                <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6">
+                <section className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6">
+                  <h2 className="text-xl font-semibold text-white mb-4">
                     Related Jobs
                   </h2>
                   {similarJobs.length > 0 ? (
@@ -785,26 +785,26 @@ export const TalentJobDetails = () => {
                       {similarJobs.map((relatedJob) => (
                         <div
                           key={jobKey(relatedJob)}
-                          className="bg-[#0F1419] rounded-xl p-6 hover:bg-[#141921] transition-colors"
+                          className="min-w-0 bg-[#0E0E10] border border-white/10 rounded-lg p-4 sm:p-5 hover:border-white/20 transition-colors"
                         >
                           <div className="flex items-start justify-between">
-                            <div className="flex gap-4 flex-1">
-                              <JobImage job={relatedJob} className="w-16 h-16 bg-muted rounded-lg font-bold text-white/80" />
-                              <div className="flex-1">
+                            <div className="flex gap-3 flex-1 min-w-0">
+                              <JobImage job={relatedJob} className="w-16 h-16 bg-[#0E0E10] rounded-lg font-bold text-white/80" />
+                              <div className="flex-1 min-w-0">
                                 <div className="text-[#3B82F6] text-sm mb-1">
                                   {relatedJob.employer?.companyName}
                                 </div>
                                 <Link
                                   to={talentJobPath(relatedJob)}
                                 >
-                                  <h3 className="text-white text-lg font-semibold mb-2 hover:text-[#3B82F6] transition-colors">
+                                  <h3 className="text-white text-lg font-semibold break-words mb-2 hover:text-[#3B82F6] transition-colors">
                                     {relatedJob.jobTitle}{" "}
                                     {relatedJob.verified && (
                                       <span className="text-[#3B82F6]">✓</span>
                                     )}
                                   </h3>
                                 </Link>
-                                <div className="flex items-center gap-4 text-muted-foreground text-sm mb-3">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-400 text-sm mb-3">
                                   <span className="flex items-center gap-1">
                                     <MapPin className="w-4 h-4" />
                                     {relatedJob.location}
@@ -813,11 +813,11 @@ export const TalentJobDetails = () => {
                                     ⏰ {formatPosted(relatedJob.createdAt)}
                                   </span>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                   {normalizeList(relatedJob.jobApplyType).map((type, idx) => (
                                     <span
                                       key={idx}
-                                      className="px-3 py-1 bg-[#2A3142] text-white rounded-md text-sm"
+                                      className="px-3 py-1 bg-white/5 text-white rounded-md text-sm"
                                     >
                                       {type}
                                     </span>
@@ -825,13 +825,13 @@ export const TalentJobDetails = () => {
                                 </div>
                               </div>
                             </div>
-                            <button className="p-2 rounded-lg hover:bg-[#2A3142] transition-colors">
-                              <Heart className="w-5 h-5 text-muted-foreground" />
+                            <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+                              <Heart className="w-5 h-5 text-gray-400" />
                             </button>
                           </div>
 
-                          <div className="flex items-center justify-between mt-6 pt-6 border-t border-[#2A3142]">
-                            <span className="text-muted-foreground text-sm">
+                          <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/10">
+                            <span className="text-gray-400 text-sm">
                               {daysLeftLabel(
                                 relatedJob.deadlineDate,
                                 "left to apply",
@@ -849,7 +849,7 @@ export const TalentJobDetails = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center text-muted-foreground py-12">
+                    <div className="text-center text-gray-400 py-12">
                       No related jobs found at the moment.
                     </div>
                   )}
@@ -858,11 +858,11 @@ export const TalentJobDetails = () => {
             )}
 
             {activeTab === "reviews" && (
-              <section className="bg-[#1A1F2E] rounded-xl p-5 md:p-8">
+              <section className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6">
                 <h2 className="text-2xl font-bold text-white mb-4">
                   Customer Reviews
                 </h2>
-                <p className="text-muted-foreground">
+                <p className="text-gray-400">
                   Reviews are currently unavailable for this job.
                 </p>
               </section>
@@ -870,10 +870,10 @@ export const TalentJobDetails = () => {
           </div>
 
           {/* Right Sidebar */}
-          {source === "employer" && (<div className="w-full lg:w-85 lg:flex-shrink-0 space-y-6">
-            <div className="bg-[#191D23] rounded-xl p-6 space-y-4">
-              <div className="flex justify-between">
-                <h3 className=" text-[#64666C] text-sm">Website</h3>
+          {source === "employer" && (<div className="w-full min-w-0 xl:w-72 2xl:w-80 xl:shrink-0 space-y-6 [&>div]:bg-[#1A1A1E] [&>div]:border [&>div]:border-white/5 [&>div]:rounded-lg [&>div]:p-4 sm:[&>div]:p-6 [&_input]:bg-[#0E0E10] [&_textarea]:bg-[#0E0E10]">
+            <div className="bg-[#1A1A1E] border border-white/5 rounded-lg p-4 sm:p-6 space-y-4">
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-gray-400 text-sm">Website</h3>
                 {websiteHref ? (
                   <a
                     href={websiteHref}
@@ -884,52 +884,52 @@ export const TalentJobDetails = () => {
                     {websiteRaw}
                   </a>
                 ) : (
-                  <span className="text-white text-sm">Not provided</span>
+                  <span className="text-white text-sm break-words min-w-0">Not provided</span>
                 )}
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className=" text-sm mb-1 text-[#64666C]">Email</h3>
-                <div className="text-white text-sm">
+              <hr className="border-white/10" />
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-sm mb-1 text-gray-400">Email</h3>
+                <div className="text-white text-sm break-words min-w-0">
                   {job.employer?.companyEmail}
                 </div>
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className=" text-sm mb-1 text-[#64666C]">Industry</h3>
-                <div className="text-white text-sm">
+              <hr className="border-white/10" />
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-sm mb-1 text-gray-400">Industry</h3>
+                <div className="text-white text-sm break-words min-w-0">
                   {job.employer?.companyIndustry}
                 </div>
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className=" text-sm mb-1 text-[#64666C]">Company size</h3>
-                <div className="text-white text-sm">
+              <hr className="border-white/10" />
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-sm mb-1 text-gray-400">Company size</h3>
+                <div className="text-white text-sm break-words min-w-0">
                   {job.employer?.companySize}
                 </div>
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className=" text-sm mb-1 text-[#64666C]">Headquarters</h3>
-                <div className="text-white text-sm">
+              <hr className="border-white/10" />
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-sm mb-1 text-gray-400">Headquarters</h3>
+                <div className="text-white text-sm break-words min-w-0">
                   {job.employer?.location}
                 </div>
               </div>
-              <hr className="text-[#64666C]" />
-              <div className="flex justify-between">
-                <h3 className=" text-sm mb-1 text-[#64666C]">Founded</h3>
-                <div className="text-white text-sm">
+              <hr className="border-white/10" />
+              <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                <h3 className=" text-sm mb-1 text-gray-400">Founded</h3>
+                <div className="text-white text-sm break-words min-w-0">
                   {job.employer?.foundedYear}
                 </div>
               </div>
               {socialLinks.length > 0 && (
                 <>
-                  <hr className="text-[#64666C]" />
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-muted-foreground text-[1rem] ">
+                  <hr className="border-white/10" />
+                  <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 items-center">
+                    <h3 className="text-gray-400 text-[1rem] ">
                       Socials:
                     </h3>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                       {socialLinks.map((social) => (
                         <a
                           key={social.name}
@@ -937,7 +937,7 @@ export const TalentJobDetails = () => {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={social.name}
-                          className="w-8 h-8 flex items-center justify-center rounded-full bg-[#262C36] hover:bg-[#202630] transition-colors"
+                          className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors"
                         >
                           <social.Icon className="w-4 h-4 text-white" />
                         </a>
