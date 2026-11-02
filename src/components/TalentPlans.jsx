@@ -62,7 +62,7 @@ export const TalentPlans = ({
         description="Get Started Instantly"
         price={0.0}
         icon={freeIcon}
-        features={["Apply to jobs", "View jobs details", "Build your profile"]}
+        features={["Build your profile", "Apply to jobs", "Get Interview Invites", "Send and receive messages for free (Limited)", "Follow employers and other users to keep track of job postings and updates"]}
         ctaText={freeCtaText}
         isSelected={selectedPlan === "free"}
         onSelect={onSelectPlan}
@@ -84,6 +84,8 @@ export const TalentPlans = ({
           "Stay discoverable 24/7",
           "Stand out with a premium placement",
           "Showcase your skills to the right audience",
+          "Enjoy unlimited messaging with employers and other users",
+          "Get a dedicated public portfolio page with a shareable link",
         ]}
         ctaText={publicCtaText}
         isSelected={selectedPlan === "public"}

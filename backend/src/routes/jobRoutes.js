@@ -17,8 +17,18 @@ import {
   getRelatedJobs,
   contactJobPoster,
 } from "../controllers/jobController.js";
+import {
+  getTalentJobRecommendations,
+} from "../controllers/jobRecommendationController.js";
 
 const router = express.Router();
+router.get(
+  "/recommendations",
+  protect,
+  authorize("talent"),
+  getTalentJobRecommendations
+);
+
 router.use(requireJobSource);
 
 // job poster messages: 5 per 15 minutes per IP.

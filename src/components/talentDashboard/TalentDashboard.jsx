@@ -16,6 +16,7 @@ import {
   LogOut,
   LifeBuoy,
   Package,
+  Search
 } from "lucide-react";
 import Meeting from "./TalentMeeting";
 import ChangePassword from "../employerDashboard/ChangePassword";
@@ -36,10 +37,12 @@ import UserProfileView from "../profiles/UserProfileView";
 import ProfileViewHistory from "../profiles/ProfileViewHistory";
 import TalentPackages from "./TalentPackages";
 import TalentMyPlan from "./TalentMyPlan";
+import ExploreJobs from "./ExploreJobs";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
   { icon: User, label: "Profile", path: "/talent-dashboard/profile" },
+  { icon: Search, label: "Explore Jobs", path: "/talent-dashboard/explore" },
   {
     icon: Users,
     label: "Profile Views",
@@ -108,6 +111,7 @@ export const TalentDashboard = () => {
         <Route path="job-results/details/:id" element={<TalentJobDetails />} />
         <Route path="packages" element={<TalentPackages />} />
         <Route path="my-plan" element={<TalentMyPlan />} />
+        <Route path="explore" element={<ExploreJobs />}/>
       </Routes>
     </DashboardLayout>
   );
