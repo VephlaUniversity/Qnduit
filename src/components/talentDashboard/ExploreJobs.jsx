@@ -14,11 +14,11 @@ const PAGE_SIZE = 12;
 
 const getToken = () => localStorage.getItem("token");
 
-const getJobId = (job) => job?._id || job?.id || job?.jobId;
+const getJobId = (job) => String(job?._id || "");
 
 const getCompanyName = (job) =>
-  job?.companyName ||
   job?.employer?.companyName ||
+  job?.companyName ||
   job?.company ||
   job?.postedBy?.companyName ||
   "Company name";
@@ -54,7 +54,7 @@ function ExploreJobCard({ job, saved, onToggleSave, onOpen }) {
   const skills = getSkills(job);
 
   return (
-    <article className="h-full rounded-2xl border border-white/10 bg-[#171E25] p-5 transition hover:border-cyan-400/40">
+    <article className="h-full cursor-pointer rounded-xl border border-[#2A3142] bg-[#191D23] p-5 transition-colors hover:bg-[#1E232B]">
       <div className="flex items-start gap-3">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/5">
           <JobImage job={job} />
@@ -64,9 +64,9 @@ function ExploreJobCard({ job, saved, onToggleSave, onOpen }) {
           <button
             type="button"
             onClick={() => onOpen(job)}
-            className="block text-left text-base font-semibold text-white hover:text-cyan-300"
+            className="block text-left text-base font-semibold text-white hover:text-blue-400"
           >
-            {job?.title || job?.jobTitle || "Untitled position"}
+            {job?.jobTitle || job?.title || "Untitled position"}
           </button>
           <p className="mt-1 truncate text-sm text-gray-400">
             {getCompanyName(job)}
@@ -86,7 +86,7 @@ function ExploreJobCard({ job, saved, onToggleSave, onOpen }) {
       </div>
 
       {job?.matchDetails && (
-        <div className="mt-4 inline-flex rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-300">
+        <div className="mt-4 inline-flex rounded-full bg-blue-600/10 px-3 py-1 text-xs font-medium text-blue-400">
           {getMatchLabel(job)}
         </div>
       )}
@@ -113,7 +113,7 @@ function ExploreJobCard({ job, saved, onToggleSave, onOpen }) {
         </div>
       )}
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#2A3142] pt-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-white">
             {job?.salary ? formatSalary(job.salary) : "Salary not specified"}
@@ -127,7 +127,7 @@ function ExploreJobCard({ job, saved, onToggleSave, onOpen }) {
           <button
             type="button"
             onClick={() => onOpen(job)}
-            className="rounded-lg border border-white/15 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-white/5"
+            className="rounded-lg border border-[#2A3142] px-3 py-2 text-xs font-medium text-gray-200 hover:bg-[#1E232B]"
           >
             View details
           </button>
@@ -156,6 +156,11 @@ export default function ExploreJobs() {
 
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState("");
+  const [allJobs, setAllJobs] = useState([]);
+  const [allJobsLoading, setAllJobsLoading] = useState(true);
+
+  const [page, setPage] = useState(1);
+  const [allJobsPage, setAllJobsPage] = useState(1);
 
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -164,7 +169,6 @@ export default function ExploreJobs() {
 
   const [savedJobKeys, setSavedJobKeys] = useState([]);
   const [savingJobKey, setSavingJobKey] = useState(null);
-  const [page, setPage] = useState(1);
 
   const token = getToken();
 
@@ -214,31 +218,64 @@ export default function ExploreJobs() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = response.data?.savedJobs ||
-        response.data?.jobs ||
-        response.data?.data ||
-        [];
+      const jobs = Array.isArray(response.data?.jobs)
+        ? response.data.jobs
+        : [];
 
       setSavedJobKeys(
-        Array.isArray(data)
-          ? data.map((item) => {
-              const job = item.job || item;
-              return jobKey({
-                ...job,
-                source: item.source || job.source,
-              });
-            })
-          : []
+        jobs.map((item) => {
+          const job = item.job || item;
+
+          return jobKey({
+            ...job,
+            source: item.source || job.source,
+          });
+        })
       );
     } catch (error) {
       console.error("Saved jobs error:", error);
     }
   }, [token]);
 
+  const fetchAllJobs = useCallback(async () => {
+    try {
+      setAllJobsLoading(true);
+
+      const response = await axios.get(`${API_BASE_URL}/api/jobs/search`);
+
+      setAllJobs(
+        Array.isArray(response.data?.jobs)
+          ? response.data.jobs
+          : []
+      );
+    } catch (error) {
+      console.error("Explore all jobs error:", error);
+    } finally {
+      setAllJobsLoading(false);
+    }
+  }, []);
+
+  const paginatedAllJobs = useMemo(() => {
+    const start = (allJobsPage - 1) * PAGE_SIZE;
+    return allJobs.slice(start, start + PAGE_SIZE);
+  }, [allJobs, allJobsPage]);
+
+  const allJobsTotalPages = Math.max(
+    1,
+    Math.ceil(allJobs.length / PAGE_SIZE)
+  );
+
+  useEffect(() => {
+    if (allJobsPage > allJobsTotalPages) {
+      setAllJobsPage(allJobsTotalPages);
+    }
+  }, [allJobsPage, allJobsTotalPages]);
+
   useEffect(() => {
     fetchRecommendations();
     fetchSavedJobs();
-  }, [fetchRecommendations, fetchSavedJobs]);
+    fetchAllJobs();
+  }, [fetchRecommendations, fetchSavedJobs, fetchAllJobs]);
 
   const runSearch = async (event) => {
     event?.preventDefault();
@@ -246,7 +283,7 @@ export default function ExploreJobs() {
     const trimmedKeyword = keyword.trim();
     const trimmedLocation = location.trim();
 
-    if (!trimmedKeyword && !trimmedLocation && !workType) {
+    if (!trimmedKeyword && !trimmedLocation && !workType && !jobType) {
       toast.error("Enter a keyword or select a search filter.");
       return;
     }
@@ -260,7 +297,6 @@ export default function ExploreJobs() {
       const response = await axios.get(`${API_BASE_URL}/api/jobs/search`, {
         params: {
           q: trimmedKeyword || undefined,
-          jobTitle: trimmedKeyword || undefined,
           location: trimmedLocation || undefined,
           workType: workType || undefined,
         },
@@ -342,19 +378,31 @@ export default function ExploreJobs() {
     setSearchError("");
     setHasSearched(false);
     setPage(1);
+    setAllJobsPage(1);
   };
 
   const filteredSearchResults = useMemo(() => {
     if (!jobType) return searchResults;
 
     return searchResults.filter((job) => {
-      const value = String(
-        job.jobType || job.employmentType || job.type || ""
-      ).toLowerCase();
+      const types = Array.isArray(job?.jobApplyType)
+        ? job.jobApplyType
+        : [job?.jobApplyType];
 
-      return value.includes(jobType.toLowerCase());
+      return types.some((type) =>
+        String(type || "")
+          .toLowerCase()
+          .replace(/[-_\s]/g, "")
+          .includes(
+            jobType.toLowerCase().replace(/[-_\s]/g, "")
+          )
+      );
     });
   }, [searchResults, jobType]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [jobType]);
 
   const paginatedResults = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -386,20 +434,24 @@ export default function ExploreJobs() {
               setWorkType("");
               setJobType("");
               setHasSearched(false);
+              setAllJobsPage(1);
+
               document.getElementById("explore-all-jobs")?.scrollIntoView({
                 behavior: "smooth",
                 block: "start",
               });
             }}
-            className="shrink-0 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+            className="shrink-0 text-sm font-medium text-[#3B82F6] hover:text-blue-400"
           >
             View all <ChevronRight className="ml-1 inline" size={16} />
           </button>
         </div>
 
+        <>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {jobs.slice(0, 4).map((job) => {
+          {jobs.map((job) => {
             const key = jobKey(job);
+
             return (
               <ExploreJobCard
                 key={key}
@@ -411,6 +463,7 @@ export default function ExploreJobs() {
             );
           })}
         </div>
+      </>
       </section>
     );
   };
@@ -429,10 +482,10 @@ export default function ExploreJobs() {
 
         <form
           onSubmit={runSearch}
-          className="mb-5 rounded-2xl border border-white/10 bg-[#171E25] p-3 md:p-4"
+          className="mb-6 rounded-xl border border-[#2A3142] bg-[#191D23] p-4 md:p-5"
         >
           <div className="flex flex-col gap-3 lg:flex-row">
-            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-[#0F1419] px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-[#2A3142] bg-[#0F1419] focus-within:border-blue-600 px-4">
               <Search className="shrink-0 text-gray-400" size={20} />
               <input
                 value={keyword}
@@ -442,7 +495,7 @@ export default function ExploreJobs() {
               />
             </div>
 
-            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-[#0F1419] px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-[#2A3142] bg-[#0F1419] focus-within:border-blue-600 px-4">
               <MapPin className="shrink-0 text-gray-400" size={19} />
               <input
                 value={location}
@@ -455,7 +508,7 @@ export default function ExploreJobs() {
             <select
               value={workType}
               onChange={(event) => setWorkType(event.target.value)}
-              className="h-12 rounded-xl bg-[#0F1419] px-4 text-sm text-gray-300 outline-none lg:w-44"
+              className="h-12 rounded-lg border border-[#2A3142] bg-[#0F1419] px-4 text-sm text-white outline-none focus:border-blue-600 lg:w-44"
             >
               <option value="">Work type</option>
               <option value="Remote">Remote</option>
@@ -466,19 +519,19 @@ export default function ExploreJobs() {
             <button
               type="submit"
               disabled={searchLoading}
-              className="h-12 rounded-xl bg-cyan-500 px-7 text-sm font-semibold text-[#071116] transition hover:bg-cyan-400 disabled:opacity-60"
+              className="h-12 rounded-lg bg-blue-600 px-7 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
             >
               {searchLoading ? "Searching..." : "Search jobs"}
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#2A3142] pt-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-gray-500">Quick filters:</span>
               <select
                 value={jobType}
                 onChange={(event) => setJobType(event.target.value)}
-                className="rounded-lg border border-white/10 bg-[#0F1419] px-3 py-2 text-xs text-gray-300 outline-none"
+                className="rounded-lg border border-[#2A3142] bg-[#0F1419] px-3 py-2 text-xs text-gray-300 outline-none"
               >
                 <option value="">Job type</option>
                 <option value="Full-time">Full-time</option>
@@ -490,7 +543,7 @@ export default function ExploreJobs() {
               <button
                 type="button"
                 onClick={() => setShowFilters((value) => !value)}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 hover:bg-white/5"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#2A3142] px-3 py-2 text-xs text-gray-300 hover:bg-[#1E232B]"
               >
                 <SlidersHorizontal size={14} />
                 Filters
@@ -509,13 +562,13 @@ export default function ExploreJobs() {
           </div>
 
           {showFilters && (
-            <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3 border-t border-[#2A3142] pt-4 sm:grid-cols-2">
               <label className="text-xs text-gray-400">
                 Work arrangement
                 <select
                   value={workType}
                   onChange={(event) => setWorkType(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-lg border border-white/10 bg-[#0F1419] px-3 text-sm text-white outline-none"
+                  className="mt-2 h-11 w-full rounded-lg border border-[#2A3142] bg-[#0F1419] px-3 text-sm text-white outline-none"
                 >
                   <option value="">Any arrangement</option>
                   <option value="Remote">Remote</option>
@@ -529,7 +582,7 @@ export default function ExploreJobs() {
                 <select
                   value={jobType}
                   onChange={(event) => setJobType(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-lg border border-white/10 bg-[#0F1419] px-3 text-sm text-white outline-none"
+                  className="mt-2 h-11 w-full rounded-lg border border-[#2A3142] bg-[#0F1419] px-3 text-sm text-white outline-none"
                 >
                   <option value="">Any job type</option>
                   <option value="Full-time">Full-time</option>
@@ -558,7 +611,7 @@ export default function ExploreJobs() {
               <button
                 type="button"
                 onClick={clearSearch}
-                className="text-sm text-cyan-300 hover:text-cyan-200"
+                className="text-sm text-[#3B82F6] hover:text-blue-400"
               >
                 Back to Explore
               </button>
@@ -573,7 +626,7 @@ export default function ExploreJobs() {
                 {searchError}
               </div>
             ) : paginatedResults.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-[#171E25] px-5 py-14 text-center">
+              <div className="rounded-2xl border border-[#2A3142] bg-[#191D23] px-5 py-14 text-center">
                 <Search className="mx-auto mb-3 text-gray-500" size={30} />
                 <h3 className="font-semibold text-white">No jobs found</h3>
                 <p className="mt-2 text-sm text-gray-400">
@@ -582,20 +635,23 @@ export default function ExploreJobs() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  {paginatedResults.map((job) => {
-                    const key = jobKey(job);
-                    return (
-                      <ExploreJobCard
-                        key={key}
-                        job={job}
-                        saved={savedJobKeys.includes(key)}
-                        onToggleSave={toggleSavedJob}
-                        onOpen={openJob}
-                      />
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    {paginatedResults.map((job) => {
+                      const key = jobKey(job);
+
+                      return (
+                        <ExploreJobCard
+                          key={key}
+                          job={job}
+                          saved={savedJobKeys.includes(key)}
+                          onToggleSave={toggleSavedJob}
+                          onOpen={openJob}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
 
                 {totalPages > 1 && (
                   <div className="mt-8 flex items-center justify-center gap-4">
@@ -603,7 +659,7 @@ export default function ExploreJobs() {
                       type="button"
                       disabled={page === 1}
                       onClick={() => setPage((current) => current - 1)}
-                      className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 disabled:opacity-40"
+                      className="rounded-lg border border-[#2A3142] px-4 py-2 text-sm text-gray-300 disabled:opacity-40"
                     >
                       Previous
                     </button>
@@ -614,7 +670,7 @@ export default function ExploreJobs() {
                       type="button"
                       disabled={page === totalPages}
                       onClick={() => setPage((current) => current + 1)}
-                      className="rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-300 disabled:opacity-40"
+                      className="rounded-lg border border-[#2A3142] px-4 py-2 text-sm text-gray-300 disabled:opacity-40"
                     >
                       Next
                     </button>
@@ -630,7 +686,7 @@ export default function ExploreJobs() {
                 Loading opportunities selected for you...
               </div>
             ) : recommendationsError ? (
-              <div className="mb-8 rounded-xl border border-white/10 bg-[#171E25] p-5 text-sm text-gray-400">
+              <div className="mb-8 rounded-xl border border-[#2A3142] bg-[#191D23] p-5 text-sm text-gray-400">
                 {recommendationsError}
               </div>
             ) : (
@@ -661,21 +717,78 @@ export default function ExploreJobs() {
               </>
             )}
 
-            <section id="explore-all-jobs" className="scroll-mt-6 border-t border-white/10 pt-8">
+            <section id="explore-all-jobs" className="scroll-mt-6 border-t border-[#2A3142] pt-8">
               <div className="mb-5">
                 <h2 className="text-2xl font-semibold text-white">
                   Explore all jobs
                 </h2>
                 <p className="mt-1 text-sm text-gray-400">
-                  Search for opportunities using the search bar above.
+                  Browse all available opportunities.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-[#171E25] px-5 py-10 text-center">
-                <Search className="mx-auto mb-3 text-gray-500" size={28} />
-                <p className="text-sm text-gray-400">
-                  Enter a keyword or select a filter to browse matching jobs.
-                </p>
-              </div>
+
+              {allJobsLoading ? (
+                <div className="py-12 text-center text-sm text-gray-400">
+                  Loading available jobs...
+                </div>
+              ) : allJobs.length === 0 ? (
+                <div className="rounded-2xl border border-[#2A3142] bg-[#191D23] px-5 py-10 text-center">
+                  <Search className="mx-auto mb-3 text-gray-500" size={28} />
+                  <p className="text-sm text-gray-400">
+                    No jobs are currently available.
+                  </p>
+                </div>
+              ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {paginatedAllJobs.map((job) => {
+                    const key = jobKey(job);
+
+                    return (
+                      <ExploreJobCard
+                        key={key}
+                        job={job}
+                        saved={savedJobKeys.includes(key)}
+                        onToggleSave={toggleSavedJob}
+                        onOpen={openJob}
+                      />
+                    );
+                  })}
+                </div>
+
+                {allJobsTotalPages > 1 && (
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      disabled={allJobsPage === 1}
+                      onClick={() =>
+                        setAllJobsPage((current) => Math.max(1, current - 1))
+                      }
+                      className="rounded-lg border border-[#2A3142] px-4 py-2 text-sm text-gray-300 transition hover:bg-[#1E232B] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="text-sm text-gray-400">
+                      Page {allJobsPage} of {allJobsTotalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={allJobsPage === allJobsTotalPages}
+                      onClick={() =>
+                        setAllJobsPage((current) =>
+                          Math.min(allJobsTotalPages, current + 1)
+                        )
+                      }
+                      className="rounded-lg border border-[#2A3142] px-4 py-2 text-sm text-gray-300 transition hover:bg-[#1E232B] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
             </section>
           </>
         )}
