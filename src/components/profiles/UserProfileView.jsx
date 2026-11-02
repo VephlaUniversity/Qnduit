@@ -12,8 +12,9 @@ import ProfileAvatar from "./ProfileAvatar";
 import { editorPlainText, profileName, profileRequest } from "./profileApi";
 import { sanitizeEmployerAbout } from "../utils/sanitizeEmployerAbout";
 import { getYouTubeVideoId } from "../utils/youtube";
+import EmployerRecentJobs from "./EmployerRecentJobs";
 
-function ProfileContent({ userType, userId }) {
+function ProfileContent({ userType, userId, showEmployerJobs }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [reload, setReload] = useState(0);
@@ -285,6 +286,9 @@ function ProfileContent({ userType, userId }) {
           </dl>
         )}
       </article>
+      {showEmployerJobs && profile.userType === "employer" && profile.id && (
+        <EmployerRecentJobs key={profile.id} employerId={profile.id} />
+      )}
       {viewError && (
         <p role="alert" className="mt-4 text-amber-200">
           {viewError}{" "}
@@ -395,6 +399,7 @@ export default function UserProfileView() {
         key={`${userType}:${userId}`}
         userType={userType}
         userId={userId}
+        showEmployerJobs={dashboard === "/talent-dashboard" && userType === "employer"}
       />
     </div>
   );

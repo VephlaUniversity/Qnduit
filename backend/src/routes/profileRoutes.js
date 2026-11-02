@@ -6,6 +6,7 @@ import {
   recordProfileView,
   getProfileViews,
   getProfileViewSummary,
+  getEmployerProfileJobs,
 } from "../controllers/profileController.js";
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.use((req, res, next) => {
   next();
 });
 router.get("/:userType/:userId/views/summary", validateProfileTarget, getProfileViewSummary);
+router.get("/:userType/:userId/jobs", validateProfileTarget, getEmployerProfileJobs);
 router.get("/:userType/:userId", validateProfileTarget, getUserProfile);
 router.post(
   "/:userType/:userId/views",
