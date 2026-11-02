@@ -7,6 +7,9 @@ import ProfileView, {
 } from "../models/ProfileView.js";
 import Follow from "../models/Follow.js";
 import EmployerTalentFollow from "../models/EmployerTalentFollow.js";
+import Job from "../models/Job.js";
+import { openJobFilter } from "../services/jobVisibility.js";
+import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 
 const models = { talent: Talent, employer: Employer };
 const fields = {
@@ -101,6 +104,47 @@ const findTarget = async (req, res) => {
     return null;
   }
   return target;
+};
+
+// Profile access is checked before querying jobs; no owner-management or Admin
+// collection data participates in this read-only profile section.
+export const getEmployerProfileJobs = async (req, res, next) => {
+  if (req.params.userType !== "employer") {
+    return res.status(400).json({ message: "Recent jobs require an Employer profile" });
+  }
+  try {
+    const target = await findTarget(req, res);
+    if (!target) return;
+    const jobs = await Job.find({ employer: target._id, ...openJobFilter() })
+      .select("jobTitle location workType jobApplyType createdAt status isDeleted deadlineDate applicationType applicationUrl featuredImage.url")
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(6)
+      .lean();
+    res.json({
+      success: true,
+      jobs: jobs.map(job => ({
+        _id: String(job._id),
+        source: "employer",
+        employer: {
+          _id: String(target._id),
+          companyName: text(target.companyName),
+          logo: { url: image(target.logo) },
+        },
+        jobTitle: text(job.jobTitle),
+        location: text(job.location),
+        workType: text(job.workType),
+        jobApplyType: job.jobApplyType ?? "",
+        createdAt: job.createdAt ?? null,
+        status: job.status,
+        isDeleted: job.isDeleted,
+        deadlineDate: job.deadlineDate ?? null,
+        featuredImage: { url: image(job.featuredImage) },
+        ...jobApplicationMetadata(job),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getUserProfile = async (req, res, next) => {

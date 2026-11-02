@@ -2,7 +2,7 @@ import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguratio
 import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 import Job from "../models/Job.js";
 import { findPublicAdminJob } from "../services/publicAdminJob.js";
-import { nonDeletedJobFilter } from "../services/jobVisibility.js";
+import { nonDeletedJobFilter, openJobFilter } from "../services/jobVisibility.js";
 import upload from "../utils/upload.js";
 import { jobGallerySelection } from "../utils/jobGallery.js";
 import {
@@ -10,7 +10,7 @@ import {
   createEmployerJob,
 } from "../services/employerJobAccess.js";
 import { uploadJobMedia, removeNewJobMedia } from "../utils/jobMediaUpload.js";
-import { jobDeadlineUpdate, lagosDateKey } from "../utils/jobDeadline.js";
+import { jobDeadlineUpdate } from "../utils/jobDeadline.js";
 import { sendJobInquiryEmail } from "../utils/sendEmail.js";
 import { jobSalaryUpdate, jobSaveError } from "../utils/jobSalaryValidation.js";
 import { rankJobs, buildSuggestions } from "../config/jobSearch.js";
@@ -314,17 +314,6 @@ const escapeRegex = (value) =>
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const queryText = (value) => (typeof value === "string" ? value : "");
-
-// Published, not deleted, and not past its (Africa/Lagos) deadline.
-const openJobFilter = () => ({
-  status: "published",
-  ...nonDeletedJobFilter(),
-  $or: [
-    { deadlineDate: null },
-    { deadlineDate: { $exists: false } },
-    { deadlineDate: { $gte: new Date(`${lagosDateKey()}T00:00:00.000Z`) } },
-  ],
-});
 
 const searchPipeline = (
   { jobTitle, location, workType, q },
