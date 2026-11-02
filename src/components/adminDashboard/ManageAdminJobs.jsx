@@ -1,3 +1,4 @@
+import AdminExternalActivity from "./AdminExternalActivity";
 import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -33,6 +34,7 @@ const message = error => error.response?.status === 409 ? "This job or request c
   : safeText(error.response?.data?.message, "The operation could not be confirmed. Refresh Admin Jobs before retrying.");
 
 export default function ManageAdminJobs() {
+  const [tab, setTab] = useState("jobs");
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(""), [sort, setSort] = useState("newest"), [filter, setFilter] = useState("all"), [page, setPage] = useState(1);
   const [jobs, setJobs] = useState([]), [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
@@ -42,7 +44,7 @@ export default function ManageAdminJobs() {
   const featuredImageRef = useRef(null), photosRef = useRef(null), nextPhotoKey = useRef(0);
   const creationKey = useRef(null), mounted = useRef(false), cancelButton = useRef(null), actionTrigger = useRef(null), heading = useRef(null);
   const client = useMemo(() => createAdminJobClient({ client: axios, baseUrl: API_BASE_URL, readOwner }), []);
-  const openCreate = useCallback(() => { creationKey.current = crypto.randomUUID(); setDraft(blank()); setFeaturedImage(null); setPhotos([]); setErrors({}); setFormError(""); setEditor({ creating: true }); }, []);
+  const openCreate = useCallback(() => { setTab("jobs"); creationKey.current = crypto.randomUUID(); setDraft(blank()); setFeaturedImage(null); setPhotos([]); setErrors({}); setFormError(""); setEditor({ creating: true }); }, []);
   useEffect(() => {
     mounted.current = true;
     const owner = JSON.stringify(readOwner());
@@ -56,6 +58,7 @@ export default function ManageAdminJobs() {
     if (params.get("create") === "1") { openCreate(); setParams({}, { replace: true }); }
   }, [params, setParams, openCreate]);
   useEffect(() => {
+    if (tab !== "jobs") return;
     let current = true;
     const timer = setTimeout(async () => {
       setLoading(true); setError("");
@@ -66,7 +69,7 @@ export default function ManageAdminJobs() {
       finally { if (current) setLoading(false); }
     }, 250);
     return () => { current = false; clearTimeout(timer); };
-  }, [client, search, sort, page, filter, reload]);
+  }, [client, search, sort, page, filter, reload, tab]);
   const details = async (job, editing = false) => {
     setError("");
     try {
@@ -148,7 +151,9 @@ export default function ManageAdminJobs() {
       <button className={buttonClass} disabled={pending} onClick={openCreate}><Plus className="mr-2 inline h-4 w-4" />Post Job</button>
     </div>
     <p className="mb-5 text-sm text-gray-400">Published jobs appear in public and Talent job search. Talent applications are stored; Admin application review and meeting scheduling are pending. <Link to="/admin-dashboard/jobs" className="text-blue-400 underline">Manage Employer jobs</Link></p>
-    <div className="rounded-lg border border-white/5 bg-[#1A1A1E] p-4 md:p-6">
+    <div role="tablist" aria-label="Admin Jobs views" className="mb-6 flex gap-6 border-b border-white/10">{[["jobs", "Jobs"], ["external", "External activity"]].map(([value, label]) => <button key={value} id={`admin-${value}-tab`} role="tab" aria-selected={tab === value} aria-controls="admin-jobs-panel" tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={event => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const next = event.key === "Home" ? "jobs" : event.key === "End" ? "external" : tab === "jobs" ? "external" : "jobs"; setTab(next); document.getElementById(`admin-${next}-tab`)?.focus(); } }} className={`min-h-11 border-b-2 pb-3 text-sm ${tab === value ? "border-blue-500 text-blue-400" : "border-transparent text-gray-400 hover:text-white"}`}>{label}</button>)}</div>
+    <div id="admin-jobs-panel" role="tabpanel" aria-labelledby={`admin-${tab}-tab`}>
+    {tab === "external" ? <AdminExternalActivity /> : <div className="rounded-lg border border-white/5 bg-[#1A1A1E] p-4 md:p-6">
       <ListToolbar search={search} onSearchChange={value => { setSearch(value); setPage(1); }} placeholder="Search Admin jobs by title or location" sortOptions={sortOptions} sortValue={sort} onSortChange={value => { setSort(value); setPage(1); }} />
       <div className="mb-4 flex flex-wrap items-center gap-3"><label htmlFor="admin-job-filter" className="text-sm text-gray-400">Status</label><JobFormSelect id="admin-job-filter" value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }} className="rounded border border-white/10 bg-[#0E0E10] p-2"><option value="all">All statuses</option>{statuses.map(status => <option key={status}>{status}</option>)}</JobFormSelect><button className="min-h-11 px-3 text-sm text-blue-400" disabled={loading} onClick={() => setReload(value => value + 1)}>Refresh Admin Jobs</button></div>
       {error && <p role="alert" className="mb-4 text-red-400">{error}</p>}
@@ -161,6 +166,7 @@ export default function ManageAdminJobs() {
             <td className="py-5"><div className="flex justify-end gap-2"><button className={buttonClass} disabled={pending} aria-label={`${job.flagged ? "Unflag" : "Flag"} ${job.jobTitle}`} onClick={() => flag(job)}><Flag className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} aria-label={`Edit ${job.jobTitle}`} onClick={() => details(job, true)}><Pencil className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} onClick={event => ask("status", job, event.currentTarget)}>Change status</button><button className="min-h-11 rounded bg-red-600 px-3 disabled:opacity-50" disabled={pending} aria-label={`Delete ${job.jobTitle}`} onClick={event => ask("delete", job, event.currentTarget)}><Trash2 className="h-4 w-4" /></button><button className={buttonClass} disabled={pending} onClick={() => details(job)}>View Job Info</button></div></td></tr>)}
         </tbody></table></div><PaginationBar page={pagination.page} totalPages={pagination.totalPages} onChange={setPage} />
     </div>
+    }</div>
     <Dialog open={!!view} onOpenChange={open => { if (!open) setView(null); }}><DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-white/10 bg-[#1A1A1E] text-white"><DialogHeader><DialogTitle>{view?.jobTitle || "Admin job"}</DialogTitle><DialogDescription>Admin post details</DialogDescription></DialogHeader>{view && <><dl className="grid grid-cols-2 gap-3 text-sm">{[["Organization", view.organization], ["Location", view.location], ["Work type", view.workType], ["Job type", view.jobCategory], ["Job Apply Type", view.jobApplyType], ["Application Type", view.applicationType === "external" ? "External" : "Internal"], ["Application URL", view.applicationType === "external" ? view.applicationUrl : "Not required"], ["Status", view.effectiveStatus], ["Posted by", view.postedByName || "Admin account unavailable"], ["Admin ID", view.postedBy], ["Created", formatAdminProfileDate(view.createdAt)], ["Expiry", formatAdminProfileDate(jobDateKey(view.deadlineDate))], ["Salary period", view.salary?.type], ["Minimum salary", view.salary?.min], ["Maximum salary", view.salary?.max], ["Experience", view.experience], ["Qualification", view.qualification], ["Career level", view.careerLevel], ["Category", view.category], ["Address", view.address]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="break-words">{value ?? "Not specified"}</dd></div>)}</dl>{view.featuredImage?.url && <img src={profileImageUrl(view.featuredImage.url)} alt="Featured job" className="max-h-60 w-full rounded-lg object-cover" />}
       {view.gallery?.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{view.gallery.map(item => item.type === "video" ? <video key={item._id} src={profileImageUrl(item.url)} controls playsInline className="w-full rounded-lg" /> : <img key={item._id} src={profileImageUrl(item.url)} alt="Job gallery" className="w-full rounded-lg" />)}</div>}
       <JobDescriptionText value={view.jobDescription} className="text-sm leading-relaxed text-gray-200" /></>}</DialogContent></Dialog>

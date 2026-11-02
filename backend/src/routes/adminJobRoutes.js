@@ -3,6 +3,8 @@ import upload from "../utils/upload.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { createAdminJob, listAdminJobs, getAdminPostedJob, updateAdminJob, setAdminJobStatus, setAdminJobFlag, deleteAdminPostedJob, validateAdminJobTarget } from "../controllers/adminJobController.js";
 
+import { listAdminExternalActivities } from "../controllers/adminExternalActivityController.js";
+
 const router = express.Router();
 router.use((req, res, next) => { res.set("Cache-Control", "private, no-store"); next(); });
 router.use(protect, authorize("admin"));
@@ -12,6 +14,7 @@ const mediaUpload = (req, res, next) => parseMedia(req, res, error => error
   : next());
 router.post("/", mediaUpload, createAdminJob);
 router.get("/", listAdminJobs);
+router.get("/external-activities", listAdminExternalActivities);
 router.use("/:source/:id", validateAdminJobTarget);
 router.get("/:source/:id", getAdminPostedJob);
 router.patch("/:source/:id", mediaUpload, updateAdminJob);
