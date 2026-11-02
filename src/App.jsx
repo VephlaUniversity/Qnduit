@@ -69,6 +69,7 @@ import ProfileViewHistory from "./components/profiles/ProfileViewHistory";
 
 import PublicTalentProfile from "./components/profiles/PublicTalentProfile";
 import TalentDirectory from "./components/pages/TalentDirectory";
+import ExternalApplicationLaunch from "./components/jobs/ExternalApplicationLaunch";
 
 const AppContent = () => {
   const location = useLocation();
@@ -105,7 +106,7 @@ const AppContent = () => {
     publicTalentProfileRegex.test(location.pathname) &&
     !reservedRoutes.has(location.pathname);
   
-  const isAuthPage =
+  const isAuthPage = location.pathname.startsWith("/external-apply/") ||
     [
       "/talent-signup",
       "/employer-signup",
@@ -181,6 +182,7 @@ const AppContent = () => {
           <Route path="/feature-talents" element={<TalentDirectory />} />
           <Route path="/jobs" element={<JobManager />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
+          <Route path="/external-apply/:source/:jobId" element={<ExternalApplicationLaunch key={location.key} />} />
           <Route path="/:username" element={<PublicTalentProfile />} />
           {/* SignIn/SignUp */}
           <Route path="/talent-signup" element={<TalentSignup />} />

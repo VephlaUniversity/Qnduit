@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AuthHeader } from "./AuthHeader";
 import { ArrowLeft, LogIn, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { resumePlanSelection } from "../utils/ResumePlanSelection";
 import { motion as Motion } from "framer-motion";
+import { externalApplyContinuation } from "../utils/externalApplicationLaunch";
 
 export const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -17,12 +18,21 @@ export const SignIn = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, isAuthenticated, sessionMessage } = useAuth();
+  // Capture before authentication/navigation can change router state. The
+  // saved intent is validated by the continuation helper, never an arbitrary URL.
+  const [continuation] = useState(() => externalApplyContinuation(location.state));
+  const redirected = useRef(false);
 
   const message = location.state?.message || sessionMessage;
 
   // If user is already authenticated, redirect them
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !redirected.current) {
+      redirected.current = true;
+      if (continuation) {
+        navigate(continuation.to, { replace: true, state: { externalApplyIntentId: continuation.intentId } });
+        return;
+      }
       // Check if there's a pending plan selection to resume
       const hasPendingSelection = resumePlanSelection(navigate);
 
@@ -37,7 +47,7 @@ export const SignIn = () => {
         }
       }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, continuation]);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -63,6 +73,7 @@ export const SignIn = () => {
   };
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -70,19 +81,9 @@ export const SignIn = () => {
 
     try {
       // Call the signIn method from AuthContext
-      const userData = await signIn(formData.email, formData.password);
-
-      // check if there's a pending plan selection after successful sign-in
-      const hasPendingSelection = resumePlanSelection(navigate);
-
-      // If no pending selection, redirect based on user type
-      if (!hasPendingSelection) {
-        if (userData.userType === "talent") {
-          navigate("/talent-dashboard");
-        } else {
-          navigate("/dashboard");
-        }
-      }
+      // Authentication publishes the session. The effect above owns the one
+      // post-login redirect, including ordinary dashboard/plan sign-in.
+      await signIn(formData.email, formData.password);
     } catch (err) {
       setErrors({
         submit: err.message || "Unable to sign in. Please try again.",

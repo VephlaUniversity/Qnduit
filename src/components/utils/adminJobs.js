@@ -30,7 +30,8 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
         headers: { Authorization: `Bearer ${owner.token}` }, signal: operation.controller.signal, timeout: typeof FormData !== "undefined" && body instanceof FormData ? 60000 : 15000 });
       if (!current()) return;
       const data = response.data;
-      const valid = slot === "list" ? data?.source === "admin" && Array.isArray(data.data) && data.data.every(validJob)
+      const valid = slot === "activities" ? data?.source === "admin" && Array.isArray(data.activities) && data.activities.every(row => row.source === "admin") && Number.isSafeInteger(data.pagination?.page) && Number.isSafeInteger(data.pagination?.totalPages)
+        : slot === "list" ? data?.source === "admin" && Array.isArray(data.data) && data.data.every(validJob)
         && Number.isSafeInteger(data.pagination?.page) && Number.isSafeInteger(data.pagination?.totalPages)
         : method === "DELETE" ? data?.source === "admin" && data.jobId === expected
           : validJob(data?.job) && (!expected || data.job.jobId === expected);
@@ -43,6 +44,7 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
   return {
     cancel() { for (const row of slots.values()) row.controller.abort(); slots.clear(); },
     list: params => run("list", "GET", endpoint, undefined, { ...params, source: "admin" }),
+    externalActivities: params => run("activities", "GET", `${endpoint}/external-activities`, undefined, params),
     details: target => run("details", "GET", targetPath(target), undefined, undefined, target.jobId),
     create: body => run("write", "POST", endpoint, jobBody(body, { source: "admin" })),
     update: (target, body) => run("write", "PATCH", targetPath(target), jobBody(body, { source: "admin", revision: target.revision }), undefined, target.jobId),
