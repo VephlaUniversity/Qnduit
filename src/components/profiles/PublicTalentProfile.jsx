@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import PublicTalentContent from "./PublicTalentContent";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 import { NotFound } from "../pages/NotFound";
 import { API_BASE_URL } from "../utils/api";
 
 const PublicTalentProfile = () => {
   const { username } = useParams();
+  const { state } = useLocation();
   const [talent, setTalent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -86,7 +87,9 @@ const PublicTalentProfile = () => {
     );
   }
 
-  return <PublicTalentContent talent={talent} />;
+  // Keep the return path fixed; only carry directory query parameters.
+  const directorySearch = typeof state?.talentDirectorySearch === "string" ? state.talentDirectorySearch : "";
+  return <PublicTalentContent talent={talent} backTo={{ pathname: "/feature-talents", search: directorySearch ? `?${directorySearch}` : "" }} />;
 };
 
 export default PublicTalentProfile;

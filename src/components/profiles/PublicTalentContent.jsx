@@ -28,7 +28,7 @@ function History({ title, rows, owner }) {
     {row.description && <JobDescriptionText value={row.description} className={`mt-3 ${textClass}`} />}
   </article>)}</div></section>;
 }
-export default function PublicTalentContent({ talent }) {
+export default function PublicTalentContent({ talent, backTo = "/feature-talents" }) {
   const name = talent.fullName || "Talent", skills = talent.skills || [], tags = talent.tags || [];
   const levels = skills.filter(row => Number.isFinite(row.percent));
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
@@ -38,7 +38,7 @@ export default function PublicTalentContent({ talent }) {
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
   return <main className="min-h-screen bg-[#0F1419] text-white"><div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12">
-    <Link to="/feature-talents" className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-blue-400 hover:text-blue-300"><ArrowLeft className="h-4 w-4" />Back to talents</Link>
+    <Link to={backTo} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-blue-400 hover:text-blue-300"><ArrowLeft className="h-4 w-4" />Back to talents</Link>
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
       <aside className={`${sectionClass} min-w-0`} aria-label="Talent identity and skills">
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />

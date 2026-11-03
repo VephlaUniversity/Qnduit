@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Send, CheckCircle2, ChevronDown, Inbox, LifeBuoy } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Send, CheckCircle2, ChevronDown, Inbox } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { TICKET_CATEGORIES } from "../utils/supportTickets";
 import axios from "axios";
 import ButtonSpinner from "../utils/ButtonSpinner";
 import { API_BASE_URL } from "../utils/api";
 import { browserSessions } from "../utils/requestSafety";
+import SupportReplyComposer from "./SupportReplyComposer";
+import SupportConversation from "./SupportConversation";
 import { createSupportSession } from "../utils/supportSession";
 
 const STATUS_STYLE = {
@@ -36,7 +38,7 @@ export const UserSupport = () => {
   const [submitted, setSubmitted] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [ticketOwner, setTicketOwner] = useState("");
-  const [pending, setPending] = useState(false), [reply, setReply] = useState("");
+  const [pending, setPending] = useState(false);
   const actor = user && `${user.userType}:${user.id || user._id}`;
   const token = browserSessions().find(owner => owner.actor === actor)?.token;
   const session = useMemo(() => createSupportSession({ client: axios, baseUrl: API_BASE_URL,
@@ -46,14 +48,23 @@ export const UserSupport = () => {
   const [loading, setLoading] = useState(true);
   const [requestError, setRequestError] = useState("");
 
+  const [paging, setPaging] = useState({ actor: "", page: 1 });
+  const page = paging.actor === actor ? paging.page : 1;
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const requestVersion = useRef(0);
   const email = user?.email || "";
 
   const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setRequestError("");
 
     try {
-      const response = await session.request("GET", "/tickets/mine");
+      const response = await session.request("GET", `/tickets/mine?page=${page}&limit=10`);
+      if (version !== requestVersion.current) return;
+      const totalPages = Math.max(1, response.pagination?.totalPages || 1);
+      setPagination({ total: response.pagination?.total || 0, totalPages });
+      if (page > totalPages) { setPaging({ actor, page: totalPages }); return; }
       setTicketOwner(actor);
       setTickets(
         (response.data || []).map((ticket) => ({
@@ -65,20 +76,22 @@ export const UserSupport = () => {
         })),
       );
     } catch (error) {
-      if (axios.isCancel(error)) return;
+      if (axios.isCancel(error) || version !== requestVersion.current) return;
       setRequestError(
         error.response?.data?.message || "Unable to load your support tickets.",
       );
     } finally {
-      if (session.isCurrent()) setLoading(false);
+      if (session.isCurrent() && version === requestVersion.current) setLoading(false);
     }
-  }, [session, actor]);
+  }, [session, actor, page]);
 
   useEffect(() => {
-    setTickets([]); setTicketOwner(""); setExpandedId(null); setTitle(""); setMessage(""); setReply(""); setPending(false); setErrors({}); setSubmitted(false);
-    refresh();
+    setTickets([]); setTicketOwner(""); setExpandedId(null); setTitle(""); setMessage(""); setPending(false); setErrors({}); setSubmitted(false);
+    setPagination({ total: 0, totalPages: 1 });
     return () => session.cancel();
-  }, [refresh, session]);
+  }, [actor, session]);
+
+  useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => {
     if (!submitted) return;
@@ -119,7 +132,8 @@ export const UserSupport = () => {
       setErrors({});
       setSubmitted(true);
 
-      await refresh();
+      if (page === 1) await refresh();
+      else { setExpandedId(null); setPaging({ actor, page: 1 }); }
     } catch (error) {
       if (axios.isCancel(error)) return;
       setRequestError(
@@ -129,17 +143,18 @@ export const UserSupport = () => {
     } finally { if (session.isCurrent()) setPending(false); }
   };
 
-  const sendReply = async (event, ticketId) => {
-    event.preventDefault();
-    if (pending || !reply.trim() || reply.trim().length > 10000) return;
+  const sendReply = async (body, ticketId) => {
+    if (pending) throw Error("A Support request is already pending.");
     setPending(true); setRequestError("");
     try {
-      await session.request("POST", `/tickets/${ticketId}/replies`, { message: reply.trim() });
-      setReply(""); await refresh();
+      await session.request("POST", `/tickets/${ticketId}/replies`, body);
+      await refresh();
     } catch (error) {
-      if (!axios.isCancel(error)) setRequestError(error.response?.data?.message || "Unable to send your reply. Refresh before trying again.");
+      if (!axios.isCancel(error)) setRequestError(error.response?.data?.message || "Reply not confirmed. Refresh, then retry the same reply safely.");
+      throw error;
     } finally { if (session.isCurrent()) setPending(false); }
   };
+
   const visibleTickets = ticketOwner === actor ? tickets : [];
 
   const inputBase =
@@ -255,17 +270,18 @@ export const UserSupport = () => {
 
         {/* My tickets */}
         <div className="xl:col-span-3 bg-[#1A1A1E] rounded-lg border border-white/5 p-6">
-          <h2 className="text-lg font-semibold text-white mb-5">
-            My tickets <span className="text-gray-500">({visibleTickets.length})</span>
-          </h2>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">My tickets <span className="text-gray-500">({ticketOwner === actor ? pagination.total : 0})</span></h2>
+            <button type="button" onClick={() => refresh()} disabled={loading || pending} className="min-h-11 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 hover:bg-white/5 disabled:opacity-50">Refresh tickets</button>
+          </div>
 
           {requestError && (
-            <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+            <div role="alert" className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
               {requestError}
             </div>
           )}
 
-          {loading ? (
+          {loading && !visibleTickets.length ? (
             <p className="py-10 text-center text-gray-400 text-sm">
               Loading support tickets...
             </p>
@@ -288,11 +304,11 @@ export const UserSupport = () => {
                     className="rounded-lg border border-white/5 bg-[#0E0E10]"
                   >
                     <button
-                      onClick={() => { setExpandedId(open ? null : ticket.id); setReply(""); }}
+                      onClick={() => { setExpandedId(open ? null : ticket.id); }}
                       className="w-full flex items-center justify-between gap-4 p-4 text-left"
                     >
                       <div className="flex items-start gap-3 min-w-0">
-                        <LifeBuoy className="w-4 h-4 text-blue-500 mt-1 flex-shrink-0" />
+                        <img src="/images/header-logo.svg" alt="" aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 object-contain" />
                         <div className="min-w-0">
                           <div className="text-white font-medium truncate">
                             {ticket.fullSubject || ticket.subject}
@@ -316,47 +332,10 @@ export const UserSupport = () => {
                     {open && (
                       <div className="px-4 pb-4 pt-0">
                         <div className="border-t border-white/5 pt-4">
-                          <h3 className="text-sm font-semibold text-white mb-3">
-                            Your message
-                          </h3>
+                          <SupportConversation ticket={ticket} />
 
-                          <p className="text-gray-400 text-sm whitespace-pre-line leading-relaxed">
-                            {ticket.message}
-                          </p>
+                          <SupportReplyComposer key={`${actor}:${token}:${ticket.id}`} ticketId={ticket.id} disabled={pending} onSend={body => sendReply(body, ticket.id)} />
 
-                          <form onSubmit={event => sendReply(event, ticket.id)} className="mt-4 space-y-2">
-                            <label className="block text-sm text-gray-400" htmlFor={`support-reply-${ticket.id}`}>Your reply</label>
-                            <textarea id={`support-reply-${ticket.id}`} value={reply} onChange={event => setReply(event.target.value)} maxLength={10000} disabled={pending} className={`${inputBase} border-white/10`} />
-                            <button type="submit" disabled={pending || !reply.trim()} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">{pending ? "Sending…" : "Send Reply"}</button>
-                          </form>
-                          {ticket.replies?.length > 0 && (
-                            <div className="mt-5 space-y-3">
-                              <h3 className="text-sm font-semibold text-white">
-                                Support responses
-                              </h3>
-
-                              {ticket.replies.map((reply) => (
-                                <div
-                                  key={reply._id}
-                                  className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3"
-                                >
-                                  <div className="flex flex-wrap justify-between gap-2 mb-2">
-                                    <span className="text-sm font-medium text-blue-400">
-                                      {reply.authorRole && reply.authorRole !== "admin" ? "You" : reply.adminName || "Support Team"}
-                                    </span>
-
-                                    <span className="text-xs text-gray-500">
-                                      {formatTicketDate(reply.createdAt)}
-                                    </span>
-                                  </div>
-
-                                  <p className="text-sm text-gray-300 whitespace-pre-line">
-                                    {reply.message}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
@@ -365,6 +344,11 @@ export const UserSupport = () => {
               })}
             </div>
           )}
+          {pagination.totalPages > 1 && ticketOwner === actor && <nav aria-label="Ticket pagination" className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
+            <button type="button" disabled={loading || pending || page <= 1} onClick={() => { setExpandedId(null); setPaging({ actor, page: page - 1 }); }} className="min-h-11 rounded-lg border border-white/10 px-3 py-2 text-blue-400 disabled:opacity-40">Previous tickets</button>
+            <span className="text-gray-400">Page {page} of {pagination.totalPages}</span>
+            <button type="button" disabled={loading || pending || page >= pagination.totalPages} onClick={() => { setExpandedId(null); setPaging({ actor, page: page + 1 }); }} className="min-h-11 rounded-lg border border-white/10 px-3 py-2 text-blue-400 disabled:opacity-40">Next tickets</button>
+          </nav>}
         </div>
       </div>
     </div>

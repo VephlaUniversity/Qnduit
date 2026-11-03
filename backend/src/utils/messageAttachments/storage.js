@@ -15,11 +15,15 @@ const extensionFor = name => {
   return ext;
 };
 
-export async function cloudAttachmentStorage() {
-  if (process.env.MESSAGE_ATTACHMENTS_ENABLED !== "true") {
+export async function cloudAttachmentStorage({
+  enabled = process.env.MESSAGE_ATTACHMENTS_ENABLED,
+  provider = process.env.MESSAGE_ATTACHMENT_STORAGE,
+  directory = process.env.MESSAGE_ATTACHMENT_DIR,
+} = {}) {
+  if (enabled !== "true") {
     throw attachmentError("Message attachments are disabled.", 503);
   }
-  if (process.env.MESSAGE_ATTACHMENT_STORAGE !== "cloudinary" || !path.isAbsolute(process.env.MESSAGE_ATTACHMENT_DIR || "")) {
+  if (provider !== "cloudinary" || !path.isAbsolute(directory || "")) {
     throw attachmentError("Cloudinary attachment storage or temporary staging is not configured.", 503);
   }
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
@@ -34,7 +38,7 @@ export async function cloudAttachmentStorage() {
     secure: true,
   });
 
-  const configured = path.resolve(process.env.MESSAGE_ATTACHMENT_DIR);
+  const configured = path.resolve(directory);
   const applicationPath = await applicationDirectory(import.meta.url);
   if (isWithinDirectory(configured, applicationPath)) {
     throw attachmentError("Temporary attachment staging must be outside the application directory.", 503);

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 const staggerContainer = {
   initial: {},
@@ -46,14 +46,14 @@ export const CTA = () => {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500 rounded-full blur-3xl" />
       </div>
 
-      <motion.div
+      <Motion.div
         className="relative z-20 max-w-5xl mx-auto px-6 lg:px-8 text-center"
         variants={staggerContainer}
         initial="initial"
         whileInView="animate"
         viewport={{ once: true, amount: 0.3 }}
       >
-        <motion.h2
+        <Motion.h2
           variants={fadeUp}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-4xl lg:text-6xl mb-6"
@@ -61,9 +61,9 @@ export const CTA = () => {
           Your next opportunity starts here.
           <br />
           <span className="text-yellow-400">Hire now or get discovered</span>
-        </motion.h2>
+        </Motion.h2>
 
-        <motion.p
+        <Motion.p
           variants={fadeUp}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="text-xl text-gray-300 mb-12"
@@ -71,9 +71,9 @@ export const CTA = () => {
           Qnduit connects employers with skilled professionals
           <br />
           in one place. It's simple, fast, and built for results.
-        </motion.p>
+        </Motion.p>
 
-        <motion.div
+        <Motion.div
           variants={fadeUp}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col sm:flex-row gap-4 justify-center"
@@ -95,13 +95,13 @@ export const CTA = () => {
             </Link>
           )}
           <Link
-            to="/employers"
+            to="/feature-talents"
             className="bg-white text-black px-8 py-4 rounded-full hover:bg-gray-100 transition-colors cursor-pointer inline-flex min-h-11 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             Hire Talent
           </Link>
-        </motion.div>
-      </motion.div>
+        </Motion.div>
+      </Motion.div>
     </section>
   );
 };

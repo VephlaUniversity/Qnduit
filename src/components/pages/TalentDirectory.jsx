@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PublicTalentImage } from "../profiles/PublicTalentMedia";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Briefcase, ChevronLeft, ChevronRight, Filter, Heart, Loader2, MapPin, Search, X } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,10 @@ const isEmployerUser = () => {
 
 export const TalentDirectory = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryTimer = useRef(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const { isAuthenticated } = useAuth();
   // Only signed-in employers can save candidates
   const isEmployer = isAuthenticated && isEmployerUser();
@@ -45,6 +49,7 @@ export const TalentDirectory = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const page = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
 
+  const urlKey = searchParams.toString();
   const [queryInput, setQueryInput] = useState(urlQuery);
   const [data, setData] = useState({ talents: [], total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
@@ -60,13 +65,20 @@ export const TalentDirectory = () => {
     setSearchParams(next, { replace: true });
   };
 
-  // Wait for the visitor to stop typing before searching.
+  // A URL change invalidates pending typing, including browser Back/Forward.
   useEffect(() => {
-    if (queryInput.trim() === urlQuery) return undefined;
-    const timer = setTimeout(() => updateParams({ q: queryInput.trim(), page: "" }), 350);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryInput]);
+    setQueryInput(urlQuery);
+    setActiveSuggestion(-1);
+    return () => clearTimeout(queryTimer.current);
+  }, [urlKey, urlQuery]);
+
+  const changeQuery = (value) => {
+    setQueryInput(value);
+    setSuggestionsOpen(true);
+    setActiveSuggestion(-1);
+    clearTimeout(queryTimer.current);
+    queryTimer.current = setTimeout(() => updateParams({ q: value.trim(), page: "" }), 350);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,6 +100,7 @@ export const TalentDirectory = () => {
       .then(({ data: body }) => {
         if (!current) return;
         setData({
+          urlKey,
           talents: Array.isArray(body?.talents) ? body.talents : [],
           total: body?.total || 0,
           pages: Math.max(1, body?.pages || 1),
@@ -105,7 +118,7 @@ export const TalentDirectory = () => {
       current = false;
       controller.abort();
     };
-  }, [urlQuery, country, experience, qualification, page, reloadKey]);
+  }, [urlQuery, country, experience, qualification, page, reloadKey, urlKey]);
 
   // Load the employer's saved candidates once, so hearts start filled correctly
   useEffect(() => {
@@ -162,8 +175,23 @@ export const TalentDirectory = () => {
   const activeFilterCount = [urlQuery, country, experience, qualification].filter(Boolean).length;
   const hasFilters = activeFilterCount > 0;
   const clearFilters = () => {
+    clearTimeout(queryTimer.current);
+    setSuggestionsOpen(false);
+    setActiveSuggestion(-1);
     setQueryInput("");
     setSearchParams({}, { replace: true });
+  };
+
+  // Suggestions are the existing public card DTOs, from the same filtered,
+  // eligibility-checked response as the results. Never use authenticated search.
+  const suggestions = !loading && !error && data.urlKey === urlKey && urlQuery.trim() && queryInput.trim() === urlQuery
+    ? data.talents.slice(0, 5) : [];
+  const showSuggestions = suggestionsOpen && suggestions.length > 0;
+  const openSuggestion = (talent) => {
+    clearTimeout(queryTimer.current);
+    setSuggestionsOpen(false);
+    setFiltersOpen(false);
+    navigate(`/${encodeURIComponent(talent.username)}`, { state: { talentDirectorySearch: urlKey } });
   };
 
   return (
@@ -220,18 +248,62 @@ export const TalentDirectory = () => {
                 <label htmlFor="talent-keyword" className="mb-2 block text-sm font-medium">
                   Keyword
                 </label>
-                <div className="relative">
+                <div className="relative" onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setSuggestionsOpen(false);
+                    setActiveSuggestion(-1);
+                  }
+                }}>
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     id="talent-keyword"
                     type="text"
                     value={queryInput}
-                    onChange={(e) => setQueryInput(e.target.value)}
+                    onChange={(e) => changeQuery(e.target.value)}
+                    onFocus={() => setSuggestionsOpen(true)}
+                    onClick={() => setSuggestionsOpen(true)}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={showSuggestions}
+                    aria-controls="talent-suggestions"
+                    aria-activedescendant={showSuggestions && activeSuggestion >= 0 && activeSuggestion < suggestions.length ? `talent-suggestion-${activeSuggestion}` : undefined}
+                    autoComplete="off"
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setSuggestionsOpen(false);
+                        setActiveSuggestion(-1);
+                      } else if (suggestions.length && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+                        event.preventDefault();
+                        setSuggestionsOpen(true);
+                        setActiveSuggestion((previous) => event.key === "ArrowDown"
+                          ? (previous + 1) % suggestions.length
+                          : (previous <= 0 ? suggestions.length - 1 : previous - 1));
+                      } else if (event.key === "Enter" && showSuggestions && suggestions[activeSuggestion]) {
+                        event.preventDefault();
+                        openSuggestion(suggestions[activeSuggestion]);
+                      }
+                    }}
                     placeholder="Name, role or skill"
                     aria-label="Search talents"
                     maxLength={60}
                     className="w-full rounded-lg border border-white/10 bg-[#0F1419] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
                   />
+                  {showSuggestions && (
+                    <ul id="talent-suggestions" role="listbox" aria-label="Matching public talent profiles"
+                      className="absolute left-0 right-0 top-full z-10 mt-2 max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-[#191D23] shadow-xl">
+                      {suggestions.map((talent, index) => (
+                        <li key={talent.username} id={`talent-suggestion-${index}`} role="option" aria-selected={activeSuggestion === index}>
+                          <button type="button" tabIndex={-1}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => openSuggestion(talent)}
+                            className={`w-full min-h-12 px-3 py-3 text-left text-sm focus:outline-none hover:bg-blue-600/20 ${activeSuggestion === index ? "bg-blue-600/20" : ""}`}>
+                            <span className="block break-words font-medium">{talent.name}</span>
+                            <span className="block break-words text-xs text-blue-300">{talent.jobTitle}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 
@@ -421,6 +493,7 @@ export const TalentDirectory = () => {
 
                     <Link
                       to={`/${encodeURIComponent(talent.username)}`}
+                      state={{ talentDirectorySearch: urlKey }}
                       className="mt-auto text-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
                     >
                       View profile

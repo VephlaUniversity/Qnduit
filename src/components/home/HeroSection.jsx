@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
 import "./HeroSection.css";
 
@@ -215,29 +215,29 @@ export const HeroSection = () => {
       <div className="qh-dots" aria-hidden="true" />
       <div className="qh-inner">
         <div className="qh-stage">
-          <motion.div
+          <Motion.div
             className="qh-copy"
             variants={stagger}
             initial="initial"
             animate="animate"
           >
-            <motion.h1
+            <Motion.h1
               id="hero-title"
               className="qh-title"
               variants={fadeUp}
               transition={{ duration: 0.7, ease }}
             >
               Where Talents Get Seen, Valued, and <em>Hired Fast!</em>
-            </motion.h1>
-            <motion.p
+            </Motion.h1>
+            <Motion.p
               className="qh-lede"
               variants={fadeUp}
               transition={{ duration: 0.65, ease }}
             >
               Qnduit connects skilled professionals with teams ready to hire,
               turning visibility into opportunity.
-            </motion.p>
-            <motion.div
+            </Motion.p>
+            <Motion.div
               className="qh-cta"
               variants={fadeUp}
               transition={{ duration: 0.65, ease }}
@@ -255,11 +255,11 @@ export const HeroSection = () => {
                   Join as Talent
                 </Link>
               )}
-              <Link to="/employers" className="qh-btn qh-btn-white">
+              <Link to="/feature-talents" className="qh-btn qh-btn-white">
                 Hire Talent
               </Link>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
           <div className="qh-cards">{renderCards()}</div>
         </div>
       </div>

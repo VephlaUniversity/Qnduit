@@ -4,9 +4,20 @@ const supportReplySchema = new mongoose.Schema(
   {
     message: {
       type: String,
-      required: true,
+      required() { return !this.attachments?.length; },
       trim: true,
+      maxlength: 10000,
     },
+    requestKey: { type: String, select: false },
+    attachments: { type: [{
+      _id: false,
+      id: { type: String, required: true },
+      name: { type: String, required: true },
+      mime: { type: String, enum: ["image/jpeg", "image/png"], required: true },
+      size: { type: Number, required: true, min: 1, max: 10000000 },
+      storageKey: { type: String, required: true, select: false },
+      sha256: { type: String, required: true, select: false },
+    }], default: undefined, validate: value => !value || value.length <= 5 },
     adminId: {
       type: mongoose.Schema.Types.ObjectId,
       required() { return !this.authorRole || this.authorRole === "admin"; },

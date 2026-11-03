@@ -10,52 +10,59 @@ import {
 } from "../controllers/supportController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
-const router = express.Router();
+import { supportReplyHandler, supportDownloadHandler } from "../utils/supportAttachments/handlers.js";
+import { supportAttachmentStorage } from "../utils/supportAttachments/storage.js";
 
-// Talent and employer routes
-router.post(
-  "/tickets",
-  protect,
-  authorize("talent", "employer"),
-  createTicket
-);
+export function createSupportRouter({ storageFactory = supportAttachmentStorage } = {}) {
+  const router = express.Router();
 
-router.get(
-  "/tickets/mine",
-  protect,
-  authorize("talent", "employer"),
-  getMyTickets
-);
+  // Talent and employer routes
+  router.post(
+    "/tickets",
+    protect,
+    authorize("talent", "employer"),
+    createTicket
+  );
 
-router.post("/tickets/:ticketId/replies", protect, authorize("talent", "employer"), replyToOwnTicket);
+  router.get(
+    "/tickets/mine",
+    protect,
+    authorize("talent", "employer"),
+    getMyTickets
+  );
 
-// Admin routes
-router.get(
-  "/admin/tickets",
-  protect,
-  authorize("admin"),
-  getAllTickets
-);
+  router.post("/tickets/:ticketId/replies", protect, authorize("talent", "employer"), supportReplyHandler({ storageFactory, legacyHandler: replyToOwnTicket }));
 
-router.patch(
-  "/admin/tickets/:ticketId/status",
-  protect,
-  authorize("admin"),
-  updateTicketStatus
-);
+  // Admin routes
+  router.get(
+    "/admin/tickets",
+    protect,
+    authorize("admin"),
+    getAllTickets
+  );
 
-router.post(
-  "/admin/tickets/:ticketId/replies",
-  protect,
-  authorize("admin"),
-  replyToTicket
-);
+  router.patch(
+    "/admin/tickets/:ticketId/status",
+    protect,
+    authorize("admin"),
+    updateTicketStatus
+  );
 
-router.delete(
-  "/admin/tickets/:ticketId",
-  protect,
-  authorize("admin"),
-  deleteTicket
-);
+  router.post(
+    "/admin/tickets/:ticketId/replies",
+    protect,
+    authorize("admin"),
+    supportReplyHandler({ storageFactory, legacyHandler: replyToTicket })
+  );
 
-export default router;
+  router.delete(
+    "/admin/tickets/:ticketId",
+    protect,
+    authorize("admin"),
+    deleteTicket
+  );
+
+  router.get("/tickets/:ticketId/replies/:replyId/attachments/:attachmentId", protect, authorize("talent", "employer", "admin"), supportDownloadHandler({ storageFactory }));
+  return router;
+}
+export default createSupportRouter();
