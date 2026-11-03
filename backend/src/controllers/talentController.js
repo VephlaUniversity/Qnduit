@@ -495,6 +495,11 @@ export const listPublicTalents = async (req, res, next) => {
         { lastName: pattern },
         { jobTitle: pattern },
         { tags: pattern },
+        // Profiles may store first/last names without a fullName field.
+        { $expr: { $regexMatch: {
+          input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] },
+          regex: pattern.source, options: "i",
+        } } },
       ];
     }
 

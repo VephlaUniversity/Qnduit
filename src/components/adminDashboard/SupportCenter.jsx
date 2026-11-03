@@ -1,3 +1,6 @@
+import SupportReplyComposer from "../support/SupportReplyComposer";
+import SupportConversation from "../support/SupportConversation";
+import { formatSupportTime } from "../utils/supportConversation";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../ui/dropdown-menu";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
@@ -21,8 +24,6 @@ import { Modal } from "./Modal";
 import { toast } from "sonner";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import ButtonSpinner from "../utils/ButtonSpinner";
-import { useBusyAction } from "../utils/useBusyAction";
 
 const statusStyle = {
   Open: "text-yellow-500",
@@ -110,58 +111,37 @@ const RowActions = ({ onSetStatus, label }) => (
 const InfoField = (props) => {
   const Icon = props.icon;
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex min-w-0 items-start gap-3">
       <Icon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-      <div>
+      <div className="min-w-0">
         <div className="text-xs uppercase tracking-wide text-gray-500">
           {props.label}
         </div>
-        <div className="text-white font-medium">{props.value}</div>
+        <div className="text-white font-medium [overflow-wrap:anywhere]">{props.value}</div>
       </div>
     </div>
   );
 };
 
-const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
+const TicketModal = ({ ticket, onClose, onSetStatus, onReply, onRefresh, refreshing }) => {
   const [replying, setReplying] = useState(false);
-  const { busy, run } = useBusyAction();
-  const [response, setResponse] = useState("");
+
 
   useEffect(() => {
     setReplying(false);
-    setResponse("");
-  }, [ticket]);
+  }, [ticket?.id]);
 
-  const sendResponse = async () => {
-    if (!response.trim()) {
-      toast.error("Write a response before sending");
-      return;
-    }
-
-    if (response.trim().length > 10000) {
-      toast.error("Response cannot exceed 10,000 characters");
-      return;
-    }
-
-    try {
-      await onReply(ticket.id, response.trim());
-
-      setReplying(false);
-      setResponse("");
-    } catch {
-      // The parent handles and displays the API error.
-    }
-  };
 
   return (
     <Modal open={!!ticket} onClose={onClose}>
       {ticket && (
-        <div className="p-8">
-          <div className="flex items-start justify-between gap-4 mb-8">
-            <h2 className="text-2xl font-semibold text-white">
+        <div className="p-4 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-8">
+            <h2 className="min-w-0 break-words text-2xl font-semibold text-white [overflow-wrap:anywhere]">
               {ticket.fullSubject || ticket.subject}
             </h2>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={onRefresh} disabled={refreshing} className="min-h-11 rounded-lg border border-white/10 px-3 py-2 text-sm text-blue-400 disabled:opacity-50">Refresh conversation</button>
               <RowActions label={ticket.title || ticket.subject} onSetStatus={onSetStatus} />
               <button
                 onClick={() => setReplying((r) => !r)}
@@ -173,54 +153,12 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
             </div>
           </div>
 
-          <h3 className="text-white font-semibold mb-3">Message</h3>
-          <p className="text-gray-400 whitespace-pre-line leading-relaxed mb-6">
-            {ticket.message}
-          </p>
-
-          {ticket.replies?.length > 0 && <section className="mb-6 space-y-3" aria-label="Ticket replies">
-            <h3 className="font-semibold text-white">Replies</h3>
-            {ticket.replies.map(reply => <div key={reply._id} className="rounded border border-white/10 p-3">
-              <p className="text-sm font-medium text-white">{reply.authorRole && reply.authorRole !== "admin" ? `${reply.authorName || "Account owner"} (${reply.authorRole})` : reply.adminName || "Support Team"}</p>
-              <p className="whitespace-pre-wrap break-words text-sm text-gray-300">{reply.message}</p>
-            </div>)}
-          </section>}
+          <div className="mb-6"><SupportConversation ticket={ticket} viewer="admin" /></div>
 
           {replying && (
             <div className="mb-8 bg-[#0E0E10] border border-white/10 rounded-lg p-4">
-              <textarea
-                maxLength={10000}
-                value={response}
-                onChange={(e) => setResponse(e.target.value)}
-                rows={4}
-                placeholder={`Reply to ${ticket.name}...`}
-                className="w-full bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none resize-none"
-              />
-              <div className="flex justify-end gap-2 mt-3">
-                <button
-                  onClick={() => setReplying(false)}
-                  className="px-4 py-2 rounded-lg text-gray-400 hover:text-white text-sm transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => run("send", sendResponse)}
-                  disabled={!!busy}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {busy === "send" ? (
-                    <>
-                      <ButtonSpinner className="mr-2 inline-block align-[-2px]" />
-                      Sending…
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Send
-                    </>
-                  )}
-                </button>
-              </div>
+              <SupportReplyComposer key={ticket.id} ticketId={ticket.id} viewer="admin" label="Admin reply" onSend={async body => { await onReply(ticket.id, body); setReplying(false); }} />
+              <button type="button" onClick={() => setReplying(false)} className="mt-3 min-h-11 text-sm text-gray-400 hover:text-white">Cancel</button>
             </div>
           )}
 
@@ -230,7 +168,7 @@ const TicketModal = ({ ticket, onClose, onSetStatus, onReply }) => {
             <InfoField
               icon={Calendar}
               label="Date Submitted"
-              value={ticket.date}
+              value={formatSupportTime(ticket.createdAt)}
             />
             <InfoField icon={CircleDot} label="Status" value={ticket.status} />
           </div>
@@ -251,8 +189,10 @@ export const SupportCenter = () => {
   const [pageSize, setPageSize] = useState(8);
   const [page, setPage] = useState(1);
   const [activeTicket, setActiveTicket] = useState(null);
+  const loadVersion = useRef(0);
 
   const loadTickets = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
     setRequestError("");
 
@@ -270,6 +210,7 @@ export const SupportCenter = () => {
         },
       );
 
+      if (version !== loadVersion.current) return;
       const data = response.data;
 
       setTickets(data.data || []);
@@ -284,18 +225,20 @@ export const SupportCenter = () => {
         );
       });
     } catch (error) {
+      if (version !== loadVersion.current) return;
       setRequestError(
         error.response?.data?.message || "Unable to load support tickets.",
       );
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [search, statusFilter, page, pageSize]);
 
+  const invalidateLoads = useCallback(() => { loadVersion.current++; }, []);
   useEffect(() => {
     const timer = setTimeout(loadTickets, 300);
-    return () => clearTimeout(timer);
-  }, [loadTickets]);
+    return () => { clearTimeout(timer); invalidateLoads(); };
+  }, [loadTickets, invalidateLoads]);
 
   const updateStatus = async (ticketId, status) => {
     try {
@@ -340,7 +283,8 @@ export const SupportCenter = () => {
             Support Tickets{" "}
             <span className="text-gray-500">({totalTickets})</span>
           </h2>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+            <button type="button" onClick={() => loadTickets()} disabled={loading} className="min-h-11 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 disabled:opacity-50">Refresh tickets</button>
             <div className="flex items-center gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-2.5 w-full sm:w-64 focus-within:border-white/25 transition-colors">
               <Search className="w-4 h-4 text-gray-500 flex-shrink-0" />
               <input
@@ -374,6 +318,7 @@ export const SupportCenter = () => {
           </div>
         </div>
 
+        {requestError && <p role="alert" className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">{requestError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[840px]">
             <thead>
@@ -445,13 +390,15 @@ export const SupportCenter = () => {
 
       <TicketModal
         ticket={activeTicket}
+        onRefresh={() => loadTickets()}
+        refreshing={loading}
         onClose={() => setActiveTicket(null)}
         onSetStatus={(status) => updateStatus(activeTicket.id, status)}
-        onReply={async (ticketId, message) => {
+        onReply={async (ticketId, body) => {
           try {
             await axios.post(
               `${API_BASE_URL}/api/support/admin/tickets/${ticketId}/replies`,
-              { message },
+              body,
               { headers: getHeaders() },
             );
 

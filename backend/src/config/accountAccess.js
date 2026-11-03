@@ -2,6 +2,7 @@
 // run on every request, including suspended accounts. Never include admin routes.
 export function allowsSuspendedAccess(method, pathname) {
   const path = pathname.split("?")[0].replace(/\/$/, "");
-  return method === "GET" && ["/api/auth/session", "/api/support/tickets/mine"].includes(path)
+  return method === "GET" && (["/api/auth/session", "/api/support/tickets/mine"].includes(path)
+      || /^\/api\/support\/tickets\/[a-f\d]{24}\/replies\/[a-f\d]{24}\/attachments\/[a-f\d-]{36}$/i.test(path))
     || method === "POST" && (path === "/api/support/tickets" || /^\/api\/support\/tickets\/[a-f\d]{24}\/replies$/i.test(path));
 }

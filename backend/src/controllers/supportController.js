@@ -14,7 +14,7 @@ const getPagination = (req) => {
   return { page, limit, skip: (page - 1) * limit };
 };
 
-const getAccountName = (user) =>
+export const getAccountName = (user) =>
   user.fullName ||
   user.name ||
   [user.firstName, user.lastName].filter(Boolean).join(" ") ||
@@ -23,11 +23,17 @@ const getAccountName = (user) =>
   user.email ||
   "User";
 
-const formatTicket = (ticket) => {
+export const formatTicket = (ticket) => {
   const item = ticket.toObject ? ticket.toObject() : ticket;
 
   return {
     ...item,
+    replies: (item.replies || []).map(saved => {
+      const reply = { ...saved };
+      delete reply.requestKey;
+      if (reply.attachments) reply.attachments = reply.attachments.map(file => ({ id: file.id, name: file.name, mime: file.mime, size: file.size }));
+      return reply;
+    }),
     id: String(item._id),
     subject: item.category,
     fullSubject: `${item.category} - ${item.title}`,
@@ -35,6 +41,7 @@ const formatTicket = (ticket) => {
       day: "numeric",
       month: "short",
       year: "numeric",
+      timeZone: "Africa/Lagos",
     }),
   };
 };
@@ -123,7 +130,7 @@ export const getMyTickets = async (req, res) => {
 
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -194,7 +201,7 @@ export const getAllTickets = async (req, res) => {
 
     const [tickets, total] = await Promise.all([
       SupportTicket.find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -244,7 +251,7 @@ export const updateTicketStatus = async (req, res) => {
       ticketId,
       { $set: { status } },
       { new: true, runValidators: true }
-    );
+    ).lean();
 
     if (!ticket) {
       return res.status(404).json({
@@ -287,24 +294,22 @@ export const replyToTicket = async (req, res) => {
       });
     }
 
-    const ticket = await SupportTicket.findById(ticketId);
+    // Atomic append preserves concurrent owner/Admin replies and status updates.
+    const ticket = await SupportTicket.findByIdAndUpdate(ticketId, {
+      $push: { replies: {
+        message,
+        adminId: req.user._id,
+        adminName: getAccountName(req.user),
+        authorId: req.user._id,
+        authorRole: "admin",
+        authorName: getAccountName(req.user),
+        createdAt: new Date(),
+      } },
+    }, { new: true, runValidators: true }).lean();
 
     if (!ticket) {
-      return res.status(404).json({
-        success: false,
-        message: "Support ticket not found.",
-      });
+      return res.status(404).json({ success: false, message: "Support ticket not found." });
     }
-
-    ticket.replies.push({
-      message,
-      adminId: req.user._id,
-      adminName: getAccountName(req.user),
-    });
-
-    // Only append the reply. Leaving status untouched also preserves concurrent
-    // explicit status updates: Mongoose saves modified paths, not the snapshot.
-    await ticket.save();
 
     return res.json({
       success: true,
@@ -362,7 +367,7 @@ export const replyToOwnTicket = async (req, res) => {
   try {
     const ticket = await SupportTicket.findOneAndUpdate({ _id: req.params.ticketId, ownerId: req.user._id, userType: req.user.role }, {
       $push: { replies: { message, authorId: req.user._id, authorRole: req.user.role, authorName: getAccountName(req.user), createdAt: new Date() } },
-    }, { new: true, runValidators: true });
+    }, { new: true, runValidators: true }).lean();
     if (!ticket) return res.status(404).json({ success: false, message: "Support ticket not found." });
     return res.json({ success: true, data: formatTicket(ticket) });
   } catch {
