@@ -8,7 +8,7 @@ if (!uri) throw new Error("Set EXTERNAL_ACTIVITY_DATABASE_URI to the intended da
 try {
   await mongoose.connect(uri, { autoIndex: false, autoCreate: false });
   await ExternalApplicationActivity.createCollection();
-  // Additively creates unique-intent, Talent/time and Admin source/time indexes.
+  // Additively creates declared intent/history and Employer figures indexes.
   // Never drops/reconciles existing indexes; recording readiness is unchanged.
   await ExternalApplicationActivity.createIndexes();
   await assertExternalActivityReady();

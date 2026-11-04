@@ -107,6 +107,8 @@ const MyJob = () => {
                 <th className="text-left text-gray-400 text-sm font-medium p-4 whitespace-nowrap">
                   APPLICANTS
                 </th>
+                <th className="text-left text-gray-400 text-sm font-medium p-4 whitespace-nowrap">External Talents</th>
+                <th className="text-left text-gray-400 text-sm font-medium p-4 whitespace-nowrap">External clicks</th>
                 <th className="text-left text-gray-400 text-sm font-medium p-4 whitespace-nowrap">
                   CREATED & EXPIRY
                 </th>
@@ -121,7 +123,7 @@ const MyJob = () => {
             <tbody>
               {filteredAndSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
                     {jobs.length === 0 ? (
                       <div>
                         <p className="mb-3">No jobs posted yet.</p>
@@ -164,6 +166,8 @@ const MyJob = () => {
                         {job.applicantsCount ?? 0} Applicants
                       </span>
                     </td>
+                    <td className="p-4 text-white">{job.externalTalents ?? 0}</td>
+                    <td className="p-4 text-white">{job.externalClicks ?? 0}</td>
                     <td className="p-4">
                       <p className="text-white text-sm">
                         Created: {new Date(job.createdAt).toLocaleDateString()}

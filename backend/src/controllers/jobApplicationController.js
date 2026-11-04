@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { jobApplicationMetadata, usesInternalApplications, internalApplicationFilter } from "../utils/jobApplicationMetadata.js";
 import JobApplication from "../models/JobApplication.js";
+import { employerExternalTotals } from "../services/employerExternalActivity.js";
+import { talentApplicationSummary } from "../services/talentApplicationSummary.js";
 import AdminJobApplication from "../models/AdminJobApplication.js";
 import { publicAdminJob } from "../services/publicAdminJob.js";
 import { applyForAdminJob } from "../services/adminJobApplication.js";
@@ -89,8 +91,15 @@ export const applyForJob = async (req, res, next) => {
 
 // get applications for logged in user
 export const getMyApplications = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const applicantId = req.user._id;
+    if (req.query.summaryOnly !== undefined && !["true", "false"].includes(req.query.summaryOnly)) {
+      return res.status(400).json({ success: false, message: "Invalid application summary option." });
+    }
+    if (req.query.summaryOnly === "true") {
+      return res.json({ success: true, ...await talentApplicationSummary(applicantId) });
+    }
 
     const applications = await JobApplication.find({
       applicantId,
@@ -115,6 +124,9 @@ export const getMyApplications = async (req, res, next) => {
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.status(200).json({ success: true, applications: combined });
   } catch (error) {
+    if (req.query.summaryOnly === "true") {
+      return res.status(503).json({ success: false, message: "Unable to load your application figures. Please try again." });
+    }
     next(error);
   }
 };
@@ -156,6 +168,7 @@ export const getJobApplications = async (req, res) => {
 };
 // Employer Applications
 export const getEmployerApplications = async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const employerId = req.user._id;
 
@@ -291,7 +304,7 @@ export const getEmployerApplications = async (req, res) => {
       const ids = result.rows;
       rowFilter = { ...active, _id: { $in: ids.map((item) => item._id) } };
     }
-    const [applications, totalApplications, reviewedApplications] =
+    const [applications, totalApplications, reviewedApplications, externalTotals] =
       await Promise.all([
         summaryOnly === "true"
           ? []
@@ -306,6 +319,8 @@ export const getEmployerApplications = async (req, res) => {
         JobApplication.countDocuments(owner),
         // Current reviewed status across all owner records, including archived applications.
         JobApplication.countDocuments({ ...owner, status: "reviewed" }),
+        // Summary scope includes immutable owned events even when jobs are removed.
+        summaryOnly === "true" ? employerExternalTotals(employerId) : null,
       ]);
 
     // Resumes uploaded on the talent Resume page live in the Resume collection (cvFiles),
@@ -390,6 +405,7 @@ export const getEmployerApplications = async (req, res) => {
       applications: formatted,
       totalApplications,
       reviewedApplications,
+      ...(externalTotals || {}),
       seenApplications: reviewedApplications, // Deprecated compatibility alias; no obsolete Seen status query.
       ...(paginated && summaryOnly !== "true"
         ? {

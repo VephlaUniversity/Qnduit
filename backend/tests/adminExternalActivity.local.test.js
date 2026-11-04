@@ -60,12 +60,38 @@ test("Admin external activity: isolated synthetic HTTP/MongoDB", { skip: process
     assert.equal((await get(`jobId=${id(11)}`)).data.pagination.total, 0);
     assert.equal((await get("page=99")).data.activities.length, 0);
   });
+  await t.test("Admin summary covers all matching pages, distinct recorded Talents and explicit filter scope", async () => {
+    const baseline = await Activity.find().sort({ _id: 1 }).lean();
+    const all = (await get("limit=1&page=2")).data;
+    assert.deepEqual(all.summary, { externalTalents: 2, externalClicks: 25 });
+    assert.deepEqual(all.summaryScope, { source: "admin", q: "", jobId: null });
+    assert.equal(all.activities.length, 1);
+    assert.deepEqual((await get("q=Ada&limit=1&page=2")).data.summary, { externalTalents: 1, externalClicks: 24 });
+    assert.deepEqual((await get(`jobId=${id(11)}`)).data.summary, { externalTalents: 0, externalClicks: 0 });
+    assert.deepEqual((await get("q=no-match")).data.summary, { externalTalents: 0, externalClicks: 0 });
+    assert.equal((await get(`q=%20Ada%20&jobId=${id(10)}&page=3&limit=1`)).data.summaryScope.q, "Ada");
+    assert.deepEqual((await get(`q=Ada&jobId=${id(10)}&limit=1`)).data.summary, { externalTalents: 1, externalClicks: 24 });
+    assert.deepEqual((await get("limit=1", token(other))).data.summary, all.summary, "Active Admin audit is Admin-source global, not poster-owned");
+    const repeat = { ...baseline.find(row => row.source === "admin"), _id: "summary-repeat", intentId: "summary-repeat" };
+    const newTalent = { ...repeat, _id: "summary-new-talent", intentId: "summary-new-talent", talentId: id(98), jobId: id(11), display: { jobTitle: "Different filtered job" } };
+    try {
+      await Activity.collection.insertOne(repeat);
+      assert.deepEqual((await get()).data.summary, { externalTalents: 2, externalClicks: 26 });
+      await Activity.collection.insertOne(newTalent);
+      assert.deepEqual((await get()).data.summary, { externalTalents: 3, externalClicks: 27 });
+      assert.deepEqual((await get("q=Different&limit=1")).data.summary, { externalTalents: 1, externalClicks: 1 });
+      assert.equal((await get(`jobId=${id(10)}`)).data.summary.externalClicks, 26);
+    } finally { await Activity.deleteMany({ _id: { $in: [repeat._id, newTalent._id] } }); }
+    assert.deepEqual(await Activity.find().sort({ _id: 1 }).lean(), baseline);
+  });
   await t.test("removed Talent/job retains snapshot and unavailable fallback without Employer collision", async () => {
     assert.equal((await AdminJob.findById(id(10))).applicantsCount, 7);
     await AdminJob.collection.updateOne({ _id: id(10) }, { $set: { isDeleted: true } });
     assert((await get()).data.activities.every(row => !row.job.exists));
     await Talent.collection.deleteOne({ _id: id(4) }); await AdminJob.collection.deleteOne({ _id: id(10) });
-    const rows = (await get("limit=50")).data.activities;
+    const retained = (await get("limit=50")).data;
+    assert.deepEqual(retained.summary, { externalTalents: 2, externalClicks: 25 });
+    const rows = retained.activities;
     assert.equal(rows.length, 25); assert(rows.every(row => row.talent.name === "Talent unavailable" && !row.talent.exists && !row.job.exists && row.job.title === "Recorded Designer" && row.destinationUrl === destination));
   });
   await t.test("invalid queries and service failure are safe; reads leave Internal data/activities unchanged", async () => {

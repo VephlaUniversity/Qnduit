@@ -1,6 +1,7 @@
 import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration.js";
 import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 import Job from "../models/Job.js";
+import { employerExternalJobFigures } from "../services/employerExternalActivity.js";
 import { findPublicAdminJob } from "../services/publicAdminJob.js";
 import { nonDeletedJobFilter, openJobFilter } from "../services/jobVisibility.js";
 import upload from "../utils/upload.js";
@@ -231,6 +232,7 @@ export const updateJob = async (req, res) => {
 };
 
 export const getEmployerJobs = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const employerId = req.user._id;
 
@@ -241,9 +243,12 @@ export const getEmployerJobs = async (req, res, next) => {
       createdAt: -1,
     });
 
+    const figures = await employerExternalJobFigures(employerId, jobs.map(job => job._id));
+
     res.json({
       success: true,
-      jobs,
+      jobs: jobs.map(job => ({ ...job.toObject(),
+        ...(figures.get(String(job._id)) || { externalTalents: 0, externalClicks: 0 }) })),
     });
   } catch (error) {
     next(error);

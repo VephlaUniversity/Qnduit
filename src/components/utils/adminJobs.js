@@ -17,13 +17,16 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
     if (!validJob(target)) throw new Error("Select an Admin job with a saved revision.");
     return `${endpoint}/admin/${target.jobId}`;
   };
-  async function run(slot, method, url, body, params, expected) {
+  async function run(slot, method, url, body, params, expected, signal) {
     if (slot === "write" && slots.has(slot)) throw new Error("A job operation is already pending.");
     slots.get(slot)?.controller.abort();
     const owner = readOwner(), key = ownerKey(owner);
     if (!owner?.actor?.startsWith("admin:") || !owner.token) throw new Error("Sign in with an Admin account.");
     const operation = { controller: new AbortController() };
     slots.set(slot, operation);
+    const abort = () => operation.controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
     const current = () => slots.get(slot) === operation && !operation.controller.signal.aborted && key === ownerKey(readOwner());
     try {
       const response = await client.request({ method, url, data: body, params,
@@ -31,6 +34,10 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
       if (!current()) return;
       const data = response.data;
       const valid = slot === "activities" ? data?.source === "admin" && Array.isArray(data.activities) && data.activities.every(row => row.source === "admin") && Number.isSafeInteger(data.pagination?.page) && Number.isSafeInteger(data.pagination?.totalPages)
+        && Number.isSafeInteger(data.summary?.externalTalents) && data.summary.externalTalents >= 0
+        && Number.isSafeInteger(data.summary?.externalClicks) && data.summary.externalClicks === data.pagination.total
+        && data.summaryScope?.source === "admin" && data.summaryScope.q === (params?.q || "").trim()
+        && data.summaryScope.jobId === (params?.jobId?.toLowerCase() || null)
         : slot === "list" ? data?.source === "admin" && Array.isArray(data.data) && data.data.every(validJob)
         && Number.isSafeInteger(data.pagination?.page) && Number.isSafeInteger(data.pagination?.totalPages)
         : method === "DELETE" ? data?.source === "admin" && data.jobId === expected
@@ -39,12 +46,12 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
       return data;
     } catch (error) {
       if (current()) throw error;
-    } finally { if (slots.get(slot) === operation) slots.delete(slot); }
+    } finally { signal?.removeEventListener("abort", abort); if (slots.get(slot) === operation) slots.delete(slot); }
   }
   return {
     cancel() { for (const row of slots.values()) row.controller.abort(); slots.clear(); },
     list: params => run("list", "GET", endpoint, undefined, { ...params, source: "admin" }),
-    externalActivities: params => run("activities", "GET", `${endpoint}/external-activities`, undefined, params),
+    externalActivities: (params, { signal } = {}) => run("activities", "GET", `${endpoint}/external-activities`, undefined, params, undefined, signal),
     details: target => run("details", "GET", targetPath(target), undefined, undefined, target.jobId),
     create: body => run("write", "POST", endpoint, jobBody(body, { source: "admin" })),
     update: (target, body) => run("write", "PATCH", targetPath(target), jobBody(body, { source: "admin", revision: target.revision }), undefined, target.jobId),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Briefcase, FileText, Gift, Bookmark } from "lucide-react";
+import { Briefcase, FileText, Gift, Bookmark, Users, MousePointerClick } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -12,48 +12,59 @@ import {
 import RecentApplication from "./RecentApplication";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
+import { startMessagePolling } from "../utils/messagePolling";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const token = localStorage.getItem("token");
+  const employerId = user?.id || user?._id;
+  if (user?.userType !== "employer" || !employerId || !token) return null;
+  // All private dashboard state, including existing children, belongs to this session.
+  return <EmployerDashboard key={`${employerId}:${token}`} employerId={employerId} token={token} />;
+};
+
+const EmployerDashboard = ({ employerId, token }) => {
   const [chartPeriod, setChartPeriod] = useState("month");
   const [postedJobsCount, setPostedJobsCount] = useState(0);
-  const [applicationsCount, setApplicationsCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
+  const [summary, setSummary] = useState({ data: null, error: false });
   const [wishlistCount, setWishlistCount] = useState(0);
 
-  const [summaryVersion, setSummaryVersion] = useState(0);
-  const summaryRequest = useRef(null);
+  const summaryLoop = useRef(null);
   const refreshApplicationSummary = useCallback(() => {
-    summaryRequest.current?.abort();
-    setSummaryVersion(version => version + 1);
+    summaryLoop.current?.cancel();
+    summaryLoop.current?.wake();
   }, []);
 
-  // Dashboard remounts when returning from Applicants; mutations refresh it in place.
   useEffect(() => {
-    const controller = new AbortController();
-    summaryRequest.current = controller;
-    async function loadSummary() {
-      try {
+    let active = true;
+    const current = () => active && localStorage.getItem("token") === token;
+    const loop = startMessagePolling({
+      intervalMs: 15000, maxDelayMs: 60000,
+      async run(signal) {
+        if (!current()) return false;
         const { data } = await axios.get(`${API_BASE_URL}/api/applications/employer`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-          params: { summaryOnly: true }, signal: controller.signal,
+          headers: { Authorization: `Bearer ${token}` }, params: { summaryOnly: true }, signal, timeout: 15000,
         });
-        if (controller.signal.aborted) return;
-        if (!Number.isFinite(data.totalApplications) || !Number.isFinite(data.reviewedApplications)) throw new Error();
-        setApplicationsCount(data.totalApplications);
-        setReviewCount(data.reviewedApplications);
-      } catch {
-        // Preserve the last authoritative totals when refresh fails.
-        if (!controller.signal.aborted) console.error("Unable to refresh application totals. Reload the dashboard to retry.");
-      }
-    }
-    loadSummary();
-    return () => controller.abort();
-  }, [summaryVersion]);
+        if (signal.aborted || !current()) return false;
+        if (!["totalApplications", "reviewedApplications", "externalTalents", "externalClicks"]
+          .every(field => Number.isSafeInteger(data[field]) && data[field] >= 0)) throw new Error("Invalid summary response");
+        setSummary({ data, error: false });
+      },
+      onSuccess() {},
+      onError() { if (current()) setSummary(previous => ({ ...previous, error: true })); },
+      onUnauthorized() { if (current()) setSummary({ data: null, error: true }); },
+    });
+    summaryLoop.current = loop;
+    loop.wake();
+    return () => { active = false; loop.stop(); summaryLoop.current = null; };
+  }, [token]);
+  const summaryValue = field => summary.data ? String(summary.data[field]) : summary.error ? "—" : "…";
 
   // Load the independent job and wishlist stats from backend
   useEffect(() => {
+    const controller = new AbortController();
     const loadStats = async () => {
-      const token = localStorage.getItem("token");
 
       if (!token) {
         console.error("No authentication token found");
@@ -72,16 +83,17 @@ const Dashboard = () => {
           // Posted Jobs
           axios.get(
             `${API_BASE_URL}/api/jobs/my-jobs`,
-            { headers }
+            { headers, signal: controller.signal }
           ),
 
           // Saved Candidates / Wishlist
           axios.get(
             `${API_BASE_URL}/api/employers/saved-candidates`,
-            { headers }
+            { headers, signal: controller.signal }
           ),
         ]);
 
+        if (controller.signal.aborted) return;
         const jobs = jobsResponse.data?.jobs || [];
         const savedCandidates =
           savedCandidatesResponse.data?.savedCandidates || [];
@@ -91,6 +103,7 @@ const Dashboard = () => {
         setWishlistCount(savedCandidates.length);
 
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error(
           "Failed to load dashboard stats:",
           error.response?.data || error.message
@@ -99,7 +112,8 @@ const Dashboard = () => {
     };
 
     loadStats();
-  }, []);
+    return () => controller.abort();
+  }, [token]);
 
   const stats = [
     {
@@ -110,14 +124,14 @@ const Dashboard = () => {
     },
     {
       icon: FileText,
-      label: "Application",
-      value: String(applicationsCount),
+      label: "Internal Applications",
+      value: summaryValue("totalApplications"),
       color: "bg-red-600",
     },
     {
       icon: Gift,
-      label: "Review",
-      value: String(reviewCount),
+      label: "Internal Reviews",
+      value: summaryValue("reviewedApplications"),
       color: "bg-blue-500",
     },
     {
@@ -126,6 +140,8 @@ const Dashboard = () => {
       value: String(wishlistCount),
       color: "bg-yellow-500",
     },
+    { icon: Users, label: "External Talents", value: summaryValue("externalTalents"), color: "bg-blue-600" },
+    { icon: MousePointerClick, label: "External clicks", value: summaryValue("externalClicks"), color: "bg-blue-500" },
   ];
 
   const [chart, setChart] = useState({ period: null, loading: true, data: null, error: false });
@@ -134,11 +150,9 @@ const Dashboard = () => {
     setChart({ period: chartPeriod, loading: true, data: null, error: false });
     async function loadChart() {
       try {
-        const user = JSON.parse(localStorage.getItem("user") || "null");
-        if (!user?.id) throw new Error();
-        const { data } = await axios.get(`${API_BASE_URL}/api/profiles/employer/${encodeURIComponent(user.id)}/views/summary`, {
+        const { data } = await axios.get(`${API_BASE_URL}/api/profiles/employer/${encodeURIComponent(employerId)}/views/summary`, {
           params: { period: chartPeriod }, signal: controller.signal,
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!controller.signal.aborted) setChart({ period: chartPeriod, loading: false, data, error: false });
       } catch {
@@ -147,7 +161,7 @@ const Dashboard = () => {
     }
     loadChart();
     return () => controller.abort();
-  }, [chartPeriod]);
+  }, [chartPeriod, employerId, token]);
   const chartLoading = chart.loading || chart.period !== chartPeriod;
 
   const CustomTooltip = ({ active, payload }) => {
@@ -172,7 +186,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -195,6 +209,8 @@ const Dashboard = () => {
           );
         })}
       </div>
+
+      {summary.error && <p role="status" className="mb-4 text-sm text-gray-400">Unable to refresh application figures. Retrying automatically.</p>}
 
       {/* Chart */}
       <div className="bg-[#1A1A1E] rounded-lg p-6 border border-white/5 mb-8">

@@ -29,6 +29,8 @@ schema.index({ talentId: 1, intentId: 1 }, { unique: true, name: EXTERNAL_ACTIVI
 schema.index({ talentId: 1, clickedAt: -1, _id: -1 }, { name: "external_activity_talent_time" });
 
 schema.index({ source: 1, clickedAt: -1, _id: -1 }, { name: "external_activity_source_time" });
+// Covers owner-scoped per-job and all-history distinct-Talent/click aggregates.
+schema.index({ posterId: 1, posterType: 1, source: 1, jobId: 1, talentId: 1 }, { name: "external_activity_employer_figures" });
 
 const ExternalApplicationActivity = mongoose.model("ExternalApplicationActivity", schema);
 

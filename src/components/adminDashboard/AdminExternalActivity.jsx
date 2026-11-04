@@ -3,6 +3,7 @@ import axios from "axios";
 import { createAdminJobClient } from "../utils/adminJobs";
 import { browserSessions } from "../utils/requestSafety";
 import { API_BASE_URL } from "../utils/api";
+import { startMessagePolling } from "../utils/messagePolling";
 import { jobApplicationConfiguration } from "../utils/jobApplicationConfiguration";
 
 const readOwner = () => browserSessions().find(row => row.actor.startsWith("admin:"));
@@ -24,13 +25,25 @@ export default function AdminExternalActivity() {
     if (sessionChanged || ownerKey() !== initialOwner) return;
     let current = true;
     setError(""); setCopied("");
-    const timer = setTimeout(async () => {
-      try {
-        const data = await client.externalActivities({ q, page, limit: 20 });
-        if (current && data && ownerKey() === initialOwner) setResult({ key, ...data });
-      } catch { if (current) setError("Unable to load external activity. Please try again."); }
-    }, 250);
-    return () => { current = false; clearTimeout(timer); client.cancel(); };
+    const loop = startMessagePolling({
+      intervalMs: 15000, maxDelayMs: 60000,
+      async run(signal) {
+        if (!current || ownerKey() !== initialOwner) return false;
+        const data = await client.externalActivities({ q, page, limit: 20 }, { signal });
+        if (!current || signal.aborted || !data || ownerKey() !== initialOwner) return false;
+        if (page > Math.max(1, data.pagination.totalPages)) { setPage(Math.max(1, data.pagination.totalPages)); return false; }
+        setResult({ key, ...data }); setError("");
+      },
+      onSuccess() {},
+      onError(error) {
+        if (!current || ownerKey() !== initialOwner) return;
+        if (error.response?.status === 403) setResult(null);
+        setError("Unable to load external activity. Please try again.");
+      },
+      onUnauthorized() { if (current) { setResult(null); setError("Unable to load external activity. Please try again."); } },
+    });
+    const timer = setTimeout(() => loop.wake(), 250);
+    return () => { current = false; clearTimeout(timer); loop.stop(); client.cancel(); };
   }, [client, initialOwner, key, page, q, sessionChanged]);
   if (sessionChanged) return <p role="alert">Your Admin session changed. Refresh the page.</p>;
   const data = result?.key === key ? result : null;
@@ -47,6 +60,11 @@ export default function AdminExternalActivity() {
     {error ? <div role="alert" className="mb-4 text-red-400">{error} <button className={button} onClick={() => setReload(value => value + 1)}>Retry</button></div> : !data && <p role="status" className="text-gray-400">Loading external activity…</p>}
     <p role="status" className="text-sm text-gray-400">{copied}</p>
     {data && <>
+      <p className="mb-3 text-sm text-gray-400">Totals for Admin-source events matching the current filters, across all pages.</p>
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-white/10 bg-[#0E0E10] p-4"><p className="text-2xl font-semibold">{data.summary.externalTalents}</p><p className="text-sm text-gray-400">External Talents</p></div>
+        <div className="rounded-lg border border-white/10 bg-[#0E0E10] p-4"><p className="text-2xl font-semibold">{data.summary.externalClicks}</p><p className="text-sm text-gray-400">External clicks</p></div>
+      </div>
       {!data.activities.length && <p className="py-8 text-center text-gray-400">No Admin external activity matches your filters.</p>}
       <div className="space-y-4">{data.activities.map(row => {
         const destination = jobApplicationConfiguration({ applicationType: "external", applicationUrl: row.destinationUrl });

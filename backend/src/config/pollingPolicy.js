@@ -10,6 +10,9 @@ export const POLLING_ENDPOINTS = Object.freeze([
   ["GET", "/api/notifications", ["talent", "employer"]],
   ["GET", "/api/employers/messaging-access", ["employer"]],
   ["GET", "/api/jobs/my-jobs", ["employer"]],
+  ["GET", "/api/applications/employer", ["employer"]],
+  ["GET", "/api/applications/my-applications", ["talent"]],
+  ["GET", "/api/admin/posted-jobs/external-activities", ["admin"]],
 ]);
 
 export function pollingRoles(method, pathname) {

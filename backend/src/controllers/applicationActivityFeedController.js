@@ -39,16 +39,22 @@ function internalStages(talentId, source, included) {
   ];
 }
 
-function externalStages(talentId) {
+function externalStages(talentId, source) {
   return [
-    { $match: { talentId } },
+    { $match: { talentId, ...(source === "all" ? {} : { source }) } },
+    // Select one complete recorded event, never a mixture of snapshot fields.
+    // Count all opens before search/pagination; reads leave the events untouched.
+    { $sort: { clickedAt: -1, _id: -1 } },
+    { $group: { _id: { jobId: "$jobId", source: "$source" },
+      latest: { $first: "$$ROOT" }, totalOpens: { $sum: 1 } } },
+    { $replaceRoot: { newRoot: { $mergeObjects: ["$latest", { totalOpens: "$totalOpens" }] } } },
     // Current jobs supply existence only. History always uses recorded snapshots.
     { $lookup: { from: "jobs", localField: "jobId", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "employerJob" } },
     { $lookup: { from: "adminjobs", localField: "jobId", foreignField: "_id", pipeline: [{ $project: { _id: 1 } }], as: "adminJob" } },
     { $project: {
-      _id: 0, id: { $concat: ["external:", "$source", ":", { $toString: "$_id" }] },
+      _id: 0, id: { $concat: ["external:", "$source", ":", { $toString: "$jobId" }] },
       kind: literal("external"), source: 1, label: literal("External Application"),
-      jobId: { $toString: "$jobId" }, occurredAt: "$clickedAt", status: literal(null), destinationUrl: 1,
+      jobId: { $toString: "$jobId" }, occurredAt: "$clickedAt", status: literal(null), destinationUrl: 1, totalOpens: 1,
       jobExists: { $gt: [{ $size: { $cond: [{ $eq: ["$source", "admin"] }, "$adminJob", "$employerJob"] } }, 0] },
       imageUrl: literal(""),
       display: Object.fromEntries(["jobTitle", "companyName", "location", "category", "workType", "jobApplyType"]
@@ -72,9 +78,9 @@ export async function getApplicationActivityFeed(req, res) {
     if (internal && source !== "employer") pipeline.push({ $unionWith: {
       coll: AdminJobApplication.collection.name, pipeline: internalStages(req.user._id, "admin", true),
     } });
-    if (type !== "internal") pipeline.push({ $unionWith: { coll: Activity.collection.name, pipeline: [
-      ...externalStages(req.user._id), ...(source === "all" ? [] : [{ $match: { source } }]),
-    ] } });
+    if (type !== "internal") pipeline.push({ $unionWith: {
+      coll: Activity.collection.name, pipeline: externalStages(req.user._id, source),
+    } });
     if (q.trim()) {
       const regex = { $regex: q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
       pipeline.push({ $match: { $or: ["display.jobTitle", "display.companyName", "display.location", "display.category",
