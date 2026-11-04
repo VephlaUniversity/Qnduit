@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Activity from "../models/ExternalApplicationActivity.js";
+import { externalActivityCountStages } from "../services/externalActivityCounts.js";
 
 // Audit reads deliberately retain snapshots, unavailable actors/jobs and each click.
 export async function listAdminExternalActivities(req, res) {
@@ -30,10 +31,14 @@ export async function listAdminExternalActivities(req, res) {
           job: { id: { $toString: "$jobId" }, title: { $ifNull: ["$display.jobTitle", "Job unavailable"] }, companyName: { $ifNull: ["$display.companyName", ""] },
             exists: { $and: [{ $gt: [{ $size: "$jobRecords" }, 0] }, { $ne: [{ $arrayElemAt: ["$jobRecords.isDeleted", 0] }, true] }] } },
         } }], totals: [{ $count: "total" }],
+      summary: [...externalActivityCountStages("$talentId"), { $project: { _id: 0, externalTalents: 1, externalClicks: 1 } }],
     } });
     const [result] = await Activity.aggregate(pipeline);
     const total = result?.totals[0]?.total || 0;
-    res.json({ success: true, source: "admin", activities: result?.items || [], pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } });
+    res.json({ success: true, source: "admin", activities: result?.items || [],
+      summary: result?.summary[0] || { externalTalents: 0, externalClicks: 0 },
+      summaryScope: { source: "admin", q: q.trim(), jobId: jobId.toLowerCase() || null },
+      pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } });
   } catch {
     res.status(503).json({ success: false, message: "Unable to load external activity. Please try again." });
   }

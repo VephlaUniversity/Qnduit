@@ -8,6 +8,7 @@ import {
   Clock,
   DollarSign,
   Bookmark,
+  MousePointerClick,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -22,11 +23,19 @@ import {
 import RecentApplication from "./RecentApplication";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
+import { startMessagePolling } from "../utils/messagePolling";
 
 export const TalentDashboard = () => {
   const { user } = useAuth();
+  const token = localStorage.getItem("token");
+  const userId = user?.id || user?._id;
+  if (user?.userType !== "talent" || !userId || !token) return null;
+  return <TalentDashboardContent key={`${userId}:${token}`} userId={userId} token={token} />;
+};
+
+const TalentDashboardContent = ({ userId, token }) => {
   const [chartPeriod, setChartPeriod] = useState("month");
-  const [applications, setApplications] = useState([]);
+  const [summary, setSummary] = useState({ data: null, error: false });
   const [savedJobs, setSavedJobs] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -38,11 +47,13 @@ export const TalentDashboard = () => {
   });
   const [chartReload, setChartReload] = useState(0);
 
+  const summaryValue = field => summary.data ? summary.data[field] : summary.error ? "—" : "…";
+
   const stats = [
     {
       icon: FileText,
-      label: "Applications Sent",
-      value: statsLoading ? "…" : applications.length,
+      label: "Internal applications",
+      value: summaryValue("totalApplications"),
       color: "bg-blue-600",
     },
     {
@@ -68,13 +79,37 @@ export const TalentDashboard = () => {
       value: statsLoading ? "…" : meetings.length,
       color: "bg-yellow-500",
     },
+    { icon: Briefcase, label: "External job groups", value: summaryValue("externalJobGroups"), color: "bg-blue-600" },
+    { icon: MousePointerClick, label: "Total external opens", value: summaryValue("externalOpens"), color: "bg-blue-500" },
   ];
 
   useEffect(() => {
+    let active = true;
+    const current = () => active && localStorage.getItem("token") === token;
+    const loop = startMessagePolling({
+      intervalMs: 15000, maxDelayMs: 60000,
+      async run(signal) {
+        if (!current()) return false;
+        const { data } = await axios.get(`${API_BASE_URL}/api/applications/my-applications`, {
+          params: { summaryOnly: true }, headers: { Authorization: `Bearer ${token}` }, signal, timeout: 15000,
+        });
+        if (signal.aborted || !current()) return false;
+        if (!data.success || !["totalApplications", "externalJobGroups", "externalOpens"]
+          .every(field => Number.isSafeInteger(data[field]) && data[field] >= 0)) throw Error("Invalid application summary");
+        setSummary({ data, error: false });
+      },
+      onSuccess() {},
+      onError() { if (current()) setSummary(previous => ({ ...previous, error: true })); },
+      onUnauthorized() { if (current()) setSummary({ data: null, error: true }); },
+    });
+    loop.wake();
+    return () => { active = false; loop.stop(); };
+  }, [token]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem("token");
-
         if (!token) {
           setStatsLoading(false);
           return;
@@ -84,39 +119,35 @@ export const TalentDashboard = () => {
           Authorization: `Bearer ${token}`,
         };
 
-        const [applicationsRes, savedJobsRes, meetingsRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/applications/my-applications`, {
-            headers,
-          }),
-
-          axios.get(`${API_BASE_URL}/api/saved-jobs`, { headers }),
+        const [savedJobsRes, meetingsRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/saved-jobs`, { headers, signal: controller.signal }),
 
           axios.get(`${API_BASE_URL}/api/meetings/talent-meetings`, {
-            headers,
+            headers, signal: controller.signal,
           }),
         ]);
 
-        setApplications(applicationsRes.data.applications || []);
+        if (controller.signal.aborted) return;
         setSavedJobs(savedJobsRes.data.jobs || []);
         setMeetings(meetingsRes.data.meetings || []);
       } catch (error) {
+        if (controller.signal.aborted) return;
         console.error("Failed to load dashboard data:", error);
       } finally {
-        setStatsLoading(false);
+        if (!controller.signal.aborted) setStatsLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+    return () => controller.abort();
+  }, [token]);
 
   // Real profile-view counts from the API (UTC buckets, self-views excluded)
-  const userId = user?.id || user?._id;
   useEffect(() => {
     const controller = new AbortController();
     setChart({ period: chartPeriod, loading: true, data: null, error: false });
     const loadChart = async () => {
       try {
-        const token = localStorage.getItem("token");
         if (!userId || !token) throw new Error("Not signed in");
         const { data } = await axios.get(
           `${API_BASE_URL}/api/profiles/talent/${encodeURIComponent(userId)}/views/summary`,
@@ -136,7 +167,7 @@ export const TalentDashboard = () => {
     };
     loadChart();
     return () => controller.abort();
-  }, [chartPeriod, userId, chartReload]);
+  }, [chartPeriod, userId, chartReload, token]);
   const chartLoading = chart.loading || chart.period !== chartPeriod;
 
   // Custom tooltip component
@@ -162,7 +193,7 @@ export const TalentDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -185,6 +216,8 @@ export const TalentDashboard = () => {
           );
         })}
       </div>
+
+      {summary.error && <p role="status" className="mb-4 text-sm text-gray-400">Unable to refresh application figures. Retrying automatically.</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Profile Views Chart with Recharts */}

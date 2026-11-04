@@ -80,7 +80,7 @@ export const TalentMyApplied = () => {
     <div className="p-4 md:p-6 lg:p-8">
       <header className="mb-6">
         <div className="flex items-center gap-3"><div className="h-8 w-1 rounded-full bg-blue-600" /><h1 className="text-2xl font-semibold md:text-3xl">My Applied</h1></div>
-        <p className="mt-2 text-sm text-gray-400">Internal applications and recorded external Apply clicks, newest first.</p>
+        <p className="mt-2 text-sm text-gray-400">Internal applications and external Apply activity grouped by job and source, newest first.</p>
       </header>
       <div role="tablist" aria-label="Application activity type" className="mb-6 flex gap-2 border-b border-white/10">
         {activityTabs.map((tab, index) => <button key={tab.value} type="button" role="tab" id={`activity-tab-${tab.value}`}
@@ -133,7 +133,8 @@ export const TalentMyApplied = () => {
                     {external ? "External Application" : applicationStatusLabel(row.status)}
                   </span>
                   <span className="text-gray-400">{row.source === "admin" ? "Admin job" : "Employer job"}</span>
-                  <p className="text-gray-400">{external ? "Recorded" : "Applied"}: {Number.isNaN(recorded.getTime()) ? "Date unavailable" : <time dateTime={row.occurredAt}>{recorded.toLocaleString()}</time>}</p>
+                  <p className="text-gray-400">{external ? "Last opened" : "Applied"}: {Number.isNaN(recorded.getTime()) ? "Date unavailable" : <time dateTime={row.occurredAt}>{recorded.toLocaleString()}</time>}</p>
+                  {external && <p className="text-gray-400">Total opens: {row.totalOpens}</p>}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
                   {row.jobExists ? <Link to={talentJobPath({ _id: row.jobId, source: row.source })} className={action}>View Job</Link>

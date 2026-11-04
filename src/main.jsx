@@ -13,12 +13,8 @@ import { RequestSafetyStatus } from "./components/RequestSafetyStatus";
 
 const stopPollingRateLimits = installPollingRateLimits(axios, {
   apiBaseUrl: API_BASE_URL,
-  readSession() {
-    try {
-      const user = JSON.parse(localStorage.getItem("user"));
-      const id = user?._id || user?.id;
-      return user && id ? { actor: `${user.userType}:${id}`, token: localStorage.getItem("token") } : null;
-    } catch { return null; }
+  readSession(bearer) {
+    return browserSessions().find(session => bearer === `Bearer ${session.token}`) || null;
   },
 });
 if (import.meta.hot) import.meta.hot.dispose(stopPollingRateLimits);

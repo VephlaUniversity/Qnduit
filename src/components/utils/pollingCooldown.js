@@ -79,7 +79,7 @@ export function installPollingRateLimits(client, { apiBaseUrl, readSession, even
   }
   const requests = new Set();
   const isCurrent = context => {
-    const session = readSession();
+    const session = readSession(`Bearer ${context.token}`);
     return session?.actor === context.actor && session?.token === context.token;
   };
   const sessionChanged = () => {
@@ -95,8 +95,8 @@ export function installPollingRateLimits(client, { apiBaseUrl, readSession, even
   const requestId = client.interceptors.request.use(async config => {
     const url = new URL(config.url, config.baseURL || apiBaseUrl || events.location.href);
     if (url.origin !== origin || !pollingRoles(config.method || "get", url.pathname)) return config;
-    const session = readSession();
     const bearer = config.headers?.get?.("Authorization") || config.headers?.Authorization;
+    const session = readSession(bearer);
     if (!session?.actor || !session.token || bearer !== `Bearer ${session.token}`) {
       throw new client.CanceledError("Polling session changed");
     }

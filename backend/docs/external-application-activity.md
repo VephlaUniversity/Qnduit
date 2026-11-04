@@ -31,7 +31,7 @@ The record also has a deterministic SHA-256 string `_id` derived from Talent/int
 
 Availability uses the existing published/strictly-nondeleted/Lagos-deadline predicate plus External configuration validation at the server's read. This does not introduce a global account/profile visibility policy or serialize recording against simultaneous job edits.
 
-No internal application, applicant count, notification or existing `/my-applications` endpoint is changed. External Apply navigation records activity before redirecting, with sign-in continuation and same-intent Retry. My Applied uses the separate paginated combined activity feed with type tabs, search/source filters and retained snapshots. Dashboard counts and Internal Applied detection continue using the existing Internal-only history.
+No internal application, applicant count, notification or existing `/my-applications` endpoint is changed. External Apply navigation records activity before redirecting, with sign-in continuation and same-intent Retry. My Applied uses the separate paginated combined activity feed with type tabs, search/source filters and retained snapshots. Existing Internal dashboard counts and Internal Applied detection continue using the existing Internal-only history. Separate Employer External Talents/click figures use read-only aggregates described in [Employer figures](employer-external-figures.md).
 
 ## Isolated tests
 
@@ -48,3 +48,5 @@ The opt-in test uses a unique disposable database, local HTTP, synthetic records
 `GET /api/admin/posted-jobs/external-activities` requires an active Admin Bearer session. Query: `q` (literal search, max 200), optional `jobId`, `page` (1–100000), `limit` (1–50, default 20). Source is fixed to `admin`; client source/owner parameters are rejected. Search and job filtering precede pagination; ordering is `clickedAt DESC, _id DESC`. The response includes only activity ID/source/time/exact destination, Talent ID/current name or unavailable fallback, and job ID/recorded title/company/unavailable flag. Removed records do not remove audit events. No Internal applications or counts are included. Open/Copy are ordinary read actions.
 
 Deploy additively: provision the declared indexes with the explicit intended database URI, deploy the backend read endpoint, then deploy the Admin UI. No new recording-readiness requirement or tracking collection is introduced.
+
+Admin External activity now returns separately labelled unique-Talent/click summaries from the same filtered audit aggregation, across all matching pages. Talent dashboard summary behavior and polling/session boundaries are documented in [remaining analytics](application-analytics.md). Individual events and all recording rules above are unchanged.
