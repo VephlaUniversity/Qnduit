@@ -1,3 +1,5 @@
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
 import { messageRecipient } from "../utils/messageRecipient";
 import SkillBars from "./SkillBars";
 import { applicantReturnQuery } from "../employerDashboard/applicantSearch";
@@ -307,6 +309,9 @@ function ProfileContent({ userType, userId, showEmployerJobs }) {
 
 export default function UserProfileView() {
   const { userType, userId } = useParams();
+  const { user } = useAuth();
+  const actor = user && `${user.userType}:${user.id || user._id}`;
+  const token = browserSessions().find(session => session.actor === actor)?.token;
   const { pathname, search } = useLocation();
   const dashboard = pathname.startsWith("/talent-dashboard/")
     ? "/talent-dashboard"
@@ -396,7 +401,7 @@ export default function UserProfileView() {
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </Link>
       <ProfileContent
-        key={`${userType}:${userId}`}
+        key={`${actor}:${token}:${userType}:${userId}`}
         userType={userType}
         userId={userId}
         showEmployerJobs={dashboard === "/talent-dashboard" && userType === "employer"}

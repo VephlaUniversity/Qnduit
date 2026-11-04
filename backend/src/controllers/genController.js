@@ -2,6 +2,11 @@ import { withVerificationBadge } from "../services/verificationBadge.js";
 import bcrypt from "bcryptjs";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
+import Resume from "../models/Resume.js";
+
+// Keep filtered aggregation output identical to the existing Talent-only search.
+const talentSearchFields = "_id firstName lastName fullName email avatar jobTitle location age categories isVerified verificationBadgeOverride createdAt experienceTime qualification offeredSalary salaryType";
+const talentSearchProjection = Object.fromEntries(talentSearchFields.split(" ").map(field => [field, 1]));
 
 const getUserModel = (role) => {
   return role === "talent" ? Talent : Employer;
@@ -146,6 +151,17 @@ export const searchUsers = async (req, res, next) => {
       const regex = literalRegex(query);
       const visibleTalents = { showProfile: "show", isVerified: true, accountStatus: { $ne: "suspended" } };
       const filter = { ...visibleTalents };
+      // Scalar optional filters: custom profile values remain valid, never query operators.
+      const filters = {};
+      for (const key of ["skill", "category"]) {
+        const value = req.query[key];
+        if (value !== undefined && (typeof value !== "string" || value.trim().length > 200)) {
+          return res.status(400).json({ message: `${key} must be a single value of at most 200 characters.` });
+        }
+        filters[key] = value?.trim() || "";
+      }
+      const exactValue = value => new RegExp(`^\\s*${literalRegex(value).source}\\s*$`, "i");
+      if (filters.category) filter.categories = exactValue(filters.category);
       if (query) filter.$or = ["firstName", "lastName", "fullName", "email", "jobTitle", "location"].map(key => ({ [key]: regex }));
       // The UI displays firstName + lastName when fullName has not been saved.
       if (query) filter.$or.push({ $expr: { $regexMatch: {
@@ -172,11 +188,33 @@ export const searchUsers = async (req, res, next) => {
         { $eq: [age, null] }, { $and: [{ $gte: [age, minAge] }, { $lte: [age, maxAge] }] },
       ] };
       const sort = req.query.sort === "newest" ? { createdAt: -1, _id: -1 } : { _id: 1 };
-      const [total, talents, savedLocations] = await Promise.all([
-        Talent.countDocuments(filter),
-        Talent.find(filter).select("_id firstName lastName fullName email avatar jobTitle location age categories isVerified verificationBadgeOverride createdAt experienceTime qualification offeredSalary salaryType")
-          .sort(sort).skip((page - 1) * limit).limit(limit).lean(),
-        Talent.distinct("location", visibleTalents),
+      let matches;
+      if (filters.skill) {
+        const skill = exactValue(filters.skill);
+        // A limited lookup avoids unbounded ID lists and duplicate Talent rows.
+        // Only matching Resume IDs enter the pipeline; no Resume/private fields leave it.
+        matches = Talent.aggregate([
+          { $match: filter },
+          { $lookup: {
+            from: Resume.collection.name, localField: "_id", foreignField: "talent",
+            pipeline: [{ $match: { "skills.title": skill } }, { $limit: 1 }, { $project: { _id: 1 } }],
+            as: "matchingResume",
+          } },
+          { $match: { $or: [{ tags: skill }, { "matchingResume.0": { $exists: true } }] } },
+          { $facet: {
+            count: [{ $count: "total" }],
+            results: [{ $sort: sort }, { $skip: (page - 1) * limit }, { $limit: limit }, { $project: talentSearchProjection }],
+          } },
+        ]).then(([result]) => ({ total: result?.count[0]?.total || 0, talents: result?.results || [] }));
+      } else {
+        matches = Promise.all([
+          Talent.countDocuments(filter),
+          Talent.find(filter).select(talentSearchFields)
+            .sort(sort).skip((page - 1) * limit).limit(limit).lean(),
+        ]).then(([total, talents]) => ({ total, talents }));
+      }
+      const [{ total, talents }, savedLocations] = await Promise.all([
+        matches, Talent.distinct("location", visibleTalents),
       ]);
       const locations = [...new Map(savedLocations.filter(value => typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "location not specified")
         .map(value => [value.trim().toLowerCase(), value.trim()])).values()].sort();
