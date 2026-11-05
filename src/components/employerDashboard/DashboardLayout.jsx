@@ -223,6 +223,7 @@ export const DashboardLayout = ({
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: User, label: "Profile", path: "/dashboard/profile" },
     { icon: Users, label: "Profile Views", path: "/dashboard/profile-views" },
+    { icon: Search, label: "Explore Talents", path: "/dashboard/talent-results" },
     { icon: Briefcase, label: "My Job", path: "/dashboard/my-job" },
     { icon: PlusCircle, label: "Submit Job", path: "/dashboard/submit-job" },
     { icon: Users, label: "Applicants Jobs", path: "/dashboard/applicants" },

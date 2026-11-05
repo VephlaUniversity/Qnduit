@@ -3,6 +3,7 @@ import useIsMobile from "../utils/useIsMobile";
 import { useState, useEffect, useRef } from "react";
 
 import * as Slider from "@radix-ui/react-slider";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
   Grid,
@@ -17,10 +18,14 @@ import {
   Loader2,
 } from "lucide-react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
-import { useToast } from "../hooks/useToast";
+import { browserSessions } from "../utils/requestSafety";
 import { profileImageUrl } from "../profiles/profileApi";
 import { API_BASE_URL } from "../utils/api";
 import { Link, useSearchParams } from "react-router-dom";
+
+const ownsSession = ({ actor, token }) => browserSessions().some(
+  session => session.actor === actor && session.token === token,
+);
 
 function CandidateAvatar({ url, name, small = false }) {
   const [failed, setFailed] = useState(false);
@@ -43,6 +48,7 @@ function CandidateAvatar({ url, name, small = false }) {
 }
 
 const useCandidates = (
+  { actor, token },
   keyword,
   page,
   limit,
@@ -52,15 +58,22 @@ const useCandidates = (
   sort,
   experience,
   qualification,
+  skill,
+  category,
 ) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
   const [locations, setLocations] = useState([]);
+  const requestKey = JSON.stringify([
+    keyword, page, limit, location, minAge, maxAge, sort, experience, qualification, skill, category,
+  ]);
+  const [settledKey, setSettledKey] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    const active = () => !controller.signal.aborted && ownsSession({ actor, token });
     setLoading(true);
     setError(null);
 
@@ -69,18 +82,21 @@ const useCandidates = (
         setLoading(true);
         setError(null);
 
-        const token = localStorage.getItem("token");
+        if (!active()) return;
         const query = new URLSearchParams({
           query: keyword.trim(),
           userType: "talent",
           page: String(page),
           limit: String(limit),
           location: location === "all" ? "" : location,
-          minAge: String(minAge),
-          maxAge: String(maxAge),
+          ...(minAge !== "" && maxAge !== ""
+            ? { minAge: String(minAge), maxAge: String(maxAge) }
+            : {}),
           sort,
           experience,
           qualification,
+          skill: skill.trim(),
+          category: category.trim(),
         });
 
         const response = await apiFetch(
@@ -111,21 +127,12 @@ const useCandidates = (
             talent.fullName ||
             talent.name ||
             [talent.firstName, talent.lastName].filter(Boolean).join(" ") ||
-            talent.email ||
             "Talent",
           title: talent.jobTitle || talent.title || "Talent",
           location: talent.location || "Location not specified",
-          skills: Array.isArray(talent.skills)
-            ? talent.skills
-                .map((skill) =>
-                  typeof skill === "string"
-                    ? skill
-                    : skill.name || skill.title || "",
-                )
-                .filter(Boolean)
-            : Array.isArray(talent.categories)
-              ? talent.categories
-              : [],
+          categories: Array.isArray(talent.categories)
+            ? talent.categories.filter(category => typeof category === "string" && category.trim())
+            : [],
           avatarUrl: profileImageUrl(
             typeof talent.avatar === "string"
               ? talent.avatar
@@ -134,25 +141,25 @@ const useCandidates = (
           salary:
             talent.offeredSalary != null &&
             String(talent.offeredSalary).trim() !== ""
-              ? `$${String(talent.offeredSalary).trim()}${typeof talent.salaryType === "string" && talent.salaryType.trim() ? `/${talent.salaryType.trim()}` : ""}`
+              ? `${String(talent.offeredSalary).trim()}${typeof talent.salaryType === "string" && talent.salaryType.trim() ? `/${talent.salaryType.trim()}` : ""}`
               : "Not specified",
           age: talent.age ?? "",
-          availability: talent.availability || "Availability not specified",
           hasVerificationBadge: talent.hasVerificationBadge === true,
         }));
 
-        if (controller.signal.aborted) return;
+        if (!active()) return;
         setLocations(Array.isArray(result.locations) ? result.locations : []);
         setTotal(result.total || 0);
         setData(formattedTalents);
       } catch (err) {
-        if (!controller.signal.aborted) {
+        if (active()) {
           console.error("Failed to fetch talents:", err);
           setError(err.message || "Unable to load talent profiles.");
           setData([]);
         }
       } finally {
-        if (!controller.signal.aborted) {
+        if (active()) {
+          setSettledKey(requestKey);
           setLoading(false);
         }
       }
@@ -163,6 +170,9 @@ const useCandidates = (
       controller.abort();
     };
   }, [
+    actor,
+    token,
+    requestKey,
     keyword,
     page,
     limit,
@@ -172,19 +182,29 @@ const useCandidates = (
     sort,
     experience,
     qualification,
+    skill,
+    category,
   ]);
 
-  return { data, loading, error, total, locations };
+  const settled = settledKey === requestKey;
+  return {
+    data: settled ? data : [],
+    loading: loading || !settled,
+    error: settled ? error : null,
+    total: settled ? total : 0,
+    locations,
+  };
 };
 
 const searchDefaults = {
   jobTitle: "",
   location: "all",
-  minAge: 18,
-  maxAge: 65,
+  skill: "",
+  category: "",
+  minAge: "",
+  maxAge: "",
   experience: "Any experience",
   qualification: "Any qualification",
-  workType: "all",
   sort: "default",
   limit: 6,
   page: 1,
@@ -204,12 +224,11 @@ const searchChoices = {
     "Master Degree",
     "PhD",
   ],
-  workType: ["all", "full-time", "part-time", "contract"],
-  sort: ["default", "newest", "salary"],
+  sort: ["default", "newest"],
 };
 function readSearch(params) {
   const state = { ...searchDefaults };
-  for (const key of ["jobTitle", "location"]) {
+  for (const key of ["jobTitle", "location", "skill", "category"]) {
     if (params.has(key)) state[key] = params.get(key) || searchDefaults[key];
   }
   state.location = state.location.trim().toLowerCase() || "all";
@@ -229,14 +248,15 @@ function readSearch(params) {
     )
       state[key] = value;
   }
-  if (state.minAge >= state.maxAge) {
-    state.minAge = 18;
-    state.maxAge = 65;
+  if (state.minAge === "" || state.maxAge === "" || state.minAge >= state.maxAge) {
+    state.minAge = "";
+    state.maxAge = "";
   }
   return state;
 }
 function writeSearch(params, state) {
   const next = new URLSearchParams(params);
+  next.delete("workType");
   for (const key of Object.keys(searchDefaults)) {
     next.delete(key);
     if (state[key] !== searchDefaults[key]) next.set(key, String(state[key]));
@@ -244,7 +264,8 @@ function writeSearch(params, state) {
   return next;
 }
 
-const TalentsResultsPage = () => {
+const TalentsResultsPage = ({ owner }) => {
+  const { actor, token } = owner;
   const [params, setParams] = useSearchParams();
   const search = readSearch(params);
   const canonical = writeSearch(params, search).toString();
@@ -257,9 +278,12 @@ const TalentsResultsPage = () => {
     changes,
     { pagination = false, replace = false } = {},
   ) => {
+    // BrowserRouter updates history before its transition renders. Merge against
+    // that latest URL so rapid edits in different controls cannot erase each other.
+    const current = new URLSearchParams(window.location.search);
     setParams(
-      writeSearch(params, {
-        ...search,
+      writeSearch(current, {
+        ...readSearch(current),
         ...changes,
         ...(!pagination ? { page: 1 } : {}),
       }),
@@ -268,8 +292,8 @@ const TalentsResultsPage = () => {
   };
   const keywordSearch = search.jobTitle;
   const locationFilter = search.location;
-  const workTypeFilter = search.workType;
-  const ageRange = [search.minAge, search.maxAge];
+  const ageEnabled = search.minAge !== "" && search.maxAge !== "";
+  const ageRange = ageEnabled ? [search.minAge, search.maxAge] : [18, 65];
   const currentPage = search.page;
   const itemsPerPage = search.limit;
   const sortBy = search.sort;
@@ -278,14 +302,42 @@ const TalentsResultsPage = () => {
   // phones always use the list layout
   const viewMode = isMobile ? "list" : chosenView;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopFilters, setDesktopFilters] = useState(
+    () => window.matchMedia("(min-width: 1024px)").matches,
+  );
+  const filterTriggerRef = useRef(null);
+  const filterPanelRef = useRef(null);
+  const focusFilters = () => {
+    const desktop = window.matchMedia("(min-width: 1024px)").matches;
+    const target = desktop
+      ? filterPanelRef.current?.querySelector("input:not([disabled])")
+      : filterTriggerRef.current;
+    target?.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const resize = () => {
+      const focusedInside = filterPanelRef.current?.contains(document.activeElement);
+      setSidebarOpen(false);
+      setDesktopFilters(media.matches);
+      // The responsive panel changes its parent. Keep focus on a visible control.
+      if (focusedInside) requestAnimationFrame(focusFilters);
+    };
+    media.addEventListener("change", resize);
+    return () => media.removeEventListener("change", resize);
+  }, []);
 
-  const { toast } = useToast();
+  const [feedback, setFeedback] = useState(null);
+  const sessionController = useRef(null);
+  const active = () => !sessionController.current?.signal.aborted && ownsSession({ actor, token });
   const [savedIds, setSavedIds] = useState(new Set());
   const [savedReady, setSavedReady] = useState(false);
   const [savingIds, setSavingIds] = useState(new Set());
   const pendingSaves = useRef(new Set());
   useEffect(() => {
     const controller = new AbortController();
+    sessionController.current = controller;
+    const current = () => !controller.signal.aborted && ownsSession({ actor, token });
     const load = async () => {
       try {
         const response = await apiFetch(
@@ -293,13 +345,13 @@ const TalentsResultsPage = () => {
           {
             signal: controller.signal,
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${token}`,
             },
           },
         );
         if (!response.ok) throw new Error();
         const data = await response.json();
-        if (controller.signal.aborted) return;
+        if (!current()) return;
         setSavedIds(
           new Set(
             data.savedCandidates.map((candidate) => String(candidate._id)),
@@ -307,8 +359,8 @@ const TalentsResultsPage = () => {
         );
         setSavedReady(true);
       } catch {
-        if (!controller.signal.aborted)
-          toast({
+        if (current())
+          setFeedback({
             title: "Unable to load saved candidates",
             description: "Refresh to try again.",
             variant: "destructive",
@@ -317,9 +369,10 @@ const TalentsResultsPage = () => {
     };
     load();
     return () => controller.abort();
-  }, [toast]);
+  }, [actor, token]);
   const toggleSaved = async (candidate) => {
-    if (!savedReady || pendingSaves.current.has(candidate.id)) return;
+    if (!active() || !savedReady || pendingSaves.current.has(candidate.id)) return;
+    setFeedback(null);
     pendingSaves.current.add(candidate.id);
     setSavingIds(new Set(pendingSaves.current));
     const unsave = savedIds.has(candidate.id);
@@ -328,31 +381,36 @@ const TalentsResultsPage = () => {
         `${API_BASE_URL}/api/employers/saved-candidates/${encodeURIComponent(candidate.id)}`,
         {
           method: unsave ? "DELETE" : "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          signal: sessionController.current.signal,
+          headers: { Authorization: `Bearer ${token}` },
         },
       );
       if (!response.ok) throw new Error();
+      if (!active()) return;
       setSavedIds((previous) => {
         const next = new Set(previous);
         if (unsave) next.delete(candidate.id);
         else next.add(candidate.id);
         return next;
       });
-      toast({
+      setFeedback({
         title: "Success",
         description: unsave
           ? "Candidate removed from saved candidates."
           : "Candidate saved.",
       });
     } catch {
-      toast({
+      if (!active()) return;
+      setFeedback({
         title: "Unable to update saved candidates",
         description: "Please try again. Your selection has not changed.",
         variant: "destructive",
       });
     } finally {
-      pendingSaves.current.delete(candidate.id);
-      setSavingIds(new Set(pendingSaves.current));
+      if (active()) {
+        pendingSaves.current.delete(candidate.id);
+        setSavingIds(new Set(pendingSaves.current));
+      }
     }
   };
 
@@ -363,21 +421,30 @@ const TalentsResultsPage = () => {
     total,
     locations,
   } = useCandidates(
+    owner,
     keywordSearch,
     currentPage,
     itemsPerPage,
     locationFilter,
-    ageRange[0],
-    ageRange[1],
+    search.minAge,
+    search.maxAge,
     sortBy,
     search.experience,
     search.qualification,
+    search.skill,
+    search.category,
   );
 
   // Matching and pagination belong to the server; do not filter away API matches.
   const filteredCandidates = allCandidates;
   const paginatedCandidates = allCandidates;
   const totalPages = Math.ceil(total / itemsPerPage);
+  const lastPage = Math.max(1, totalPages);
+  useEffect(() => {
+    if (!loading && !error && currentPage > lastPage) {
+      setParams(previous => writeSearch(previous, { ...readSearch(previous), page: lastPage }), { replace: true });
+    }
+  }, [loading, error, currentPage, lastPage, setParams]);
 
   const getPageNumbers = () => {
     const pages = [];
@@ -399,6 +466,7 @@ const TalentsResultsPage = () => {
   };
 
   const resetFilters = () => {
+    setFeedback(null);
     setParams(writeSearch(params, searchDefaults));
     setSidebarOpen(false);
   };
@@ -445,31 +513,23 @@ const TalentsResultsPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0 md:flex-1">
-          <span
-            className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
-              candidate.availability === "Available now"
-                ? "bg-green-500/20 text-green-400"
-                : "bg-yellow-500/20 text-yellow-400"
-            }`}
-          >
-            {candidate.availability}
-          </span>
           <span className="text-gray-400 text-sm flex items-center gap-1">
             <MapPin className="w-3 h-3" />
             {candidate.location}
           </span>
-          <div className="hidden 2xl:flex gap-2 shrink-0">
-            {candidate.skills.slice(0, 3).map((skill, i) => (
+          <div className="flex flex-wrap md:hidden 2xl:flex gap-2" aria-label="Categories">
+            {candidate.categories.length > 0 && <span className="text-xs text-gray-400 self-center">Categories:</span>}
+            {candidate.categories.slice(0, 3).map((category, i) => (
               <span
                 key={i}
                 className="bg-[#F1F1F1] text-black px-3 py-1 rounded-full text-xs"
               >
-                {skill}
+                {category}
               </span>
             ))}
-            {candidate.skills.length > 3 && (
+            {candidate.categories.length > 3 && (
               <span className="text-gray-400 text-xs self-center">
-                +{candidate.skills.length - 3}
+                +{candidate.categories.length - 3}
               </span>
             )}
           </div>
@@ -477,7 +537,7 @@ const TalentsResultsPage = () => {
 
         <div className="flex items-center justify-between gap-3 md:justify-end md:shrink-0">
           <span className="text-gray-300 whitespace-nowrap text-sm">
-            {candidate.salary}
+            Salary: {candidate.salary}
           </span>
           <Link
             className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-blue-500 px-5 text-sm text-blue-400 whitespace-nowrap focus-visible:outline focus-visible:outline-2"
@@ -522,15 +582,6 @@ const TalentsResultsPage = () => {
                 )}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                <span
-                  className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
-                    candidate.availability === "Available now"
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-yellow-500/20 text-yellow-400"
-                  }`}
-                >
-                  {candidate.availability}
-                </span>
                 <span className="text-gray-400 text-sm flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
                   {candidate.location}
@@ -552,18 +603,19 @@ const TalentsResultsPage = () => {
         </div>
 
         <div className="flex gap-2 mb-1 justify-between">
-          <div className="flex flex-wrap gap-2 mb-4">
-            {candidate.skills.map((skill, i) => (
+          <div className="flex flex-wrap gap-2 mb-4" aria-label="Categories">
+            {candidate.categories.length > 0 && <span className="text-xs text-gray-400 self-center">Categories:</span>}
+            {candidate.categories.map((category, i) => (
               <span
                 key={i}
                 className="bg-[#F1F1F1] text-black px-3 py-2 rounded-full text-sm"
               >
-                {skill}
+                {category}
               </span>
             ))}
           </div>
           <span className="text-gray-400 flex items-center gap-1 whitespace-nowrap text-sm">
-            {candidate.salary}
+            Salary: {candidate.salary}
           </span>
         </div>
         <hr className="border-gray-700 mb-3" />
@@ -576,197 +628,226 @@ const TalentsResultsPage = () => {
       </div>
     );
 
+  // Render one set of controls: inline on desktop, mounted only while open on mobile.
+  const filterContent = (
+    <div className="bg-[#191D23] rounded-2xl p-6 space-y-6 lg:sticky lg:top-6">
+      {/* Keyword */}
+      <div>
+        <h3 className="text-white font-semibold mb-4">
+          Name or professional title
+        </h3>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            aria-label="Name or professional title"
+            placeholder="Name or professional title"
+            value={keywordSearch}
+            onChange={(e) => {
+              updateSearch(
+                { jobTitle: e.target.value },
+                { replace: true },
+              );
+            }}
+            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="explore-skill" className="block text-white font-semibold mb-3">Skill</label>
+        <input
+          id="explore-skill"
+          type="text"
+          maxLength={200}
+          value={search.skill}
+          onChange={event => updateSearch({ skill: event.target.value }, { replace: true })}
+          placeholder="e.g. UX Research"
+          className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
+        />
+      </div>
+      <div>
+        <label htmlFor="explore-category" className="block text-white font-semibold mb-3">Category</label>
+        <input
+          id="explore-category"
+          type="text"
+          maxLength={200}
+          value={search.category}
+          onChange={event => updateSearch({ category: event.target.value }, { replace: true })}
+          placeholder="e.g. Design"
+          className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
+        />
+      </div>
+
+      {/* Location */}
+      <div>
+        <h3 className="text-white font-semibold mb-4">Location</h3>
+        <div className="relative">
+          <select
+            aria-label="Location"
+            value={locationFilter}
+            onChange={(e) => {
+              updateSearch({ location: e.target.value });
+              setSidebarOpen(false);
+            }}
+            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
+          >
+            <option value="all">All Locations</option>
+            {locations.map((loc) => (
+              <option key={loc} value={loc.toLowerCase()}>
+                {loc}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Age Range */}
+      <div>
+        <h3 className="text-white font-semibold mb-4">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={ageEnabled} onChange={(event) => updateSearch(event.target.checked ? { minAge: 18, maxAge: 65 } : { minAge: "", maxAge: "" })} />Filter by age</label>
+          {ageEnabled && <span className="text-sm font-normal">{ageRange[0]} – {ageRange[1]} Years (unknown ages included)</span>}
+        </h3>
+        {ageEnabled && <Slider.Root
+          className="relative flex items-center select-none touch-none w-full h-5"
+          value={ageRange}
+          onValueChange={(v) => {
+            updateSearch({ minAge: v[0], maxAge: v[1] });
+          }}
+          max={65}
+          min={18}
+          step={1}
+          minStepsBetweenThumbs={1}
+        >
+          <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
+            <Slider.Range className="absolute bg-blue-600 rounded-full h-full" />
+          </Slider.Track>
+          <Slider.Thumb
+            className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
+            aria-label="Min age"
+          />
+          <Slider.Thumb
+            className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
+            aria-label="Max age"
+          />
+        </Slider.Root>}
+      </div>
+
+      {/* Experience */}
+      <div>
+        <h3 className="text-white font-semibold mb-4">Experience</h3>
+        <div className="relative">
+          <select
+            aria-label="Experience"
+            value={search.experience}
+            onChange={(e) =>
+              updateSearch({ experience: e.target.value })
+            }
+            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
+          >
+            <option>Any experience</option>
+            <option>&lt; 1 year</option>
+            <option>1–3 years</option>
+            <option>3–5 years</option>
+            <option>5+ years</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Qualification */}
+      <div>
+        <h3 className="text-white font-semibold mb-4">
+          Qualification
+        </h3>
+        <div className="relative">
+          <select
+            aria-label="Qualification"
+            value={search.qualification}
+            onChange={(e) =>
+              updateSearch({ qualification: e.target.value })
+            }
+            className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
+          >
+            <option>Any qualification</option>
+            <option>Certificate</option>
+            <option>Bachelor Degree</option>
+            <option>Master Degree</option>
+            <option>PhD</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
+
+      <button
+        onClick={resetFilters}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+      >
+        Reset Filters
+      </button>
+    </div>
+  );
+
   return (
     <>
       <div className="min-h-screen text-white p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl md:text-3xl font-semibold mb-2">Explore Talents</h1>
+          <p className="text-gray-400 mb-6">Find Talents by name or professional title.</p>
+          {feedback && <div role={feedback.variant === "destructive" ? "alert" : "status"} className="mb-4 rounded-lg border border-white/10 p-4">{feedback.title}: {feedback.description}</div>}
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Mobile filter button */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg"
-            >
-              {sidebarOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
-            </button>
-
-            {/* Mobile overlay */}
-            <AnimatePresence>
-              {sidebarOpen && (
-                <Motion.div
-                  className="lg:hidden fixed inset-0 bg-black/50 z-30"
-                  onClick={() => setSidebarOpen(false)}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Filter Sidebar */}
-            <Motion.div
-              className={`${
-                sidebarOpen ? "translate-x-0" : "-translate-x-full"
-              } lg:translate-x-0 fixed lg:sticky lg:top-6 top-0 left-0 h-full lg:h-auto w-80 flex-shrink-0 bg-[#0F1419] lg:bg-transparent z-40 transition-transform duration-300 overflow-y-auto`}
-              initial={{ opacity: 0, x: -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              <div className="bg-[#191D23] rounded-2xl p-6 space-y-6 lg:sticky lg:top-6">
-                {/* Keyword */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">
-                    Search By Keywords
-                  </h3>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Keyword"
-                      value={keywordSearch}
-                      onChange={(e) => {
-                        updateSearch(
-                          { jobTitle: e.target.value },
-                          { replace: true },
-                        );
-                      }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">Location</h3>
-                  <div className="relative">
-                    <select
-                      value={locationFilter}
-                      onChange={(e) => {
-                        updateSearch({ location: e.target.value });
-                        setSidebarOpen(false);
-                      }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
-                    >
-                      <option value="all">All Locations</option>
-                      {locations.map((loc) => (
-                        <option key={loc} value={loc.toLowerCase()}>
-                          {loc}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Work Type */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">Work Type</h3>
-                  <div className="relative">
-                    <select
-                      value={workTypeFilter}
-                      onChange={(e) => {
-                        updateSearch({ workType: e.target.value });
-                      }}
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
-                    >
-                      <option value="all">All Types</option>
-                      <option value="full-time">Full-time</option>
-                      <option value="part-time">Part-time</option>
-                      <option value="contract">Contract</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Age Range */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">
-                    Age: {ageRange[0]} – {ageRange[1]} Years
-                  </h3>
-                  <Slider.Root
-                    className="relative flex items-center select-none touch-none w-full h-5"
-                    value={ageRange}
-                    onValueChange={(v) => {
-                      updateSearch({ minAge: v[0], maxAge: v[1] });
-                    }}
-                    max={65}
-                    min={18}
-                    step={1}
-                    minStepsBetweenThumbs={1}
+            {desktopFilters ? (
+              <Motion.div
+                ref={filterPanelRef}
+                className="sticky top-6 h-auto w-80 flex-shrink-0 overflow-y-auto"
+                initial={{ opacity: 0, x: -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                {filterContent}
+              </Motion.div>
+            ) : (
+              <Dialog.Root open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                <Dialog.Trigger asChild>
+                  <button
+                    ref={filterTriggerRef}
+                    aria-label="Open filters"
+                    className={`fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg ${sidebarOpen ? "invisible" : ""}`}
                   >
-                    <Slider.Track className="bg-gray-700 relative grow rounded-full h-2">
-                      <Slider.Range className="absolute bg-blue-600 rounded-full h-full" />
-                    </Slider.Track>
-                    <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
-                      aria-label="Min age"
-                    />
-                    <Slider.Thumb
-                      className="block w-4 h-4 bg-white border-2 border-blue-600 rounded-full shadow-lg focus:outline-none"
-                      aria-label="Max age"
-                    />
-                  </Slider.Root>
-                </div>
-
-                {/* Experience */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">Experience</h3>
-                  <div className="relative">
-                    <select
-                      value={search.experience}
-                      onChange={(e) =>
-                        updateSearch({ experience: e.target.value })
-                      }
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
-                    >
-                      <option>Any experience</option>
-                      <option>&lt; 1 year</option>
-                      <option>1–3 years</option>
-                      <option>3–5 years</option>
-                      <option>5+ years</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Qualification */}
-                <div>
-                  <h3 className="text-white font-semibold mb-4">
-                    Qualification
-                  </h3>
-                  <div className="relative">
-                    <select
-                      value={search.qualification}
-                      onChange={(e) =>
-                        updateSearch({ qualification: e.target.value })
-                      }
-                      className="w-full bg-[#0F1419] border border-gray-700 rounded-lg px-4 py-2 text-sm text-white appearance-none focus:outline-none focus:border-blue-600"
-                    >
-                      <option>Any qualification</option>
-                      <option>Certificate</option>
-                      <option>Bachelor Degree</option>
-                      <option>Master Degree</option>
-                      <option>PhD</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                <button
-                  onClick={resetFilters}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            </Motion.div>
+                    <Menu className="w-6 h-6" />
+                  </button>
+                </Dialog.Trigger>
+                <Dialog.Portal>
+                  <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/50" />
+                  <Dialog.Content
+                    ref={filterPanelRef}
+                    aria-modal="true"
+                    aria-describedby={undefined}
+                    onCloseAutoFocus={event => {
+                      event.preventDefault();
+                      requestAnimationFrame(focusFilters);
+                    }}
+                    className="fixed top-16 left-0 z-[70] h-[calc(100dvh-4rem)] w-80 overflow-y-auto overscroll-contain bg-[#0F1419] text-white outline-none"
+                  >
+                    <Dialog.Title className="sr-only">Explore Talents filters</Dialog.Title>
+                    {filterContent}
+                    <Dialog.Close asChild>
+                      <button
+                        aria-label="Close filters"
+                        className="fixed bottom-6 right-6 z-[70] bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </Dialog.Close>
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
+            )}
 
             {/* Main Content */}
             <Motion.div
-              className="flex-1"
+              className="flex-1 min-w-0"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
@@ -775,24 +856,26 @@ const TalentsResultsPage = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                 <div className="flex items-center gap-4">
                   <button
+                    aria-label="List view"
                     onClick={() => setViewMode("list")}
                     className={`hidden md:block p-2 rounded ${viewMode === "list" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <List className="w-5 h-5" />
                   </button>
                   <button
+                    aria-label="Grid view"
                     onClick={() => setViewMode("grid")}
                     className={`hidden md:block p-2 rounded ${viewMode === "grid" ? "bg-blue-600" : "bg-[#1A1F2E]"}`}
                   >
                     <Grid className="w-5 h-5" />
                   </button>
                   <span className="text-gray-400 text-sm">
-                    {total} candidate
-                    {total !== 1 ? "s" : ""} found
+                    {loading ? "Searching Talents..." : error ? "Results unavailable" : `${total} candidate${total !== 1 ? "s" : ""} found`}
                   </span>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">
                   <select
+                    aria-label="Results per page"
                     value={itemsPerPage}
                     onChange={(e) => {
                       updateSearch({ limit: Number(e.target.value) });
@@ -804,6 +887,7 @@ const TalentsResultsPage = () => {
                     <option value="24">24 Per Page</option>
                   </select>
                   <select
+                    aria-label="Sort Talents"
                     value={sortBy}
                     onChange={(e) => {
                       updateSearch({ sort: e.target.value });
@@ -812,7 +896,6 @@ const TalentsResultsPage = () => {
                   >
                     <option value="default">Sort (Default)</option>
                     <option value="newest">Newest First</option>
-                    <option value="salary">Highest Salary</option>
                   </select>
                 </div>
               </div>
@@ -901,6 +984,7 @@ const TalentsResultsPage = () => {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-center gap-2 flex-wrap">
                       <button
+                        aria-label="Previous page"
                         onClick={() =>
                           handlePageChange(Math.max(1, currentPage - 1))
                         }
@@ -916,6 +1000,8 @@ const TalentsResultsPage = () => {
                       {getPageNumbers().map((page) => (
                         <button
                           key={page}
+                          aria-label={`Page ${page}`}
+                          aria-current={currentPage === page ? "page" : undefined}
                           onClick={() => handlePageChange(page)}
                           className={`w-10 h-10 flex items-center justify-center rounded border ${
                             currentPage === page
@@ -927,6 +1013,7 @@ const TalentsResultsPage = () => {
                         </button>
                       ))}
                       <button
+                        aria-label="Next page"
                         onClick={() =>
                           handlePageChange(
                             Math.min(totalPages, currentPage + 1),

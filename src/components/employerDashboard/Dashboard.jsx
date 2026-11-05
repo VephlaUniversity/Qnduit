@@ -26,9 +26,9 @@ const Dashboard = () => {
 
 const EmployerDashboard = ({ employerId, token }) => {
   const [chartPeriod, setChartPeriod] = useState("month");
-  const [postedJobsCount, setPostedJobsCount] = useState(0);
+  const [postedJobs, setPostedJobs] = useState({ value: null, error: false });
   const [summary, setSummary] = useState({ data: null, error: false });
-  const [wishlistCount, setWishlistCount] = useState(0);
+  const [wishlist, setWishlist] = useState({ value: null, error: false });
 
   const summaryLoop = useRef(null);
   const refreshApplicationSummary = useCallback(() => {
@@ -61,65 +61,33 @@ const EmployerDashboard = ({ employerId, token }) => {
   }, [token]);
   const summaryValue = field => summary.data ? String(summary.data[field]) : summary.error ? "—" : "…";
 
-  // Load the independent job and wishlist stats from backend
+  // A count is confirmed only after its own valid response. One failed stat
+  // must not hide another successful stat or erase a previously loaded figure.
   useEffect(() => {
     const controller = new AbortController();
-    const loadStats = async () => {
-
-      if (!token) {
-        console.error("No authentication token found");
-        return;
-      }
-
+    const current = () => !controller.signal.aborted && localStorage.getItem("token") === token;
+    const loadCount = async (path, field, setCount) => {
       try {
-        const headers = {
-          Authorization: `Bearer ${token}`,
-        };
-
-        const [
-          jobsResponse,
-          savedCandidatesResponse,
-        ] = await Promise.all([
-          // Posted Jobs
-          axios.get(
-            `${API_BASE_URL}/api/jobs/my-jobs`,
-            { headers, signal: controller.signal }
-          ),
-
-          // Saved Candidates / Wishlist
-          axios.get(
-            `${API_BASE_URL}/api/employers/saved-candidates`,
-            { headers, signal: controller.signal }
-          ),
-        ]);
-
-        if (controller.signal.aborted) return;
-        const jobs = jobsResponse.data?.jobs || [];
-        const savedCandidates =
-          savedCandidatesResponse.data?.savedCandidates || [];
-
-        setPostedJobsCount(jobs.length);
-
-        setWishlistCount(savedCandidates.length);
-
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error(
-          "Failed to load dashboard stats:",
-          error.response?.data || error.message
-        );
+        const { data } = await axios.get(`${API_BASE_URL}${path}`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+        });
+        if (data?.success === false || !Array.isArray(data?.[field])) throw new Error("Invalid count response");
+        if (current()) setCount({ value: data[field].length, error: false });
+      } catch {
+        if (current()) setCount(previous => ({ ...previous, error: true }));
       }
     };
-
-    loadStats();
+    loadCount("/api/jobs/my-jobs", "jobs", setPostedJobs);
+    loadCount("/api/employers/saved-candidates", "savedCandidates", setWishlist);
     return () => controller.abort();
   }, [token]);
+  const countValue = state => state.value !== null ? String(state.value) : state.error ? "—" : "…";
 
   const stats = [
     {
       icon: Briefcase,
       label: "Posted Jobs",
-      value: String(postedJobsCount),
+      value: countValue(postedJobs),
       color: "bg-blue-600",
     },
     {
@@ -137,7 +105,7 @@ const EmployerDashboard = ({ employerId, token }) => {
     {
       icon: Bookmark,
       label: "Wishlist",
-      value: String(wishlistCount),
+      value: countValue(wishlist),
       color: "bg-yellow-500",
     },
     { icon: Users, label: "External Talents", value: summaryValue("externalTalents"), color: "bg-blue-600" },

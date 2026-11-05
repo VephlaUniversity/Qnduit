@@ -353,9 +353,7 @@ const AppContent = () => {
             path="/dashboard/talent-results"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <TalentResultsWrapper />
-                </DashboardLayout>
+                <TalentResultsWrapper />
               </ProtectedRoute>
             }
           />
@@ -363,9 +361,7 @@ const AppContent = () => {
             path="/dashboard/talent-results/profile"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <TalentResultsWrapper />
-                </DashboardLayout>
+                <TalentResultsWrapper />
               </ProtectedRoute>
             }
           />
