@@ -1,7 +1,9 @@
 import * as React from "react";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+// Allow the closing animation, then release the closed notification.
+// Visible lifetime remains controlled by the existing Radix provider.
+const TOAST_REMOVE_DELAY = 1000;
 
 // const actionTypes = {
 //   ADD_TOAST: "ADD_TOAST",
@@ -38,6 +40,10 @@ const addToRemoveQueue = (toastId) => {
 export const reducer = (state, action) => {
   switch (action.type) {
     case "ADD_TOAST":
+      state.toasts.forEach(({ id }) => {
+        clearTimeout(toastTimeouts.get(id));
+        toastTimeouts.delete(id);
+      });
       return {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),

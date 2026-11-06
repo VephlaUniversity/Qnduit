@@ -1,69 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import axios from "axios";
+import { useAuth } from "./useAuth";
 import { API_BASE_URL } from "../utils/api";
-import { friendlyError } from "../utils/userMessage";
+import { browserSessions, requestSafety } from "../utils/requestSafety";
+import { createTalentEntitlements } from "../utils/talentEntitlements";
 
-export const talentPaymentToken = () =>
-  localStorage.getItem("token") || localStorage.getItem("authToken");
+const stores = new Map();
+const empty = { loading: false, error: "Please sign in with your Talent account to view your plan." };
+const inactive = { get: () => empty, subscribe: () => () => {}, retain: () => () => {}, confirm: () => () => {}, refresh() {} };
 
-export const hasCurrentPublicSubscription = (subscription) =>
-  subscription?.plan === "public" &&
-  ["active", "past_due"].includes(subscription.status) &&
-  Number.isFinite(Date.parse(subscription.currentPeriodEnd)) &&
-  Date.parse(subscription.currentPeriodEnd) > Date.now();
+export const talentPaymentToken = () => browserSessions().find(owner => owner.actor.startsWith("talent:"))?.token;
 
-export function useTalentSubscription(enabled = true) {
-  const token = talentPaymentToken();
-  const [revision, setRevision] = useState(0);
-  const [result, setResult] = useState({ token: null, loading: true });
-  useEffect(() => {
-    if (!enabled) return;
-    const controller = new AbortController();
-    let current = true;
-    setResult({ token, loading: true });
-    if (!token) {
-      setResult({
-        token,
-        loading: false,
-        error: "Please sign in to view your plan.",
-      });
-      return () => {
-        current = false;
-        controller.abort();
-      };
-    }
-    axios
-      .get(`${API_BASE_URL}/api/payments/subscription`, {
-        signal: controller.signal,
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(({ data }) => {
-        if (current)
-          setResult({
-            token,
-            loading: false,
-            subscription: data?.subscription || null,
-            subscriptionStatus: data?.subscriptionStatus,
-            publicProfile: data?.publicProfile,
-            pendingDowngrade: data?.pendingDowngrade,
-          });
-      })
-      .catch((error) => {
-        if (current)
-          setResult({
-            token,
-            loading: false,
-            error: friendlyError(
-              error,
-              "We couldn't load your plan. Please try again.",
-            ),
-          });
-      });
-    return () => {
-      current = false;
-      controller.abort();
-    };
-  }, [enabled, token, revision]);
-  const state = result.token === token ? result : { loading: true };
-  return { ...state, refresh: () => setRevision((value) => value + 1) };
+export function useTalentSubscription(enabled = true, confirm = false) {
+  const { user } = useAuth();
+  const actor = enabled && user?.userType === "talent" ? `talent:${user.id || user._id}` : null;
+  const token = browserSessions().find(owner => owner.actor === actor)?.token;
+  const store = useMemo(() => {
+    if (!actor || !token) return inactive;
+    const key = `${actor}:${token}`;
+    if (!stores.has(key)) stores.set(key, createTalentEntitlements({
+      owner: { actor, token }, readOwner: () => browserSessions().find(owner => owner.actor === actor), events: window,
+      cooldownUntil: () => requestSafety.getSnapshot().generalUntil,
+      fetchSubscription: signal => axios.get(`${API_BASE_URL}/api/payments/subscription`, {
+        signal, timeout: 10000, qnduitBoundedRead: true, headers: { Authorization: `Bearer ${token}` },
+      }).then(response => response.data),
+      onIdle: current => { if (stores.get(key) === current) stores.delete(key); },
+    }));
+    return stores.get(key);
+  }, [actor, token]);
+  useEffect(() => store.retain(), [store]);
+  useEffect(() => confirm ? store.confirm() : undefined, [store, confirm]);
+  const snapshot = useSyncExternalStore(store.subscribe, store.get, inactive.get);
+  return useMemo(() => ({ ...snapshot, refresh: store.refresh }), [snapshot, store]);
 }

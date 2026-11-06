@@ -1,3 +1,4 @@
+import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
 import express from "express";
 import {
   registerTalent,
@@ -24,6 +25,7 @@ router.post("/verify", verifyTalentEmail);
 router.post(
   "/resume",
   protect,
+  authorize("talent"),
   upload.single("resume"),
   uploadResume
 );
@@ -50,7 +52,7 @@ router.put(
 
 router.get("/profile", protect, getTalentProfile);
 
-router.get("/:id/dashboard", getTalentDashboard);
+router.get("/:id/dashboard", protect, authorize("talent"), getTalentDashboard);
 
 router.get(
   "/search-by-email",
@@ -61,6 +63,8 @@ router.get(
 
 router.get("/public", listPublicTalents);
 
+router.get("/public/:username/cvs/:cvId", getPublicTalentCv);
+router.get("/public/:username/cvs/:cvId/file", getPublicTalentCv);
 router.get("/public/:username", getPublicTalentProfile);
 
 export default router;

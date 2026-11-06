@@ -1,3 +1,4 @@
+import { talentLocation } from "../../../backend/src/utils/talentLocation.js";
 import { useAuth } from "../hooks/useAuth";
 import { browserSessions } from "../utils/requestSafety";
 import React, { useEffect, useState } from "react";
@@ -90,7 +91,7 @@ const TalentProfileOverview = () => {
 
   const displayName = aboutData?.fullName || "";
   const jobTitle = aboutData?.jobTitle || "";
-  const location = aboutData?.location || "";
+  const location = talentLocation(aboutData);
   const salary = aboutData?.offeredSalary
     ? `$${aboutData.offeredSalary}/${aboutData.salaryType || ""}`
     : "";
@@ -356,14 +357,14 @@ const TalentProfileOverview = () => {
                   <div key={edu._id || i}>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                       <span className="text-white font-semibold text-sm">
-                        {edu.academy}
+                        <span className="sr-only">Institution: </span>{edu.academy}
                       </span>
                       <span className="text-gray-500 text-xs">
                         {edu.startDate} – {edu.endDate}
                       </span>
                     </div>
                     <p className="text-white font-medium text-sm mb-1">
-                      {edu.title}
+                      <span className="sr-only">Degree level: </span>{edu.title}
                     </p>
                     <p className="text-gray-400 text-sm leading-relaxed">
                       {edu.description}

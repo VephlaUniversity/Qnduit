@@ -1,26 +1,18 @@
+import { prepareEducation } from "../utils/talentFieldChoices.js";
 import Resume from "../models/Resume.js";
 import Talent from "../models/Talent.js";
 import multer from "multer";
+import mongoose from "mongoose";
 import path from "path";
 import { isDeepStrictEqual } from "node:util";
 import cloudinary from "../utils/cloudinary.js";
 import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortfolio.js";
 import { editorRevision, talentDraft } from "../utils/talentPortfolioDraft.js";
+import { selectSingleCv, cvReference } from "../utils/singleCv.js";
+import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
 
 const storage = multer.memoryStorage();
 
-const MAX_CV_FILES = 5;
-
-// Parses a JSON array of public_ids sent by the client; returns null if absent/invalid.
-const parseKeepList = (value) => {
-  if (value === undefined || value === null || value === "") return null;
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    return Array.isArray(parsed) ? parsed.map(String) : null;
-  } catch {
-    return null;
-  }
-};
 
 // Keeps the sign-up upload and the Resume page in sync.
 export const addCvToResume = async (
@@ -29,22 +21,28 @@ export const addCvToResume = async (
   { atStart = false } = {},
 ) => {
   if (!file?.url) return null;
-  const stored = await Resume.findOne({ talent: talentId }).lean();
-  const resume = stored
-    ? Resume.hydrate({ ...stored, portfolioImages: normalizePortfolioImages(stored.portfolioImages, talentId) })
-    : new Resume({ talent: talentId });
-  const exists = (resume.cvFiles || []).some(
-    (item) =>
-      item.url === file.url ||
-      (file.public_id && item.public_id === file.public_id),
-  );
-  if (!exists && (resume.cvFiles || []).length < MAX_CV_FILES) {
-    // An older sign-up file synced later must not look like the newest upload.
-    if (atStart) resume.cvFiles.unshift(file);
-    else resume.cvFiles.push(file);
-    await resume.save();
-  }
-  return resume;
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      if (await Resume.collection.countDocuments({ talent: talentId }, { session, limit: 2 }) > 1) throw Object.assign(new Error("Multiple saved Resume records need review. No CV was changed."), { statusCode: 409 });
+      const stored = await Resume.collection.findOne({ talent: talentId }, { session });
+      if (stored?.cvFiles?.length) {
+        if (atStart || stored.cvFiles.length === 1 && file.contentHash && stored.cvFiles[0].contentHash === file.contentHash
+          || stored.cvFiles.some(item => item.url === file.url || file.public_id && item.public_id === file.public_id)) { result = stored; return; }
+        throw Object.assign(new Error("A CV is already saved. Replace it explicitly on the Resumes page."), { statusCode: 409 });
+      }
+      const entry = { ...file, _id: new mongoose.Types.ObjectId() };
+      const update = await Talent.collection.updateOne({ _id: talentId }, { $inc: { cvPolicyVersion: 1 },
+        ...(!atStart ? { $set: { resume: { url: file.url, public_id: file.public_id } } } : {}) }, { session });
+      if (update.matchedCount !== 1) throw Object.assign(new Error("Talent not found."), { statusCode: 404 });
+      if (stored) await Resume.collection.updateOne({ _id: stored._id }, { $set: { cvFiles: [entry], updatedAt: new Date() } }, { session });
+      else await Resume.collection.insertOne({ talent: talentId, cvFiles: [entry], createdAt: new Date(), updatedAt: new Date() }, { session });
+      result = await Resume.collection.findOne({ talent: talentId }, { session });
+    });
+    return result;
+  } finally { await session.endSession(); }
+
 };
 
 // Best-effort removal from Cloudinary
@@ -61,8 +59,9 @@ const removeFromCloudinary = async (items, resourceType) => {
   }
 };
 
-export const uploadResumeFiles = multer({
+const resumeUpload = multer({
   storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 11 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
 
@@ -81,9 +80,14 @@ export const uploadResumeFiles = multer({
     cb(null, true);
   },
 }).fields([
-  { name: "cvFiles", maxCount: 5 },
+  { name: "cvFiles", maxCount: 1 },
   { name: "portfolioImages", maxCount: 10 },
 ]);
+export const uploadResumeFiles = (req, res, next) => resumeUpload(req, res, error => {
+  if (error) return next(Object.assign(new Error(error.code === "LIMIT_FILE_SIZE" ? "Choose files of 10 MiB or smaller."
+    : error.field === "cvFiles" ? "Choose one CV. Replace the active CV explicitly." : "The selected files could not be accepted."), { statusCode: 400 }));
+  next();
+});
 
 // Save or update resume
 export const saveResume = async (req, res, next) => {
@@ -93,6 +97,9 @@ export const saveResume = async (req, res, next) => {
     const talentId = req.user._id;
 
     const stored = await Resume.findOne({ talent: talentId }).lean();
+    if (req.files?.cvFiles?.length) {
+      throw Object.assign(new Error("Use Save Changes on the Resumes page to save CV changes with revision protection."), { statusCode: 409 });
+    }
     const existingPortfolio = normalizePortfolioImages(stored?.portfolioImages, talentId);
     const resume = stored
       ? Resume.hydrate({ ...stored, portfolioImages: existingPortfolio })
@@ -106,6 +113,9 @@ export const saveResume = async (req, res, next) => {
         try { parsed[field] = typeof req.body[field] === "string" ? JSON.parse(req.body[field]) : req.body[field]; }
         catch { throw Object.assign(new Error(`Invalid ${field}.`), { statusCode: 400 }); }
         if (!Array.isArray(parsed[field])) throw Object.assign(new Error(`Invalid ${field}.`), { statusCode: 400 });
+        if (field === "education") parsed[field] = prepareEducation(parsed[field], stored?.education || []);
+        else parsed[field] = prepareCvEntries(parsed[field], stored?.[field] || []);
+        validateCvImports(talentId, field, parsed[field], stored?.[field] || []);
         resume[field] = parsed[field];
       }
     }
@@ -120,20 +130,13 @@ export const saveResume = async (req, res, next) => {
     // The client sends the public_ids of files it wants to keep. Everything else
     // is removed, and newly uploaded files are added. If the list is missing
     // (older client) existing files are kept and new ones are appended.
-    const keepCv = parseKeepList(req.body.keepCvIds);
     const existingCv = resume.cvFiles || [];
-    const keptCv = keepCv
-      ? existingCv.filter((f) => keepCv.includes(String(f.public_id)))
-      : existingCv;
-    const removedCv = existingCv.filter((f) => !keptCv.includes(f));
     const newCvFiles = req.files?.cvFiles || [];
-
-    if (keptCv.length + newCvFiles.length > MAX_CV_FILES) {
-      return res.status(400).json({
-        success: false,
-        message: `You can keep up to ${MAX_CV_FILES} CV files.`,
-      });
+    const keptCv = selectSingleCv(talentId, existingCv, newCvFiles, req.body);
+    if (existingCv.length && (keptCv.length !== existingCv.length || newCvFiles.length)) {
+      throw Object.assign(new Error("Use Save Changes on the Resumes page to confirm CV changes safely."), { statusCode: 409 });
     }
+    const removedCv = existingCv.filter((f) => !keptCv.includes(f));
 
     for (const file of newCvFiles) {
       const extension = path.extname(file.originalname).toLowerCase();
@@ -170,6 +173,7 @@ export const saveResume = async (req, res, next) => {
     }
 
     resume.cvFiles = [...keptCv, ...uploadedCVs];
+    resume.cvArchive = [...(stored?.cvArchive || []), ...removedCv];
 
     // =========================
     // PORTFOLIO IMAGES
@@ -239,7 +243,7 @@ export const saveResume = async (req, res, next) => {
     }
 
     // Only after the save succeeded: delete files the user removed.
-    await removeFromCloudinary(removedCv, "raw");
+    // CV replacement/removal is unlink-only. Retain every previous storage asset.
     // Stored portfolio removals are unlink-only, including legacy clients.
 
 
@@ -269,7 +273,7 @@ export const getResume = async (req, res, next) => {
 
     // Talents who uploaded a resume at sign-up (before the two were linked) get
     // that file added to their Resume page the first time they open it.
-    if (!resume?.cvFiles?.length) {
+    if (!resume) {
       const talent = await Talent.findById(talentId).select("resume").lean();
       if (talent?.resume?.url) {
         const ext = path.extname(talent.resume.url.split("?")[0]).toLowerCase();
@@ -294,6 +298,7 @@ export const getResume = async (req, res, next) => {
     res.json({
       success: true,
       resume: { ...(record || {}), portfolioImages: normalizePortfolioImages(record?.portfolioImages, talentId) },
+      cvChoices: (record?.cvFiles || []).map((file, index) => ({ ref: cvReference(talentId, file, index), index })),
       portfolioRevision: revision,
       talentProjects: talentDraft(talent?.portfolio || [], talentId, revision),
     });

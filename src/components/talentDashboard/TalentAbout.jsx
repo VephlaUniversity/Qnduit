@@ -1,3 +1,10 @@
+import { useTalentSubscription } from "../hooks/useTalentSubscription";
+import TalentPublicProfileAccess from "../subscriptions/TalentPublicProfileAccess";
+import { avatarFileError, avatarHeaderError } from "../../../backend/src/config/talentAvatar.js";
+import SavedChoiceSelect from "./SavedChoiceSelect";
+import { GENDER_OPTIONS, savedChoiceError } from "../../../backend/src/utils/talentFieldChoices.js";
+import { COUNTRIES } from "../data/countries";
+import { talentLocationPatch } from "../../../backend/src/utils/talentLocation.js";
 import TalentSelect from "./TalentSelect";
 import TalentOptionPicker from "./TalentOptionPicker";
 import React, { useState, useRef, useEffect } from "react";
@@ -22,7 +29,8 @@ const EDITABLE_FIELDS = [
   "salaryType",
   "experienceTime",
   "qualification",
-  "location",
+  "city",
+  "country",
   "language",
   "jobTitle",
   "showProfile",
@@ -31,15 +39,25 @@ const EDITABLE_FIELDS = [
 ];
 
 const TalentAbout = () => {
+  const entitlement = useTalentSubscription();
   const { toast } = useToast();
   const { refresh: refreshOwnerAvatar } = useOwnerAvatar();
   const navigate = useNavigate();
   const avatarInputRef = useRef(null);
+  const savedAvatar = useRef(null);
+  const avatarObjectUrl = useRef(null);
+  const avatarSelection = useRef(0);
+  const [avatarChecking, setAvatarChecking] = useState(false);
+  const [avatarPending, setAvatarPending] = useState(false);
+  const [avatarRejected, setAvatarRejected] = useState(false);
+  const savedGender = useRef("");
+  const [genderError, setGenderError] = useState("");
+  const savedLocation = useRef({ city: "", country: "" });
   const [saving, setSaving] = useState(false);
+  const [locationErrors, setLocationErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [skills, setSkills] = useState([]);
   const [latValue, setLatValue] = useState("");
@@ -56,7 +74,8 @@ const TalentAbout = () => {
     salaryType: "",
     experienceTime: "",
     qualification: "",
-    location: "",
+    city: "",
+    country: "",
     language: "",
     jobTitle: "",
     categories: [],
@@ -86,27 +105,41 @@ const TalentAbout = () => {
     setFormData((prev) => ({ ...prev, aboutMe: content }));
   };
 
-  const handleAvatarUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const MAX_FILE_SIZE = 2 * 1024 * 1024;
-
-    if (file.size > MAX_FILE_SIZE) {
-      toast({
-        title: "Upload Error",
-        description: "Avatar must be less than 2MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setAvatarPreview(URL.createObjectURL(file));
-
-    setFormData((prev) => ({
-      ...prev,
-      avatar: file,
-    }));
+  const clearAvatarSelection = () => {
+    if (avatarObjectUrl.current) URL.revokeObjectURL(avatarObjectUrl.current);
+    avatarObjectUrl.current = null;
+    setAvatarPreview(savedAvatar.current);
+    setFormData(previous => ({ ...previous, avatar: null }));
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+  useEffect(() => () => {
+    avatarSelection.current++;
+    if (avatarObjectUrl.current) URL.revokeObjectURL(avatarObjectUrl.current);
+  }, []);
+  const handleAvatarUpload = async event => {
+    const file = event.target.files?.[0];
+    if (!file || saving || avatarPending) return;
+    const selection = ++avatarSelection.current;
+    clearAvatarSelection();
+    setAvatarChecking(true);
+    try {
+      const validation = avatarFileError(file);
+      if (validation) throw new Error(validation);
+      const bytes = new Uint8Array(await file.slice(0, 24).arrayBuffer());
+      const header = avatarHeaderError(bytes, file.type);
+      if (header) throw new Error(header);
+      if (selection !== avatarSelection.current) return;
+      avatarObjectUrl.current = URL.createObjectURL(file);
+      setAvatarPreview(avatarObjectUrl.current);
+      setFormData(previous => ({ ...previous, avatar: file }));
+      setAvatarRejected(false);
+    } catch (error) {
+      if (selection === avatarSelection.current) {
+        clearAvatarSelection();
+        setAvatarRejected(true);
+        toast({ title: "Choose another picture", description: error.message, variant: "destructive" });
+      }
+    } finally { if (selection === avatarSelection.current) setAvatarChecking(false); }
   };
 
   const handleSocialChange = (platform, value) => {
@@ -143,7 +176,7 @@ const TalentAbout = () => {
           parsed.forEach(processItem);
           return;
         }
-      } catch {}
+      } catch { /* Non-JSON values remain plain text. */ }
 
       if (trimmed.includes(",")) {
         trimmed
@@ -185,8 +218,8 @@ const TalentAbout = () => {
         const profile = data.profile;
 
         if (profile) {
-          setIsUpdating(true);
-
+          savedGender.current = Object.hasOwn(profile, "gender") ? profile.gender : "";
+          savedLocation.current = { city: profile.city || "", country: profile.country || "" };
           setFormData((prev) => ({
             ...prev,
             ...profile,
@@ -212,9 +245,12 @@ const TalentAbout = () => {
             profile.lng ?? (Array.isArray(coords) ? (coords[0] ?? "") : ""),
           );
 
-          if (profile.avatar) {
-            setAvatarPreview(profile.avatar);
-          }
+          savedAvatar.current = profile.avatar || null;
+          if (avatarObjectUrl.current) URL.revokeObjectURL(avatarObjectUrl.current);
+          avatarObjectUrl.current = null;
+          setAvatarPreview(savedAvatar.current);
+          setAvatarPending(false);
+          setAvatarRejected(false);
         }
       } catch (error) {
         if (!cancelled) {
@@ -237,6 +273,19 @@ const TalentAbout = () => {
   }, [reloadKey]);
 
   const handleSave = async () => {
+    if (avatarChecking || saving) return;
+    if (avatarPending) {
+      clearAvatarSelection();
+      setReloadKey(value => value + 1);
+      refreshOwnerAvatar();
+      entitlement.refresh();
+      return;
+    }
+    const { errors } = talentLocationPatch({ city: formData.city, country: formData.country });
+    setLocationErrors(errors);
+    const genderMessage = savedChoiceError(formData.gender, savedGender.current, GENDER_OPTIONS, "Gender");
+    setGenderError(genderMessage);
+    if (Object.keys(errors).length || genderMessage) return;
     setSaving(true);
 
     try {
@@ -245,6 +294,9 @@ const TalentAbout = () => {
 
       EDITABLE_FIELDS.forEach((key) => {
         const value = formData[key];
+        if (key === "gender" && value === savedGender.current) return;
+        // Unrelated saves must not materialize or rewrite legacy location fields.
+        if (["city", "country"].includes(key) && value === savedLocation.current[key]) return;
         if (value !== undefined && value !== null) data.append(key, value);
       });
 
@@ -277,21 +329,31 @@ const TalentAbout = () => {
         },
       });
       refreshOwnerAvatar();
+      entitlement.refresh();
 
       toast({
         title: "Success!",
-        description: "Profile updated successfully!",
+        description: avatarRejected
+          ? "Profile fields saved."
+          : "Profile updated successfully!",
       });
 
       navigate("/talent-dashboard/profile");
     } catch (error) {
+      const uncertainAvatar = formData.avatar instanceof File && (error.response?.data?.code === "AVATAR_SAVE_PENDING" || !error.response || error.response.status >= 500 && error.response.status !== 502);
+      if (formData.avatar instanceof File) {
+        clearAvatarSelection();
+        setAvatarRejected(true);
+      }
+      if (uncertainAvatar || formData.avatar instanceof File && error.response?.status === 409) setAvatarPending(true);
       console.error("UPDATE ERROR:", error.response?.data);
       toast({
         title: "Error",
-        description: friendlyError(
-          error,
-          "We couldn't save your profile. Please try again.",
-        ),
+        description: uncertainAvatar
+          ? "We couldn’t confirm this save. Reload your profile to check the saved picture before trying again."
+          : error.response?.data?.message?.includes("picture") && [400, 409, 413, 502].includes(error.response?.status)
+            ? error.response.data.message
+            : friendlyError(error, "We couldn't save your profile. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -371,7 +433,14 @@ const TalentAbout = () => {
             {avatarPreview ? (
               <img
                 src={avatarPreview}
-                alt="Avatar"
+                alt="Profile picture"
+                onError={() => {
+                  if (formData.avatar instanceof File) {
+                    clearAvatarSelection();
+                    setAvatarRejected(true);
+                    toast({ title: "Choose another picture", description: "This picture could not be previewed. Choose an intact JPG or PNG.", variant: "destructive" });
+                  }
+                }}
                 className="w-full h-full object-cover rounded-lg"
               />
             ) : (
@@ -382,28 +451,29 @@ const TalentAbout = () => {
             <label className="block text-white font-medium mb-2">
               Upload a new avatar:
             </label>
-            <p className="text-gray-400 text-sm mb-4">JPG 80×80px</p>
+            <p className="text-gray-400 text-sm mb-4">JPG/PNG · 10 MiB max</p>
             <div className="flex flex-wrap gap-3">
               <input
                 ref={avatarInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/jpg"
+                accept="image/jpeg,image/png"
+                aria-label="Profile picture"
+                disabled={saving || avatarChecking || avatarPending}
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
               <button
                 onClick={() => avatarInputRef.current?.click()}
+                disabled={saving || avatarChecking || avatarPending}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
               >
                 Choose File
               </button>
-              <span className="px-4 py-2 bg-transparent border border-white/10 text-gray-400 rounded-lg text-sm">
-                {formData.avatar instanceof File
-                  ? "File selected"
-                  : avatarPreview
-                    ? "Current avatar"
-                    : "No file chosen"}
-              </span>
+              {(formData.avatar instanceof File || !avatarPreview) && (
+                <span className="px-4 py-2 bg-transparent border border-white/10 text-gray-400 rounded-lg text-sm">
+                  {formData.avatar instanceof File ? "File selected" : "No file chosen"}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -460,17 +530,11 @@ const TalentAbout = () => {
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-sm mb-2">Gender</label>
-              <TalentSelect
-                name="gender"
-                value={formData.gender}
-                onChange={handleInputChange}
-                className={selectClass}
-              >
-                <option value="">Select Gender</option>
-                <option>Male</option>
-                <option>Female</option>
-              </TalentSelect>
+              <label htmlFor="talent-gender" className="block text-gray-400 text-sm mb-2">Gender</label>
+              <SavedChoiceSelect id="talent-gender" name="gender" aria-label="Gender"
+                value={formData.gender ?? ""} previous={savedGender.current} options={GENDER_OPTIONS}
+                placeholder="Select Gender" onChange={handleInputChange} className={selectClass} aria-invalid={Boolean(genderError)} />
+              {genderError && <p role="alert" className="mt-1 text-sm text-red-400">{genderError}</p>}
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">Age</label>
@@ -548,16 +612,22 @@ const TalentAbout = () => {
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-sm mb-2">
-                Location
+              <label htmlFor="talent-public-city" className="block text-gray-400 text-sm mb-2">
+                City
               </label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className={inputClass}
-              />
+              <input id="talent-public-city" type="text" name="city" aria-label="City" value={formData.city || ""}
+                onChange={handleInputChange} maxLength={100} className={inputClass} aria-invalid={Boolean(locationErrors.city)} />
+              {locationErrors.city && <p role="alert" className="mt-1 text-sm text-red-400">{locationErrors.city}</p>}
+            </div>
+            <div>
+              <label htmlFor="talent-public-country" className="block text-gray-400 text-sm mb-2">Country</label>
+              <TalentSelect id="talent-public-country" name="country" aria-label="Country" value={formData.country || ""}
+                onChange={handleInputChange} className={selectClass} aria-invalid={Boolean(locationErrors.country)}>
+                <option value="">Select country</option>
+                {formData.country && !COUNTRIES.includes(formData.country) && <option value={formData.country}>{formData.country}</option>}
+                {COUNTRIES.map(country => <option key={country} value={country}>{country}</option>)}
+              </TalentSelect>
+              {locationErrors.country && <p role="alert" className="mt-1 text-sm text-red-400">{locationErrors.country}</p>}
             </div>
             <div>
               <label className="block text-gray-400 text-sm mb-2">
@@ -593,6 +663,8 @@ const TalentAbout = () => {
               }
             />
           </div>
+
+          <TalentPublicProfileAccess state={entitlement} />
 
           {/* Show my profile */}
           <div className="mt-6">
@@ -756,11 +828,11 @@ const TalentAbout = () => {
         <div className="mt-8">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || avatarChecking}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70 flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : "Save Profile"}
+            {saving ? "Saving..." : avatarChecking ? "Checking picture..." : avatarPending ? "Reload profile" : "Save Profile"}
           </button>
         </div>
       </div>

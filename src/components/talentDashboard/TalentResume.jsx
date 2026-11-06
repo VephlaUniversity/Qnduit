@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import SavedChoiceSelect from "./SavedChoiceSelect";
+import EducationExtractionReview from "./EducationExtractionReview";
+import { appendCvDraft } from "../utils/educationDraft";
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
+import { DEGREE_OPTIONS, prepareEducation } from "../../../backend/src/utils/talentFieldChoices.js";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   FileText,
   X,
@@ -22,7 +28,6 @@ import TalentPortfolioProjects from "./TalentPortfolioProjects";
 import { portfolioMetadata } from "../../../backend/src/utils/portfolioMetadata.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
-const MAX_CV_FILES = 5;
 const MAX_PORTFOLIO = 10;
 const PORTFOLIO_TYPES = ["image/png", "image/jpeg", "image/jpg"];
 
@@ -30,7 +35,8 @@ let localId = 0;
 const nextId = () => `local-${Date.now()}-${localId++}`;
 
 const blankEducation = () => ({
-  id: nextId(),
+  _editorKey: nextId(),
+  _sourceIndex: null,
   academy: "",
   title: "",
   startDate: "",
@@ -38,7 +44,8 @@ const blankEducation = () => ({
   description: "",
 });
 const blankExperience = () => ({
-  id: nextId(),
+  _editorKey: nextId(),
+  _sourceIndex: null,
   company: "",
   title: "",
   startDate: "",
@@ -144,7 +151,13 @@ function CvPreview({ file }) {
   );
 }
 
-const TalentResumes = () => {
+const TalentResumeEditor = ({ extractionOwner }) => {
+  const editorActor = extractionOwner?.actor, editorToken = extractionOwner?.token;
+  const isCurrentOwner = useCallback(() => browserSessions().some(row => row.actor === editorActor && row.token === editorToken), [editorActor, editorToken]);
+  const pendingSave = useRef(null);
+  useEffect(() => () => pendingSave.current?.abort(), []);
+  const extraction = useRef(null);
+  const imports = useRef(new Map());
   const { toast } = useToast();
   const navigate = useNavigate();
   const cvInputRef = useRef(null);
@@ -159,6 +172,9 @@ const TalentResumes = () => {
   const [existingCv, setExistingCv] = useState([]);
   const [previewCv, setPreviewCv] = useState(null);
   const [newCvFiles, setNewCvFiles] = useState([]);
+  const [cvChoices, setCvChoices] = useState([]), [retainedCv, setRetainedCv] = useState(null);
+  const [cvAction, setCvAction] = useState("keep"), [replacementArmed, setReplacementArmed] = useState(false);
+  const displayedCv = newCvFiles[0] || (existingCv.length === 1 ? existingCv[0] : existingCv.find((_, index) => cvChoices[index]?.ref === retainedCv));
   const [existingPortfolio, setExistingPortfolio] = useState([]);
   const [newPortfolio, setNewPortfolio] = useState([]);
   const [portfolioErrors, setPortfolioErrors] = useState({});
@@ -171,8 +187,13 @@ const TalentResumes = () => {
 
   const [aboutMe, setAboutMe] = useState("");
   const [education, setEducation] = useState([]);
+  const educationDraft = useRef(education);
+  educationDraft.current = education;
+  const educationSources = useRef([]);
   const [experience, setExperience] = useState([]);
   const [skills, setSkills] = useState([]);
+  const sectionImports = useRef({ education: imports.current, experience: new Map(), skills: new Map() });
+  const currentSections = useRef({}); currentSections.current = { education, experience, skills };
 
   const [expandedEducation, setExpandedEducation] = useState(new Set());
   const [expandedExperience, setExpandedExperience] = useState(new Set());
@@ -188,45 +209,50 @@ const TalentResumes = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchResume = async () => {
       setLoading(true);
       setLoadError("");
       try {
         const { data } = await axios.get(`${API_BASE_URL}/api/resume`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          signal: controller.signal, headers: { Authorization: `Bearer ${editorToken}` },
         });
-        if (cancelled) return;
+        if (cancelled || !isCurrentOwner()) return;
 
         const resume = data.resume || {};
         setTalentProjects(data.talentProjects || []);
         setPortfolioRevision(data.portfolioRevision || "");
-        const edu = (resume.education || []).map((item) => ({
+        educationSources.current = resume.education || [];
+        const edu = educationSources.current.map((item, index) => ({
           ...blankEducation(),
           ...item,
-          id: nextId(),
+          _editorKey: nextId(),
+          ...(!item._id && !item.id ? { _sourceIndex: index } : {}),
         }));
-        const exp = (resume.experience || []).map((item) => ({
+        const exp = (resume.experience || []).map((item, index) => ({
           ...blankExperience(),
           ...item,
-          id: nextId(),
+          _editorKey: nextId(),
+          ...(!item._id && !item.id ? { _sourceIndex: index } : {}),
         }));
-        const eduList = edu.length ? edu : [blankEducation()];
-        const expList = exp.length ? exp : [blankExperience()];
+        const eduList = edu.length ? edu : [{ ...blankEducation(), _placeholder: true }];
+        const expList = exp.length ? exp : [{ ...blankExperience(), _placeholder: true }];
+        const skillList = resume.skills?.length ? resume.skills.map((row, index) => ({ ...row, _editorKey: nextId(), ...(!row._id && !row.id ? { _sourceIndex: index } : {}) })) : [{ title: "", percent: "", _sourceIndex: null, _placeholder: true }];
 
         initialFields.current = {
           aboutMe: resume.aboutMe || "", education: eduList, experience: expList,
-          skills: resume.skills?.length ? resume.skills : [{ title: "", percent: "" }],
+          skills: skillList,
         };
         setAboutMe(resume.aboutMe || "");
         setEducation(eduList);
         setExperience(expList);
-        setExpandedEducation(new Set([eduList[0].id]));
-        setExpandedExperience(new Set([expList[0].id]));
-        setSkills(
-          resume.skills?.length ? resume.skills : [{ title: "", percent: "" }],
-        );
+        setExpandedEducation(new Set([eduList[0]._editorKey]));
+        setExpandedExperience(new Set([expList[0]._editorKey]));
+        setSkills(skillList);
         setExistingCv(resume.cvFiles || []);
+        setCvChoices(data.cvChoices || []);
+        setRetainedCv(resume.cvFiles?.length === 1 ? data.cvChoices?.[0]?.ref : null);
         setExistingPortfolio(resume.portfolioImages || []);
       } catch (err) {
         if (cancelled) return;
@@ -236,8 +262,8 @@ const TalentResumes = () => {
           const exp = blankExperience();
           setEducation([edu]);
           setExperience([exp]);
-          setExpandedEducation(new Set([edu.id]));
-          setExpandedExperience(new Set([exp.id]));
+          setExpandedEducation(new Set([edu._editorKey]));
+          setExpandedExperience(new Set([exp._editorKey]));
           setSkills([{ title: "", percent: "" }]);
         } else {
           setLoadError(
@@ -254,9 +280,9 @@ const TalentResumes = () => {
 
     fetchResume();
     return () => {
-      cancelled = true;
+      cancelled = true; controller.abort();
     };
-  }, [reloadKey]);
+  }, [reloadKey, editorToken, isCurrentOwner]);
 
   const toggleEducation = (id) => {
     setExpandedEducation((prev) => {
@@ -273,42 +299,18 @@ const TalentResumes = () => {
     });
   };
 
-  const handleCVUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (cvInputRef.current) cvInputRef.current.value = "";
+  const handleCVUpload = (event) => {
+    const files = Array.from(event.target.files || []); event.target.value = "";
     if (!files.length) return;
-
-    const maxSize = 10 * 1024 * 1024;
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    let room = MAX_CV_FILES - existingCv.length - newCvFiles.length;
-    const accepted = [];
-    let skipped = 0;
-
-    for (const file of files) {
-      if (
-        file.size > maxSize ||
-        !allowedTypes.includes(file.type) ||
-        room <= 0
-      ) {
-        skipped += 1;
-        continue;
-      }
-      accepted.push(file);
-      room -= 1;
+    if (files.length !== 1 || existingCv.length > 1 || existingCv.length && !replacementArmed) {
+      toast({ title: "Choose one CV", description: existingCv.length > 1 ? "Choose which saved CV to retain, then save before replacing it." : "Use Replace CV to confirm replacement.", variant: "destructive" }); return;
     }
-
-    if (accepted.length) setNewCvFiles((prev) => [...prev, ...accepted]);
-    if (skipped) {
-      toast({
-        title: "Some files were not added",
-        description: `Only PDF, Doc or Docx files under 10MB are accepted, up to ${MAX_CV_FILES} CV files in total.`,
-        variant: "destructive",
-      });
+    const file = files[0];
+    if (!file.size || file.size > 10 * 1024 * 1024 || !/\.(pdf|docx?)$/i.test(file.name)
+      || !["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type)) {
+      toast({ title: "CV not selected", description: "Choose one PDF, DOC or DOCX up to 10 MiB.", variant: "destructive" }); return;
     }
+    setNewCvFiles([file]); setCvAction("replace"); extraction.current?.select([file]);
   };
 
   const handlePortfolioUpload = (e) => {
@@ -328,7 +330,7 @@ const TalentResumes = () => {
       else if (room <= 0) noRoom += 1;
       else {
         accepted.push({ _id: nextId(), file, preview: URL.createObjectURL(file), description: "", projectUrl: "", skills: [] });
-        room -= 1;
+      if (!newCvFiles.some(row => row.name === file.name && row.size === file.size && row.lastModified === file.lastModified)) room -= 1;
       }
     }
 
@@ -358,32 +360,32 @@ const TalentResumes = () => {
   const addEducation = () => {
     const item = blankEducation();
     setEducation([...education, item]);
-    setExpandedEducation((prev) => new Set(prev).add(item.id));
+    setExpandedEducation((prev) => new Set(prev).add(item._editorKey));
   };
   const removeEducation = (id) =>
-    setEducation(education.filter((e) => e.id !== id));
+    setEducation(education.filter((e) => e._editorKey !== id));
   const updateEducation = (id, field, value) => {
     setEducation(
-      education.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+      education.map((e) => (e._editorKey === id ? { ...e, [field]: value } : e)),
     );
   };
 
   const addExperience = () => {
     const item = blankExperience();
     setExperience([...experience, item]);
-    setExpandedExperience((prev) => new Set(prev).add(item.id));
+    setExpandedExperience((prev) => new Set(prev).add(item._editorKey));
   };
   const removeExperience = (id) =>
-    setExperience(experience.filter((e) => e.id !== id));
+    setExperience(experience.filter((e) => e._editorKey !== id));
   const updateExperience = (id, field, value) => {
     setExperience(
-      experience.map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+      experience.map((e) => (e._editorKey === id ? { ...e, [field]: value } : e)),
     );
   };
 
   const removeSkill = (index) =>
     setSkills(skills.filter((_, i) => i !== index));
-  const addSkill = () => setSkills([...skills, { title: "", percent: "0" }]);
+  const addSkill = () => setSkills([...skills, { title: "", percent: "0", _editorKey: nextId(), _sourceIndex: null }]);
   const updateSkill = (index, field, value) => {
     setSkills(
       skills.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
@@ -404,6 +406,7 @@ const TalentResumes = () => {
     item.id === id ? { ...item, removed: !item.removed } : item));
 
   const finishSave = data => {
+    if (!extractionOwner || !browserSessions().some(owner => owner.actor === extractionOwner.actor && owner.token === extractionOwner.token)) return;
     if (data.saveState === "committed") {
       saveAttempt.current = null;
       setAwaitingReceipt(false);
@@ -420,11 +423,13 @@ const TalentResumes = () => {
   };
 
   const handleSave = async () => {
+    if (!isCurrentOwner()) return;
     if (saveAttempt.current) {
+      const controller = new AbortController(); pendingSave.current = controller;
       setSaving(true);
       try {
         const { data } = await axios.get(`${API_BASE_URL}/api/resume/save-receipts/${saveAttempt.current}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          signal: controller.signal, headers: { Authorization: `Bearer ${editorToken}` },
         });
         finishSave(data);
       } catch (error) {
@@ -449,6 +454,7 @@ const TalentResumes = () => {
       return;
     }
     try {
+      if (JSON.stringify(education) !== JSON.stringify(initialFields.current.education)) prepareEducation(education, educationSources.current);
       setSaving(true);
 
       setSaveMessage("");
@@ -467,7 +473,8 @@ const TalentResumes = () => {
         ...newPortfolio.map(item => ({ upload: uploadReference(item), ...metadata.get(item._id) })),
       ]));
 
-      // Tell the server which saved files to keep; the rest are removed.
+      formData.append("cvSelection", JSON.stringify({ action: cvAction, ref: retainedCv }));
+      // Compatibility list; the owner-scoped explicit selection is authoritative.
       formData.append(
         "keepCvIds",
         JSON.stringify(existingCv.map((f) => f.public_id)),
@@ -476,14 +483,16 @@ const TalentResumes = () => {
       // Unchanged page fields (including blank UI placeholders) must not rewrite stored data.
       for (const [key, value] of Object.entries({ aboutMe, education, experience, skills })) {
         if (JSON.stringify(value) !== JSON.stringify(initialFields.current[key])) {
-          formData.append(key, typeof value === "string" ? value : JSON.stringify(value));
+          formData.append(key, typeof value === "string" ? value : JSON.stringify(value.map(row => { const { _editorKey, _placeholder, ...stored } = row; return stored; })));
         }
       }
 
       saveAttempt.current = requestId;
+      const controller = new AbortController(); pendingSave.current = controller;
       const { data } = await axios.put(`${API_BASE_URL}/api/resume`, formData, {
+        signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${editorToken}`,
         },
       });
 
@@ -583,109 +592,61 @@ const TalentResumes = () => {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">CV File</h2>
           <div className="space-y-3 mb-4">
-            {existingCv.length + newCvFiles.length === 0 && (
-              <p className="text-gray-500 text-sm">No CV uploaded yet.</p>
-            )}
-            {existingCv.map((file) => (
-              <div
-                key={file.public_id}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[#22262D] border border-white/5 rounded-xl p-3 sm:p-4"
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-11 h-11 rounded-lg bg-blue-600/15 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <p
-                      className="text-white text-sm font-medium truncate"
-                      title={cvLabel(file)}
-                    >
-                      {cvLabel(file)}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      {file.type || "CV"} · Saved
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewCv(file)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-blue-400 bg-blue-600/10 hover:bg-blue-600 hover:text-white transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Preview
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Remove CV"
-                    title="Remove CV"
-                    onClick={() =>
-                      setExistingCv(
-                        existingCv.filter(
-                          (f) => f.public_id !== file.public_id,
-                        ),
-                      )
-                    }
-                    className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {newCvFiles.map((file, index) => (
-              <div
-                key={`new-${index}`}
-                className="flex items-center gap-3 bg-[#22262D] border border-dashed border-blue-500/40 rounded-xl p-3 sm:p-4"
-              >
-                <div className="w-11 h-11 rounded-lg bg-blue-600/15 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-blue-400" />
-                </div>
+            {existingCv.length === 0 && newCvFiles.length === 0 && <p className="text-gray-500 text-sm">No CV uploaded yet.</p>}
+            {(existingCv.length > 0 || newCvFiles.length > 0) && <div role="group" aria-label="CV file" className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[#22262D] border border-white/5 rounded-xl p-3 sm:p-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-11 h-11 rounded-lg bg-blue-600/15 flex items-center justify-center flex-shrink-0"><FileText className="w-5 h-5 text-blue-400" /></div>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className="text-white text-sm font-medium truncate"
-                    title={file.name}
-                  >
-                    {file.name}
-                  </p>
-                  <p className="text-yellow-400/90 text-xs mt-0.5">
-                    Will upload when you save
-                  </p>
+                  {existingCv.length > 1 && !newCvFiles.length && <label className="text-sm text-gray-300">Saved CV to retain
+                    <select aria-label="Saved CV to retain" value={retainedCv || ""} onChange={event => { setRetainedCv(event.target.value); setCvAction("keep"); }} className="mt-1 w-full rounded-lg border border-white/15 bg-[#0E0E10] px-3 py-2 text-white">
+                      <option value="" disabled>Choose a CV</option>{existingCv.map((file, index) => <option key={cvChoices[index]?.ref || index} value={cvChoices[index]?.ref}>{index + 1}. {cvLabel(file)}</option>)}
+                    </select>
+                  </label>}
+                  {displayedCv && <><p className={`text-white text-sm font-medium truncate ${cvAction === "remove" ? "line-through" : ""}`} title={newCvFiles.length ? displayedCv.name : cvLabel(displayedCv)}>{newCvFiles.length ? displayedCv.name : cvLabel(displayedCv)}</p>
+                    {!newCvFiles.length && <p className="text-gray-400 text-xs mt-0.5">{cvAction === "remove" ? "Removed from draft" : `${displayedCv.type || "CV"} · Saved`}</p>}</>}
                 </div>
-                <button
-                  type="button"
-                  aria-label="Remove CV"
-                  title="Remove CV"
-                  onClick={() =>
-                    setNewCvFiles(newCvFiles.filter((_, i) => i !== index))
-                  }
-                  className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-600 hover:text-white transition-colors flex-shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
               </div>
-            ))}
+              {displayedCv && <div className="flex items-center gap-2 flex-shrink-0">
+                {!newCvFiles.length && <button type="button" onClick={() => setPreviewCv(displayedCv)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-blue-400 bg-blue-600/10"><Eye className="w-4 h-4" />Preview</button>}
+                {(newCvFiles.length > 0 || existingCv.length === 1) && <button type="button" aria-label={cvAction === "remove" ? "Restore CV" : "Remove CV"} title={cvAction === "remove" ? "Restore CV" : "Remove CV"}
+                  onClick={() => {
+                    extraction.current?.dismiss();
+                    if (newCvFiles.length) { setNewCvFiles([]); setCvAction("keep"); setReplacementArmed(false); }
+                    else setCvAction(cvAction === "remove" ? "keep" : "remove");
+                  }} className="p-2 rounded-lg text-red-400 bg-red-500/10">{cvAction === "remove" ? <Plus className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}</button>}
+              </div>}
+            </div>}
           </div>
           <input
             ref={cvInputRef}
             type="file"
             accept=".pdf,.doc,.docx"
-            multiple
             onChange={handleCVUpload}
             className="hidden"
           />
           <button
             type="button"
-            onClick={() => cvInputRef.current?.click()}
-            disabled={existingCv.length + newCvFiles.length >= MAX_CV_FILES}
+            onClick={() => { setReplacementArmed(true); cvInputRef.current?.click(); }}
+            disabled={existingCv.length > 1 || saving || awaitingReceipt}
             className="px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors disabled:opacity-50"
           >
-            Browse
+            {existingCv.length ? "Replace CV" : newCvFiles.length ? "Change selected CV" : "Browse"}
           </button>
           <span className="ml-3 text-gray-400 text-sm">
-            Upload PDF, Doc, Docx (up to {MAX_CV_FILES}, 10MB each)
+            PDF, DOC, DOCX · up to 10 MiB
           </span>
+          {existingCv.length > 1 && <p role="alert" className="mt-3 text-sm text-yellow-300">Choose one saved CV to retain, then Save Changes. The other CV records and storage assets will be retained.</p>}
+          <EducationExtractionReview ref={extraction} owner={extractionOwner} imports={sectionImports.current}
+            education={education} experience={experience} skills={skills} disabled={saving || awaitingReceipt}
+            onApply={entries => {
+              if (!extractionOwner || !browserSessions().some(owner => owner.actor === extractionOwner.actor && owner.token === extractionOwner.token)) return;
+              const next = {};
+              for (const section of ["education", "experience", "skills"]) next[section] = appendCvDraft(section, currentSections.current[section], entries[section], nextId, sectionImports.current[section]);
+              currentSections.current = next; educationDraft.current = next.education;
+              setEducation(next.education); setExperience(next.experience); setSkills(next.skills);
+              setExpandedEducation(new Set(next.education.map(row => row._editorKey)));
+              setExpandedExperience(new Set(next.experience.map(row => row._editorKey)));
+            }} />
         </section>
 
         {/* Portfolio */}
@@ -740,57 +701,56 @@ const TalentResumes = () => {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">Education</h2>
           {education.map((edu, index) => (
-            <div key={edu.id} className="mb-4">
+            <div key={edu._editorKey} className="mb-4">
               <div className="flex items-center justify-between bg-[#0E0E10] rounded-lg px-4 py-3 border border-white/10">
                 <span className="text-white font-medium">
                   Education {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleEducation(edu.id)}
+                    aria-label={`${expandedEducation.has(edu._editorKey) ? "Collapse" : "Expand"} education ${index + 1}`}
+                    onClick={() => toggleEducation(edu._editorKey)}
                     className="text-gray-400 hover:text-white"
                   >
-                    {expandedEducation.has(edu.id) ? (
+                    {expandedEducation.has(edu._editorKey) ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
                   </button>
                   <button
-                    onClick={() => removeEducation(edu.id)}
+                    aria-label={`Remove education ${index + 1}`}
+                    onClick={() => removeEducation(edu._editorKey)}
                     className="text-gray-400 hover:text-red-500"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              {expandedEducation.has(edu.id) && (
+              {expandedEducation.has(edu._editorKey) && (
                 <div className="space-y-4 pl-1 mt-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
-                      Academy
+                    <label htmlFor={`institution-${edu._editorKey}`} className="text-gray-400 text-sm sm:w-28 shrink-0">
+                      Institution
                     </label>
                     <input
                       type="text"
+                      id={`institution-${edu._editorKey}`}
                       value={edu.academy}
                       onChange={(e) =>
-                        updateEducation(edu.id, "academy", e.target.value)
+                        updateEducation(edu._editorKey, "academy", e.target.value)
                       }
                       className={inputClass}
                     />
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                    <label className="text-gray-400 text-sm sm:w-28 shrink-0">
-                      Title
+                    <label htmlFor={`degree-${edu._editorKey}`} className="text-gray-400 text-sm sm:w-28 shrink-0">
+                      Degree level
                     </label>
-                    <input
-                      type="text"
-                      value={edu.title}
-                      onChange={(e) =>
-                        updateEducation(edu.id, "title", e.target.value)
-                      }
-                      className={inputClass}
-                    />
+                    <SavedChoiceSelect id={`degree-${edu._editorKey}`} value={edu.title ?? ""}
+                      previous={educationSources.current.find(row => edu._id ? String(row._id) === String(edu._id) : edu.id ? row.id === edu.id : row === educationSources.current[edu._sourceIndex])?.title}
+                      options={DEGREE_OPTIONS} placeholder="Select degree level" className={inputClass}
+                      onChange={event => updateEducation(edu._editorKey, "title", event.target.value)} />
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                     <label className="text-gray-400 text-sm sm:w-28 shrink-0">
@@ -802,7 +762,7 @@ const TalentResumes = () => {
                           type="text"
                           value={edu.startDate}
                           onChange={(e) =>
-                            updateEducation(edu.id, "startDate", e.target.value)
+                            updateEducation(edu._editorKey, "startDate", e.target.value)
                           }
                           className="w-12 bg-transparent text-white focus:outline-none"
                         />
@@ -814,7 +774,7 @@ const TalentResumes = () => {
                           type="text"
                           value={edu.endDate}
                           onChange={(e) =>
-                            updateEducation(edu.id, "endDate", e.target.value)
+                            updateEducation(edu._editorKey, "endDate", e.target.value)
                           }
                           className="w-12 bg-transparent text-white focus:outline-none"
                         />
@@ -830,7 +790,7 @@ const TalentResumes = () => {
                       rows={3}
                       value={edu.description}
                       onChange={(e) =>
-                        updateEducation(edu.id, "description", e.target.value)
+                        updateEducation(edu._editorKey, "description", e.target.value)
                       }
                       className={inputClass}
                     />
@@ -851,31 +811,31 @@ const TalentResumes = () => {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">Experience</h2>
           {experience.map((exp, index) => (
-            <div key={exp.id} className="mb-4">
+            <div key={exp._editorKey} className="mb-4">
               <div className="flex items-center justify-between bg-[#0E0E10] rounded-lg px-4 py-3 border border-white/10">
                 <span className="text-white font-medium">
                   Experience {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleExperience(exp.id)}
+                    onClick={() => toggleExperience(exp._editorKey)}
                     className="text-gray-400 hover:text-white"
                   >
-                    {expandedExperience.has(exp.id) ? (
+                    {expandedExperience.has(exp._editorKey) ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
                   </button>
                   <button
-                    onClick={() => removeExperience(exp.id)}
+                    onClick={() => removeExperience(exp._editorKey)}
                     className="text-gray-400 hover:text-red-500"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              {expandedExperience.has(exp.id) && (
+              {expandedExperience.has(exp._editorKey) && (
                 <div className="space-y-4 pl-1 mt-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                     <label className="text-gray-400 text-sm sm:w-28 shrink-0">
@@ -885,7 +845,7 @@ const TalentResumes = () => {
                       type="text"
                       value={exp.company}
                       onChange={(e) =>
-                        updateExperience(exp.id, "company", e.target.value)
+                        updateExperience(exp._editorKey, "company", e.target.value)
                       }
                       className={inputClass}
                     />
@@ -898,7 +858,7 @@ const TalentResumes = () => {
                       type="text"
                       value={exp.title}
                       onChange={(e) =>
-                        updateExperience(exp.id, "title", e.target.value)
+                        updateExperience(exp._editorKey, "title", e.target.value)
                       }
                       className={inputClass}
                     />
@@ -914,7 +874,7 @@ const TalentResumes = () => {
                           value={exp.startDate}
                           onChange={(e) =>
                             updateExperience(
-                              exp.id,
+                              exp._editorKey,
                               "startDate",
                               e.target.value,
                             )
@@ -929,7 +889,7 @@ const TalentResumes = () => {
                           type="text"
                           value={exp.endDate}
                           onChange={(e) =>
-                            updateExperience(exp.id, "endDate", e.target.value)
+                            updateExperience(exp._editorKey, "endDate", e.target.value)
                           }
                           className="w-12 bg-transparent text-white focus:outline-none"
                         />
@@ -945,7 +905,7 @@ const TalentResumes = () => {
                       rows={3}
                       value={exp.description}
                       onChange={(e) =>
-                        updateExperience(exp.id, "description", e.target.value)
+                        updateExperience(exp._editorKey, "description", e.target.value)
                       }
                       className={inputClass}
                     />
@@ -1045,7 +1005,7 @@ const TalentResumes = () => {
         <div className="flex justify-end pt-4">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !awaitingReceipt && existingCv.length > 1 && !retainedCv}
             className="px-8 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-70 flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1055,6 +1015,14 @@ const TalentResumes = () => {
       </div>
     </div>
   );
+};
+
+const TalentResumes = () => {
+  const { user } = useAuth();
+  const actor = user?.userType === "talent" ? `talent:${user.id || user._id}` : null;
+  const owner = browserSessions().find(row => row.actor === actor);
+  if (!owner) return <p role="status" className="p-6 text-gray-400">Loading your resume...</p>;
+  return <TalentResumeEditor key={`${actor}:${owner?.token || ""}`} extractionOwner={owner} />;
 };
 
 export default TalentResumes;

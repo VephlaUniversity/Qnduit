@@ -1,3 +1,4 @@
+import { talentLocation } from "../utils/talentLocation.js";
 import { profileViewSummaryRange } from "../utils/profileViewSummary.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
@@ -14,7 +15,7 @@ import { jobApplicationMetadata } from "../utils/jobApplicationMetadata.js";
 const models = { talent: Talent, employer: Employer };
 const fields = {
   talent:
-    "firstName lastName fullName jobTitle aboutMe address location categories tags avatar qualification experienceTime language introVideo",
+    "firstName lastName fullName jobTitle aboutMe address city country categories tags avatar qualification experienceTime language introVideo",
   employer:
     "companyName displayName accountType companyIndustry aboutCompany aboutYou address location categories logo introVideo",
 };
@@ -26,12 +27,12 @@ const text = (value) => (typeof value === "string" ? value : "");
 const image = (value) => text(value?.url);
 
 // Explicit output allowlists, independent of schema additions and query projections.
-const displayProfile = (type, record) => {
+const displayProfile = (type, record, self) => {
   const common = {
     id: String(record._id),
     userType: type,
-    address: text(record.address),
-    location: text(record.location),
+    ...(type === "employer" || self ? { address: text(record.address) } : {}),
+    location: type === "talent" ? talentLocation(record) : text(record.location),
     categories: strings(record.categories),
   };
   return type === "talent"
@@ -165,7 +166,7 @@ export const getUserProfile = async (req, res, next) => {
       );
     }
     res.set("Cache-Control", "private, no-store");
-    const profile = displayProfile(userType, target);
+    const profile = displayProfile(userType, target, isSelf(req));
     if (userType === "talent") profile.skills = await publicSkills(userId);
     res.json({
       profile,

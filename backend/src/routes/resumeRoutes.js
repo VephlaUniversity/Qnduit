@@ -4,8 +4,11 @@ import { saveResume, getResume, uploadResumeFiles } from "../controllers/resumeC
 import { getTalentProjects } from "../controllers/talentPortfolioController.js";
 
 import { savePortfolioPage, getPortfolioSaveStatus } from "../controllers/portfolioSaveController.js";
+import { educationExtractionLimit, educationExtractionCapacity, extractEducationDraft } from "../controllers/educationExtractionController.js";
 
 const router = express.Router();
+
+router.post("/education-draft", protect, authorize("talent"), educationExtractionLimit, educationExtractionCapacity, extractEducationDraft);
 
 router.get("/talent-projects", protect, authorize("talent"), getTalentProjects);
 router.get("/save-receipts/:requestId", protect, authorize("talent"), getPortfolioSaveStatus);

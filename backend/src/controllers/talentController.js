@@ -1,8 +1,16 @@
+import { avatarProcessor, avatarError, allocateTalentAvatar, uploadTalentAvatar, cleanupTalentAvatar, persistTalentAvatar } from "../services/talentAvatar.js";
+export { talentUpload } from "../middleware/talentAvatarUpload.js";
+import { GENDER_OPTIONS, savedChoiceError } from "../utils/talentFieldChoices.js";
+import { findPublishedTalent } from "../services/publicTalentAccess.js";
+import { savedPublicCvs, publicCvSummary } from "../services/publicTalentCv.js";
+import { talentLocationPatch } from "../utils/talentLocation.js";
+import { OWNER_TALENT_FIELDS, ownerTalentProfile } from "../utils/ownerTalentProfile.js";
 import { withVerificationBadge } from "../services/verificationBadge.js";
 import { authIdentity } from "../utils/authSession.js";
 import Talent from "../models/Talent.js";
 import { addCvToResume } from "./resumeController.js";
 import Resume from "../models/Resume.js";
+import { createHash } from "node:crypto";
 import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto, publicTalentCard } from "../utils/publicTalentProfile.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
@@ -25,6 +33,7 @@ const resumeStorage = multer.memoryStorage();
 
 export const upload = multer({
   storage: resumeStorage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
 
@@ -35,22 +44,6 @@ export const upload = multer({
     cb(null, true);
   },
 });
-
-const talentStorage = multer.memoryStorage();
-
-export const talentUpload = multer({
-  storage: talentStorage,
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-
-    if (![".png", ".jpg", ".jpeg", ".mp4"].includes(ext)) {
-      return cb(new Error("Only images and mp4 allowed"));
-    }
-
-    cb(null, true);
-  },
-});
-
 
 export const registerTalent = async (req, res, next) => {
   try {
@@ -119,18 +112,40 @@ export const verifyTalentEmail = async (req, res, next) => {
 
  
 export const updateTalentProfile = async (req, res, next) => {
+  let newAvatar, avatarSaveAttempted = false;
   try {
     const id = req.user._id;
+    const existingTalent = await Talent.findById(id);
+    if (!existingTalent) {
+      return res.status(404).json({
+        success: false,
+        message: "Talent not found",
+      });
+    }
+
     // Owner editors may resend account metadata; only profile fields are editable.
     const editableFields = [
       "firstName", "lastName", "fullName", "dateOfBirth", "phone", "gender", "age",
       "jobTitle", "qualification", "experienceTime", "language", "location", "address",
       "aboutMe", "showProfile", "offeredSalary", "salaryType", "categories", "tags",
-      "skills", "socialNetworks", "avatar", "introVideo", "geoLocation", "lat", "lng",
+      "skills", "socialNetworks", "introVideo", "geoLocation", "lat", "lng",
     ];
     const body = req.body && typeof req.body === "object" ? req.body : {};
+    if (Object.hasOwn(body, "avatar")) {
+      const supplied = typeof body.avatar === "string" ? body.avatar : body.avatar?.url;
+      if (supplied !== existingTalent.avatar?.url) throw avatarError("Choose a JPG or PNG file to replace your profile picture.");
+    }
+    if (Object.hasOwn(body, "gender")) {
+      const error = savedChoiceError(body.gender, existingTalent.gender, GENDER_OPTIONS, "Gender");
+      if (error) return res.status(400).json({ success: false, message: error, errors: { gender: error } });
+    }
+    const location = talentLocationPatch(body);
+    if (Object.keys(location.errors).length) return res.status(400).json({ success: false, message: "Check your public location.", errors: location.errors });
     const updates = Object.fromEntries(editableFields
       .filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]]));
+
+    Object.assign(updates, location.updates);
+    if (Object.hasOwn(updates, "gender") && updates.gender === existingTalent.gender) delete updates.gender;
 
     const parseArrayField = (field) => {
       if (Array.isArray(field)) {
@@ -220,30 +235,10 @@ export const updateTalentProfile = async (req, res, next) => {
     delete updates.lng;
 
     if (req.files?.avatar) {
-      const avatarFile = req.files.avatar[0];
-
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "qnduit/talent-avatars",
-            resource_type: "image",
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(result);
-            }
-          }
-        );
-
-        stream.end(avatarFile.buffer);
-      });
-
-      updates.avatar = {
-        url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
-      };
+      const processed = await avatarProcessor.process(req.files.avatar[0]);
+      newAvatar = allocateTalentAvatar(id);
+      await uploadTalentAvatar(newAvatar, processed.buffer);
+      updates.avatar = { url: newAvatar.url, public_id: newAvatar.public_id };
     }
 
     if (req.files?.introVideo) {
@@ -273,13 +268,6 @@ export const updateTalentProfile = async (req, res, next) => {
       };
     }
 
-    const existingTalent = await Talent.findById(id);
-    if (!existingTalent) {
-      return res.status(404).json({
-        success: false,
-        message: "Talent not found",
-      });
-    }
 
     if (
       (updates.fullName || existingTalent.fullName) &&
@@ -292,19 +280,27 @@ export const updateTalentProfile = async (req, res, next) => {
 
     updates.profileUpdatedAt = new Date();
 
-    const talent = await Talent.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-      context: "query",
-      omitUndefined: true,
-    }).select("-password -verificationCode");
+    let talent;
+    if (newAvatar) {
+      avatarSaveAttempted = true;
+      const outcome = await persistTalentAvatar(id, existingTalent, updates, newAvatar);
+      if (outcome.pending) return res.status(503).json({ success: false, saveState: "pending", code: "AVATAR_SAVE_PENDING",
+        message: "We couldn’t confirm this save. Reload your profile to check the saved picture before trying again." });
+      talent = outcome.talent;
+    } else {
+      talent = await Talent.findByIdAndUpdate(id, updates, {
+        new: true, runValidators: true, context: "query", omitUndefined: true,
+      }).select("-password -verificationCode");
+    }
 
     res.json({
       success: true,
       message: "Profile updated successfully",
-      talent,
+      talent: ownerTalentProfile(talent),
     });
   } catch (error) {
+    if (newAvatar && (!avatarSaveAttempted || error.definiteAvatarFailure)) await cleanupTalentAvatar(newAvatar);
+    if (newAvatar && error.definiteAvatarFailure && !error.statusCode) return next(avatarError("We couldn’t save the profile. Your saved picture is unchanged. Check your profile fields and try again."));
     next(error);
   }
 };
@@ -317,6 +313,7 @@ export const uploadResume = async (req, res, next) => {
         message: "No resume uploaded",
       });
     }
+    if (!req.file.buffer?.length) return res.status(400).json({ success: false, message: "Choose a non-empty CV." });
 
     const talent = await Talent.findById(req.user._id);
 
@@ -328,6 +325,22 @@ export const uploadResume = async (req, res, next) => {
     }
 
     const extension = path.extname(req.file.originalname).toLowerCase();
+
+    const managedResume = await Resume.findOne({ talent: talent._id }).lean();
+    if (await Resume.countDocuments({ talent: talent._id }).limit(2) > 1) {
+      return res.status(409).json({ success: false, message: "Multiple saved Resume records need review. No CV was changed." });
+    }
+    const contentHash = createHash("sha256").update(req.file.buffer).digest("hex");
+    if (managedResume?.cvFiles?.length === 1 && managedResume.cvFiles[0].contentHash === contentHash) {
+      const saved = managedResume.cvFiles[0];
+      return res.json({ success: true, message: "This CV is already saved.", resume: { url: saved.url, public_id: saved.public_id } });
+    }
+    if (talent.resume?.url || managedResume?.cvFiles?.length) {
+      return res.status(409).json({ success: false, message: "A CV is already saved. Replace it explicitly on the Resumes page." });
+    }
+    if (![".pdf", ".doc", ".docx"].includes(extension) || req.file.buffer.length > 10 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: "Choose one PDF, DOC or DOCX up to 10 MiB." });
+    }
 
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -353,20 +366,21 @@ export const uploadResume = async (req, res, next) => {
       public_id: uploadResult.public_id,
     };
 
-    await talent.save();
+    // Install both owner references atomically; concurrent initial uploads cannot add another CV.
 
     // Also list it on the talent's Resume page.
-    await addCvToResume(talent._id, {
+    const installed = await addCvToResume(talent._id, {
       url: uploadResult.secure_url,
       public_id: uploadResult.public_id,
       type: extension === ".pdf" ? "PDF" : "Doc",
       name: req.file.originalname,
+      contentHash,
     });
 
     res.json({
       success: true,
       message: "Resume uploaded successfully",
-      resume: talent.resume,
+      resume: { url: installed.cvFiles[0].url, public_id: installed.cvFiles[0].public_id },
     });
   } catch (error) {
     next(error);
@@ -414,7 +428,7 @@ export const getTalentProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Talent not found" });
 
     const profile = withVerificationBadge({
-    ...talent._doc,
+    ...ownerTalentProfile(talent),
     avatar: talent.avatar?.url || "",
     introVideo: talent.introVideo?.url || "",
     resume: talent.resume?.url || "",
@@ -477,7 +491,7 @@ export const listPublicTalents = async (req, res, next) => {
       username: { $exists: true, $ne: "" },
     };
 
-    if (country) filter.location = new RegExp(`^${escapeRegex(country)}$`, "i");
+    if (country) filter.country = new RegExp(`^${escapeRegex(country)}$`, "i");
 
     if (experience && experience !== "Any experience") {
       filter.experienceTime = new RegExp(`^${escapeRegex(experienceValues[experience])}$`, "i");
@@ -517,7 +531,7 @@ export const listPublicTalents = async (req, res, next) => {
     const [total, talents] = await Promise.all([
       Talent.countDocuments(filter),
       Talent.find(filter)
-        .select("username fullName firstName lastName jobTitle location tags avatar experienceTime")
+        .select("username fullName firstName lastName jobTitle city country tags avatar experienceTime")
         .sort({ profileUpdatedAt: -1, _id: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -552,33 +566,8 @@ export const getPublicTalentProfile = async (req, res, next) => {
   try {
     const { username } = req.params;
 
-    const talent = await Talent.findOne({
-      username: username.toLowerCase(),
-      isVerified: true,
-      accountStatus: "active",
-      showProfile: "show",
-      selectedPlan: "public",
-      paymentStatus: "active",
-      publicProfileEnabled: true,
-    })
-      .select(PUBLIC_TALENT_FIELDS)
-      .lean();
-
-    if (!talent) {
-      return res.status(404).json({
-        success: false,
-        message: "Public profile not found.",
-      });
-    }
-
-    const publication = await resolveTalentPublication(talent._id);
-
-    if (publication.publicProfile.status !== "published") {
-      return res.status(404).json({
-        success: false,
-        message: "Public profile not found.",
-      });
-    }
+    const talent = await findPublishedTalent(username, PUBLIC_TALENT_FIELDS);
+    if (!talent) return res.status(404).json({ success: false, message: "Public profile not found." });
 
     const resume = await Resume.findOne({
       talent: talent._id,
@@ -598,7 +587,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      talent: publicTalent,
+      talent: { ...publicTalent, cvs: (await savedPublicCvs(talent._id, talent.username)).map(publicCvSummary) },
     });
   } catch (error) {
     next(error);
@@ -610,11 +599,16 @@ export const getPublicTalentProfile = async (req, res, next) => {
  
 export const getTalentDashboard = async (req, res, next) => {
   try {
+    res.set("Cache-Control", "private, no-store");
     const { id } = req.params;
-    const talent = await Talent.findById(id).select("-password -verificationCode");
+    if (!/^[a-f\d]{24}$/i.test(id)) return res.status(400).json({ message: "Invalid Talent ID." });
+    if (req.user.role !== "talent" || String(req.user._id) !== id.toLowerCase()) {
+      return res.status(403).json({ message: "Only the Talent owner can access this dashboard record." });
+    }
+    const talent = await Talent.findById(req.user._id).select(OWNER_TALENT_FIELDS);
     if (!talent) return res.status(404).json({ message: "Talent not found" });
 
-    res.json({ success: true, talent });
+    res.json({ success: true, talent: ownerTalentProfile(talent) });
   } catch (error) {
     next(error);
   }

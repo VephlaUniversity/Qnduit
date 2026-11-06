@@ -58,7 +58,9 @@ const talentSchema = new mongoose.Schema(
   qualification: String,
   experienceTime: String,
   language: String,
-  location: String,
+  location: String, // Legacy private value: never infer structured public fields.
+  city: { type: String, trim: true, maxlength: 100 },
+  country: { type: String, trim: true, maxlength: 100 },
   address: String,
   aboutMe: String,
   showProfile: {
