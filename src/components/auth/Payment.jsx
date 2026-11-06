@@ -1,11 +1,12 @@
+import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import axios from "axios";
 
 import { API_BASE_URL } from "../utils/api";
-import { useTalentSubscription, hasCurrentPublicSubscription, talentPaymentToken } from "../hooks/useTalentSubscription";
+import { useTalentSubscription, talentPaymentToken } from "../hooks/useTalentSubscription";
 import { usePlanAction } from "../hooks/usePlanAction";
 
 const paymentToken = userType => userType === "talent"
@@ -41,7 +42,7 @@ export const Payment = () => {
 
   const navigate = useNavigate();
   const subscriptionState = useTalentSubscription(userType === "talent");
-  const currentPlan = hasCurrentPublicSubscription(subscriptionState.subscription);
+  const currentPlan = hasTalentPublicAccess(subscriptionState);
 
   const validate = () => {
     if (!plan || price === null) {
@@ -123,7 +124,7 @@ export const Payment = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0d0d0d] to-[#1a1a1a] flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">
-        <motion.button
+        <Motion.button
           onClick={() => window.history.back()}
           className="flex items-center gap-2 text-white mb-8 hover:text-gray-300 transition"
           initial={{ opacity: 0, x: -12 }}
@@ -132,16 +133,16 @@ export const Payment = () => {
         >
           <ChevronLeft className="w-5 h-5" />
           Previous Page
-        </motion.button>
+        </Motion.button>
 
-        <motion.div
+        <Motion.div
           className="grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white rounded-3xl overflow-hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
         >
           {/* Order Summary */}
-          <motion.div
+          <Motion.div
             className="bg-gray-50 p-8"
             initial={{ opacity: 0, x: -24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -183,10 +184,10 @@ export const Payment = () => {
                 <span className="capitalize">{userType}</span>
               </p>
             </div>
-          </motion.div>
+          </Motion.div>
 
           {/* Payment Details */}
-          <motion.div
+          <Motion.div
             className="p-8 flex flex-col justify-center"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -211,7 +212,7 @@ export const Payment = () => {
               </div>
             )}
 
-            <motion.button
+            <Motion.button
               type="button"
               onClick={() => submit(plan, "payNow")}
               disabled={loading || pending || (userType === "talent" && subscriptionState.loading)}
@@ -224,14 +225,14 @@ export const Payment = () => {
                 : price === null
                   ? "Select a Valid Plan"
                   : `Continue to Payment — $${price.toFixed(2)}`}
-            </motion.button>
+            </Motion.button>
 
             <p className="text-xs text-gray-500 text-center mt-6">
               Secure payment powered by{" "}
               <span className="font-semibold">Flutterwave</span>
             </p>
-          </motion.div>
-        </motion.div>
+          </Motion.div>
+        </Motion.div>
       </div>
     </div>
   );

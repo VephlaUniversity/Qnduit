@@ -273,6 +273,7 @@ export const activateTalentPayment = (payment, transaction) =>
 
 // Get Talent Subscription
 export const getMySubscription = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     if (req.user.role !== "talent") {
       return res.status(403).json({ message: "Talent account required." });
@@ -289,6 +290,7 @@ export const getMySubscription = async (req, res, next) => {
       : null;
     res.json({
       success: true,
+      accountId: String(req.user._id),
       subscription,
       ...publication,
       pendingDowngrade,

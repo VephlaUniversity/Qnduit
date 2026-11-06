@@ -1,3 +1,4 @@
+import { talentLocation } from "../utils/talentLocation.js";
 import mongoose from "mongoose";
 import { jobApplicationMetadata, usesInternalApplications, internalApplicationFilter } from "../utils/jobApplicationMetadata.js";
 import JobApplication from "../models/JobApplication.js";
@@ -12,6 +13,8 @@ import Resume from "../models/Resume.js";
 import { jobDateKey, lagosDateKey } from "../utils/jobDeadline.js";
 import { applicationEvent } from "../services/notifications.js";
 import { publicImageUrl } from "../utils/publicTalentProfile.js";
+import { selectActiveSavedCv, activeSavedCv } from "../services/activeTalentCv.js";
+import { publicCvAsset } from "../services/publicTalentCv.js";
 
 // Apply for job
 export const applyForJob = async (req, res, next) => {
@@ -133,6 +136,7 @@ export const getMyApplications = async (req, res, next) => {
 
 // employer view applications for job
 export const getJobApplications = async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const { jobId } = req.params;
     if (!/^[a-f\d]{24}$/i.test(jobId)) {
@@ -158,7 +162,13 @@ export const getJobApplications = async (req, res) => {
     })
       .populate("applicantId", "name fullName firstName lastName avatar email")
       .sort({ createdAt: -1 });
-    res.json({ success: true, applications });
+    const current = await Promise.all(applications.map(async application => {
+      const file = application.applicantId?._id ? await activeSavedCv(application.applicantId._id) : null;
+      const url = publicCvAsset(file?.url)?.url || "";
+      return { ...application.toObject(), resumeUrl: url, resumeSource: url ? "talent" : null,
+        resumeDownloadPath: url ? `/api/applications/${application._id}/cv` : null };
+    }));
+    res.json({ success: true, applications: current });
   } catch {
     res.status(500).json({
       success: false,
@@ -166,6 +176,20 @@ export const getJobApplications = async (req, res) => {
     });
   }
 };
+// Resolve again at click time so a cached candidate card cannot download an
+// archived replacement or an old application attachment. Ownership stays private.
+export async function getApplicationCv(req, res, next) {
+  res.set("Cache-Control", "private, no-store");
+  try {
+    if (!/^[a-f\d]{24}$/i.test(req.params.applicationId)) return res.status(404).json({ message: "CV unavailable." });
+    const application = await JobApplication.findOne({ _id: req.params.applicationId, employerId: req.user._id, employerArchivedAt: null }).lean();
+    const cv = application?.applicantId ? await activeSavedCv(application.applicantId) : null;
+    const asset = publicCvAsset(cv?.url);
+    if (!asset) return res.status(404).json({ message: "CV unavailable. The Talent must select a saved CV." });
+    return res.json({ success: true, cv: { url: asset.url, name: cv.name || `CV.${asset.format.toLowerCase()}`, format: asset.format } });
+  } catch (error) { next(error); }
+}
+
 // Employer Applications
 export const getEmployerApplications = async (req, res) => {
   res.set("Cache-Control", "private, no-store");
@@ -229,7 +253,8 @@ export const getEmployerApplications = async (req, res) => {
                     fullName: 1,
                     firstName: 1,
                     lastName: 1,
-                    location: 1,
+                    city: 1,
+                    country: 1,
                   },
                 },
               ],
@@ -249,7 +274,8 @@ export const getEmployerApplications = async (req, res) => {
             $match: {
               $or: [
                 { "talent.fullName": { $regex: regex, $options: "i" } },
-                { "talent.location": { $regex: regex, $options: "i" } },
+                { "talent.city": { $regex: regex, $options: "i" } },
+                { "talent.country": { $regex: regex, $options: "i" } },
                 { "job.jobTitle": { $regex: regex, $options: "i" } },
                 {
                   $expr: {
@@ -312,7 +338,7 @@ export const getEmployerApplications = async (req, res) => {
               .populate({
                 path: "applicantId",
                 select:
-                  "fullName firstName lastName email phone location jobTitle experienceTime avatar resume",
+                  "fullName firstName lastName email phone city country jobTitle experienceTime avatar resume",
               })
               .populate("jobId", "jobTitle")
               .sort({ createdAt: -1, _id: -1 }),
@@ -323,8 +349,7 @@ export const getEmployerApplications = async (req, res) => {
         summaryOnly === "true" ? employerExternalTotals(employerId) : null,
       ]);
 
-    // Resumes uploaded on the talent Resume page live in the Resume collection (cvFiles),
-    // not on the Talent record, so look them up and use the newest one as a fallback.
+    // Use the same authoritative saved selection as profile/download views.
     const applicantIds = [
       ...new Set(
         applications
@@ -337,27 +362,11 @@ export const getEmployerApplications = async (req, res) => {
           .select("talent cvFiles")
           .lean()
       : [];
-    const cvByTalent = new Map(
-      resumeDocs.map((doc) => [
-        String(doc.talent),
-        (doc.cvFiles || []).filter((file) => file?.url),
-      ]),
-    );
+    const cvByTalent = new Map(applicantIds.map(id => [id, resumeDocs.filter(doc => String(doc.talent) === id)]));
 
     const talentResumeUrl = (app) => {
-      const signup = app.applicantId?.resume;
-      const files = [
-        ...(cvByTalent.get(String(app.applicantId?._id)) || []),
-      ].reverse();
-      const newest = files.find(
-        (file) =>
-          !(
-            signup?.url &&
-            (file.url === signup.url ||
-              (signup.public_id && file.public_id === signup.public_id))
-          ),
-      );
-      return newest?.url || signup?.url || files[0]?.url || "";
+      const cv = selectActiveSavedCv(cvByTalent.get(String(app.applicantId?._id)) || [], app.applicantId?.resume);
+      return publicCvAsset(cv?.url)?.url || "";
     };
 
     const formatted = applications.map((app) => ({
@@ -366,12 +375,9 @@ export const getEmployerApplications = async (req, res) => {
       date: app.createdAt, // Preserve the legacy field for existing consumers.
       appliedAt: app.appliedAt ?? app.createdAt,
       createdAt: app.createdAt,
-      resumeUrl: app.resumeUrl?.trim() || talentResumeUrl(app),
-      resumeSource: app.resumeUrl?.trim()
-        ? "application"
-        : talentResumeUrl(app)
-          ? "talent"
-          : null,
+      resumeUrl: talentResumeUrl(app),
+      resumeSource: talentResumeUrl(app) ? "talent" : null,
+      resumeDownloadPath: talentResumeUrl(app) ? `/api/applications/${app._id}/cv` : null,
 
       applicant: {
         id: app.applicantId?._id,
@@ -384,7 +390,7 @@ export const getEmployerApplications = async (req, res) => {
           "Unknown",
         email: app.applicantId?.email,
         phone: app.applicantId?.phone,
-        location: app.applicantId?.location,
+        location: talentLocation(app.applicantId),
         jobTitle: app.applicantId?.jobTitle,
         experience: app.applicantId?.experienceTime,
         avatar:

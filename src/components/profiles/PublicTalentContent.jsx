@@ -1,5 +1,6 @@
+import PublicTalentPresentation from "./PublicTalentPresentation";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Briefcase, ExternalLink } from "lucide-react";
+import { MapPin, Briefcase, ExternalLink } from "lucide-react";
 import SkillBars from "./SkillBars";
 import { PublicTalentImage } from "./PublicTalentMedia";
 import JobDescriptionText from "../utils/JobDescriptionText";
@@ -24,11 +25,11 @@ function History({ title, rows, owner }) {
   if (!rows?.length) return null;
   return <section className={sectionClass} aria-label={title}><h2 className={headingClass}>{title}</h2><div className="space-y-7">{rows.map((row, index) => <article key={index} className="border-l-2 border-blue-600 pl-5">
     {period(row) && <p className="mb-2 text-xs text-gray-400">{period(row)}</p>}
-    {row.title && <h3 className="break-words font-semibold text-white">{row.title}</h3>}{row[owner] && <p className="mt-1 break-words text-sm text-blue-400">{row[owner]}</p>}
+    {row.title && <h3 className="break-words font-semibold text-white">{owner === "academy" && <span className="sr-only">Degree level: </span>}{row.title}</h3>}{row[owner] && <p className="mt-1 break-words text-sm text-blue-400">{owner === "academy" && <span className="sr-only">Institution: </span>}{row[owner]}</p>}
     {row.description && <JobDescriptionText value={row.description} className={`mt-3 ${textClass}`} />}
   </article>)}</div></section>;
 }
-export default function PublicTalentContent({ talent, backTo = "/feature-talents" }) {
+export default function PublicTalentContent({ talent }) {
   const name = talent.fullName || "Talent", skills = talent.skills || [], tags = talent.tags || [];
   const levels = skills.filter(row => Number.isFinite(row.percent));
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
@@ -37,8 +38,7 @@ export default function PublicTalentContent({ talent, backTo = "/feature-talents
   const video = getYouTubeVideoId(talent.introVideo);
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
-  return <main className="min-h-screen bg-[#0F1419] text-white"><div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12">
-    <Link to={backTo} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-blue-400 hover:text-blue-300"><ArrowLeft className="h-4 w-4" />Back to talents</Link>
+  return <PublicTalentPresentation>
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
       <aside className={`${sectionClass} min-w-0`} aria-label="Talent identity and skills">
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />
@@ -57,9 +57,10 @@ export default function PublicTalentContent({ talent, backTo = "/feature-talents
           {(item.title || item.description || publicExternalUrl(item.projectUrl) || item.skills?.length > 0) && <div className="space-y-3 p-4">{item.title && <h3 className="break-words font-semibold">{item.title}</h3>}{item.description && <JobDescriptionText value={item.description} className={textClass} />}{publicExternalUrl(item.projectUrl) && <a href={publicExternalUrl(item.projectUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300">View project<ExternalLink className="h-4 w-4" /></a>}{item.skills?.length > 0 && <ul aria-label="Related project skills" className="flex min-w-0 flex-wrap gap-2">{item.skills.map(skill => <li key={skill} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300 [overflow-wrap:anywhere]">{skill}</li>)}</ul>}</div>}
         </article>)}</div></section>}
         {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><div className="aspect-video overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${video}`} title="Introduction video" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div></section>}
+        {talent.cvs?.length > 0 && <section className={sectionClass} aria-label="CVs"><h2 className={headingClass}>CVs</h2><ul className="space-y-3">{talent.cvs.map(cv => <li key={cv.id}><Link to={cv.viewPath} className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>View CV: {cv.name} ({cv.format})</Link></li>)}</ul></section>}
         <History title="Experience" rows={talent.experience} owner="company" />
         <History title="Education" rows={talent.education} owner="academy" />
       </div>
     </div>
-  </div></main>;
+  </PublicTalentPresentation>;
 }

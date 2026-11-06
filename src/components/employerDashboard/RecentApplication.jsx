@@ -29,7 +29,17 @@ const formatAppliedDate = (value) => {
     : "Date unavailable";
 };
 
+async function currentCandidateCv(resumeDownloadPath, signal) {
+  if (!resumeDownloadPath) throw Error("CV unavailable");
+  const { data } = await axios.get(`${API_BASE_URL}${resumeDownloadPath}`, {
+    signal, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+  });
+  if (!data?.success || !data.cv?.url) throw Error("CV unavailable");
+  return data.cv;
+}
+
 function ResumePreview({ applicant }) {
+  const { cvUrl, resumeDownloadPath } = applicant;
   const [preview, setPreview] = useState({
     loading: true,
     url: "",
@@ -39,7 +49,7 @@ function ResumePreview({ applicant }) {
     const controller = new AbortController();
     let blobUrl;
     async function load() {
-      if (!applicant.cvUrl) {
+      if (!cvUrl) {
         setPreview({
           loading: false,
           url: "",
@@ -47,7 +57,10 @@ function ResumePreview({ applicant }) {
         });
         return;
       }
-      if (/\.docx?$/i.test(new URL(applicant.cvUrl).pathname)) {
+      let active;
+      try { active = await currentCandidateCv(resumeDownloadPath, controller.signal); }
+      catch { if (!controller.signal.aborted) setPreview({ loading: false, url: "", message: "Resume unavailable. Refresh the candidates list and try again." }); return; }
+      if (["DOC", "DOCX"].includes(active.format)) {
         setPreview({
           loading: false,
           url: "",
@@ -57,7 +70,7 @@ function ResumePreview({ applicant }) {
         return;
       }
       try {
-        const response = await fetch(applicant.cvUrl, {
+        const response = await fetch(active.url, {
           signal: controller.signal,
           credentials: "omit",
         });
@@ -94,7 +107,7 @@ function ResumePreview({ applicant }) {
       controller.abort();
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [applicant.cvUrl]);
+  }, [cvUrl, resumeDownloadPath]);
   return preview.loading ? (
     <p role="status">Loading Resume…</p>
   ) : preview.url ? (
@@ -270,7 +283,8 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
               date: formatAppliedDate(
                 app.appliedAt ?? app.createdAt ?? app.date,
               ),
-              cvUrl: profileImageUrl(app.resumeUrl ?? app.applicant?.resume),
+              cvUrl: profileImageUrl(app.resumeUrl),
+              resumeDownloadPath: app.resumeDownloadPath,
               resumeSource:
                 app.resumeSource ?? (app.applicant?.resume ? "talent" : null),
             })),
@@ -438,12 +452,13 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
     }
     let blobUrl;
     try {
-      const response = await fetch(applicant.cvUrl, { credentials: "omit" });
+      const active = await currentCandidateCv(applicant.resumeDownloadPath);
+      const response = await fetch(active.url, { credentials: "omit" });
       if (!response.ok) throw new Error();
       const blob = await response.blob();
       blobUrl = URL.createObjectURL(blob);
       const extension =
-        new URL(applicant.cvUrl).pathname.match(/\.(pdf|docx?)$/i)?.[0] ||
+        new URL(active.url, API_BASE_URL).pathname.match(/\.(pdf|docx?)$/i)?.[0] ||
         (await cvExtension(blob));
       const link = document.createElement("a");
       link.href = blobUrl;

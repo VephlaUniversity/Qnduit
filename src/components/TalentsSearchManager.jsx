@@ -25,10 +25,6 @@ export const TalentsSearchManager = () => {
     setCurrentPage("profile");
   };
 
-  const handleBackToResults = () => {
-    setCurrentPage("results");
-  };
-
   return (
     <div className="min-h-screen bg-[#0F1419]">
       {currentPage === "results" && (
@@ -41,7 +37,6 @@ export const TalentsSearchManager = () => {
       {currentPage === "profile" && selectedCandidate && (
         <ProfilePage
           candidate={selectedCandidate}
-          onBack={handleBackToResults}
         />
       )}
     </div>

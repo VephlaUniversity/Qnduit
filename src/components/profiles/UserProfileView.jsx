@@ -181,7 +181,7 @@ function ProfileContent({ userType, userId, showEmployerJobs }) {
                 {profile.location}
               </p>
             )}
-            {profile.address && (
+            {profile.address && (!talent || result.isSelf) && (
               <p className="mt-2 text-sm text-gray-400">
                 Address: {profile.address}
               </p>

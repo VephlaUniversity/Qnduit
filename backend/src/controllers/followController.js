@@ -1,3 +1,4 @@
+import { talentFields as pickTalentFields, talentLocation } from "../utils/talentLocation.js";
 import mongoose from "mongoose";
 import Follow from "../models/Follow.js";
 import Talent from "../models/Talent.js";
@@ -29,12 +30,13 @@ const employerFields =
   "companyName displayName email location companyIndustry categories tags logo profileURL accountType";
 
 const talentFields =
-  "firstName lastName fullName email jobTitle location categories tags avatar qualification experienceTime aboutMe showProfile accountStatus isVerified";
+  "firstName lastName fullName email jobTitle city country categories tags avatar qualification experienceTime aboutMe showProfile accountStatus isVerified";
 
 // Preserve relationships and public row fields; only indicate whether navigation is available.
 const talentListFields = (talent) => {
-  const { showProfile, accountStatus, isVerified, ...fields } = talent;
-  return { ...fields, profileAvailable: Boolean(isVerified) && accountStatus !== "suspended" && showProfile !== "hidden" };
+  const { showProfile, accountStatus, isVerified } = talent;
+  const fields = pickTalentFields(talent, "_id firstName lastName fullName email jobTitle categories tags avatar qualification experienceTime aboutMe");
+  return { ...fields, location: talentLocation(talent), profileAvailable: Boolean(isVerified) && accountStatus !== "suspended" && showProfile !== "hidden" };
 };
 
 const employerName = (employer) =>
@@ -75,7 +77,8 @@ const talentSearchConditions = (q) => {
       { lastName: regex },
       { email: regex },
       { jobTitle: regex },
-      { location: regex },
+      { city: regex },
+      { country: regex },
       { categories: regex },
       { tags: regex },
     ],

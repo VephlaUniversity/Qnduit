@@ -1,3 +1,4 @@
+import { talentFields, talentLocation, talentLocationMatch, talentLocationExpression } from "../utils/talentLocation.js";
 import { withVerificationBadge } from "../services/verificationBadge.js";
 import bcrypt from "bcryptjs";
 import Talent from "../models/Talent.js";
@@ -5,7 +6,7 @@ import Employer from "../models/Employer.js";
 import Resume from "../models/Resume.js";
 
 // Keep filtered aggregation output identical to the existing Talent-only search.
-const talentSearchFields = "_id firstName lastName fullName email avatar jobTitle location age categories isVerified verificationBadgeOverride createdAt experienceTime qualification offeredSalary salaryType";
+const talentSearchFields = "_id firstName lastName fullName email avatar jobTitle city country age categories isVerified verificationBadgeOverride createdAt experienceTime qualification offeredSalary salaryType";
 const talentSearchProjection = Object.fromEntries(talentSearchFields.split(" ").map(field => [field, 1]));
 
 const getUserModel = (role) => {
@@ -162,13 +163,14 @@ export const searchUsers = async (req, res, next) => {
       }
       const exactValue = value => new RegExp(`^\\s*${literalRegex(value).source}\\s*$`, "i");
       if (filters.category) filter.categories = exactValue(filters.category);
-      if (query) filter.$or = ["firstName", "lastName", "fullName", "email", "jobTitle", "location"].map(key => ({ [key]: regex }));
+      if (query) filter.$or = ["firstName", "lastName", "fullName", "email", "jobTitle", "city", "country"].map(key => ({ [key]: regex }));
+      if (query) filter.$or.push(talentLocationMatch(regex));
       // The UI displays firstName + lastName when fullName has not been saved.
       if (query) filter.$or.push({ $expr: { $regexMatch: {
         input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] },
         regex: regex.source, options: "i",
       } } });
-      if (req.query.location) filter.location = literalRegex(req.query.location);
+      if (req.query.location) filter.$and = [talentLocationMatch(literalRegex(req.query.location))];
       const experienceValues = {
         "< 1 year": "Less than 1 Year", "1–3 years": "1-3 Years",
         "3–5 years": "3-5 Years", "5+ years": "5 Years+",
@@ -214,12 +216,12 @@ export const searchUsers = async (req, res, next) => {
         ]).then(([total, talents]) => ({ total, talents }));
       }
       const [{ total, talents }, savedLocations] = await Promise.all([
-        matches, Talent.distinct("location", visibleTalents),
+        matches, Talent.aggregate([{ $match: visibleTalents }, { $group: { _id: talentLocationExpression } }]),
       ]);
-      const locations = [...new Map(savedLocations.filter(value => typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "location not specified")
-        .map(value => [value.trim().toLowerCase(), value.trim()])).values()].sort();
+      const locations = [...new Map(savedLocations.map(row => row._id).filter(Boolean)
+        .map(value => [value.toLowerCase(), value])).values()].sort();
       return res.json({ success: true, page, limit, total, locations, totalPages: Math.ceil(total / limit),
-        results: talents.map(talent => ({ ...withVerificationBadge(talent), userType: "talent" })) });
+        results: talents.map(talent => ({ ...withVerificationBadge(talentFields(talent, talentSearchFields)), location: talentLocation(talent), userType: "talent" })) });
     }
 
     if (!query) {
@@ -241,10 +243,12 @@ export const searchUsers = async (req, res, next) => {
           { fullName: regex },
           { email: regex },
           { jobTitle: regex },
-          { location: regex },
+          { city: regex },
+          { country: regex },
+          talentLocationMatch(regex),
         ],
       })
-        .select("_id firstName lastName fullName email avatar jobTitle location")
+        .select("_id firstName lastName fullName email avatar jobTitle city country")
         .limit(10)
         .lean(),
 
@@ -267,7 +271,8 @@ export const searchUsers = async (req, res, next) => {
         talent.email;
 
       return {
-        ...talent,
+        ...talentFields(talent, "_id firstName lastName fullName email jobTitle"),
+        location: talentLocation(talent),
         id: String(talent._id),
         name,
         fullName: name,

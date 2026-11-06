@@ -14,7 +14,8 @@ import {
   Share2,
 } from "lucide-react";
 import { useState } from "react";
-import { CTA } from "../home/CTA";
+import PublicTalentPresentation from "../profiles/PublicTalentPresentation";
+// eslint-disable-next-line no-unused-vars -- motion is used by JSX elements below.
 import { AnimatePresence, motion } from "framer-motion";
 
 // Skill progress
@@ -23,7 +24,7 @@ const getSkillProgress = (candidateId, index) => {
   return 60 + seed;
 };
 
-export const ProfilePage = ({ candidate, onBack }) => {
+export const ProfilePage = ({ candidate }) => {
   const [activeTab, setActiveTab] = useState("resume");
   const [currentPortfolioIndex, setCurrentPortfolioIndex] = useState(0);
 
@@ -52,20 +53,9 @@ export const ProfilePage = ({ candidate, onBack }) => {
   ];
 
   return (
-    <>
+    <PublicTalentPresentation>
       <div className="min-h-screen bg-[#0F1419] text-white p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Back */}
-          <motion.button
-            onClick={onBack}
-            className="text-blue-400 hover:text-blue-300 mb-6 flex items-center gap-2"
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <ChevronLeft className="w-4 h-4" /> Back to Results
-          </motion.button>
-
           {/* Header Card */}
           <motion.div
             className="bg-[#191D23] rounded-2xl p-5 md:p-8 mb-6"
@@ -530,7 +520,6 @@ export const ProfilePage = ({ candidate, onBack }) => {
           </div>
         </div>
       </div>
-      <CTA />
-    </>
+    </PublicTalentPresentation>
   );
 };

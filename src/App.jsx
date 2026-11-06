@@ -1,3 +1,4 @@
+import PublicTalentCv from "./components/profiles/PublicTalentCv";
 import EmployerMessagingGate from "./components/employerDashboard/EmployerMessagingGate";
 import { Header } from "./components/Header";
 import { HowItWorksSection } from "./components/pages/HowItWorks";
@@ -103,8 +104,8 @@ const AppContent = () => {
   ]);
 
   const isPublicTalentProfile =
-    publicTalentProfileRegex.test(location.pathname) &&
-    !reservedRoutes.has(location.pathname);
+    (publicTalentProfileRegex.test(location.pathname) &&
+    !reservedRoutes.has(location.pathname)) || /^\/[^/]+\/cv\/[^/]+\/?$/.test(location.pathname);
   
   const isAuthPage = location.pathname.startsWith("/external-apply/") ||
     [
@@ -184,6 +185,7 @@ const AppContent = () => {
           <Route path="/jobs/:id" element={<JobDetails />} />
           <Route path="/external-apply/:source/:jobId" element={<ExternalApplicationLaunch key={location.key} />} />
           <Route path="/:username" element={<PublicTalentProfile />} />
+          <Route path="/:username/cv/:cvId" element={<PublicTalentCv />} />
           {/* SignIn/SignUp */}
           <Route path="/talent-signup" element={<TalentSignup />} />
           <Route path="/employer-signup" element={<EmployerSignup />} />

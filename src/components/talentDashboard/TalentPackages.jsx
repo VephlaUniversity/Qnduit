@@ -1,10 +1,10 @@
+import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useTalentSubscription,
-  hasCurrentPublicSubscription,
 } from "../hooks/useTalentSubscription";
 import { TalentPlans } from "../TalentPlans";
 import SubscriptionDates from "../subscriptions/SubscriptionDates";
@@ -13,9 +13,10 @@ import { subscriptionStatusLabel } from "../utils/subscriptionDates";
 const TalentPackages = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const navigate = useNavigate();
-  const { subscription, subscriptionStatus, pendingDowngrade, loading, error, refresh } = useTalentSubscription();
-  const currentPlan = hasCurrentPublicSubscription(subscription);
-  const displayPublic = subscriptionStatus?.paidEligible === true && subscriptionStatus.effectivePlan === "public";
+  const entitlement = useTalentSubscription();
+  const { subscription, subscriptionStatus, pendingDowngrade, loading, error, refresh } = entitlement;
+  const currentPlan = hasTalentPublicAccess(entitlement);
+  const displayPublic = hasTalentPublicAccess(entitlement);
 
   const handlePlanAction = (planType, actionType) => {
     if (actionType === "payLater") {
