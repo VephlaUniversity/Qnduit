@@ -39,6 +39,16 @@ export default function PublicTalentContent({ talent }) {
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
   return <PublicTalentPresentation>
+
+    <div className="mb-6 flex justify-end">
+      <Link
+        to="/talent-signup"
+        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+      >
+        Create your own public profile on QNDUIT. It’s free
+      </Link>
+    </div>
+    
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
       <aside className={`${sectionClass} min-w-0`} aria-label="Talent identity and skills">
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />
@@ -62,5 +72,8 @@ export default function PublicTalentContent({ talent }) {
         <History title="Education" rows={talent.education} owner="academy" />
       </div>
     </div>
+    <p className="mt-8 text-center text-sm text-gray-500">
+      Public talent profile powered by QNDUIT
+    </p>
   </PublicTalentPresentation>;
 }

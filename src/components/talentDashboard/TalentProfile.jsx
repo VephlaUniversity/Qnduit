@@ -278,7 +278,7 @@ export const TalentProfile = () => {
               >
                 <option>Male</option>
                 <option>Female</option>
-                <option>Other</option>
+                <option>Non-binary</option>
               </select>
             </div>
             <div>
