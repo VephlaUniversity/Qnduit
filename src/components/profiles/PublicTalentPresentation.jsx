@@ -7,7 +7,9 @@ export default function PublicTalentPresentation({ children }) {
       <a href="https://qnduit.com" className="mb-8 inline-flex min-h-11 items-center text-sm font-medium text-gray-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4">Powered by qnduit.com</a>
       {children}
       <footer className="mt-10 border-t border-white/10 py-8 text-center">
-        <Link to="/talent-signup" className="inline-flex min-h-11 max-w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-base font-medium text-white hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4">Create your own public profile on Qnduit.</Link>
+        <p className="mt-8 text-center text-sm text-gray-500">
+          Powered by QNDUIT
+        </p>
       </footer>
     </div>
   </main>;
