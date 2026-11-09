@@ -7,6 +7,7 @@ import {
   UsersRound,
   Building2,
   Briefcase,
+  FileText,
   ClipboardCheck,
   LifeBuoy,
   LogOut,
@@ -32,6 +33,7 @@ const menuItems = [
   },
   { icon: Briefcase, label: "Manage Jobs", path: "/admin-dashboard/jobs" },
   { icon: Briefcase, label: "Admin Jobs", path: "/admin-dashboard/admin-jobs" },
+  { icon: FileText, label: "Blog Management", path: "/admin-dashboard/blog" },
   {
     icon: ClipboardCheck,
     label: "Subscription & Plans",
@@ -69,6 +71,8 @@ export const AdminDashboardLayout = ({ children }) => {
           <div className="flex items-center gap-4">
             <button
               onClick={toggleSidebar}
+              aria-label={sidebarOpen ? "Close admin navigation" : "Open admin navigation"}
+              aria-expanded={sidebarOpen}
               className="lg:hidden text-white hover:text-blue-400 transition-colors"
             >
               {sidebarOpen ? (
