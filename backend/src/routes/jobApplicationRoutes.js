@@ -6,6 +6,7 @@ import {
   getMyApplications,
   getJobApplications,
   getEmployerApplications,
+  getApplicationCv,
   updateApplicationStatus,
   archiveApplication
 } from "../controllers/jobApplicationController.js";
@@ -18,6 +19,7 @@ const router = express.Router();
 // Feed source=all is a filter, separate from the legacy job locator middleware.
 router.get("/activity-feed", protect, authorize("talent"), getApplicationActivityFeed);
 router.use(requireJobSource);
+router.get("/:applicationId/cv", requireEmployerJobSource, protect, authorize("employer"), getApplicationCv);
 
 router.patch("/:applicationId/archive", requireEmployerJobSource, protect, authorize("employer"), archiveApplication);
 

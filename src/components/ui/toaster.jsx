@@ -12,7 +12,9 @@ export function Toaster() {
   const { toasts } = useToast();
 
   return (
-    <ToastProvider>
+    // The queue holds one toast. A new notification needs fresh Radix pause
+    // state, including after the previous toast was closed with focus inside.
+    <ToastProvider key={toasts[0]?.id || "empty"} duration={5000}>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
@@ -23,7 +25,7 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            <ToastClose aria-label="Dismiss notification" />
           </Toast>
         );
       })}

@@ -158,7 +158,7 @@ export function installRequestSafety(client, { apiBaseUrl, readSessions, events 
       }
       if (value?.status !== 429) safety.note(value, context.actor, { auth: context.auth });
       if (value?.status === 429 && (value.data?.scope || getHeader(value.headers, "RateLimit-Scope")) === "general-ip") {
-        if ((error.config.method || "get").toUpperCase() === "GET") {
+        if ((error.config.method || "get").toUpperCase() === "GET" && !error.config.qnduitBoundedRead) {
           // Keep the read pending so consumers do not replace cached rows with
           // empty/error results during a known temporary IP cooldown.
           return client.request({ ...error.config, signal: context.signal }).finally(() => release(context));

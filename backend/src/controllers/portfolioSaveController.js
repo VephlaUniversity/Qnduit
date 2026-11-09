@@ -1,3 +1,4 @@
+import { prepareEducation } from "../utils/talentFieldChoices.js";
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -7,10 +8,12 @@ import PortfolioSave from "../models/PortfolioSave.js";
 import cloudinary from "../utils/cloudinary.js";
 import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortfolio.js";
 import { draftHash, editorRevision, prepareTalentDraft } from "../utils/talentPortfolioDraft.js";
+import { selectSingleCv } from "../utils/singleCv.js";
+import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const receiptId = (owner, id) => draftHash([String(owner), id]);
-const allowed = ["saveRequestId", "portfolioRevision", "talentItems", "portfolioItems", "keepCvIds", "aboutMe", "videoUrl", "education", "experience", "skills"];
+const allowed = ["saveRequestId", "portfolioRevision", "talentItems", "portfolioItems", "keepCvIds", "cvSelection", "aboutMe", "videoUrl", "education", "experience", "skills"];
 const receipt = (owner, id) => PortfolioSave.collection.findOne({ _id: receiptId(owner, id), talent: owner }, { readConcern: { level: "majority" } });
 const respond = (res, state, id) => res.status(state === "pending" ? 202 : state === "failed" ? 409 : 200).json({
   success: state === "committed", saveState: state, saveRequestId: id,
@@ -51,23 +54,22 @@ export async function savePortfolioPage(req, res) {
     }
     const talent = await Talent.collection.findOne({ _id: owner });
     const stored = await Resume.collection.findOne({ talent: owner });
+    if (await Resume.collection.countDocuments({ talent: owner }, { limit: 2 }) > 1) throw fail("Multiple saved Resume records need review. No data was changed.", 409);
     if (!talent) throw fail("Talent not found.", 404);
     if (editorRevision(talent, stored) !== body.portfolioRevision) throw fail("Saved data changed in another session. Your draft is retained; compare it with the current saved version before retrying.", 409);
     const talentRows = prepareTalentDraft(body.talentItems, talent.portfolio || [], owner, body.portfolioRevision);
     const images = req.files?.portfolioImages || [], cvFiles = req.files?.cvFiles || [];
     const plan = preparePortfolio(body, normalizePortfolioImages(stored?.portfolioImages, owner), images);
-    let keep;
-    try { keep = JSON.parse(body.keepCvIds); } catch { throw fail("Invalid retained CV files."); }
-    if (!Array.isArray(keep) || keep.some(value => value !== null && typeof value !== "string")) throw fail("Invalid retained CV files.");
-    // Old CV entries without media IDs cannot be safely removed by this keep-list protocol.
-    const keptCv = (stored?.cvFiles || []).filter(file => !file.public_id || keep.includes(String(file.public_id)));
-    if (keptCv.length + cvFiles.length > 5) throw fail("You can keep up to 5 CV files.");
-    if (cvFiles.some(file => file.size > 10 * 1024 * 1024 || !/\.(pdf|docx?)$/i.test(file.originalname))) throw fail("CV files must be PDF, Doc or Docx, up to 10MB each.");
+    const keptCv = selectSingleCv(owner, stored?.cvFiles || [], cvFiles, body);
+    if (cvFiles.some(file => !file.buffer?.length || file.size > 10 * 1024 * 1024 || !/\.(pdf|docx?)$/i.test(file.originalname))) throw fail("Choose a non-empty PDF, DOC or DOCX up to 10 MiB.");
     const patch = {};
     for (const key of ["education", "experience", "skills"]) if (body[key] !== undefined) {
       try { patch[key] = JSON.parse(body[key]); } catch { throw fail(`Invalid ${key}.`); }
       if (!Array.isArray(patch[key])) throw fail(`Invalid ${key}.`);
     }
+    if (patch.education !== undefined) patch.education = prepareEducation(patch.education, stored?.education || []);
+    for (const section of ["experience", "skills"]) if (patch[section]) patch[section] = prepareCvEntries(patch[section], stored?.[section] || []);
+    for (const section of ["education", "experience", "skills"]) if (patch[section]) validateCvImports(owner, section, patch[section], stored?.[section] || []);
     if (body.aboutMe !== undefined) { if (typeof body.aboutMe !== "string") throw fail("Invalid about text."); patch.aboutMe = body.aboutMe; }
     if (body.videoUrl !== undefined) { if (typeof body.videoUrl !== "string") throw fail("Invalid video URL."); patch.introVideo = { url: body.videoUrl, public_id: "" }; }
     // Validate before provider work; persistence below merges raw records, retaining custom fields.
@@ -98,6 +100,7 @@ export async function savePortfolioPage(req, res) {
     const addedImages = new Map();
     for (const file of images) addedImages.set(file.originalname, await upload(file, "image", "qnduit/resumes/portfolio"));
     patch.cvFiles = [...keptCv, ...addedCv];
+    patch.cvArchive = [...(stored?.cvArchive || []), ...(stored?.cvFiles || []).filter(file => !keptCv.includes(file))];
     patch.portfolioImages = plan.items.map(item => ({ ...(item.previous || addedImages.get(item.file.originalname)), ...item.metadata }));
     const resumeId = stored?._id || new mongoose.Types.ObjectId();
     session = await mongoose.startSession();
@@ -105,10 +108,11 @@ export async function savePortfolioPage(req, res) {
       callbackFinished = false;
       const currentTalent = await Talent.collection.findOne({ _id: owner }, { session });
       const currentResume = await Resume.collection.findOne({ talent: owner }, { session });
+      if (await Resume.collection.countDocuments({ talent: owner }, { session, limit: 2 }) > 1) throw fail("Multiple saved Resume records need review. No data was changed.", 409);
       if (!currentTalent) throw fail("Talent not found. Your draft is retained.", 404);
       if (editorRevision(currentTalent, currentResume) !== body.portfolioRevision) throw fail("Saved data changed in another session. Your draft is retained; compare it with the current saved version before retrying.", 409);
       const removedCv = (stored?.cvFiles || []).filter(file => !keptCv.includes(file));
-      const unsetSignup = removedCv.some(file => file.public_id && file.public_id === currentTalent.resume?.public_id);
+      const unsetSignup = removedCv.some(file => file.public_id && file.public_id === currentTalent.resume?.public_id || file.url && file.url === currentTalent.resume?.url);
       // Increment serializes even first saves with no portfolio changes, preventing duplicate Resume inserts.
       const savedTalent = await Talent.collection.updateOne({ _id: owner }, { $set: { portfolio: talentRows }, $inc: { portfolioSaveVersion: 1 },
         ...(unsetSignup ? { $unset: { resume: "" } } : {}) }, { session });

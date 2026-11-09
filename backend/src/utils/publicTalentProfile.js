@@ -1,5 +1,6 @@
+import { talentLocation } from "./talentLocation.js";
 // Pure, explicit public DTO mapping. Never serialize Talent/Resume documents.
-export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime location aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience";
+export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience";
 export const PUBLIC_RESUME_FIELDS = "talent aboutMe portfolioImages education experience skills introVideo";
 const text = (value, limit = 20000) => typeof value === "string" ? value.trim().slice(0, limit) : "";
 const list = value => Array.isArray(value) ? value : [];
@@ -70,7 +71,7 @@ export function publicResumeSkills(resume) {
 export function publicTalentCard(talent, resume) {
   return { id: String(talent._id), username: text(talent.username, 160),
     name: text(talent.fullName, 160) || [text(talent.firstName, 80), text(talent.lastName, 80)].filter(Boolean).join(" ") || "Talent",
-    jobTitle: text(talent.jobTitle, 160), location: text(talent.location, 160), experienceTime: text(talent.experienceTime, 120),
+    jobTitle: text(talent.jobTitle, 160), location: talentLocation(talent), experienceTime: text(talent.experienceTime, 120),
     skills: strings([...publicResumeSkills(resume).map(row => row.title), ...list(talent.tags)]).slice(0, 5), avatar: publicImageUrl(talent.avatar?.url),
   };
 }

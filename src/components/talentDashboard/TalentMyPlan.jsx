@@ -1,3 +1,5 @@
+import TalentPublicProfileAccess from "../subscriptions/TalentPublicProfileAccess";
+import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -8,7 +10,7 @@ import SubscriptionDates from "../subscriptions/SubscriptionDates";
 import { subscriptionStatusLabel } from "../utils/subscriptionDates";
 import { API_BASE_URL } from "../utils/api";
 import { friendlyError } from "../utils/userMessage";
-import { useTalentSubscription, hasCurrentPublicSubscription } from "../hooks/useTalentSubscription";
+import { useTalentSubscription } from "../hooks/useTalentSubscription";
 import { planFromUrl } from "../utils/planChoice";
 import UserSubscriptionCancellation from "../subscriptions/UserSubscriptionCancellation";
 
@@ -18,20 +20,22 @@ export const TalentMyPlan = () => {
   const [selectedPlan, setSelectedPlan] = useState(
     urlPlan === "public" ? "public" : "",
   );
-  const { subscription, subscriptionStatus, pendingDowngrade, publicProfile, loading, error: loadError, refresh } = useTalentSubscription();
+  const entitlement = useTalentSubscription();
+  const { subscription, subscriptionStatus, pendingDowngrade, publicProfile, loading, error: loadError, refresh } = entitlement;
   const [processing, setProcessing] = useState(false);
 
   const handlePlanAction = async (planType) => {
+    if (loading || loadError) return;
     if (planType === "free") {
       toast.info(
-        hasCurrentPublicSubscription(subscription)
+        hasTalentPublicAccess(entitlement)
           ? "Your Public Listing is active. Contact support if you want to cancel it."
           : "You're already on the Free plan.",
       );
       return;
     }
 
-    if (hasCurrentPublicSubscription(subscription)) {
+    if (hasTalentPublicAccess(entitlement)) {
       toast.info("Your Public Listing is already active.");
       return;
     }
@@ -64,8 +68,8 @@ export const TalentMyPlan = () => {
     }
   };
 
-  const live = hasCurrentPublicSubscription(subscription);
-  const displayPublic = subscriptionStatus?.paidEligible === true && subscriptionStatus.effectivePlan === "public";
+  const live = hasTalentPublicAccess(entitlement);
+  const displayPublic = hasTalentPublicAccess(entitlement);
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -93,6 +97,7 @@ export const TalentMyPlan = () => {
         </div>
       ) : (
         <>
+          <TalentPublicProfileAccess state={entitlement} />
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">
             <p className="text-gray-400 text-sm mb-1">Current plan</p>
             <p className="text-white text-xl font-semibold">

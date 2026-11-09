@@ -1,3 +1,4 @@
+import { GENDER_OPTIONS } from "../../../backend/src/utils/talentFieldChoices.js";
 import { z } from "zod";
 
 export const talentProfileSchema = z.object({
@@ -23,7 +24,7 @@ export const talentProfileSchema = z.object({
     .email({ message: "Invalid email address" })
     .max(255, { message: "Email is too long" }),
 
-  gender: z.enum(["Male", "Female", "Other"], {
+  gender: z.enum(["", ...GENDER_OPTIONS], {
     message: "Please select a gender",
   }),
 
@@ -141,14 +142,14 @@ export const educationSchema = z.object({
   academy: z
     .string()
     .trim()
-    .min(2, { message: "Academy name must be at least 2 characters" })
-    .max(100, { message: "Academy name is too long" }),
+    .min(2, { message: "Institution name must be at least 2 characters" })
+    .max(100, { message: "Institution name is too long" }),
 
   title: z
     .string()
     .trim()
-    .min(2, { message: "Title must be at least 2 characters" })
-    .max(100, { message: "Title is too long" }),
+    .min(2, { message: "Degree level must be at least 2 characters" })
+    .max(100, { message: "Degree level is too long" }),
 
   startDate: z.string().regex(/^\d{4}$/, { message: "Invalid year format" }),
 

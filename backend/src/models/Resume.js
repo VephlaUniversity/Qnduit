@@ -12,12 +12,14 @@ const resumeSchema = new mongoose.Schema(
         url: String,
         public_id: String,
         name: String,
+        contentHash: String,
         type: {
           type: String,
           enum: ["PDF", "Doc", "Docx"],
         },
       },
     ],
+    cvArchive: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     portfolioImages: [
       {
         url: String,
@@ -38,6 +40,7 @@ const resumeSchema = new mongoose.Schema(
     aboutMe: String,
     education: [
       {
+        cvImport: mongoose.Schema.Types.Mixed,
         academy: String,
         title: String,
         startDate: String,
@@ -47,6 +50,7 @@ const resumeSchema = new mongoose.Schema(
     ],
     experience: [
       {
+        cvImport: mongoose.Schema.Types.Mixed,
         company: String,
         title: String,
         startDate: String,
@@ -56,6 +60,7 @@ const resumeSchema = new mongoose.Schema(
     ],
     skills: [
       {
+        cvImport: mongoose.Schema.Types.Mixed,
         title: String,
         percent: String,
       },

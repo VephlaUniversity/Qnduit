@@ -1,6 +1,9 @@
+import { talentFields, talentLocation } from "../utils/talentLocation.js";
 import { authIdentity } from "../utils/authSession.js";
 import { verificationBadgeDTO } from "../services/verificationBadge.js";
 import Employer from "../models/Employer.js";
+import { activeSavedCv } from "../services/activeTalentCv.js";
+import { publicCvAsset } from "../services/publicTalentCv.js";
 import { employerGallerySelection } from "../utils/employerGallery.js";
 import Talent from "../models/Talent.js";
 import generateToken from "../utils/generateToken.js";
@@ -394,13 +397,20 @@ export const addSavedCandidate = async (req, res) => {
 };
 
 export const getSavedCandidates = async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const employer = await Employer.findById(req.user._id).populate({
       path: "savedCandidates",
-      select: "firstName lastName fullName location jobTitle avatar resume offeredSalary salaryType"
+      select: "firstName lastName fullName city country jobTitle avatar resume offeredSalary salaryType"
     });
     if (!employer) return res.status(404).json({ message: "Employer not found" });
-    res.json({ savedCandidates: employer.savedCandidates.filter(Boolean) });
+    const savedCandidates = await Promise.all(employer.savedCandidates.filter(Boolean).map(async talent => {
+      const active = await activeSavedCv(talent._id);
+      const url = publicCvAsset(active?.url)?.url;
+      return { ...talentFields(talent, "_id firstName lastName fullName jobTitle avatar offeredSalary salaryType"),
+        location: talentLocation(talent), ...(url ? { resume: { url } } : {}) };
+    }));
+    res.json({ savedCandidates });
   } catch {
     res.status(500).json({ message: "Unable to load saved candidates. Please try again." });
   }

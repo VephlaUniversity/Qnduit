@@ -1,6 +1,7 @@
+import { talentLocation } from "../../../backend/src/utils/talentLocation.js";
 import { useState, useEffect } from "react";
 import useIsMobile from "../utils/useIsMobile";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import * as Slider from "@radix-ui/react-slider";
 import {
   Search,
@@ -16,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { CTA } from "../home/CTA";
+// eslint-disable-next-line no-unused-vars -- motion is used by JSX elements below.
 import { AnimatePresence, motion } from "framer-motion";
 
 //  Import shared data
@@ -29,7 +31,7 @@ const useCandidates = () => {
   useEffect(() => {
     setLoading(true);
     // MOCK
-    Promise.resolve(candidatesData)
+    Promise.resolve(candidatesData.map(candidate => ({ ...candidate, location: talentLocation(candidate) })))
       .then((d) => {
         setData(d);
         setLoading(false);
@@ -44,7 +46,6 @@ const useCandidates = () => {
 };
 
 export const ResultsPage = ({ searchParams, onViewProfile }) => {
-  const navigate = useNavigate();
   const { data: allCandidates, loading, error } = useCandidates();
 
   const [chosenView, setViewMode] = useState("grid");

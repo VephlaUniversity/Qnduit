@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import PublicTalentContent from "./PublicTalentContent";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import { NotFound } from "../pages/NotFound";
+import PublicTalentPresentation from "./PublicTalentPresentation";
 import { API_BASE_URL } from "../utils/api";
 
 const PublicTalentProfile = () => {
   const { username } = useParams();
-  const { state } = useLocation();
   const [talent, setTalent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -55,22 +54,22 @@ const PublicTalentProfile = () => {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0F1419] text-white flex items-center justify-center">
+      <PublicTalentPresentation>
         <p className="text-gray-400">Loading talent profile...</p>
-      </main>
+      </PublicTalentPresentation>
     );
   }
 
-  // The address matched no page and no public profile: show the 404 page.
+  // Keep unavailable public profiles inside the same branded presentation.
   if (notFound) {
     return (
-      <NotFound message="We couldn't find a page or a public talent profile at this address. It may have been moved, or the profile may not be public." />
+      <PublicTalentPresentation><h1 className="text-3xl font-bold">Profile unavailable</h1><p className="mt-4 text-gray-400">We couldn’t find this public Talent profile. It may have been moved or may no longer be public.</p></PublicTalentPresentation>
     );
   }
 
   if (!talent) {
     return (
-      <main className="min-h-screen bg-[#0F1419] text-white flex flex-col items-center justify-center px-6 text-center">
+      <PublicTalentPresentation>
         <h1 className="text-3xl font-bold mb-3">Profile unavailable</h1>
         <p className="text-gray-400 mb-6">
           {loadError && !notFound
@@ -83,13 +82,11 @@ const PublicTalentProfile = () => {
         >
           Return to QNDUIT
         </Link>
-      </main>
+      </PublicTalentPresentation>
     );
   }
 
-  // Keep the return path fixed; only carry directory query parameters.
-  const directorySearch = typeof state?.talentDirectorySearch === "string" ? state.talentDirectorySearch : "";
-  return <PublicTalentContent talent={talent} backTo={{ pathname: "/feature-talents", search: directorySearch ? `?${directorySearch}` : "" }} />;
+  return <PublicTalentContent talent={talent} />;
 };
 
 export default PublicTalentProfile;
