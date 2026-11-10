@@ -64,6 +64,11 @@ export function validateBlogUpdate(body) {
   delete data.status;
   return { data, revision };
 }
+export function validateBlogDelete(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length !== 1 || !Object.hasOwn(body, "revision")
+    || !Number.isSafeInteger(body.revision) || body.revision < 0) throw blogFailure(400, "Deletion requires only a saved blog revision as a non-negative integer.");
+  return body.revision;
+}
 export const validBlogId = value => typeof value === "string" && /^[a-f\d]{24}$/i.test(value);
 function blogDTO(post, detail = false) {
   return { id: String(post._id), title: post.title, excerpt: post.excerpt, category: post.category,

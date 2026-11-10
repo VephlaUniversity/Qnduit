@@ -1,4 +1,5 @@
 import { validateBlogInput, validBlogId, blogImageUrl } from "../../../backend/src/utils/blogValidation.js";
+import { friendlyError } from "./userMessage.js";
 import { validateFile } from "./formValidation.js";
 
 export function validateBlogDraft(draft, cover, { editing = false } = {}) {
@@ -21,6 +22,8 @@ export function blogFormData(data, cover, target) {
   if (cover) body.append("coverImage", cover);
   return body;
 }
+export const blogPageAfterRefresh = (page, pagination) => Math.min(page, pagination.totalPages);
+
 export function blogEditDraft(post) {
   return { ...Object.fromEntries(["title", "excerpt", "category", "author", "status"].map(key => [key, post[key]])), content: post.content.map(block => block.type === "image" ? { type: block.type, src: block.src } : { type: block.type, text: block.text }) };
 }
@@ -47,6 +50,7 @@ export function createAdminBlogClient({ client, baseUrl, readOwner, storage }) {
     if (!owner?.actor?.startsWith("admin:") || !owner.token) throw new Error("Sign in with an Admin account.");
     const creating = method === "POST";
     const updating = method === "PATCH" && !path.endsWith("/publish");
+    const deleting = method === "DELETE";
     const publishing = method === "PATCH" && !updating;
     if (creating && hasUncertain()) throw Object.assign(new Error(uncertainMessage), { uncertain: true });
     if (updating && hasUncertainUpdate(expected.id)) throw Object.assign(new Error(uncertainEditMessage), { uncertainUpdate: true });
@@ -60,12 +64,13 @@ export function createAdminBlogClient({ client, baseUrl, readOwner, storage }) {
     const listVersion = reviewVersion;
     try {
       const response = await client.request({ method, url: `${baseUrl}/api/admin/blog${path}`, data: body, params,
-        headers: { Authorization: `Bearer ${owner.token}` }, signal: controller.signal, timeout: creating || updating ? 60000 : 15000, qnduitBoundedRead: true });
+        headers: { Authorization: `Bearer ${owner.token}`, ...(deleting ? { "Content-Type": "application/json" } : {}) }, signal: controller.signal, timeout: creating || updating ? 60000 : 15000, qnduitBoundedRead: true });
       const data = response.data;
       const pagination = data?.pagination;
       const valid = slot === "list" ? Array.isArray(data?.data) && data.data.every(validPost)
         && Number.isSafeInteger(pagination?.page) && pagination.page === params.page && Number.isSafeInteger(pagination.totalPages) && pagination.totalPages >= 1
         && Number.isSafeInteger(pagination.total) && pagination.total >= 0
+        : deleting ? response.status === 200 && data?.id === expected.id
         : validPost(data?.post) && (!expected || data.post.id === (updating ? expected.id : expected))
           && (!publishing || data.post.status === "published")
           && (!updating || data.post.status === expected.status && data.post.createdBy === expected.createdBy && (data.post.publishedAt ?? null) === (expected.publishedAt ?? null) && data.post.revision === expected.revision + 1
@@ -88,6 +93,7 @@ export function createAdminBlogClient({ client, baseUrl, readOwner, storage }) {
       if (updating && definite) receipt(editPendingKey, false);
       if (!current()) return;
       if (creating && !definite) throw Object.assign(new Error(uncertainMessage), { uncertain: true });
+      if (deleting && !definite) throw Object.assign(new Error("Deletion could not be confirmed. Refresh this post before confirming again."), { uncertainDelete: true });
       if (updating && !definite) throw Object.assign(new Error(uncertainEditMessage), { uncertainUpdate: true });
       throw error;
     } finally { if (slots.get(slot) === controller) slots.delete(slot); }
@@ -107,6 +113,54 @@ export function createAdminBlogClient({ client, baseUrl, readOwner, storage }) {
       return data;
     },
     update(target, body) { if (!validPost(target)) throw new Error("Reload a saved blog post before editing."); return run("write", "PATCH", `/${target.id}`, body, undefined, target); },
+    remove(target) { if (!validPost(target)) throw new Error("Reload a saved blog post before deleting."); return run("write", "DELETE", `/${target.id}`, { revision: target.revision }, undefined, target); },
     publish(id) { if (!validBlogId(id)) throw new Error("Select a saved blog post."); return run("write", "PATCH", `/${id}/publish`, {}, undefined, id); },
   };
+}
+
+// Confirmation owns a fresh detail snapshot; every conflict/uncertain write
+// invalidates it. Refresh only reads and always requires another confirmation.
+export function createBlogDeletion({ client, readOwner, onChange, onDeleted, onMissing }) {
+  let state = { subject: null, status: "idle", message: "" }, generation = 0, owner;
+  const emit = changes => { state = { ...state, ...changes }; onChange(state); };
+  const current = version => generation === version && owner === ownerKey(readOwner());
+  const flow = {
+    snapshot: () => state,
+    cancel() { generation++; state = { subject: null, status: "idle", message: "" }; onChange(state); },
+    close() { if (!["sending", "loading"].includes(state.status)) flow.cancel(); },
+    async open(post, trigger) {
+      if (["sending", "loading"].includes(state.status)) return;
+      owner = ownerKey(readOwner());
+      const version = ++generation;
+      emit({ subject: { id: post.id, trigger }, status: "loading", message: "Loading saved post…" });
+      try {
+        const data = await client.details(post.id);
+        if (!current(version) || !data) return;
+        emit({ subject: { ...data.post, trigger }, status: "ready", message: "" });
+      } catch (error) {
+        if (!current(version)) return;
+        if (error.response?.status === 404) { emit({ status: "missing", message: "This post is no longer available." }); onMissing(); }
+        else emit({ status: "blocked", message: friendlyError(error, "Unable to load this post. Refresh before continuing.") });
+      }
+    },
+    refresh() { return flow.open(state.subject, state.subject?.trigger); },
+    async confirm() {
+      if (state.status !== "ready" || owner !== ownerKey(readOwner())) return;
+      const version = generation, subject = state.subject;
+      emit({ status: "sending", message: "Deleting post…" });
+      try {
+        const data = await client.remove(subject);
+        if (!current(version) || !data) return;
+        flow.cancel(); onDeleted(data.id);
+      } catch (error) {
+        if (!current(version)) return;
+        const status = error.response?.status;
+        if (status === 404) { emit({ status: "missing", message: "This post is no longer available." }); onMissing(); }
+        else if (status === 409) {
+          emit({ status: "blocked", message: "This post changed. Refresh its details and confirm again." });
+        } else emit({ status: "blocked", message: error.uncertainDelete ? error.message : friendlyError(error, "Deletion failed. Refresh this post before confirming again.") });
+      }
+    },
+  };
+  return flow;
 }
