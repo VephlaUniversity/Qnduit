@@ -47,7 +47,6 @@ const cancellation = new mongoose.Schema({
   canceledAt: Date,
 }, { timestamps: true });
 
-
 export const SubscriptionLifecycle = mongoose.model("SubscriptionLifecycle", lifecycle);
 export const SubscriptionCancellation = mongoose.model("SubscriptionCancellation", cancellation);
 

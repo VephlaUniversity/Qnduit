@@ -19,7 +19,6 @@ import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
 import { resolveTalentPublication } from "../services/talentPublication.js";
 
-
 /*const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/resumes/");
@@ -83,7 +82,6 @@ export const registerTalent = async (req, res, next) => {
   }
 };
 
-
 export const verifyTalentEmail = async (req, res, next) => {
   try {
     const { email, verificationCode } = req.body;
@@ -110,7 +108,6 @@ export const verifyTalentEmail = async (req, res, next) => {
   }
 };
 
- 
 export const updateTalentProfile = async (req, res, next) => {
   let newAvatar, avatarSaveAttempted = false;
   try {
@@ -268,7 +265,6 @@ export const updateTalentProfile = async (req, res, next) => {
       };
     }
 
-
     if (
       (updates.fullName || existingTalent.fullName) &&
       (updates.jobTitle || existingTalent.jobTitle) &&
@@ -387,7 +383,6 @@ export const uploadResume = async (req, res, next) => {
   }
 };
 
-
 export const selectTalentPlan = async (req, res) => {
   try {
     const { id } = req.params;
@@ -428,12 +423,12 @@ export const getTalentProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Talent not found" });
 
     const profile = withVerificationBadge({
-    ...ownerTalentProfile(talent),
-    avatar: talent.avatar?.url || "",
-    introVideo: talent.introVideo?.url || "",
-    resume: talent.resume?.url || "",
-    lat: talent.geoLocation?.coordinates?.[1] || "",
-    lng: talent.geoLocation?.coordinates?.[0] || "",
+      ...ownerTalentProfile(talent),
+      avatar: talent.avatar?.url || "",
+      introVideo: talent.introVideo?.url || "",
+      resume: talent.resume?.url || "",
+      lat: talent.geoLocation?.coordinates?.[1] || "",
+      lng: talent.geoLocation?.coordinates?.[0] || "",
 
       socialNetworks: talent.socialNetworks || {
         facebook: "",
@@ -454,7 +449,6 @@ export const getTalentProfile = async (req, res, next) => {
     next(error);
   }
 };
-
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -558,8 +552,6 @@ export const listPublicTalents = async (req, res, next) => {
   }
 };
 
-
-
 export const getPublicTalentProfile = async (req, res, next) => {
   res.set("Cache-Control", "private, no-store");
 
@@ -594,9 +586,6 @@ export const getPublicTalentProfile = async (req, res, next) => {
   }
 };
 
-
-
- 
 export const getTalentDashboard = async (req, res, next) => {
   try {
     res.set("Cache-Control", "private, no-store");

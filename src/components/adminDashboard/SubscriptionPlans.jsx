@@ -81,7 +81,6 @@ const getAvatarUrl = (avatar) => {
   return avatar.url || null;
 };
 
-
 const SubscriptionTable = ({
   title,
   rows,

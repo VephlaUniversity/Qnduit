@@ -14,7 +14,7 @@ export default function EmployerPlanRequests({ currentPlan, onApplied }) {
   const stale = result.data && result.data.currentPlan !== currentPlan;
   const disabled = result.status !== "ready" || stale;
   const toPlan = uncertain ? result.toPlan : selection, latest = result.data?.latestAction;
-  const isUpgrade = ["free","bronze","silver","platinum"].indexOf(toPlan) > ["free","bronze","silver","platinum"].indexOf(currentPlan);
+  const isUpgrade = ["free", "bronze", "silver", "platinum"].indexOf(toPlan) > ["free", "bronze", "silver", "platinum"].indexOf(currentPlan);
   const pendingUpgrade = result.data?.upgradeRequest?.status === "awaiting_payment" ? result.data.upgradeRequest : null;
   const higherPlans = pendingUpgrade ? [] : result.data?.upgradePlans || [];
   const choosePlan = plan => { if (!disabled && (result.data?.allowedPlans?.includes(plan) || higherPlans.includes(plan))) { trigger.current = document.activeElement; setSelection(plan); } };

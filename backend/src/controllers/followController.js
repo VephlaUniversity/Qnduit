@@ -5,7 +5,6 @@ import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 import EmployerTalentFollow from "../models/EmployerTalentFollow.js";
 
-
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

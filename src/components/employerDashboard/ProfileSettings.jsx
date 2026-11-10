@@ -133,52 +133,52 @@ const ProfileSettings = () => {
     gallery: [],
   });
 
-    const normalizeArray = (value) => {
-      if (!Array.isArray(value)) return [];
+  const normalizeArray = (value) => {
+    if (!Array.isArray(value)) return [];
 
-      const result = [];
+    const result = [];
 
-      const processItem = (item) => {
-        if (Array.isArray(item)) {
-          item.forEach(processItem);
+    const processItem = (item) => {
+      if (Array.isArray(item)) {
+        item.forEach(processItem);
+        return;
+      }
+
+      if (typeof item !== "string") return;
+
+      const trimmed = item.trim();
+
+      if (!trimmed) return;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+
+        if (Array.isArray(parsed)) {
+          parsed.forEach(processItem);
           return;
         }
+      } catch { /* Plain text categories are also supported. */ }
 
-        if (typeof item !== "string") return;
+      if (trimmed.includes(",")) {
+        trimmed
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .forEach(processItem);
 
-        const trimmed = item.trim();
+        return;
+      }
 
-        if (!trimmed) return;
-
-        try {
-          const parsed = JSON.parse(trimmed);
-
-          if (Array.isArray(parsed)) {
-            parsed.forEach(processItem);
-            return;
-          }
-        } catch { /* Plain text categories are also supported. */ }
-
-        if (trimmed.includes(",")) {
-          trimmed
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-            .forEach(processItem);
-
-          return;
-        }
-
-        result.push(trimmed);
-      };
-
-      value.forEach(processItem);
-
-      return [...new Set(result)];
+      result.push(trimmed);
     };
 
-    // Load saved profile data
-    useEffect(() => {
+    value.forEach(processItem);
+
+    return [...new Set(result)];
+  };
+
+  // Load saved profile data
+  useEffect(() => {
     const fetchProfile = async () => {
       setProfileLoading(true);
       setLoadError("");
@@ -248,7 +248,6 @@ const ProfileSettings = () => {
 
     fetchProfile();
   }, [reloadKey]);
-
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -363,7 +362,6 @@ const ProfileSettings = () => {
 
   const handleRemoveGalleryItem = (index) => {
     setGalleryItems((prev) => prev.filter((_, i) => i !== index));
-
 
     toast({
       title: "Success!",

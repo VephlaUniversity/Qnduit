@@ -42,7 +42,7 @@ router.put(
 
 // dashboard
 router.get(
-  "/profile", 
+  "/profile",
   protect,
   authorize("employer"),
   getEmployerProfile

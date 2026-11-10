@@ -25,7 +25,6 @@ import {
   toggleJobFlag,
   deleteAdminJob,
 
-
   getAdminSubscriptionStats,
   getAdminSubscriptions,
   getAdminSubscription,
@@ -57,7 +56,6 @@ router.get("/subscriptions/:role/:accountId/cancel", previewCancellation);
 router.post("/subscriptions/:role/:accountId/cancel", cancelActiveSubscription);
 router.get("/subscriptions/:role/:accountId/invoice-email", previewInvoice);
 router.post("/subscriptions/:role/:accountId/invoice-email", emailInvoice);
-
 
 router.get(
   "/dashboard",
@@ -125,7 +123,6 @@ router.delete(
   "/jobs/:id",
   deleteAdminJob
 );
-
 
 router.get(
   "/subscriptions/stats",

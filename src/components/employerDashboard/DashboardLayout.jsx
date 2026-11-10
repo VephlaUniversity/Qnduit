@@ -166,10 +166,10 @@ export const DashboardLayout = ({
         setSearchResults(
           userType === "employer"
             ? results
-                .filter((item) => item.userType === "talent")
-                .map((talent) => ({
-                  ...talent,
-                  name:
+              .filter((item) => item.userType === "talent")
+              .map((talent) => ({
+                ...talent,
+                name:
                     talent.fullName ||
                     talent.name ||
                     [talent.firstName, talent.lastName]
@@ -177,8 +177,8 @@ export const DashboardLayout = ({
                       .join(" ") ||
                     talent.email ||
                     "Talent",
-                  role: talent.jobTitle || talent.title || "Talent",
-                }))
+                role: talent.jobTitle || talent.title || "Talent",
+              }))
             : results,
         );
         setSearchStatus("success");

@@ -330,7 +330,7 @@ const TalentResumeEditor = ({ extractionOwner }) => {
       else if (room <= 0) noRoom += 1;
       else {
         accepted.push({ _id: nextId(), file, preview: URL.createObjectURL(file), description: "", projectUrl: "", skills: [] });
-      if (!newCvFiles.some(row => row.name === file.name && row.size === file.size && row.lastModified === file.lastModified)) room -= 1;
+        if (!newCvFiles.some(row => row.name === file.name && row.size === file.size && row.lastModified === file.lastModified)) room -= 1;
       }
     }
 

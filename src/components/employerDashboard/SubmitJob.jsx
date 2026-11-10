@@ -129,8 +129,8 @@ const SubmitJob = () => {
         const status = error.response?.status;
         setJobError(status === 401 ? "Your session expired. Please sign in again."
           : status === 403 ? "You are not authorized to edit this job."
-          : status === 404 ? "Job not found."
-          : "Unable to load this job. Please try again.");
+            : status === 404 ? "Job not found."
+              : "Unable to load this job. Please try again.");
       } finally {
         if (active) setLoadingJob(false);
       }
@@ -153,7 +153,6 @@ const SubmitJob = () => {
     setFeaturedImage(file);
   };
 
-
   const handlePhotosUpload = (e) => {
     const files = Array.from(e.target.files);
     e.target.value = ""; // Allow another selection, including the same file.
@@ -173,8 +172,6 @@ const SubmitJob = () => {
     }));
     setPhotos(prev => [...prev, ...additions]);
   };
-
-
 
   const removePhoto = (index) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
@@ -234,7 +231,7 @@ const SubmitJob = () => {
 
     for (const [key, value] of Object.entries(application.configuration)) form.set(key, value);
 
-    if(featuredImage instanceof File){
+    if (featuredImage instanceof File) {
       form.append("featuredImage", featuredImage);
     }
 
@@ -264,8 +261,8 @@ const SubmitJob = () => {
       });
 
       toast({
-        title:"Success",
-        description:isEditing
+        title: "Success",
+        description: isEditing
           ? "Job updated successfully"
           : "Job created successfully"
       });
@@ -283,10 +280,10 @@ const SubmitJob = () => {
         description: err.response?.data?.code === "JOB_POST_LIMIT_REACHED"
           ? "You’ve reached the Free plan limit of 10 jobs. Upgrade to a paid plan to post more jobs."
           : err.response?.status === 401 ? "Your session expired. Please sign in again."
-          : err.response?.status === 403 ? "You are not authorized to save this job."
-          : err.response?.status === 404 ? "Job not found. Return to My Jobs and try again."
-          : err.response?.status === 400 ? "Please check the job details and try again."
-          : "Unable to save this job. Please try again.",
+            : err.response?.status === 403 ? "You are not authorized to save this job."
+              : err.response?.status === 404 ? "Job not found. Return to My Jobs and try again."
+                : err.response?.status === 400 ? "Please check the job details and try again."
+                  : "Unable to save this job. Please try again.",
         variant: "destructive",
       });
 

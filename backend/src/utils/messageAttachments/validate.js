@@ -26,7 +26,7 @@ export async function validateAttachment(file) {
   const bytes = await readFile(file.path);
   const mime = types[path.extname(file.originalname).toLowerCase()];
   let valid = false;
-  if (mime === 'image/png' && bytes.length >= 45 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+  if (mime === 'image/png' && bytes.length >= 45 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
     let offset = 8, header = false, data = false, end = false;
     const compressed = [];
     while (offset + 12 <= bytes.length) {
@@ -48,7 +48,7 @@ export async function validateAttachment(file) {
     while (offset + 4 <= bytes.length && bytes[offset] === 255) {
       const marker = bytes[offset + 1], size = bytes.readUInt16BE(offset + 2);
       if (size < 2 || offset + 2 + size > bytes.length) break;
-      if ([192,193,194].includes(marker) && size >= 8) frame = bytes.readUInt16BE(offset + 5) > 0 && bytes.readUInt16BE(offset + 7) > 0;
+      if ([192, 193, 194].includes(marker) && size >= 8) frame = bytes.readUInt16BE(offset + 5) > 0 && bytes.readUInt16BE(offset + 7) > 0;
       if (marker === 218) { valid = frame && size >= 6 && offset + size + 4 < bytes.length; break; }
       offset += size + 2;
     }
@@ -57,7 +57,7 @@ export async function validateAttachment(file) {
     while (offset + 8 <= bytes.length) {
       const size = bytes.readUInt32LE(offset + 4), type = bytes.toString('ascii', offset, offset + 4);
       if (size > bytes.length - offset - 8) break;
-      if (type === 'VP8 ' && size >= 10) image ||= bytes.subarray(offset + 11, offset + 14).equals(Buffer.from([157,1,42]));
+      if (type === 'VP8 ' && size >= 10) image ||= bytes.subarray(offset + 11, offset + 14).equals(Buffer.from([157, 1, 42]));
       if (type === 'VP8L' && size >= 5) image ||= bytes[offset + 8] === 47;
       offset += 8 + size + size % 2;
     }

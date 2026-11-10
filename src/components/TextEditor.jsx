@@ -84,7 +84,7 @@ export const TextEditor = ({ value, onChange, placeholder }) => {
   const handleLinkInsert = () => {
     const selection = window.getSelection();
     const selectedText = selection?.toString();
-    
+
     if (!selectedText) {
       alert("Please select some text first to create a link");
       return;

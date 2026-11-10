@@ -317,9 +317,9 @@ export const getEmployerApplications = async (req, res) => {
               { $sort: { createdAt: -1, _id: -1 } },
               ...(paginated
                 ? [
-                    { $skip: (currentPage - 1) * pageSize },
-                    { $limit: pageSize },
-                  ]
+                  { $skip: (currentPage - 1) * pageSize },
+                  { $limit: pageSize },
+                ]
                 : []),
               { $project: { _id: 1 } },
             ],
@@ -335,13 +335,13 @@ export const getEmployerApplications = async (req, res) => {
         summaryOnly === "true"
           ? []
           : JobApplication.find(rowFilter)
-              .populate({
-                path: "applicantId",
-                select:
+            .populate({
+              path: "applicantId",
+              select:
                   "fullName firstName lastName email phone city country jobTitle experienceTime avatar resume",
-              })
-              .populate("jobId", "jobTitle")
-              .sort({ createdAt: -1, _id: -1 }),
+            })
+            .populate("jobId", "jobTitle")
+            .sort({ createdAt: -1, _id: -1 }),
         JobApplication.countDocuments(owner),
         // Current reviewed status across all owner records, including archived applications.
         JobApplication.countDocuments({ ...owner, status: "reviewed" }),
@@ -359,8 +359,8 @@ export const getEmployerApplications = async (req, res) => {
     ];
     const resumeDocs = applicantIds.length
       ? await Resume.find({ talent: { $in: applicantIds } })
-          .select("talent cvFiles")
-          .lean()
+        .select("talent cvFiles")
+        .lean()
       : [];
     const cvByTalent = new Map(applicantIds.map(id => [id, resumeDocs.filter(doc => String(doc.talent) === id)]));
 
@@ -415,13 +415,13 @@ export const getEmployerApplications = async (req, res) => {
       seenApplications: reviewedApplications, // Deprecated compatibility alias; no obsolete Seen status query.
       ...(paginated && summaryOnly !== "true"
         ? {
-            pagination: {
-              page: currentPage,
-              limit: pageSize,
-              total: matchingTotal,
-              pages: Math.max(1, Math.ceil(matchingTotal / pageSize)),
-            },
-          }
+          pagination: {
+            page: currentPage,
+            limit: pageSize,
+            total: matchingTotal,
+            pages: Math.max(1, Math.ceil(matchingTotal / pageSize)),
+          },
+        }
         : {}),
     });
   } catch {

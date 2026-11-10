@@ -351,7 +351,6 @@ export const AdminOverview = () => {
     }
   }, [beginBadgeRead]);
 
-
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);

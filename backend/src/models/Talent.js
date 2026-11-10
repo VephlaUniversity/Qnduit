@@ -2,139 +2,139 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 const talentSchema = new mongoose.Schema(
-{
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true,
-  },
-
-  firstName: String,
-  lastName: String,
-
-  password: {
-    type: String,
-    required: true,
-    minlength: 8,
-  },
-
-  // Admin badge only. isVerified remains the legacy email/login/access flag.
-  verificationBadgeOverride: { type: Boolean, default: null },
-  verificationBadgeDecidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", select: false },
-  verificationBadgeDecidedAt: { type: Date, select: false },
-  verificationCode: String,
-  isVerified: {
-    type: Boolean,
-    default: false,
-  },
-
-  accountStatus: {
-    type: String,
-    enum: ["active", "suspended"],
-    default: "active",
-    index: true,
-  },
-
-  resetPasswordToken: {
-    type: String,
-    default: undefined,
-    select: false,
-  },
-  resetPasswordExpires: {
-    type: Date,
-    default: undefined,
-    select: false,
-  },
-
-  // ================= PROFILE =================
-  fullName: String,
-  dateOfBirth: String,
-  phone: String,
-  gender: String,
-  age: String,
-  jobTitle: String,
-  qualification: String,
-  experienceTime: String,
-  language: String,
-  location: String, // Legacy private value: never infer structured public fields.
-  city: { type: String, trim: true, maxlength: 100 },
-  country: { type: String, trim: true, maxlength: 100 },
-  address: String,
-  aboutMe: String,
-  showProfile: {
-    type: String,
-    enum: ["show", "hidden"],
-    default: "show"
-  },
-
-  offeredSalary: String,
-  salaryType: String,
-
-  categories: [String],
-  tags: [String],
-
-  socialNetworks: {
-    facebook: String,
-    twitter: String,
-    instagram: String,
-    linkedin: String,
-    pinterest: String,
-    youtube: String,
-  },
-
-  avatar: {
-    url: String,
-    public_id: String,
-  },
-
-  introVideo: {
-    url: String,
-    public_id: String,
-  },
-
-  resume: {
-    url: String,
-    public_id: String,
-  },
-
-  geoLocation: {
-    type: {
+  {
+    email: {
       type: String,
-      enum: ["Point"],
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
-    coordinates: {
-      type: [Number],
+
+    firstName: String,
+    lastName: String,
+
+    password: {
+      type: String,
+      required: true,
+      minlength: 8,
     },
-  },
 
-  profileCompleted: {
-    type: Boolean,
-    default: false,
-  },
+    // Admin badge only. isVerified remains the legacy email/login/access flag.
+    verificationBadgeOverride: { type: Boolean, default: null },
+    verificationBadgeDecidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", select: false },
+    verificationBadgeDecidedAt: { type: Date, select: false },
+    verificationCode: String,
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
 
-  profileUpdatedAt: Date,
+    accountStatus: {
+      type: String,
+      enum: ["active", "suspended"],
+      default: "active",
+      index: true,
+    },
 
-  selectedPlan: {
-    type: String,
-    enum: ["free", "public", ""],
-    default: "",
-  },
+    resetPasswordToken: {
+      type: String,
+      default: undefined,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: undefined,
+      select: false,
+    },
 
-  paymentStatus: {
-    type: String,
-    enum: [
-      "none",
-      "pending",
-      "active",
-      "past_due",
-      "cancelled",
-      "expired",
-      "failed",
-    ],
-    default: "none",
-  },
+    // ================= PROFILE =================
+    fullName: String,
+    dateOfBirth: String,
+    phone: String,
+    gender: String,
+    age: String,
+    jobTitle: String,
+    qualification: String,
+    experienceTime: String,
+    language: String,
+    location: String, // Legacy private value: never infer structured public fields.
+    city: { type: String, trim: true, maxlength: 100 },
+    country: { type: String, trim: true, maxlength: 100 },
+    address: String,
+    aboutMe: String,
+    showProfile: {
+      type: String,
+      enum: ["show", "hidden"],
+      default: "show"
+    },
+
+    offeredSalary: String,
+    salaryType: String,
+
+    categories: [String],
+    tags: [String],
+
+    socialNetworks: {
+      facebook: String,
+      twitter: String,
+      instagram: String,
+      linkedin: String,
+      pinterest: String,
+      youtube: String,
+    },
+
+    avatar: {
+      url: String,
+      public_id: String,
+    },
+
+    introVideo: {
+      url: String,
+      public_id: String,
+    },
+
+    resume: {
+      url: String,
+      public_id: String,
+    },
+
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+      },
+      coordinates: {
+        type: [Number],
+      },
+    },
+
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    profileUpdatedAt: Date,
+
+    selectedPlan: {
+      type: String,
+      enum: ["free", "public", ""],
+      default: "",
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: [
+        "none",
+        "pending",
+        "active",
+        "past_due",
+        "cancelled",
+        "expired",
+        "failed",
+      ],
+      default: "none",
+    },
 
     // Public talent profile
     username: {
@@ -182,7 +182,7 @@ const talentSchema = new mongoose.Schema(
       },
     ],
   },
-{ timestamps: true }
+  { timestamps: true }
 );
 
 talentSchema.pre("save", async function (next) {

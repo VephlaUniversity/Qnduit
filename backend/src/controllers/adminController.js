@@ -631,7 +631,6 @@ export const deleteAdminJob = async (req, res) => {
   }
 };
 
-
 //JOB CHART
 const getJobChartData = async () => {
   const now = new Date();
@@ -840,7 +839,6 @@ const getJobChartData = async () => {
   };
 };
 
-
 // ADMIN SUBSCRIPTION STATS
 
 export const getAdminSubscriptionStats = async (req, res) => {
@@ -912,7 +910,6 @@ export const getAdminSubscriptionStats = async (req, res) => {
     });
   }
 };
-
 
 // ADMIN SUBSCRIPTIONS
 export const getAdminSubscriptions = async (req, res) => {
@@ -1317,15 +1314,15 @@ export const getAdminSubscription = async (
     const payments =
       type === "talent"
         ? await TalentPayment.find({
-            talent: subscription.talent?._id,
-          })
-            .sort({ createdAt: -1 })
-            .lean()
+          talent: subscription.talent?._id,
+        })
+          .sort({ createdAt: -1 })
+          .lean()
         : await EmployerPayment.find({
-            employer: subscription.employer?._id,
-          })
-            .sort({ createdAt: -1 })
-            .lean();
+          employer: subscription.employer?._id,
+        })
+          .sort({ createdAt: -1 })
+          .lean();
 
     res.json({
       success: true,

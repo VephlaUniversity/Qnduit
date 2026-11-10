@@ -179,8 +179,6 @@ export const createCheckoutSession = async (
       }
     );
 
-
-
     return res.json({
       success: true,
       checkoutUrl:
@@ -300,7 +298,6 @@ export const getMySubscription = async (req, res, next) => {
   }
 };
 
-
 // CREATE EMPLOYER CHECKOUT SESSION
 
 export const createEmployerCheckoutSession = async (
@@ -321,7 +318,7 @@ export const createEmployerCheckoutSession = async (
         success: false,
         message: "Invalid employer payment plan",
       });
-    } 
+    }
 
     if (!selectedPlan.paymentPlanId) {
       return res.status(500).json({
@@ -411,8 +408,6 @@ export const createEmployerCheckoutSession = async (
       },
     });
 
-
-
     return res.json({
       success: true,
       checkoutUrl: response.data?.data?.link,
@@ -492,7 +487,6 @@ export const employerFlutterwaveCallback = async (
     respondLifecycleError(error, res, next);
   }
 };
-
 
 // ACTIVATE EMPLOYER SUBSCRIPTION
 

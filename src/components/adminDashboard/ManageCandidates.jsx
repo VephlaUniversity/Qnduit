@@ -23,10 +23,10 @@ const SORT_OPTIONS = [
 const formatDate = (date) =>
   date
     ? new Date(date).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
     : "-";
 
 export const ManageCandidates = () => {
