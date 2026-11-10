@@ -34,7 +34,7 @@ export function mapEducationEvidence(segments) {
     if (!row || value.length > (field === "description" ? 2000 : 160)) return;
     // Repeated/conflicting source fields cannot silently overwrite a suggestion.
     if (row.evidence.some(item => item.field === field)) {
-      row[field] = ""; row.warnings.push(field === "title" ? "Check the degree before applying." : /Date$/.test(field) ? "Check the dates before applying." : `Check ${field} before applying.`);
+      row[field] = ""; row.warnings.push(field === "academy" ? "Check institution before applying." : field === "title" ? "Check the degree before applying." : /Date$/.test(field) ? "Check the dates before applying." : `Check ${field} before applying.`);
       return;
     }
     row[field] = value;
