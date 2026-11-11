@@ -1,5 +1,5 @@
 export function validCheckoutUrl(value) {
-  try { const url=new URL(value); return url.protocol==="https:" || url.protocol==="http:" && ["127.0.0.1","localhost"].includes(url.hostname); } catch { return false; }
+  try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname); } catch { return false; }
 }
 const plans = ["free", "bronze", "silver", "platinum"];
 export const employerRequestAction = (from, to) => plans.indexOf(to) > plans.indexOf(from) ? "upgrade" : "downgrade";
@@ -51,7 +51,7 @@ export function createEmployerPlanRequestSession({ client, baseUrl, readOwner, m
         navigate(data.checkoutUrl);
       } catch (error) {
         if (!current()) return;
-        const status = error.response?.status; uncertain = ![400,401,403,404,409,429].includes(status);
+        const status = error.response?.status; uncertain = ![400, 401, 403, 404, 409, 429].includes(status);
         update({ status: uncertain ? "unconfirmed" : "error", operation: "upgrade", data: context, toPlan,
           message: error.response?.data?.message || "Checkout unconfirmed. Refresh before retrying the same upgrade." });
       } finally { sending = false; }

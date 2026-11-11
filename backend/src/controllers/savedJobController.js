@@ -15,7 +15,6 @@ export const getSavedJobs = async (req, res) => {
       if (saved.jobId && saved.source !== "admin") await saved.jobId.populate({ path: "employer", select: "companyName logo" });
     }
 
-   
     const jobs = savedJobs
       .filter(sj => sj.jobId && sj.jobId.isDeleted === false)
       .map(sj => {
@@ -78,7 +77,6 @@ export const removeSavedJob = async (req, res) => {
   try {
     const userId = req.user._id;
     const { jobId } = req.body;
-    
 
     await SavedJob.findOneAndDelete({ userId, jobId, source: req.jobSource === "admin" ? "admin" : { $ne: "admin" } });
 

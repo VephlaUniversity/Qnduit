@@ -127,7 +127,7 @@ export const SavedCandidates = () => {
       });
     }
   };
-  
+
   // Filter by search query
   const filteredCandidates = candidates.filter((candidate) => {
     const matchesSearch =

@@ -63,12 +63,12 @@ const employerSchema = new mongoose.Schema(
     verificationBadgeOverride: { type: Boolean, default: null },
     verificationBadgeDecidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", select: false },
     verificationBadgeDecidedAt: { type: Date, select: false },
-    verificationCode: { 
-      type: String 
+    verificationCode: {
+      type: String
     },
-    isVerified: { 
-      type: Boolean, 
-      default: false 
+    isVerified: {
+      type: Boolean,
+      default: false
     },
     accountStatus: {
       type: String,
@@ -176,7 +176,7 @@ const employerSchema = new mongoose.Schema(
 
     isTrial: {
       type: Boolean,
-      default: true, 
+      default: true,
     },
 
     trialEndsAt: Date,

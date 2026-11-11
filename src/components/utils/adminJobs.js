@@ -40,8 +40,8 @@ export function createAdminJobClient({ client, baseUrl, readOwner }) {
         && data.summaryScope.jobId === (params?.jobId?.toLowerCase() || null)
         : slot === "list" ? data?.source === "admin" && Array.isArray(data.data) && data.data.every(validJob)
         && Number.isSafeInteger(data.pagination?.page) && Number.isSafeInteger(data.pagination?.totalPages)
-        : method === "DELETE" ? data?.source === "admin" && data.jobId === expected
-          : validJob(data?.job) && (!expected || data.job.jobId === expected);
+          : method === "DELETE" ? data?.source === "admin" && data.jobId === expected
+            : validJob(data?.job) && (!expected || data.job.jobId === expected);
       if (data?.success !== true || !valid) throw new Error("Job operation was not confirmed. Refresh Admin Jobs.");
       return data;
     } catch (error) {

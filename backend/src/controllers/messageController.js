@@ -60,13 +60,13 @@ export const sendMessage = async (req, res) => {
     try {
       if (attachments.length) req.attachmentUpload.attempted = true;
       message = await Message.create({
-      ...(attachments.length ? { _id: req.attachmentUpload.messageId, attachments } : {}),
-      sender: senderId,
-      senderModel: senderData.role,
-      recipient: recipientId,
-      recipientModel,
-      text,
-      ...(clientMessageId !== undefined ? { clientMessageId } : {}),
+        ...(attachments.length ? { _id: req.attachmentUpload.messageId, attachments } : {}),
+        sender: senderId,
+        senderModel: senderData.role,
+        recipient: recipientId,
+        recipientModel,
+        text,
+        ...(clientMessageId !== undefined ? { clientMessageId } : {}),
       });
     } catch (error) {
       if (clientMessageId !== undefined && error.code === 11000) {
@@ -310,7 +310,7 @@ export const getChats = async (req, res) => {
       return latest ? { lastMessage: latest.text?.trim() ? latest.text
         : latest.attachmentCount === 1 ? `Attachment: ${latest.attachmentName}`
           : latest.attachmentCount > 1 ? `${latest.attachmentCount} attachments` : latest.text,
-        lastMessageAt: latest.createdAt } : {};
+      lastMessageAt: latest.createdAt } : {};
     };
     const formattedTalents = talents.map((t) => {
       const name = t.fullName?.trim() || [t.firstName, t.lastName]

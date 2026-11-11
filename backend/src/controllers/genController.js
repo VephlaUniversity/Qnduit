@@ -13,7 +13,6 @@ const getUserModel = (role) => {
   return role === "talent" ? Talent : Employer;
 };
 
-
 export const changePassword = async (req, res, next) => {
   try {
     const userId = req.user._id;
@@ -90,7 +89,6 @@ export const changePassword = async (req, res, next) => {
   }
 };
 
-
 export const deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user._id;
@@ -137,7 +135,6 @@ export const deleteAccount = async (req, res, next) => {
     next(error);
   }
 };
-
 
 export const searchUsers = async (req, res, next) => {
   try {
