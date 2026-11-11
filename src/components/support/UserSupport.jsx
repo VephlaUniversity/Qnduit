@@ -22,10 +22,10 @@ const MIN_MESSAGE_LENGTH = 10;
 const formatTicketDate = (date) =>
   date
     ? new Date(date).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
     : "-";
 
 export const UserSupport = () => {

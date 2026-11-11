@@ -27,8 +27,6 @@ export const upload = multer({
   },
 });
 
-
-
 export const registerEmployer = async (req, res, next) => {
   try {
     const { email, firstName, lastName, password, accountType } = req.body;
@@ -65,7 +63,6 @@ export const registerEmployer = async (req, res, next) => {
     next(error);
   }
 };
-
 
 export const verifyEmployerEmail = async (req, res, next) => {
   try {
@@ -113,7 +110,6 @@ export const selectEmployerPlan = async (req, res, next) => {
     next(error);
   }
 };
-
 
 export const updateEmployerProfile = async (req, res) => {
   try {
@@ -311,8 +307,6 @@ export const updateEmployerProfile = async (req, res) => {
       }
     ).select("-password -verificationCode");
 
-
-
     if (!employer)
       return res.status(404).json({ message: "Employer not found" });
 
@@ -329,7 +323,6 @@ export const updateEmployerProfile = async (req, res) => {
     });
   }
 };
-
 
 export const getEmployerProfile = async (req, res) => {
   try {

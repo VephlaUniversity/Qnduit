@@ -247,7 +247,6 @@ export async function previewSubscriptionCancellation({ role, accountId, adminId
   previewToken: jwt.sign({ role, accountId, fingerprint: selection }, process.env.JWT_SECRET, { algorithm: "HS256", audience, subject: String(adminId), expiresIn: "10m" }) };
 }
 
-
 export async function previewOwnSubscriptionCancellation({
   role,
   accountId,
@@ -403,9 +402,9 @@ export async function cancelOwnSubscription({
         message: "Subscription cancelled immediately.",
         ...(superseded
           ? {
-              notice:
+            notice:
                 "The selected subscription was already cancelled. A newer subscription state was left unchanged.",
-            }
+          }
           : {}),
       };
     }
@@ -469,7 +468,6 @@ export async function cancelOwnSubscription({
     };
   });
 }
-
 
 async function deactivate({
   role,
@@ -541,7 +539,6 @@ async function deactivate({
   );
 }
 
-
 // Shared access deactivation; does not contact providers or alter payment evidence.
 export const deactivateSubscriptionAccess = deactivate;
 
@@ -594,7 +591,6 @@ export async function applyProviderSubscriptionCancellation({ txRef, transaction
   });
 }
 
-
 const lowerPlans = {
   talent: { public: ["free"] },
   employer: { platinum: ["silver", "bronze", "free"], silver: ["bronze", "free"], bronze: ["free"] },
@@ -621,9 +617,9 @@ export async function previewSubscriptionDowngrade({ role, accountId, adminId })
   const pending = await Downgrade.findById(downgradeId(role, accountId, selection)).lean();
   return { subscription: { accountId, role, id: String(subscription._id), plan: subscription.plan,
     name: account.fullName || account.companyName || account.displayName || `${account.firstName || ""} ${account.lastName || ""}`.trim(), email: account.email || "" },
-    lowerPlans: lowerPlans[role][subscription.plan] || [], pending: downgradeDto(pending),
-    previewToken: jwt.sign({ role, accountId, fingerprint: selection }, process.env.JWT_SECRET,
-      { algorithm: "HS256", audience: downgradeAudience, subject: String(adminId), expiresIn: "10m" }) };
+  lowerPlans: lowerPlans[role][subscription.plan] || [], pending: downgradeDto(pending),
+  previewToken: jwt.sign({ role, accountId, fingerprint: selection }, process.env.JWT_SECRET,
+    { algorithm: "HS256", audience: downgradeAudience, subject: String(adminId), expiresIn: "10m" }) };
 }
 
 export async function recordSubscriptionDowngrade({ role, accountId, adminId, previewToken, toPlan }) {

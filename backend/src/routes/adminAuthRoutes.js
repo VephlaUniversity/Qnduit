@@ -1,7 +1,6 @@
 import express from "express";
-import { adminLogin} from "../controllers/adminAuthController.js";
+import { adminLogin } from "../controllers/adminAuthController.js";
 import { updateTalentVerification, updateEmployerVerification } from "../controllers/adminController.js";
-
 
 import { protect, authorize } from "../middleware/authMiddleware.js";
 

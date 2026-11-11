@@ -68,7 +68,7 @@ export async function cloudAttachmentStorage({
     if (!/^[a-f\d]{24}$/.test(intent.messageId) || !Number.isFinite(intent.createdAt)) throw attachmentError("Attachment tracking is unavailable.", 503);
     const trackingAvailable = intent.version === 1 && ["open", "uncertain", "discardable"].includes(intent.state) &&
       Array.isArray(intent.assets) && intent.assets.length <= 5 && intent.assets.every(asset =>
-        typeof asset.publicId === "string" && asset.publicId.startsWith(`message-attachments/${directory}/`) &&
+      typeof asset.publicId === "string" && asset.publicId.startsWith(`message-attachments/${directory}/`) &&
         /^message-attachments\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(?:jpg|jpeg|png|webp|pdf)$/.test(asset.publicId) &&
         ["pending", "uploaded"].includes(asset.state));
     return { ...intent, trackingAvailable };

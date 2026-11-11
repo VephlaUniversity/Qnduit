@@ -21,11 +21,11 @@ const formatAppliedDate = (value) => {
   const date = new Date(value);
   return Number.isFinite(date.getTime())
     ? new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(date)
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date)
     : "Date unavailable";
 };
 

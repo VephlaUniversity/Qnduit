@@ -37,30 +37,30 @@ const displayProfile = (type, record, self) => {
   };
   return type === "talent"
     ? {
-        ...common,
-        firstName: text(record.firstName),
-        lastName: text(record.lastName),
-        fullName: text(record.fullName),
-        jobTitle: text(record.jobTitle),
-        aboutMe: text(record.aboutMe),
-        avatar: image(record.avatar),
-        qualification: text(record.qualification),
-        experienceTime: text(record.experienceTime),
-        language: text(record.language),
-        tags: strings(record.tags),
-        introVideo: text(record.introVideo?.url),
-      }
+      ...common,
+      firstName: text(record.firstName),
+      lastName: text(record.lastName),
+      fullName: text(record.fullName),
+      jobTitle: text(record.jobTitle),
+      aboutMe: text(record.aboutMe),
+      avatar: image(record.avatar),
+      qualification: text(record.qualification),
+      experienceTime: text(record.experienceTime),
+      language: text(record.language),
+      tags: strings(record.tags),
+      introVideo: text(record.introVideo?.url),
+    }
     : {
-        ...common,
-        companyName: text(record.companyName),
-        displayName: text(record.displayName),
-        accountType: text(record.accountType),
-        companyIndustry: text(record.companyIndustry),
-        aboutCompany: text(record.aboutCompany),
-        aboutYou: text(record.aboutYou),
-        logo: image(record.logo),
-        introVideo: text(record.introVideo),
-      };
+      ...common,
+      companyName: text(record.companyName),
+      displayName: text(record.displayName),
+      accountType: text(record.accountType),
+      companyIndustry: text(record.companyIndustry),
+      aboutCompany: text(record.aboutCompany),
+      aboutYou: text(record.aboutYou),
+      logo: image(record.logo),
+      introVideo: text(record.introVideo),
+    };
 };
 
 // Skills a talent entered on their Resume page, cleaned for display to other people.
@@ -160,9 +160,9 @@ export const getUserProfile = async (req, res, next) => {
         await (req.user.role === "talent"
           ? Follow.exists({ talent: req.user._id, employer: userId })
           : EmployerTalentFollow.exists({
-              employer: req.user._id,
-              talent: userId,
-            })),
+            employer: req.user._id,
+            talent: userId,
+          })),
       );
     }
     res.set("Cache-Control", "private, no-store");
@@ -230,8 +230,8 @@ const viewerSummary = (type, record) => {
         [record.firstName, record.lastName].filter(Boolean).join(" ") ||
         "Talent"
       : (record.accountType === "individual"
-          ? record.displayName
-          : record.companyName) ||
+        ? record.displayName
+        : record.companyName) ||
         record.companyName ||
         record.displayName ||
         "Employer";

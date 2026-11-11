@@ -17,9 +17,9 @@ const respond = async (req, res, submit) => {
       const { activationFingerprint, ...context } = await employerPlanRequestContext(accountId);
       return res.json({ success: true, ...context, subscription: { accountId, role: "employer", plan: context.currentPlan,
         status: context.currentStatus, name: account.companyName || account.displayName || `${account.firstName || ""} ${account.lastName || ""}`.trim(), email: account.email },
-        allowedPlans: context.allowedPlans,
-        previewToken: jwt.sign({ accountId, role: "employer", activationFingerprint, fromPlan: context.currentPlan, executionPolicy: context.executionPolicy }, process.env.JWT_SECRET,
-          { algorithm: "HS256", audience, subject: adminId, expiresIn: "10m" }) });
+      allowedPlans: context.allowedPlans,
+      previewToken: jwt.sign({ accountId, role: "employer", activationFingerprint, fromPlan: context.currentPlan, executionPolicy: context.executionPolicy }, process.env.JWT_SECRET,
+        { algorithm: "HS256", audience, subject: adminId, expiresIn: "10m" }) });
     }
     if (!req.body || Array.isArray(req.body) || Object.keys(req.body).some(key => !["requestId", "toPlan", "previewToken"].includes(key))) {
       return res.status(400).json({ success: false, code: "SUBSCRIPTION_REQUEST_INVALID", message: "Only request ID, requested plan and confirmation token are accepted." });

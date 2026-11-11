@@ -126,11 +126,9 @@ const InfoField = (props) => {
 const TicketModal = ({ ticket, onClose, onSetStatus, onReply, onRefresh, refreshing }) => {
   const [replying, setReplying] = useState(false);
 
-
   useEffect(() => {
     setReplying(false);
   }, [ticket?.id]);
-
 
   return (
     <Modal open={!!ticket} onClose={onClose}>

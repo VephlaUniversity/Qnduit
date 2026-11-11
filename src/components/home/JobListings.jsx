@@ -13,9 +13,9 @@ const MAX_JOBS = 6;
 const stripHtml = (value) =>
   typeof value === "string"
     ? value
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
     : "";
 
 export const JobListings = () => {

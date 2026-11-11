@@ -599,9 +599,9 @@ export const contactJobPoster = async (req, res, next) => {
     const oneLine = (value, max) =>
       typeof value === "string"
         ? value
-            .replace(/[\u0000-\u001f\u007f]+/g, " ")
-            .trim()
-            .slice(0, max)
+          .replace(/[\u0000-\u001f\u007f]+/g, " ")
+          .trim()
+          .slice(0, max)
         : "";
     const sender = req.user || {};
     const email = oneLine(sender.email, 254);
@@ -612,9 +612,9 @@ export const contactJobPoster = async (req, res, next) => {
     const message =
       typeof body.message === "string"
         ? body.message
-            .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
-            .trim()
-            .slice(0, 5000)
+          .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+          .trim()
+          .slice(0, 5000)
         : "";
 
     let error = "";

@@ -97,16 +97,16 @@ export const EmployerSignup = () => {
           accountType: formData.accountType,
           ...(formData.accountType === "institutional"
             ? {
-                companyName: formData.companyName,
-                aboutCompany: formData.aboutCompany,
-                companyWebsite: formData.companyWebsite,
-                companyIndustry: formData.companyIndustry,
-                location: formData.location,
-              }
+              companyName: formData.companyName,
+              aboutCompany: formData.aboutCompany,
+              companyWebsite: formData.companyWebsite,
+              companyIndustry: formData.companyIndustry,
+              location: formData.location,
+            }
             : {
-                displayName: formData.displayName,
-                aboutYou: formData.aboutYou,
-              }),
+              displayName: formData.displayName,
+              aboutYou: formData.aboutYou,
+            }),
         },
         {
           headers: {

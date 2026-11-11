@@ -107,7 +107,7 @@ const AppContent = () => {
   const isPublicTalentProfile =
     (publicTalentProfileRegex.test(location.pathname) &&
     !reservedRoutes.has(location.pathname)) || /^\/[^/]+\/cv\/[^/]+\/?$/.test(location.pathname);
-  
+
   const isAuthPage = location.pathname.startsWith("/external-apply/") ||
     [
       "/talent-signup",

@@ -13,7 +13,6 @@ import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
 
 const storage = multer.memoryStorage();
 
-
 // Keeps the sign-up upload and the Resume page in sync.
 export const addCvToResume = async (
   talentId,
@@ -245,7 +244,6 @@ export const saveResume = async (req, res, next) => {
     // Only after the save succeeded: delete files the user removed.
     // CV replacement/removal is unlink-only. Retain every previous storage asset.
     // Stored portfolio removals are unlink-only, including legacy clients.
-
 
     res.json({
       success: true,

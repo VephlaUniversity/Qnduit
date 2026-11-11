@@ -76,7 +76,6 @@ const getAvatarUrl = (avatar) => {
   return avatar.url || null;
 };
 
-
 export const SubscribedCandidates = () => {
   const invoice = useAdminInvoice();
   const [revision, setRevision] = useState(0);

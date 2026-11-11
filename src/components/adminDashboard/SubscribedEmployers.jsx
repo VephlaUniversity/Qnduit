@@ -81,7 +81,6 @@ const getLogoUrl = (logo) => {
   return logo.url || null;
 };
 
-
 export const SubscribedEmployers = () => {
   const invoice = useAdminInvoice();
   const [revision, setRevision] = useState(0);

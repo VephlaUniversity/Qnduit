@@ -153,10 +153,10 @@ function ProfileContent({ userType, userId, showEmployerJobs }) {
   const aboutHtml = talent
     ? ""
     : sanitizeEmployerAbout(
-        profile.accountType === "individual"
-          ? profile.aboutYou || profile.aboutCompany
-          : profile.aboutCompany,
-      );
+      profile.accountType === "individual"
+        ? profile.aboutYou || profile.aboutCompany
+        : profile.aboutCompany,
+    );
   const introVideoId = getYouTubeVideoId(profile.introVideo);
   const image = talent ? profile.avatar : profile.logo;
   const title = talent ? profile.jobTitle : profile.companyIndustry;

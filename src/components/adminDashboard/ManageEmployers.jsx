@@ -33,10 +33,10 @@ const SORT_OPTIONS = [
 const formatDate = (date) =>
   date
     ? new Date(date).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
     : "-";
 
 const RowMenu = ({ onVerify, onUnverify, onDelete, onDowngrade, pending }) => {
@@ -76,7 +76,7 @@ const RowMenu = ({ onVerify, onUnverify, onDelete, onDowngrade, pending }) => {
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
-);
+  );
 };
 
 export const ManageEmployers = () => {
@@ -148,7 +148,6 @@ export const ManageEmployers = () => {
       read.finish();
     }
   }, [beginBadgeRead, page, sort, search]);
-
 
   useEffect(() => {
     fetchEmployers();
