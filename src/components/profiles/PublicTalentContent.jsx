@@ -1,3 +1,4 @@
+import { useId, useState } from "react";
 import PublicTalentPresentation from "./PublicTalentPresentation";
 import { Link } from "react-router-dom";
 import { MapPin, Briefcase, ExternalLink } from "lucide-react";
@@ -35,10 +36,21 @@ export default function PublicTalentContent({ talent }) {
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
   const labels = [...new Set([...skills.filter(row => !Number.isFinite(row.percent)).map(row => row.title), ...tags])].filter(label => !rated.has(label.toLowerCase()));
   const projects = [...(talent.portfolio || []), ...(talent.gallery || [])];
+  const projectGridId = useId();
+  const projectListKey = JSON.stringify([talent.id, talent.username, projects]);
+  const [projectPage, setProjectPage] = useState({ key: projectListKey, page: 1 });
+  // Adjust during rendering so profile/list changes never paint an empty or
+  // stale page. This also resets A -> B -> A navigation, without scrolling.
+  if (projectPage.key !== projectListKey)
+    setProjectPage({ key: projectListKey, page: 1 });
+  const pageCount = Math.max(1, Math.ceil(projects.length / 6));
+  const page = projectPage.key === projectListKey ? Math.min(projectPage.page, pageCount) : 1;
+  const offset = (page - 1) * 6;
+  const visibleProjects = projects.slice(offset, offset + 6);
   const video = getYouTubeVideoId(talent.introVideo);
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
-  return <PublicTalentPresentation>
+  return <PublicTalentPresentation requiresQnduitBranding={talent.requiresQnduitBranding}>
 
     <div className="mb-6 flex justify-end">
       <Link
@@ -62,10 +74,27 @@ export default function PublicTalentContent({ talent }) {
         {(portfolioUrl || socials.length > 0) && <nav aria-label="Talent links" className="mt-8 flex flex-wrap gap-2">{portfolioUrl && <a className={buttonClass} href={portfolioUrl} target="_blank" rel="noopener noreferrer">Portfolio<ExternalLink className="h-3.5 w-3.5" /></a>}{socials.map(([label, url]) => <a key={label} className={`${buttonClass} capitalize`} href={publicExternalUrl(url)} target="_blank" rel="noopener noreferrer">{label}<ExternalLink className="h-3.5 w-3.5" /></a>)}</nav>}
       </aside>
       <div className="min-w-0 space-y-6">
-        {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div className="grid grid-cols-1 gap-5 sm:grid-cols-2">{projects.map((item, index) => <article key={index} className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]">
+        {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className="grid grid-cols-1 gap-5 sm:grid-cols-2">{visibleProjects.map((item, index) => <article key={`${talent.id || talent.username || "talent"}:${offset + index}`} className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]">
+          {item.title && <h3 className="break-words p-4 font-semibold [overflow-wrap:anywhere]">{item.title}</h3>}
           {item.imageUrl && <PublicTalentImage src={item.imageUrl} alt={item.title || "Portfolio image"} className="aspect-video w-full" />}
-          {(item.title || item.description || publicExternalUrl(item.projectUrl) || item.skills?.length > 0) && <div className="space-y-3 p-4">{item.title && <h3 className="break-words font-semibold">{item.title}</h3>}{item.description && <JobDescriptionText value={item.description} className={textClass} />}{publicExternalUrl(item.projectUrl) && <a href={publicExternalUrl(item.projectUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300">View project<ExternalLink className="h-4 w-4" /></a>}{item.skills?.length > 0 && <ul aria-label="Related project skills" className="flex min-w-0 flex-wrap gap-2">{item.skills.map(skill => <li key={skill} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300 [overflow-wrap:anywhere]">{skill}</li>)}</ul>}</div>}
-        </article>)}</div></section>}
+          {(item.description || publicExternalUrl(item.projectUrl) || item.skills?.length > 0) && <div className="space-y-3 p-4">{item.description && <JobDescriptionText value={item.description} className={textClass} />}{publicExternalUrl(item.projectUrl) && <a href={publicExternalUrl(item.projectUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300">View project<ExternalLink className="h-4 w-4" /></a>}{item.skills?.length > 0 && <ul aria-label="Related project skills" className="flex min-w-0 flex-wrap gap-2">{item.skills.map(skill => <li key={skill} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300 [overflow-wrap:anywhere]">{skill}</li>)}</ul>}</div>}
+        </article>)}</div>
+          {pageCount > 1 && <nav aria-label="Portfolio project pages" className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              aria-controls={projectGridId}
+              disabled={page === 1}
+              onClick={() => setProjectPage({ key: projectListKey, page: Math.max(1, page - 1) })}
+              className={`${buttonClass} focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50`}>Previous</button>
+            <p role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-gray-300">Page {page} of {pageCount}</p>
+            <button
+              type="button"
+              aria-controls={projectGridId}
+              disabled={page === pageCount}
+              onClick={() => setProjectPage({ key: projectListKey, page: Math.min(pageCount, page + 1) })}
+              className={`${buttonClass} focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50`}>Next</button>
+          </nav>}
+        </section>}
         {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><div className="aspect-video overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${video}`} title="Introduction video" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div></section>}
         {talent.cvs?.length > 0 && <section className={sectionClass} aria-label="CVs"><h2 className={headingClass}>CVs</h2><ul className="space-y-3">{talent.cvs.map(cv => <li key={cv.id}><Link to={cv.viewPath} className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>View CV: {cv.name} ({cv.format})</Link></li>)}</ul></section>}
         <History title="Experience" rows={talent.experience} owner="company" />

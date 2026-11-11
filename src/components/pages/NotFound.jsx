@@ -15,6 +15,7 @@ const quickLinks = [
 export const NotFound = ({
   title = "Page not found",
   message = "The page you're looking for doesn't exist, has moved, or the address was typed incorrectly.",
+  embedded = false,
 }) => {
   useEffect(() => {
     const previous = document.title;
@@ -24,10 +25,14 @@ export const NotFound = ({
     };
   }, [title]);
 
+  // Embedded profiles reuse the complete original content while their existing
+  // presentation owns viewport centering and the footer.
+  const Container = embedded ? "section" : "main";
+
   return (
-    <main className="min-h-[70vh] flex items-center justify-center px-6 py-16 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.10)] to-[#0E0E10]">
+    <Container className={`${embedded ? "w-full" : "min-h-[70vh] flex items-center justify-center"} px-6 py-16 bg-gradient-to-b from-[rgba(6,67,167,0.20)] via-[rgba(59,130,246,0.10)] to-[#0E0E10]`}>
       <motion.div
-        className="w-full max-w-xl text-center"
+        className={`w-full max-w-xl text-center${embedded ? " mx-auto" : ""}`}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
@@ -65,6 +70,6 @@ export const NotFound = ({
           ))}
         </div>
       </motion.div>
-    </main>
+    </Container>
   );
 };

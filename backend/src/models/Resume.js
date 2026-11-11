@@ -24,6 +24,7 @@ const resumeSchema = new mongoose.Schema(
       {
         url: String,
         public_id: String,
+        title: { type: String, maxlength: 160 },
         description: { type: String, maxlength: 2000 },
         projectUrl: { type: String, maxlength: 2048 },
         skills: {

@@ -47,7 +47,8 @@ export function preparePortfolio(body, stored, files) {
       .map(item => ({ id: String(item._id) }));
     manifest.push(...files.map(file => ({ upload: file.originalname })));
   }
-  if (manifest.length > 10) throw invalid("You can keep up to 10 portfolio images.");
+  // The combined Talent + Resume allowance is enforced by the save policy.
+  // A fixed image cap here would prevent retaining pre-existing over-limit rows.
   const uploads = new Map();
   for (const file of files) {
     if (uploads.has(file.originalname)) throw invalid("Duplicate portfolio upload reference.");
@@ -60,7 +61,7 @@ export function preparePortfolio(body, stored, files) {
   const usedIds = new Set(), usedUploads = new Set();
   const items = manifest.map(row => {
     if (!row || typeof row !== "object" || Array.isArray(row)
-      || Object.keys(row).some(key => !["id", "upload", "description", "projectUrl", "skills"].includes(key))
+      || Object.keys(row).some(key => !["id", "upload", "title", "description", "projectUrl", "skills"].includes(key))
       || (Object.hasOwn(row, "id") === Object.hasOwn(row, "upload"))) {
       throw invalid("Invalid portfolio item reference.");
     }
@@ -80,7 +81,13 @@ export function preparePortfolio(body, stored, files) {
     // Omission preserves stored metadata; explicit empty values clear it.
     const metadata = Object.fromEntries(["description", "projectUrl", "skills"].map(key =>
       [key, Object.hasOwn(row, key) ? row[key] : previous?.[key]]));
-    try { return { previous, file: uploads.get(row.upload), metadata: portfolioMetadata(metadata) }; }
+    try {
+      // Omitted titles preserve legacy values; only supplied titles are validated.
+      if (Object.hasOwn(row, "title")) metadata.title = row.title;
+      const validated = portfolioMetadata(metadata);
+      if (!previous && !validated.title) throw new Error("Enter a project title.");
+      return { previous, file: uploads.get(row.upload), metadata: validated };
+    }
     catch (error) { throw invalid(error.message); }
   });
   if (usedUploads.size !== files.length) throw invalid("Every portfolio upload must reference one project.");

@@ -10,6 +10,7 @@ import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortf
 import { draftHash, editorRevision, prepareTalentDraft } from "../utils/talentPortfolioDraft.js";
 import { selectSingleCv } from "../utils/singleCv.js";
 import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
+import { enforcePortfolioLimit } from "../services/portfolioPolicy.js";
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const receiptId = (owner, id) => draftHash([String(owner), id]);
@@ -60,6 +61,10 @@ export async function savePortfolioPage(req, res) {
     const talentRows = prepareTalentDraft(body.talentItems, talent.portfolio || [], owner, body.portfolioRevision);
     const images = req.files?.portfolioImages || [], cvFiles = req.files?.cvFiles || [];
     const plan = preparePortfolio(body, normalizePortfolioImages(stored?.portfolioImages, owner), images);
+    await enforcePortfolioLimit({
+      owner, talent, resume: stored,
+      talentProjects: talentRows, resumeProjects: plan.items,
+    });
     const keptCv = selectSingleCv(owner, stored?.cvFiles || [], cvFiles, body);
     if (cvFiles.some(file => !file.buffer?.length || file.size > 10 * 1024 * 1024 || !/\.(pdf|docx?)$/i.test(file.originalname))) throw fail("Choose a non-empty PDF, DOC or DOCX up to 10 MiB.");
     const patch = {};
@@ -111,6 +116,10 @@ export async function savePortfolioPage(req, res) {
       if (await Resume.collection.countDocuments({ talent: owner }, { session, limit: 2 }) > 1) throw fail("Multiple saved Resume records need review. No data was changed.", 409);
       if (!currentTalent) throw fail("Talent not found. Your draft is retained.", 404);
       if (editorRevision(currentTalent, currentResume) !== body.portfolioRevision) throw fail("Saved data changed in another session. Your draft is retained; compare it with the current saved version before retrying.", 409);
+      await enforcePortfolioLimit({
+        owner, talent: currentTalent, resume: currentResume,
+        talentProjects: talentRows, resumeProjects: patch.portfolioImages, session,
+      });
       const removedCv = (stored?.cvFiles || []).filter(file => !keptCv.includes(file));
       const unsetSignup = removedCv.some(file => file.public_id && file.public_id === currentTalent.resume?.public_id || file.url && file.url === currentTalent.resume?.url);
       // Increment serializes even first saves with no portfolio changes, preventing duplicate Resume inserts.
@@ -143,6 +152,7 @@ export async function savePortfolioPage(req, res) {
       await cleanup();
     }
     return res.status(error.statusCode || 500).json({ success: false, saveState: "failed", saveRequestId: id,
+      ...(error.code === "PORTFOLIO_PROJECT_LIMIT" ? { code: error.code, limit: error.limit, currentCount: error.currentCount, projectCount: error.projectCount } : {}),
       message: error.statusCode ? error.message : "The save failed. Your draft is retained. Please try again." });
   } finally { if (session) await session.endSession(); }
 }

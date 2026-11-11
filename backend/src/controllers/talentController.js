@@ -1,13 +1,14 @@
 import { avatarProcessor, avatarError, allocateTalentAvatar, uploadTalentAvatar, cleanupTalentAvatar, persistTalentAvatar } from "../services/talentAvatar.js";
 export { talentUpload } from "../middleware/talentAvatarUpload.js";
 import { GENDER_OPTIONS, savedChoiceError } from "../utils/talentFieldChoices.js";
-import { findPublishedTalent } from "../services/publicTalentAccess.js";
+import { findPublishedPortfolio } from "../services/publicTalentAccess.js";
 import { savedPublicCvs, publicCvSummary } from "../services/publicTalentCv.js";
 import { talentLocationPatch } from "../utils/talentLocation.js";
 import { OWNER_TALENT_FIELDS, ownerTalentProfile } from "../utils/ownerTalentProfile.js";
 import { withVerificationBadge } from "../services/verificationBadge.js";
 import { authIdentity } from "../utils/authSession.js";
 import Talent from "../models/Talent.js";
+import { generateTalentUsername } from "../utils/generateTalentUsername.js";
 import { addCvToResume } from "./resumeController.js";
 import Resume from "../models/Resume.js";
 import { createHash } from "node:crypto";
@@ -18,7 +19,6 @@ import path from "path";
 import cloudinary from "../utils/cloudinary.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
 import { resolveTalentPublication } from "../services/talentPublication.js";
-
 
 /*const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -56,22 +56,38 @@ export const registerTalent = async (req, res, next) => {
     // Generate a 4-digit verification code
     const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-    const talent = await Talent.create({
-      email,
-      firstName,
-      lastName,
-      password,
-      verificationCode,
-    });
+    let talent;
+    const name = [firstName, lastName].filter(value => typeof value === "string").join(" ");
+    const maxAttempts = 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const username = await generateTalentUsername(name);
+      try {
+        // One insert includes the username; validation/password hashing stay in the model.
+        talent = await Talent.create({
+          email, firstName, lastName, password, verificationCode, username,
+        });
+        break;
+      } catch (error) {
+        // Retry only an identified username-index race, never an email/unknown index error.
+        const keys = Object.keys(error.keyPattern || error.keyValue || {});
+        if (
+          error.code !== 11000 || keys.length !== 1 || keys[0] !== "username" ||
+          attempt === maxAttempts - 1
+        ) throw error;
+      }
+    }
 
     // ********Send this via email service (SendGrid, Nodemailer, etc.)********
     // console.log(`📩 Verification code for ${email}: ${verificationCode}`);
 
-    await sendVerificationEmail(
-      email,
-      firstName,
-      verificationCode
-    );
+    try {
+      await sendVerificationEmail(email, firstName, verificationCode);
+    } catch (error) {
+      // Roll back only this newly created, still-unverified account on delivery failure.
+      // Never remove an existing account or one already verified concurrently.
+      await Talent.deleteOne({ _id: talent._id, isVerified: false, verificationCode });
+      throw error;
+    }
 
     res.status(201).json({
       success: true,
@@ -83,7 +99,148 @@ export const registerTalent = async (req, res, next) => {
   }
 };
 
+// Explicit owner action only; public profile reads never allocate usernames.
+export const recoverTalentPortfolioUsername = async (req, res) => {
+  const failure = (statusCode, code, message) =>
+    Object.assign(new Error(message), { statusCode, code });
+  try {
+    if (!req.user?._id)
+      throw failure(
+        401,
+        "AUTH_REQUIRED",
+        "Please sign in to set up your portfolio.",
+      );
+    if (req.user.role !== "talent")
+      throw failure(
+        403,
+        "TALENT_REQUIRED",
+        "A Talent account is required.",
+      );
+    if (
+      req.body &&
+      (typeof req.body !== "object" || Array.isArray(req.body) || Object.keys(req.body).length)
+    ) {
+      throw failure(
+        400,
+        "PORTFOLIO_USERNAME_REQUEST_INVALID",
+        "This action does not accept an account ID or requested username.",
+      );
+    }
+    const owner = req.user._id;
+    const loadOwner = async () => {
+      const talent = await Talent.findById(owner)
+        .select("username fullName firstName lastName isVerified accountStatus")
+        .lean();
+      if (!talent)
+        throw failure(
+          404,
+          "ACCOUNT_MISSING",
+          "Your Talent account could not be found.",
+        );
+      if (talent.accountStatus !== "active" || talent.isVerified !== true) {
+        throw failure(
+          403,
+          "PORTFOLIO_USERNAME_ACCOUNT_INELIGIBLE",
+          "An active, email-verified Talent account is required.",
+        );
+      }
+      if (
+        talent.username != null && talent.username !== "" &&
+        (typeof talent.username !== "string" || !talent.username.trim())
+      ) {
+        throw failure(
+          409,
+          "PORTFOLIO_USERNAME_REVIEW_REQUIRED",
+          "Your existing portfolio username needs support review. It has not been changed.",
+        );
+      }
+      return talent;
+    };
+    const respond = async talent => {
+      const publication = await resolveTalentPublication(owner);
+      return res.json({
+        success: true,
+        username: talent.username,
+        publicPortfolio: publication.publicPortfolio,
+      });
+    };
+    let talent = await loadOwner();
+    if (talent.username) return await respond(talent);
 
+    let indexes;
+    try {
+      indexes = await Talent.collection.listIndexes().toArray();
+    } catch {
+      throw failure(
+        503,
+        "PORTFOLIO_USERNAME_INDEX_UNAVAILABLE",
+        "Portfolio setup is temporarily unavailable. Please try again later or contact support.",
+      );
+    }
+    // A declared schema index is not proof of database enforcement. Conservatively
+    // require a full unique username index with ordinary string comparison.
+    if (!indexes.some(index =>
+      index.unique === true && index.key?.username === 1 &&
+      Object.keys(index.key).length === 1 && !index.partialFilterExpression &&
+      !index.buildUUID && index.ready !== false &&
+      (!index.collation || index.collation.locale === "simple")
+    )) {
+      throw failure(
+        503,
+        "PORTFOLIO_USERNAME_INDEX_REQUIRED",
+        "Portfolio username uniqueness could not be confirmed. Please contact support.",
+      );
+    }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const name = typeof talent.fullName === "string" && talent.fullName.trim()
+        ? talent.fullName
+        : [talent.firstName, talent.lastName]
+          .filter(value => typeof value === "string")
+          .join(" ");
+      const username = await generateTalentUsername(name, { excludeId: owner });
+      try {
+        await Talent.updateOne(
+          {
+            _id: owner,
+            isVerified: true,
+            accountStatus: "active",
+            // Match scalar missing values exactly; malformed arrays/objects must
+            // not match through MongoDB's array-element equality semantics.
+            $expr: {
+              $or: [
+                { $in: [{ $type: "$username" }, ["missing", "null"]] },
+                { $and: [
+                  { $eq: [{ $type: "$username" }, "string"] },
+                  { $eq: ["$username", ""] },
+                ] },
+              ],
+            },
+          },
+          { $set: { username } },
+          { runValidators: true, writeConcern: { w: "majority" } },
+        );
+      } catch (error) {
+        const keys = Object.keys(error.keyPattern || error.keyValue || {});
+        if (error.code !== 11000 || keys.length !== 1 || keys[0] !== "username") throw error;
+        // A winner for this owner takes precedence over generating another name.
+      }
+      talent = await loadOwner();
+      if (talent.username) return await respond(talent);
+    }
+    throw failure(
+      409,
+      "PORTFOLIO_USERNAME_BUSY",
+      "Portfolio setup is busy. Please try again.",
+    );
+  } catch (error) {
+    // An uncertain write/response failure must never unset an assigned username.
+    return res.status(error.statusCode || 503).json({
+      success: false,
+      code: error.code && error.statusCode ? error.code : "PORTFOLIO_USERNAME_SETUP_UNAVAILABLE",
+      message: error.statusCode ? error.message : "Portfolio setup could not be confirmed. Please try again; an existing username will be preserved.",
+    });
+  }
+};
 export const verifyTalentEmail = async (req, res, next) => {
   try {
     const { email, verificationCode } = req.body;
@@ -110,7 +267,6 @@ export const verifyTalentEmail = async (req, res, next) => {
   }
 };
 
- 
 export const updateTalentProfile = async (req, res, next) => {
   let newAvatar, avatarSaveAttempted = false;
   try {
@@ -268,7 +424,6 @@ export const updateTalentProfile = async (req, res, next) => {
       };
     }
 
-
     if (
       (updates.fullName || existingTalent.fullName) &&
       (updates.jobTitle || existingTalent.jobTitle) &&
@@ -387,7 +542,6 @@ export const uploadResume = async (req, res, next) => {
   }
 };
 
-
 export const selectTalentPlan = async (req, res) => {
   try {
     const { id } = req.params;
@@ -428,12 +582,12 @@ export const getTalentProfile = async (req, res, next) => {
       return res.status(404).json({ message: "Talent not found" });
 
     const profile = withVerificationBadge({
-    ...ownerTalentProfile(talent),
-    avatar: talent.avatar?.url || "",
-    introVideo: talent.introVideo?.url || "",
-    resume: talent.resume?.url || "",
-    lat: talent.geoLocation?.coordinates?.[1] || "",
-    lng: talent.geoLocation?.coordinates?.[0] || "",
+      ...ownerTalentProfile(talent),
+      avatar: talent.avatar?.url || "",
+      introVideo: talent.introVideo?.url || "",
+      resume: talent.resume?.url || "",
+      lat: talent.geoLocation?.coordinates?.[1] || "",
+      lng: talent.geoLocation?.coordinates?.[0] || "",
 
       socialNetworks: talent.socialNetworks || {
         facebook: "",
@@ -455,11 +609,10 @@ export const getTalentProfile = async (req, res, next) => {
   }
 };
 
-
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Public directory of talents. Same eligibility rule as getPublicTalentProfile:
-// verified, active, profile shown, public listing enabled and a live paid subscription.
+// verified, active, profile shown and a username; subscription is not required.
 export const listPublicTalents = async (req, res, next) => {
   res.set("Cache-Control", "private, no-store");
   try {
@@ -485,9 +638,6 @@ export const listPublicTalents = async (req, res, next) => {
       isVerified: true,
       accountStatus: "active",
       showProfile: "show",
-      selectedPlan: "public",
-      paymentStatus: "active",
-      publicProfileEnabled: true,
       username: { $exists: true, $ne: "" },
     };
 
@@ -517,14 +667,19 @@ export const listPublicTalents = async (req, res, next) => {
       ];
     }
 
-    // Apply authoritative paid evidence before pagination/counts. Keep every
+    // Apply the shared portfolio capability before pagination/counts. Keep every
     // existing visibility filter and limit concurrent eligibility reads.
     const candidates = await Talent.find(filter).select("_id").lean();
     const eligibleIds = [];
     for (let offset = 0; offset < candidates.length; offset += 20) {
       const batch = candidates.slice(offset, offset + 20);
-      const publications = await Promise.all(batch.map(row => resolveTalentPublication(row._id)));
-      batch.forEach((row, index) => { if (publications[index].publicProfile.status === "published") eligibleIds.push(row._id); });
+      const publications = await Promise.all(
+        batch.map(row => resolveTalentPublication(row._id)),
+      );
+      batch.forEach((row, index) => {
+        if (publications[index].publicPortfolio.status === "published")
+          eligibleIds.push(row._id);
+      });
     }
     filter._id = { $in: eligibleIds };
 
@@ -558,16 +713,15 @@ export const listPublicTalents = async (req, res, next) => {
   }
 };
 
-
-
 export const getPublicTalentProfile = async (req, res, next) => {
   res.set("Cache-Control", "private, no-store");
 
   try {
     const { username } = req.params;
 
-    const talent = await findPublishedTalent(username, PUBLIC_TALENT_FIELDS);
-    if (!talent) return res.status(404).json({ success: false, message: "Public profile not found." });
+    const published = await findPublishedPortfolio(username, PUBLIC_TALENT_FIELDS);
+    if (!published) return res.status(404).json({ success: false, message: "Public profile not found." });
+    const { talent, publication } = published;
 
     const resume = await Resume.findOne({
       talent: talent._id,
@@ -575,7 +729,9 @@ export const getPublicTalentProfile = async (req, res, next) => {
       .select(PUBLIC_RESUME_FIELDS)
       .lean();
 
-    const publicTalent = publicTalentProfileDto(talent, resume);
+    const publicTalent = publicTalentProfileDto(talent, resume, {
+      paidPortfolio: publication.subscriptionStatus?.eligibility?.talentPublicProfile === true,
+    });
 
     console.log("[Public Portfolio Check]", {
       talentId: String(talent._id),
@@ -587,16 +743,19 @@ export const getPublicTalentProfile = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      talent: { ...publicTalent, cvs: (await savedPublicCvs(talent._id, talent.username)).map(publicCvSummary) },
+      talent: {
+        ...publicTalent,
+        requiresQnduitBranding: publication.publicPortfolio.requiresQnduitBranding,
+        // Use the unchanged paid publication gate; free reads never load CV records.
+        cvs: publication.publicProfile.status === "published"
+          ? (await savedPublicCvs(talent._id, talent.username)).map(publicCvSummary) : [],
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-
-
- 
 export const getTalentDashboard = async (req, res, next) => {
   try {
     res.set("Cache-Control", "private, no-store");

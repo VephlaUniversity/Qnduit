@@ -75,7 +75,7 @@ export function publicTalentCard(talent, resume) {
     skills: strings([...publicResumeSkills(resume).map(row => row.title), ...list(talent.tags)]).slice(0, 5), avatar: publicImageUrl(talent.avatar?.url),
   };
 }
-export function publicTalentProfileDto(talent, resume) {
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
@@ -93,6 +93,7 @@ export function publicTalentProfileDto(talent, resume) {
   const galleryRows = list(resume?.portfolioImages).slice(0, 20).map(row => {
     const description = content(row?.description), projectUrl = publicExternalUrl(row?.projectUrl), skills = projectSkills(row?.skills);
     return {
+      title: text(row?.title, 160),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.url),
       ...(description ? { description } : {}), ...(projectUrl ? { projectUrl } : {}), ...(skills.length ? { skills } : {}),
     };
@@ -108,6 +109,10 @@ export function publicTalentProfileDto(talent, resume) {
     return true;
   };
   const portfolio = portfolioRows.filter(retainProject), gallery = galleryRows.filter(retainProject);
+  // The caller supplies only the authoritative publication entitlement. Unknown
+  // eligibility gets the free display allowance; stored arrays remain untouched.
+  // Cap after deduplication, in the same Talent-first order as the public UI.
+  const projects = [...portfolio, ...gallery].slice(0, paidPortfolio === true ? 20 : 4);
   const socialNetworks = Object.fromEntries(["linkedin", "facebook", "twitter", "instagram", "pinterest", "youtube"]
     .map(key => [key, publicExternalUrl(talent.socialNetworks?.[key])]).filter(([, value]) => value));
   return {
@@ -117,6 +122,9 @@ export function publicTalentProfileDto(talent, resume) {
     // Preserve Talent's current video field, including an explicit empty value.
     introVideo: videoUrl(talent.introVideo && Object.hasOwn(talent.introVideo, "url") ? talent.introVideo.url : resume?.introVideo?.url),
     skills: publicResumeSkills(resume), portfolioUrl: publicExternalUrl(talent.portfolioUrl), socialNetworks,
-    portfolio, gallery, experience: history(experienceSource, "company"), education: history(resume?.education, "academy"),
+    portfolio: projects.slice(0, portfolio.length),
+    gallery: projects.slice(portfolio.length),
+    experience: history(experienceSource, "company"),
+    education: history(resume?.education, "academy"),
   };
 }

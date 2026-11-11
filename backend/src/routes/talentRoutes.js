@@ -2,6 +2,7 @@ import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
 import express from "express";
 import {
   registerTalent,
+  recoverTalentPortfolioUsername,
   verifyTalentEmail,
   updateTalentProfile,
   selectTalentPlan,
@@ -21,6 +22,13 @@ const router = express.Router();
 router.post("/register", registerTalent);
 
 router.post("/verify", verifyTalentEmail);
+
+router.post(
+  "/portfolio-username",
+  protect,
+  authorize("talent"),
+  recoverTalentPortfolioUsername,
+);
 
 router.post(
   "/resume",

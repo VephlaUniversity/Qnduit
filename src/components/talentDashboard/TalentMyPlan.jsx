@@ -1,6 +1,8 @@
 import TalentPublicProfileAccess from "../subscriptions/TalentPublicProfileAccess";
 import { hasTalentPublicAccess } from "../utils/talentEntitlements";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { browserSessions } from "../utils/requestSafety";
 import { useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import axios from "axios";
@@ -21,8 +23,67 @@ export const TalentMyPlan = () => {
     urlPlan === "public" ? "public" : "",
   );
   const entitlement = useTalentSubscription();
-  const { subscription, subscriptionStatus, pendingDowngrade, publicProfile, loading, error: loadError, refresh } = entitlement;
+  const {
+    subscription, subscriptionStatus, pendingDowngrade, publicPortfolio,
+    loading, error: loadError, refresh,
+  } = entitlement;
   const [processing, setProcessing] = useState(false);
+
+  const { user } = useAuth();
+  const actor = user?.userType === "talent" ? `talent:${user.id || user._id}` : null;
+  const token = browserSessions().find(owner => owner.actor === actor)?.token;
+  const setupRequest = useRef(null);
+  const [settingUp, setSettingUp] = useState(false);
+  useEffect(() => () => setupRequest.current?.abort(), [actor, token]);
+
+  const handlePortfolioSetup = async () => {
+    if (
+      setupRequest.current || loading || loadError ||
+      publicPortfolio?.reason !== "username_missing"
+    ) return;
+    if (!token) {
+      toast.error("Please sign in again to set up your portfolio.");
+      return;
+    }
+    const controller = new AbortController();
+    setupRequest.current = controller;
+    setSettingUp(true);
+    const current = () => !controller.signal.aborted &&
+      browserSessions().some(owner => owner.actor === actor && owner.token === token);
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/talents/portfolio-username`,
+        {},
+        {
+          signal: controller.signal,
+          timeout: 15000,
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!current()) return;
+      if (
+        data?.success !== true || typeof data.username !== "string" || !data.username.trim()
+      ) throw new Error("Setup was not confirmed");
+      refresh();
+      toast.success("Your portfolio username is ready. Refreshing availability.");
+    } catch (error) {
+      if (!current()) return;
+      const code = error.response?.data?.code;
+      toast.error(
+        ["PORTFOLIO_USERNAME_INDEX_UNAVAILABLE", "PORTFOLIO_USERNAME_INDEX_REQUIRED"].includes(code)
+          ? "Portfolio setup is temporarily unavailable. Please try again later or contact support."
+          : friendlyError(
+            error,
+            "Portfolio setup could not be confirmed. Please try again; any assigned username will be preserved.",
+          ),
+      );
+    } finally {
+      if (setupRequest.current === controller) {
+        setupRequest.current = null;
+        setSettingUp(false);
+      }
+    }
+  };
 
   const handlePlanAction = async (planType) => {
     if (loading || loadError) return;
@@ -70,6 +131,9 @@ export const TalentMyPlan = () => {
 
   const live = hasTalentPublicAccess(entitlement);
   const displayPublic = hasTalentPublicAccess(entitlement);
+  // The server publishes free portfolios independently of paid subscription access.
+  const portfolioUrl = publicPortfolio?.status === "published" && typeof publicPortfolio.url === "string"
+    && /^\/[^/?#\\\s]+$/.test(publicPortfolio.url) ? publicPortfolio.url : null;
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -114,13 +178,24 @@ export const TalentMyPlan = () => {
           </div>
 
           <div className="bg-[#1A1A1E] rounded-lg border border-white/5 p-4 md:p-6 mb-8">
-            <p className="text-gray-400 text-sm mb-1">Public profile</p>
+            <p className="text-gray-400 text-sm mb-1">Public portfolio</p>
             <p className="text-white font-semibold">
-              {publicProfile?.status === "published" && publicProfile.url ? "Visible" : publicProfile?.status === "unavailable" ? "Unavailable" : "Status could not be loaded"}
+              {portfolioUrl ? "Visible" : publicPortfolio?.status === "unavailable" ? "Unavailable" : "Status could not be loaded"}
             </p>
-            {publicProfile?.status === "published" && publicProfile.url && (
-              <a href={publicProfile.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 break-all inline-block mt-2">
-                {window.location.origin}{publicProfile.url}
+            {publicPortfolio?.reason === "username_missing" && <div className="mt-3">
+              <button
+                type="button"
+                onClick={handlePortfolioSetup}
+                disabled={settingUp || loading || processing}
+                aria-busy={settingUp} className="inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-blue-400 hover:bg-blue-600/10 focus-visible:outline-2 focus-visible:outline-offset-4 disabled:opacity-50">
+                {settingUp && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+                {settingUp ? "Setting up portfolio..." : "Set up free portfolio"}
+              </button>
+              {settingUp && <p role="status" className="mt-2 text-sm text-gray-400">Setting up your portfolio username...</p>}
+            </div>}
+            {portfolioUrl && (
+              <a href={portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 break-all inline-block mt-2">
+                {window.location.origin}{portfolioUrl}
               </a>
             )}
           </div>
