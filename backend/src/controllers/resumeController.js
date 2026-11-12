@@ -4,12 +4,12 @@ import Talent from "../models/Talent.js";
 import multer from "multer";
 import mongoose from "mongoose";
 import path from "path";
-import { isDeepStrictEqual } from "node:util";
 import cloudinary from "../utils/cloudinary.js";
 import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortfolio.js";
 import { editorRevision, talentDraft } from "../utils/talentPortfolioDraft.js";
 import { selectSingleCv, cvReference } from "../utils/singleCv.js";
 import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
+import { enforcePortfolioLimit } from "../services/portfolioPolicy.js";
 
 const storage = multer.memoryStorage();
 
@@ -60,7 +60,7 @@ const removeFromCloudinary = async (items, resourceType) => {
 
 const resumeUpload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024, files: 11 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 21 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
 
@@ -80,7 +80,7 @@ const resumeUpload = multer({
   },
 }).fields([
   { name: "cvFiles", maxCount: 1 },
-  { name: "portfolioImages", maxCount: 10 },
+  { name: "portfolioImages", maxCount: 20 },
 ]);
 export const uploadResumeFiles = (req, res, next) => resumeUpload(req, res, error => {
   if (error) return next(Object.assign(new Error(error.code === "LIMIT_FILE_SIZE" ? "Choose files of 10 MiB or smaller."
@@ -91,11 +91,45 @@ export const uploadResumeFiles = (req, res, next) => resumeUpload(req, res, erro
 // Save or update resume
 export const saveResume = async (req, res, next) => {
   const uploadedCVs = [], uploadedImages = [];
-  let persisted = false, persistenceAttempted = false;
+  let persisted = false, callbackFinished = false, session;
   try {
     const talentId = req.user._id;
 
-    const stored = await Resume.findOne({ talent: talentId }).lean();
+    const talent = await Talent.collection.findOne({ _id: talentId });
+    const stored = await Resume.collection.findOne({ talent: talentId });
+    if (!talent)
+      throw Object.assign(
+        new Error("Talent not found."),
+        { statusCode: 404 },
+      );
+    if (await Resume.collection.countDocuments({ talent: talentId }, { limit: 2 }) > 1) {
+      throw Object.assign(
+        new Error("Multiple saved Resume records need review. No data was changed."),
+        { statusCode: 409 },
+      );
+    }
+    const newImages = req.files?.portfolioImages || [];
+    const changesPortfolio = Object.hasOwn(req.body, "portfolioItems") ||
+      Object.hasOwn(req.body, "keepPortfolioIds") || newImages.length > 0;
+    const submittedRevision = req.body.portfolioRevision;
+    if (
+      (changesPortfolio || Object.hasOwn(req.body, "portfolioRevision")) &&
+      (typeof submittedRevision !== "string" || !/^[a-f\d]{64}$/.test(submittedRevision))
+    ) {
+      throw Object.assign(
+        new Error("Provide a valid portfolioRevision from GET /api/resume before changing portfolio projects. Your draft is retained."),
+        { statusCode: 400 },
+      );
+    }
+    // Portfolio writes must use the owner's original draft revision. Field-only
+    // legacy saves retain their existing request-time concurrency protection.
+    const revision = submittedRevision ?? editorRevision(talent, stored);
+    if (revision !== editorRevision(talent, stored)) {
+      throw Object.assign(
+        new Error("Saved data changed in another session. Your draft is retained; reload before retrying."),
+        { statusCode: 409 },
+      );
+    }
     if (req.files?.cvFiles?.length) {
       throw Object.assign(new Error("Use Save Changes on the Resumes page to save CV changes with revision protection."), { statusCode: 409 });
     }
@@ -103,9 +137,15 @@ export const saveResume = async (req, res, next) => {
     const resume = stored
       ? Resume.hydrate({ ...stored, portfolioImages: existingPortfolio })
       : new Resume({ talent: talentId });
-    const newImages = req.files?.portfolioImages || [];
     // Validate all project references/metadata and other JSON before provider work.
     const portfolio = preparePortfolio(req.body, existingPortfolio, newImages);
+    await enforcePortfolioLimit({
+      owner: talentId,
+      talent,
+      resume: stored,
+      talentProjects: talent.portfolio,
+      resumeProjects: portfolio.items,
+    });
     const parsed = {};
     for (const field of ["education", "experience", "skills"]) {
       if (req.body[field] !== undefined) {
@@ -203,31 +243,100 @@ export const saveResume = async (req, res, next) => {
       uploadedByReference.set(file.originalname, image);
     }
 
-    resume.portfolioImages = portfolio.items.map(item => ({
+    const finalPortfolio = portfolio.items.map(item => ({
       ...(item.previous || uploadedByReference.get(item.file.originalname)),
+      _id: item.previous?._id || new mongoose.Types.ObjectId(),
       ...item.metadata,
     }));
-
-    persistenceAttempted = true;
+    resume.portfolioImages = finalPortfolio;
+    await resume.validate();
+    const serialized = resume.toObject();
+    // A field-only legacy request cannot replace or normalize stored projects.
+    const patch = changesPortfolio ? { portfolioImages: finalPortfolio } : {};
+    for (const field of ["education", "experience", "skills", "aboutMe"]) {
+      if (req.body[field] !== undefined) patch[field] = serialized[field];
+    }
+    if (req.body.videoUrl !== undefined) patch.introVideo = serialized.introVideo;
+    session = await mongoose.startSession();
     try {
-      await resume.save();
-    } catch {
-      // A rejected write can already have committed. Only an exact owner-scoped
-      // majority read confirms success; absence/mismatch cannot prove an abort.
-      let confirmed;
-      try {
-        confirmed = await Resume.collection.findOne(
-          { _id: resume._id, talent: talentId },
-          { readConcern: { level: "majority" } },
+      await session.withTransaction(async () => {
+        callbackFinished = false;
+        const currentTalent = await Talent.collection.findOne({ _id: talentId }, { session });
+        const currentResume = await Resume.collection.findOne({ talent: talentId }, { session });
+        if (!currentTalent)
+          throw Object.assign(
+            new Error("Talent not found. Your draft is retained."),
+            { statusCode: 404 },
+          );
+        if (await Resume.collection.countDocuments({ talent: talentId }, { session, limit: 2 }) > 1) {
+          throw Object.assign(
+            new Error("Multiple saved Resume records need review. No data was changed."),
+            { statusCode: 409 },
+          );
+        }
+        if (editorRevision(currentTalent, currentResume) !== revision) {
+          throw Object.assign(
+            new Error("Saved data changed in another session. Your draft is retained; reload before retrying."),
+            { statusCode: 409 },
+          );
+        }
+        await enforcePortfolioLimit({
+          owner: talentId,
+          talent: currentTalent,
+          resume: currentResume,
+          talentProjects: currentTalent.portfolio,
+          resumeProjects: finalPortfolio,
+          session,
+        });
+        // The same document serializes unified saves, legacy saves and initial CV
+        // creation. A conflicting first insert retries against the new Resume.
+        const savedTalent = await Talent.collection.updateOne(
+          { _id: talentId },
+          { $inc: { portfolioSaveVersion: 1 } },
+          { session },
         );
-      } catch { /* Unavailable confirmation must retain every new asset. */ }
-      if (!isDeepStrictEqual(confirmed, resume.toObject())) {
+        if (savedTalent.matchedCount !== 1)
+          throw Object.assign(
+            new Error("Talent not found. Your draft is retained."),
+            { statusCode: 409 },
+          );
+        const now = new Date();
+        if (stored) {
+          const savedResume = await Resume.collection.updateOne(
+            { _id: stored._id, talent: talentId },
+            { $set: { ...patch, updatedAt: now } },
+            { session },
+          );
+          if (savedResume.matchedCount !== 1)
+            throw Object.assign(
+              new Error("The saved Resume changed. Your draft is retained."),
+              { statusCode: 409 },
+            );
+        } else {
+          await Resume.collection.insertOne(
+            { ...serialized, ...patch, createdAt: now, updatedAt: now },
+            { session },
+          );
+        }
+        resume.updatedAt = now;
+        if (!stored) resume.createdAt = now;
+        callbackFinished = true;
+      }, {
+        readConcern: { level: "snapshot" },
+        writeConcern: { w: "majority" },
+        readPreference: "primary",
+      });
+    } catch (error) {
+      // Never destroy uploads when the commit outcome is uncertain. There is no
+      // legacy receipt protocol; retain the existing reload-to-confirm response.
+      if (callbackFinished || error.hasErrorLabel?.("UnknownTransactionCommitResult")) {
         return res.status(503).json({
           success: false,
           saveState: "pending",
           message: "Save outcome could not be confirmed. Uploaded files are retained. Reload to check your saved data before retrying.",
         });
       }
+      throw error;
     }
     persisted = true;
 
@@ -252,11 +361,21 @@ export const saveResume = async (req, res, next) => {
     });
   } catch (error) {
     // A post-save housekeeping error must never remove assets now referenced in DB.
-    if (!persisted && !persistenceAttempted) {
+    if (!persisted && !callbackFinished) {
       await removeFromCloudinary(uploadedCVs, "raw");
       await removeFromCloudinary(uploadedImages, "image");
     }
+    if (error.code === "PORTFOLIO_PROJECT_LIMIT") return res.status(error.statusCode).json({
+      success: false,
+      code: error.code,
+      message: error.message,
+      limit: error.limit,
+      currentCount: error.currentCount,
+      projectCount: error.projectCount,
+    });
     next(error);
+  } finally {
+    if (session) await session.endSession();
   }
 };
 

@@ -29,5 +29,8 @@ export function portfolioMetadata(row) {
       seen.add(key);
       return true;
     });
-  return { description, projectUrl, skills };
+  return {
+    ...(Object.hasOwn(row, "title") ? { title: optionalText(row.title, "Project title", 160) } : {}),
+    description, projectUrl, skills,
+  };
 }

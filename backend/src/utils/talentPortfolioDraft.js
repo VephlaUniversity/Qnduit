@@ -31,7 +31,7 @@ export function prepareTalentDraft(value, rows, owner, revision) {
   for (const item of supplied) {
     if (!item || typeof item !== "object" || Array.isArray(item) || typeof item.ref !== "string"
       || byRef.has(item.ref) || !known.some(row => row.ref === item.ref)
-      || Object.keys(item).some(key => !["ref", "remove", "description", "projectUrl", "skills"].includes(key))
+      || Object.keys(item).some(key => !["ref", "remove", "title", "description", "projectUrl", "skills"].includes(key))
       || (item.remove !== undefined && typeof item.remove !== "boolean")) throw fail("Invalid owner or source reference for a Talent project.");
     byRef.set(item.ref, item);
   }

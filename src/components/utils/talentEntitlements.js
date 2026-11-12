@@ -9,7 +9,7 @@ export function hasTalentPublicAccess(result, now = Date.now()) {
     && Number.isFinite(Date.parse(status.expiry)) && Date.parse(status.expiry) > now;
 }
 
-const empty = { loading: true, checking: false, error: "", retryAt: 0 };
+const empty = { loading: true, checking: false, error: "", retryAt: 0, publicPortfolio: undefined };
 const terminal = new Set(["cancelled", "expired", "past_due", "inactive", "inconsistent", "missing"]);
 
 // One store per captured account/token. Every request and timer belongs to that session.
@@ -55,7 +55,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
     clearRetry();
     const waitUntil = Math.max(retryAt, cooldownUntil());
     if (waitUntil > now()) {
-      publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined,
+      publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined, publicPortfolio: undefined,
         retryAt: waitUntil, checking: Boolean(cycle) });
       if (cycle && waitUntil < cycle.until) retryTimer = timers.setTimeout(read, waitUntil - now());
       else {
@@ -80,7 +80,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
           throw Error("Your subscription could not be confirmed.");
         }
         publish({ loading: false, error: "", subscription: data.subscription,
-          subscriptionStatus: data.subscriptionStatus, publicProfile: data.publicProfile,
+          subscriptionStatus: data.subscriptionStatus, publicProfile: data.publicProfile, publicPortfolio: data.publicPortfolio,
           pendingDowngrade: data.pendingDowngrade });
         timers.clearTimeout(expiryTimer);
         if (hasTalentPublicAccess(snapshot, now())) {
@@ -94,7 +94,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
             ?? retryAfterMs(header(error.response.headers, "RateLimit-Reset"), null, now()) ?? 30000;
           retryAt = Math.max(retryAt, now() + delay + 100);
         }
-        publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined,
+        publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined, publicPortfolio: undefined,
           retryAt, error: error.response?.status === 429
             ? "Please wait before checking your subscription again."
             : "Your subscription could not be confirmed. Check again before attempting another payment." });
@@ -105,7 +105,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
         if (valid()) {
           pending = undefined; request = undefined;
           if (controller.signal.aborted && snapshot.loading) publish({ loading: false,
-            subscriptionStatus: undefined, publicProfile: undefined, error: "Your subscription could not be confirmed. Please check again." });
+            subscriptionStatus: undefined, publicProfile: undefined, publicPortfolio: undefined, error: "Your subscription could not be confirmed. Please check again." });
           schedule();
         }
       }
@@ -118,7 +118,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
     cycle = { attempts: pending ? 1 : 0, until: now() + 60000 };
     publish({ checking: true });
     deadlineTimer = timers.setTimeout(() => {
-      abort(); stopCycle(); publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined,
+      abort(); stopCycle(); publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined, publicPortfolio: undefined,
         error: "Confirmation is taking longer than expected. Check again before attempting another payment." });
     }, 60000);
     read();
@@ -148,7 +148,7 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
       return () => {
         confirmations--;
         if (!confirmations && cycle) {
-          abort(); stopCycle(); publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined });
+          abort(); stopCycle(); publish({ loading: false, subscriptionStatus: undefined, publicProfile: undefined, publicPortfolio: undefined });
         }
       };
     },

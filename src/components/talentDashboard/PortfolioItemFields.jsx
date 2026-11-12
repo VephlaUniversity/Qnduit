@@ -6,6 +6,17 @@ export default function PortfolioItemFields({ item, onChange, error }) {
   const inputClass = "w-full min-w-0 rounded-lg border border-white/10 bg-[#1A1A1E] px-4 py-2 text-white focus:outline-none focus:border-blue-500";
   return <div className="min-w-0 space-y-4">
     <div>
+      <label htmlFor={`${id}-title`} className="mb-2 block text-sm text-gray-400">Project title{item.file ? " (required)" : " (optional)"}</label>
+      <input
+        id={`${id}-title`}
+        type="text"
+        value={item.title || ""}
+        maxLength={160}
+        required={Boolean(item.file)}
+        onChange={event => onChange("title", event.target.value)}
+        className={inputClass} />
+    </div>
+    <div>
       <label htmlFor={`${id}-description`} className="mb-2 block text-sm text-gray-400">Project description (optional)</label>
       <textarea id={`${id}-description`} value={item.description || ""} maxLength={2000} rows={3}
         onChange={event => onChange("description", event.target.value)} className={`${inputClass} resize-y`} />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import PublicTalentContent from "./PublicTalentContent";
-import { Link, useParams } from "react-router-dom";
+import { NotFound } from "../pages/NotFound";
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import PublicTalentPresentation from "./PublicTalentPresentation";
 import { API_BASE_URL } from "../utils/api";
@@ -29,7 +30,8 @@ const PublicTalentProfile = () => {
         );
 
         if (!cancelled) {
-          if (response.data?.success !== true || !response.data?.talent?.username) throw new Error("Invalid public profile response");
+          if (response.data?.success !== true || !response.data?.talent?.username
+            || typeof response.data.talent.requiresQnduitBranding !== "boolean") throw new Error("Invalid public profile response");
           setTalent(response.data.talent);
         }
       } catch (error) {
@@ -60,28 +62,16 @@ const PublicTalentProfile = () => {
     );
   }
 
-  // Keep unavailable public profiles inside the same branded presentation.
-  if (notFound) {
+  // All unavailable states reuse the original message and home navigation.
+  if (notFound || !talent) {
+    const message = notFound
+      ? "We couldn’t find this public Talent profile. It may have been moved or may no longer be public."
+      : loadError
+        ? "We couldn’t load this profile. Please try again."
+        : "This public listing does not exist or is not currently available.";
     return (
-      <PublicTalentPresentation><h1 className="text-3xl font-bold">Profile unavailable</h1><p className="mt-4 text-gray-400">We couldn’t find this public Talent profile. It may have been moved or may no longer be public.</p></PublicTalentPresentation>
-    );
-  }
-
-  if (!talent) {
-    return (
-      <PublicTalentPresentation>
-        <h1 className="text-3xl font-bold mb-3">Profile unavailable</h1>
-        <p className="text-gray-400 mb-6">
-          {loadError && !notFound
-            ? "We couldn’t load this profile. Please try again."
-            : "This public listing does not exist or is not currently available."}
-        </p>
-        <Link
-          to="/"
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-lg"
-        >
-          Return to QNDUIT
-        </Link>
+      <PublicTalentPresentation centerContent>
+        <NotFound embedded title="Profile unavailable" message={message} />
       </PublicTalentPresentation>
     );
   }
