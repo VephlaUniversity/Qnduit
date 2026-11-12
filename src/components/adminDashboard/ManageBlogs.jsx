@@ -5,12 +5,13 @@ import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../ui/button";
 import JobFormSelect from "../jobs/JobFormSelect";
+import { AdminDeleteBlogDialog } from "./AdminDeleteBlogDialog";
 import { PaginationBar } from "./PaginationBar";
 import { API_BASE_URL } from "../utils/api";
 import { browserSessions } from "../utils/requestSafety";
 import { friendlyError, safeText } from "../utils/userMessage";
 import { formatAdminProfileDate } from "../utils/adminProfile";
-import { createAdminBlogClient, validateBlogDraft, blogFormData, blogEditDraft } from "../utils/adminBlog";
+import { createAdminBlogClient, createBlogDeletion, blogPageAfterRefresh, validateBlogDraft, blogFormData, blogEditDraft } from "../utils/adminBlog";
 import { BLOG_LIMITS } from "../../../backend/src/utils/blogValidation.js";
 
 const readOwner = () => browserSessions().find(row => row.actor.startsWith("admin:"));
@@ -36,25 +37,39 @@ function BlogManagement({ author }) {
   const [pending, setPending] = useState(false), [expired, setExpired] = useState(false);
   const [uncertain, setUncertain] = useState(() => client.hasUncertain()), [reviewed, setReviewed] = useState(false);
   const mounted = useRef(false), writeLock = useRef(false), formHeading = useRef(null), fileInput = useRef(null);
+  const [deletion, setDeletion] = useState({ subject: null, status: "idle", message: "" });
+  const deleteFlow = useMemo(() => createBlogDeletion({
+    client, readOwner,
+    onChange(state) {
+      writeLock.current = !!state.subject;
+      if (mounted.current) { setDeletion(state); setPending(!!state.subject); }
+    },
+    onDeleted(id) {
+      setPosts(rows => rows.filter(row => row.id !== id));
+      setReload(value => value + 1); toast.success("Blog post deleted");
+    },
+    onMissing() { setReload(value => value + 1); },
+  }), [client]);
   const keys = useRef([0]), nextKey = useRef(1);
   useEffect(() => {
     mounted.current = true;
     const owner = JSON.stringify(readOwner());
     const changed = () => {
       if (JSON.stringify(readOwner()) !== owner) {
-        client.cancel(); setPosts([]); setEditing(false); setSavedPost(null); setDraft(blank("")); setCover(null); setExpired(true); setError("Your Admin session changed. Reload before continuing.");
+        client.cancel(); deleteFlow.cancel(); setPosts([]); setEditing(false); setSavedPost(null); setDraft(blank("")); setCover(null); setExpired(true); setError("Your Admin session changed. Reload before continuing.");
       }
     };
     window.addEventListener("storage", changed); window.addEventListener("qnduit:polling-session-changed", changed);
-    return () => { mounted.current = false; client.cancel(); window.removeEventListener("storage", changed); window.removeEventListener("qnduit:polling-session-changed", changed); };
-  }, [client]);
+    return () => { mounted.current = false; client.cancel(); deleteFlow.cancel(); window.removeEventListener("storage", changed); window.removeEventListener("qnduit:polling-session-changed", changed); };
+  }, [client, deleteFlow]);
   useEffect(() => {
     if (expired) return;
     let current = true;
     setLoading(true); setError("");
     client.list(page).then(data => {
       if (!current || !data) return;
-      if (page > data.pagination.totalPages) { setPage(data.pagination.totalPages); return; }
+      const nextPage = blogPageAfterRefresh(page, data.pagination);
+      if (page !== nextPage) { setPage(nextPage); return; }
       setPosts(data.data); setPagination(data.pagination);
       if (client.hasUncertain()) setReviewed(client.reviewReady());
     }).catch(problem => { if (current) { setPosts([]); setError(friendlyError(problem, "Unable to load blog posts. Try refreshing.")); } })
@@ -117,7 +132,7 @@ function BlogManagement({ author }) {
   const fieldError = key => errors[key] && <p id={`blog-${key}-error`} role="alert" className="mt-2 text-sm text-red-400">{errors[key]}</p>;
   return <div className="min-w-0 p-4 md:p-6 lg:p-8">
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-2xl font-semibold text-white">Blog Management</h1><p className="mt-2 text-sm text-gray-400">Create articles and publish saved drafts.</p></div>
+      <div><h1 id="blog-management-heading" tabIndex={-1} className="text-2xl font-semibold text-white">Blog Management</h1><p className="mt-2 text-sm text-gray-400">Create articles and publish saved drafts.</p></div>
       <Button type="button" className={primaryClass} disabled={pending || expired || uncertain || editing} onClick={open}><Plus aria-hidden="true" />Create post</Button>
     </div>
     {uncertain && <div role="alert" className="mb-6 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
@@ -169,9 +184,10 @@ function BlogManagement({ author }) {
       {error && <p role="alert" className="mb-4 text-sm text-red-400">{error}</p>}
       {loading ? <p role="status" className="py-8 text-center text-gray-400">Loading blog posts…</p> : !error && posts.length === 0 ? <p className="py-8 text-center text-gray-400">No blog posts yet. Create your first post.</p> : !error && <div className="space-y-3">{posts.map(post => <article key={post.id} className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><h3 className="break-words text-base font-medium text-white">{post.title}</h3><span className={`rounded-full px-3 py-1 text-xs ${post.status === "published" ? "bg-emerald-600/15 text-emerald-400" : "bg-yellow-500/15 text-yellow-400"}`}>{post.status === "published" ? "Published" : "Draft"}</span></div><p className="mt-2 break-words text-sm text-gray-400">{post.excerpt}</p><p className="mt-2 break-words text-xs text-gray-500">{post.category} · {post.author} · Created {formatAdminProfileDate(post.createdAt)}{post.publishedAt ? ` · Published ${formatAdminProfileDate(post.publishedAt)}` : ''}</p></div>
-        <div className="flex shrink-0 flex-wrap gap-2"><Button type="button" aria-label={`Edit ${post.title}`} className={secondaryClass} disabled={pending || expired || loading || editing || uncertain} onClick={() => loadEdit(post)}>Edit</Button>{post.status === "draft" && <Button type="button" aria-label={`Publish ${post.title}`} className={`${primaryClass} self-start sm:self-auto`} disabled={pending || expired || loading || editing} onClick={() => publish(post)}>Publish</Button>}</div>
+        <div className="flex shrink-0 flex-wrap gap-2"><Button type="button" aria-label={`Edit ${post.title}`} className={secondaryClass} disabled={pending || expired || loading || editing || uncertain} onClick={() => loadEdit(post)}>Edit</Button><Button type="button" aria-label={`Delete ${post.title}`} className="min-h-11 bg-red-600 px-4 text-white hover:bg-red-700" disabled={pending || expired || loading || editing || uncertain} onClick={event => { if (!writeLock.current) deleteFlow.open(post, event.currentTarget); }}>Delete</Button>{post.status === "draft" && <Button type="button" aria-label={`Publish ${post.title}`} className={`${primaryClass} self-start sm:self-auto`} disabled={pending || expired || loading || editing} onClick={() => publish(post)}>Publish</Button>}</div>
       </article>)}</div>}
       {!loading && !error && pagination.totalPages > 1 && <div className="max-w-full overflow-x-auto"><PaginationBar page={page} totalPages={pagination.totalPages} onChange={value => { if (!pending) setPage(value); }} /></div>}
     </section>
+    <AdminDeleteBlogDialog flow={deleteFlow} state={deletion} />
   </div>;
 }

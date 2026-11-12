@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createAdminBlogClient, blogFormData, validateBlogDraft, blogEditDraft } from "./adminBlog.js";
+import { createAdminBlogClient, createBlogDeletion, blogPageAfterRefresh, blogFormData, validateBlogDraft, blogEditDraft } from "./adminBlog.js";
 
 const id = "111111111111111111111111", postId = "222222222222222222222222";
 const cover = () => new File(["synthetic"], "cover.png", { type: "image/png" });
@@ -165,5 +165,108 @@ test("edit rejection preserves correction; uncertain edit persists until explici
 test("edit response cannot silently change status/creator/date or return mismatched content", async () => {
   for (const extra of [{ status: "published" }, { createdBy: "333333333333333333333333" }, { publishedAt: "2026-11-09T10:00:00Z" }, { revision: 0 }, { content: [{ type: "paragraph", text: "Wrong text" }] }]) {
     const f = fixture(async () => ({ data: { success: true, post: post({ revision: 1, ...extra }) } })); await assert.rejects(f.client.update(post(), blogFormData(draft(), null, post())), error => error.uncertainUpdate); assert(f.client.hasUncertainUpdate(postId));
+  }
+});
+
+test("deletion sends strict JSON revision and confirms exact ID/status", async () => {
+  const f = fixture(async () => ({ status: 200, data: { success: true, id: postId } }));
+  assert.equal((await f.client.remove(post({ revision: 4 }))).id, postId);
+  assert.equal(f.calls[0].method, "DELETE"); assert.deepEqual(f.calls[0].data, { revision: 4 });
+  assert.equal(f.calls[0].headers["Content-Type"], "application/json");
+  assert(f.calls[0].url.endsWith(`/${postId}`));
+  for (const response of [{ status: 200, data: { success: true, id } }, { status: 204, data: { success: true, id: postId } }, { status: 200, data: {} }]) {
+    const bad = fixture(async () => response);
+    await assert.rejects(bad.client.remove(post()), error => error.uncertainDelete === true);
+  }
+});
+test("deletion rejects static IDs and shares create/edit/publish mutation lock", async () => {
+  const wait = deferred(), f = fixture(() => wait.promise);
+  assert.throws(() => f.client.remove(post({ id: "1" })), /Reload/);
+  const sending = f.client.remove(post());
+  await assert.rejects(f.client.remove(post()), /pending/);
+  await assert.rejects(f.client.publish(postId), /pending/);
+  await assert.rejects(f.client.update(post(), blogFormData(draft(), null, post())), /pending/);
+  await assert.rejects(f.client.create(blogFormData(draft(), cover())), /pending/);
+  assert.equal(f.calls.length, 1);
+  wait.resolve({ status: 200, data: { success: true, id: postId } }); await sending;
+});
+test("deletion distinguishes definite rejection from all ambiguous outcomes without retry", async () => {
+  for (const status of [400,401,403,404,409,429,500,502,503,undefined]) {
+    const failure = Object.assign(Error("Synthetic failure"), status ? {response:{status}} : {});
+    const f = fixture(async () => { throw failure; });
+    await assert.rejects(f.client.remove(post()), error => status && status < 500 ? error === failure : error.uncertainDelete === true);
+    assert.equal(f.calls.length,1);
+  }
+});
+test("deletion cancellation and session changes discard late success/error", async () => {
+  for (const fail of [false,true]) for (const change of [f => f.client.cancel(), f => f.owner({actor:`admin:${id}`,token:"new"})]) {
+    const wait = deferred(), f = fixture(() => wait.promise), sending = f.client.remove(post()); change(f);
+    if (fail) wait.reject(Error("Synthetic loss")); else wait.resolve({status:200,data:{success:true,id:postId}});
+    assert.equal(await sending,undefined);
+  }
+});
+
+function deletionFixture(request) {
+  const f = fixture(request), states = [], deleted = [], missing = [];
+  const flow = createBlogDeletion({ client:f.client, readOwner:() => f.currentOwner, onChange:state => states.push(state), onDeleted:id => deleted.push(id), onMissing:() => missing.push(true) });
+  f.currentOwner = {actor:`admin:${id}`,token:"synthetic-admin-token"};
+  return {...f, flow, states, deleted, missing};
+}
+test("confirmation loads latest revision; cancellation sends no DELETE; success refresh callback runs once", async () => {
+  const f = deletionFixture(async options => options.method === "GET" ? {data:{success:true,post:post({revision:8,status:"published"})}} : {status:200,data:{success:true,id:postId}});
+  await f.flow.open(post({revision:1})); assert.equal(f.flow.snapshot().subject.revision,8);
+  assert.equal(f.calls.length,1); f.flow.close(); await f.flow.confirm(); assert.equal(f.calls.length,1);
+  await f.flow.open(post()); await Promise.all([f.flow.confirm(),f.flow.confirm()]);
+  assert.equal(f.calls.filter(c => c.method === "DELETE").length,1);
+  assert.deepEqual(f.calls.at(-1).data,{revision:8}); assert.deepEqual(f.deleted,[postId]); assert.equal(f.flow.snapshot().subject,null);
+});
+test("pending confirmation cannot dismiss; cancel invalidates pending reads", async () => {
+  const wait=deferred(), f=deletionFixture(() => wait.promise);
+  const opening=f.flow.open(post()); f.flow.close(); assert.equal(f.flow.snapshot().status,"loading");
+  f.flow.cancel(); wait.resolve({data:{success:true,post:post()}}); await opening; assert.equal(f.flow.snapshot().subject,null);
+  const sendingWait=deferred(), g=deletionFixture(async options => options.method === "GET" ? {data:{success:true,post:post()}} : sendingWait.promise);
+  await g.flow.open(post()); const sending=g.flow.confirm(); g.flow.close(); assert.equal(g.flow.snapshot().status,"sending");
+  sendingWait.resolve({status:200,data:{success:true,id:postId}}); await sending;
+});
+test("409, 429 and uncertain writes require fresh details and fresh explicit confirmation", async () => {
+  for (const status of [409,429,503,undefined,"wrong-id"]) {
+    let revision=1;
+    const f=deletionFixture(async options => {
+      if(options.method === "GET") return {data:{success:true,post:post({revision:revision++})}};
+      if(status === "wrong-id") return {status:200,data:{success:true,id}};
+      throw Object.assign(Error("Synthetic failure"), status ? {response:{status}} : {});
+    });
+    await f.flow.open(post()); await f.flow.confirm(); assert.equal(f.flow.snapshot().status,"blocked");
+    await f.flow.confirm(); assert.equal(f.calls.length,2); assert.equal(f.deleted.length,0);
+    await f.flow.refresh(); assert.equal(f.flow.snapshot().status,"ready"); assert.equal(f.flow.snapshot().subject.revision,2);
+    assert.equal(f.calls.filter(c=>c.method === "DELETE").length,1);
+  }
+});
+test("missing detail/deletion refreshes list without false success", async () => {
+  for (const duringRead of [false,true]) {
+    const f=deletionFixture(async options => {
+      if(options.method === "GET" && !duringRead) return {data:{success:true,post:post()}};
+      throw {response:{status:404}};
+    });
+    await f.flow.open(post()); await f.flow.confirm();
+    assert.equal(f.flow.snapshot().status,"missing"); assert.equal(f.missing.length,1); assert.equal(f.deleted.length,0);
+  }
+});
+
+test("list refresh reconciles an emptied final page and updated count", async () => {
+  const f=fixture(async options => ({data:{success:true,data:[],pagination:{page:options.params.page,limit:10,total:10,totalPages:1}}}));
+  const data=await f.client.list(2);
+  assert.equal(data.pagination.total,10); assert.equal(blogPageAfterRefresh(2,data.pagination),1);
+  assert.equal(blogPageAfterRefresh(1,{totalPages:1,total:0}),1);
+  assert.equal(blogPageAfterRefresh(2,{totalPages:3}),2);
+});
+test("confirmation session switch/cancellation suppresses late callbacks", async () => {
+  for (const cancel of [false,true]) {
+    const wait=deferred(), f=deletionFixture(async options => options.method === "GET" ? {data:{success:true,post:post()}} : wait.promise);
+    await f.flow.open(post()); const sending=f.flow.confirm();
+    if(cancel) { f.client.cancel(); f.flow.cancel(); }
+    else { f.currentOwner={actor:`admin:${id}`,token:"switched"}; f.owner(f.currentOwner); }
+    wait.resolve({status:200,data:{success:true,id:postId}}); await sending;
+    assert.equal(f.deleted.length,0);
   }
 });
