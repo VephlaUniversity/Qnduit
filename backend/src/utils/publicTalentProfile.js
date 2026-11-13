@@ -1,4 +1,5 @@
 import { talentLocation } from "./talentLocation.js";
+import { normalizePortfolioCaseStudy, portfolioOverview } from "./portfolioCaseStudy.js";
 // Pure, explicit public DTO mapping. Never serialize Talent/Resume documents.
 export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience";
 export const PUBLIC_RESUME_FIELDS = "talent aboutMe portfolioImages education experience skills introVideo";
@@ -18,6 +19,25 @@ export function publicExternalUrl(value) {
     return url.href;
   } catch { return ""; }
 }
+export function portfolioExternalUrl(value) {
+  if (!/^https?:\/\/[^/?#]/i.test(value || "")) return "";
+  const safe = publicExternalUrl(value);
+  if (!safe) return "";
+  const host = new URL(safe).hostname;
+  // External links are never fetched by the server. Reject private literals and
+  // single-label hosts as well as the public DTO's existing forbidden hosts.
+  if (!host.includes(".") || host.endsWith(".") || host.includes(":")) return "";
+  const parts = host.split(".").map(Number);
+  if (parts.length === 4 && parts.every(Number.isInteger)) {
+    const [a, b] = parts;
+    if (a === 0 || a === 10 || a === 127 || a >= 224
+      || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31
+      || a === 192 && b === 168 || a === 100 && b >= 64 && b <= 127
+      || a === 198 && (b === 18 || b === 19)) return "";
+  }
+  return safe;
+}
+
 export function publicImageUrl(value) {
   if (typeof value !== "string") return "";
   // Permit only established public relative image folders, never API/CV paths.
@@ -33,7 +53,7 @@ export function publicImageUrl(value) {
   }
   return safe;
 }
-function videoUrl(value) {
+export function publicVideoUrl(value) {
   const safe = publicExternalUrl(value);
   if (!safe) return "";
   const url = new URL(safe), host = url.hostname.replace(/^www\./, "");
@@ -60,7 +80,28 @@ const projectSkills = value => {
     return true;
   }).slice(0, 20);
 };
-const hasProjectDetails = row => Boolean(row.title || row.description || row.projectUrl || row.skills?.length);
+const hasProjectDetails = row => Boolean(row.title || row.description || row.projectUrl || row.skills?.length
+  || row.overview || row.problemStatement || row.approach || row.results || row.role
+  || row.toolsUsed?.length || row.skillsDemonstrated?.length || row.links?.length || row.video
+  || row.featured || row.images?.length > 1
+  || row.images?.some(image => image.alt || image.caption || image.comparisonLabel));
+
+function publicCaseStudy(value) {
+  const row = normalizePortfolioCaseStudy(value);
+  return {
+    overviewSource: portfolioOverview(value).source,
+    overview: text(row.overview, 2000), problemStatement: text(row.problemStatement, 4000),
+    approach: text(row.approach, 6000), results: text(row.results, 4000), role: text(row.role, 500),
+    toolsUsed: projectSkills(row.toolsUsed), skillsDemonstrated: projectSkills(row.skillsDemonstrated),
+    images: list(row.images).slice(0, 6).map(image => ({
+      url: publicImageUrl(image?.url), alt: text(image?.alt, 300), caption: text(image?.caption, 500),
+      comparisonLabel: ["before", "after"].includes(image?.comparisonLabel) ? image.comparisonLabel : "",
+    })).filter(image => image.url),
+    links: list(row.links).slice(0, 5).map(link => ({ label: text(link?.label, 80), url: portfolioExternalUrl(link?.url) }))
+      .filter(link => link.label && link.url),
+    video: publicVideoUrl(row.video), featured: row.featured === true,
+  };
+}
 export function publicResumeSkills(resume) {
   return list(resume?.skills).slice(0, 30).map(row => {
     const title = text(row?.title, 60), raw = row?.percent;
@@ -75,24 +116,37 @@ export function publicTalentCard(talent, resume) {
     skills: strings([...publicResumeSkills(resume).map(row => row.title), ...list(talent.tags)]).slice(0, 5), avatar: publicImageUrl(talent.avatar?.url),
   };
 }
-export function publicTalentProfileDto(talent, resume, { paidPortfolio = false } = {}) {
+// Input arrays are the already permitted public set. Never sort stored rows
+// before entitlement selection: a hidden featured project must stay hidden.
+export function publicPortfolioProjects(talent) {
+  return [
+    ...list(talent.portfolio).map((row, index) => ({ ...row, presentationKey: row.key || `talent:${index}` })),
+    ...list(talent.gallery).map((row, index) => ({ ...row, presentationKey: row.key || `resume:${index}` })),
+  ].sort((a, b) => Number(b.featured === true) - Number(a.featured === true));
+}
+
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
     title: text(row?.title, 160), [owner]: text(row?.[owner], 160), description: content(row?.description),
     startDate: dateText(row?.startDate), endDate: dateText(row?.endDate),
   })).filter(row => Object.values(row).some(Boolean));
-  const portfolioRows = list(talent.portfolio).slice(0, 50).map(row => {
+  const portfolioRows = list(talent.portfolio).slice(0, 50).map((row, index) => {
     const skills = projectSkills(row?.skills);
     return {
+      ...publicCaseStudy(row),
+      key: `talent:${projectKey ? projectKey("talent", row, index) : index}`,
       title: text(row?.title, 160), description: content(row?.description),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.imageUrl),
       projectUrl: publicExternalUrl(row?.projectUrl), ...(skills.length ? { skills } : {}),
     };
   });
-  const galleryRows = list(resume?.portfolioImages).slice(0, 20).map(row => {
+  const galleryRows = list(resume?.portfolioImages).slice(0, 20).map((row, index) => {
     const description = content(row?.description), projectUrl = publicExternalUrl(row?.projectUrl), skills = projectSkills(row?.skills);
     return {
+      ...publicCaseStudy(row),
+      key: `resume:${projectKey ? projectKey("resume", row, index) : index}`,
       title: text(row?.title, 160),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.url),
       ...(description ? { description } : {}), ...(projectUrl ? { projectUrl } : {}), ...(skills.length ? { skills } : {}),
@@ -120,7 +174,7 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false }
     experienceTime: card.experienceTime, qualification: text(talent.qualification, 160), avatar: card.avatar,
     aboutMe: content(talent.aboutMe) || content(resume?.aboutMe), categories: strings(talent.categories), tags: strings(talent.tags),
     // Preserve Talent's current video field, including an explicit empty value.
-    introVideo: videoUrl(talent.introVideo && Object.hasOwn(talent.introVideo, "url") ? talent.introVideo.url : resume?.introVideo?.url),
+    introVideo: publicVideoUrl(talent.introVideo && Object.hasOwn(talent.introVideo, "url") ? talent.introVideo.url : resume?.introVideo?.url),
     skills: publicResumeSkills(resume), portfolioUrl: publicExternalUrl(talent.portfolioUrl), socialNetworks,
     portfolio: projects.slice(0, portfolio.length),
     gallery: projects.slice(portfolio.length),

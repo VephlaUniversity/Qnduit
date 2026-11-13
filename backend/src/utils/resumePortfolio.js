@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { portfolioMetadata } from "./portfolioMetadata.js";
+import { PORTFOLIO_METADATA_FIELDS } from "./portfolioMetadata.js";
+import { finishPortfolioUploads, portfolioUploads, preparePortfolioProject } from "./portfolioGallery.js";
 
 const invalid = message => Object.assign(new Error(message), { statusCode: 400 });
 
@@ -16,7 +17,8 @@ export function normalizePortfolioImages(rows, ownerId) {
   });
 }
 
-export function preparePortfolio(body, stored, files) {
+export function preparePortfolio(body, stored, files, sharedUploads) {
+  const context = sharedUploads || portfolioUploads(files);
   const byId = new Map();
   for (const item of stored) {
     const id = String(item._id);
@@ -45,24 +47,17 @@ export function preparePortfolio(body, stored, files) {
     // Id-less legacy images cannot be addressed by the older public_id protocol.
     manifest = stored.filter(item => !keep || !item.public_id || keep.includes(item.public_id))
       .map(item => ({ id: String(item._id) }));
-    manifest.push(...files.map(file => ({ upload: file.originalname })));
+    manifest.push(...files.filter(file => !context.used.has(file.originalname))
+      .map(file => ({ upload: file.originalname })));
   }
   // The combined Talent + Resume allowance is enforced by the save policy.
   // A fixed image cap here would prevent retaining pre-existing over-limit rows.
-  const uploads = new Map();
-  for (const file of files) {
-    if (uploads.has(file.originalname)) throw invalid("Duplicate portfolio upload reference.");
-    if (file.size > 5 * 1024 * 1024 || !/\.(png|jpe?g)$/i.test(file.originalname)
-      || !["image/png", "image/jpeg", "image/jpg"].includes(file.mimetype)) {
-      throw invalid("Portfolio images must be PNG or JPG, up to 5MB each.");
-    }
-    uploads.set(file.originalname, file);
-  }
-  const usedIds = new Set(), usedUploads = new Set();
+  const uploads = context.uploads;
+  const usedIds = new Set(), newProjects = new Set();
   const items = manifest.map(row => {
     if (!row || typeof row !== "object" || Array.isArray(row)
-      || Object.keys(row).some(key => !["id", "upload", "title", "description", "projectUrl", "skills"].includes(key))
-      || (Object.hasOwn(row, "id") === Object.hasOwn(row, "upload"))) {
+      || Object.keys(row).some(key => !["id", "upload", "newProject", ...PORTFOLIO_METADATA_FIELDS].includes(key))
+      || ["id", "upload", "newProject"].filter(key => Object.hasOwn(row, key)).length !== 1) {
       throw invalid("Invalid portfolio item reference.");
     }
     let previous;
@@ -72,25 +67,22 @@ export function preparePortfolio(body, stored, files) {
       }
       usedIds.add(row.id);
       previous = byId.get(row.id);
-    } else {
-      if (typeof row.upload !== "string" || !uploads.has(row.upload) || usedUploads.has(row.upload)) {
+    } else if (Object.hasOwn(row, "upload")) {
+      if (typeof row.upload !== "string" || !uploads.has(row.upload)) {
         throw invalid("Invalid portfolio upload reference.");
       }
-      usedUploads.add(row.upload);
+    } else {
+      if (typeof row.newProject !== "string" || !/^[\w-]{1,100}$/.test(row.newProject) || newProjects.has(row.newProject)) throw invalid("Invalid new project reference.");
+      newProjects.add(row.newProject);
     }
-    // Omission preserves stored metadata; explicit empty values clear it.
-    const metadata = Object.fromEntries(["description", "projectUrl", "skills"].map(key =>
-      [key, Object.hasOwn(row, key) ? row[key] : previous?.[key]]));
     try {
-      // Omitted titles preserve legacy values; only supplied titles are validated.
-      if (Object.hasOwn(row, "title")) metadata.title = row.title;
-      const validated = portfolioMetadata(metadata);
-      if (!previous && !validated.title) throw new Error("Enter a project title.");
-      return { previous, file: uploads.get(row.upload), metadata: validated };
+      const { project, metadata } = preparePortfolioProject(row, previous, context, row.upload);
+      if (!previous && !metadata.title) throw new Error("Enter a project title.");
+      return { previous, file: uploads.get(row.upload), metadata, project };
     }
     catch (error) { throw invalid(error.message); }
   });
-  if (usedUploads.size !== files.length) throw invalid("Every portfolio upload must reference one project.");
+  if (!sharedUploads) finishPortfolioUploads(context);
   const removed = stored.filter(item => !usedIds.has(String(item._id)));
-  return { items, removed };
+  return { items, removed, context };
 }

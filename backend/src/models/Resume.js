@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { portfolioCaseStudyFields } from "./portfolioCaseStudyFields.js";
 
 const resumeSchema = new mongoose.Schema(
   {
@@ -22,6 +23,7 @@ const resumeSchema = new mongoose.Schema(
     cvArchive: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     portfolioImages: [
       {
+        ...portfolioCaseStudyFields(),
         url: String,
         public_id: String,
         title: { type: String, maxlength: 160 },

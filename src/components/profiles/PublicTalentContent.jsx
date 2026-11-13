@@ -3,10 +3,10 @@ import PublicTalentPresentation from "./PublicTalentPresentation";
 import { Link } from "react-router-dom";
 import { MapPin, Briefcase, ExternalLink } from "lucide-react";
 import SkillBars from "./SkillBars";
-import { PublicTalentImage } from "./PublicTalentMedia";
+import { PublicTalentGallery, PublicTalentImage, PublicTalentVideo } from "./PublicTalentMedia";
 import JobDescriptionText from "../utils/JobDescriptionText";
-import { publicExternalUrl } from "../../../backend/src/utils/publicTalentProfile.js";
-import { getYouTubeVideoId } from "../utils/youtube";
+import { portfolioExternalUrl, publicExternalUrl, publicPortfolioProjects, publicVideoUrl } from "../../../backend/src/utils/publicTalentProfile.js";
+import { portfolioOverview } from "../../../backend/src/utils/portfolioCaseStudy.js";
 
 const dateLabel = value => {
   if (!value) return "";
@@ -20,7 +20,7 @@ const dateLabel = value => {
 const period = row => [dateLabel(row.startDate), dateLabel(row.endDate)].filter(Boolean).join(" – ");
 const sectionClass = "rounded-2xl border border-white/5 bg-[#191D23] p-6 md:p-8";
 const headingClass = "mb-5 text-xl font-semibold text-white";
-const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 transition-colors hover:bg-white/5";
+const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2";
 const textClass = "break-words text-sm leading-7 text-gray-300 [overflow-wrap:anywhere]";
 function History({ title, rows, owner }) {
   if (!rows?.length) return null;
@@ -30,12 +30,93 @@ function History({ title, rows, owner }) {
     {row.description && <JobDescriptionText value={row.description} className={`mt-3 ${textClass}`} />}
   </article>)}</div></section>;
 }
+// Shared project presentation stays with the existing portfolio renderer. Native
+// details supplies keyboard expansion and avoids an additional modal/route.
+function ProjectCaseStudy({ item, number }) {
+  const title = item.title || `Project ${number}`;
+  const images = Array.isArray(item.images) ? item.images : [];
+  const tools = item.toolsUsed || [], skills = item.skillsDemonstrated || [];
+  const links = (item.links || []).map(link => ({ label: link.label, url: portfolioExternalUrl(link.url) })).filter(link => link.label && link.url);
+  const legacyLink = portfolioExternalUrl(item.projectUrl);
+  const video = publicVideoUrl(item.video);
+  const comparison = images.some(image => image.comparisonLabel === "before") && images.some(image => image.comparisonLabel === "after");
+  const cover = images[0];
+  const overviewSource = ["canonical", "legacy", "none"].includes(item.overviewSource)
+    ? item.overviewSource : portfolioOverview(item).source;
+  const overview = overviewSource === "legacy" ? item.description || "" : item.overview;
+  // Legacy content is displayed once in expanded details. Equality is used only
+  // to omit redundant original text, never to choose an HTML/plain renderer.
+  const showLegacyDescription = overviewSource !== "legacy" && item.description && item.description !== item.overview;
+  const narrative = (heading, value) => value ? <section className="space-y-2" aria-label={heading}>
+    <h4 className="font-semibold text-white">{heading}</h4><p className={`whitespace-pre-line ${textClass}`}>{value}</p>
+  </section> : null;
+  const chips = (values, label, selected = false) => values.length > 0 ? <ul aria-label={label} className="flex min-w-0 flex-wrap gap-2">
+    {(selected ? values.slice(0, 3) : values).map(value => <li key={value} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300 [overflow-wrap:anywhere]">{value}</li>)}
+  </ul> : null;
+  const hasDetails = item.overview || item.description || item.problemStatement || item.approach || item.results || item.role
+    || tools.length || skills.length || item.skills?.length || images.length || links.length || legacyLink || video;
+  return <article className="min-w-0 self-start overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]" aria-label={title}>
+    <header className="space-y-2 p-4">
+      {item.featured === true && <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Featured project</p>}
+      <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{title}</h3>
+    </header>
+    {(cover?.url || item.imageUrl) && <PublicTalentImage src={cover?.url || item.imageUrl} alt={cover?.alt || `${title} cover`} className="aspect-video w-full" />}
+    <div className="space-y-3 p-4">
+      {overview ? overviewSource === "legacy"
+        ? <JobDescriptionText value={overview} className={`line-clamp-3 ${textClass}`} />
+        : <p className={`line-clamp-3 whitespace-pre-line ${textClass}`}>{overview}</p> : null}
+      {item.role && <p className={`line-clamp-2 ${textClass}`}><span className="font-medium text-white">Role: </span>{item.role}</p>}
+      {chips(tools, "Selected project tools", true)}
+      {chips(skills, "Selected demonstrated skills", true)}
+      {links[0] && <a href={links[0].url} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>
+        <span className="min-w-0">{links[0].label}<span className="sr-only"> (opens in a new tab)</span></span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+      </a>}
+      {hasDetails && <details className="group min-w-0 border-t border-white/10 pt-2">
+        <summary className="min-h-11 cursor-pointer rounded py-3 text-sm font-medium text-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2">
+          View case study<span className="sr-only">: {title}</span>
+        </summary>
+        <div className="min-w-0 space-y-6 pb-2 pt-3">
+          {overviewSource === "legacy" && overview ? <section className="space-y-2" aria-label="Overview">
+            <h4 className="font-semibold text-white">Overview</h4><JobDescriptionText value={overview} className={textClass} />
+          </section> : narrative("Overview", overview)}
+          {narrative("Problem statement", item.problemStatement)}
+          {narrative("Approach", item.approach)}
+          {narrative("Results", item.results)}
+          {narrative("Role", item.role)}
+          {tools.length > 0 && <section className="space-y-2" aria-label="Tools used"><h4 className="font-semibold text-white">Tools used</h4>{chips(tools, "Project tools")}</section>}
+          {skills.length > 0 && <section className="space-y-2" aria-label="Skills demonstrated"><h4 className="font-semibold text-white">Skills demonstrated</h4>{chips(skills, "Demonstrated project skills")}</section>}
+          {images.length > 0 && <section className="space-y-3" aria-label="Project gallery">
+            <h4 className="font-semibold text-white">Project gallery</h4>
+            {comparison && <p className={textClass}>Before and after comparison</p>}
+            <PublicTalentGallery images={images} title={title} />
+          </section>}
+          {links.length > 0 && <nav aria-label="Project links" className="space-y-2"><h4 className="font-semibold text-white">Project links</h4>
+            {links.map((link, index) => <a key={`${link.url}:${index}`} href={link.url} target="_blank" rel="noopener noreferrer"
+              className={`${buttonClass} mr-2 max-w-full break-words [overflow-wrap:anywhere]`}>
+              <span className="min-w-0">{link.label}<span className="sr-only"> (opens in a new tab)</span></span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </a>)}
+          </nav>}
+          {video && <section aria-label="Project video" className="space-y-3"><h4 className="font-semibold text-white">Project video</h4><PublicTalentVideo url={video} title={`${title}: project video`} /></section>}
+          {(showLegacyDescription || item.skills?.length > 0 || legacyLink && !links.some(link => link.url === legacyLink)) && <section className="space-y-3" aria-label="Original project details">
+            <h4 className="font-semibold text-white">Original project details</h4>
+            {showLegacyDescription && <JobDescriptionText value={item.description} className={textClass} />}
+            {chips(item.skills || [], "Related project skills")}
+            {legacyLink && !links.some(link => link.url === legacyLink) && <a href={legacyLink} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words`}>
+              View original project<span className="sr-only"> (opens in a new tab)</span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </a>}
+          </section>}
+        </div>
+      </details>}
+    </div>
+  </article>;
+}
+
 export default function PublicTalentContent({ talent }) {
   const name = talent.fullName || "Talent", skills = talent.skills || [], tags = talent.tags || [];
   const levels = skills.filter(row => Number.isFinite(row.percent));
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
   const labels = [...new Set([...skills.filter(row => !Number.isFinite(row.percent)).map(row => row.title), ...tags])].filter(label => !rated.has(label.toLowerCase()));
-  const projects = [...(talent.portfolio || []), ...(talent.gallery || [])];
+  const projects = publicPortfolioProjects(talent);
   const projectGridId = useId();
   const projectListKey = JSON.stringify([talent.id, talent.username, projects]);
   const [projectPage, setProjectPage] = useState({ key: projectListKey, page: 1 });
@@ -47,7 +128,7 @@ export default function PublicTalentContent({ talent }) {
   const page = projectPage.key === projectListKey ? Math.min(projectPage.page, pageCount) : 1;
   const offset = (page - 1) * 6;
   const visibleProjects = projects.slice(offset, offset + 6);
-  const video = getYouTubeVideoId(talent.introVideo);
+  const video = publicVideoUrl(talent.introVideo);
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
   return <PublicTalentPresentation requiresQnduitBranding={talent.requiresQnduitBranding}>
@@ -74,11 +155,9 @@ export default function PublicTalentContent({ talent }) {
         {(portfolioUrl || socials.length > 0) && <nav aria-label="Talent links" className="mt-8 flex flex-wrap gap-2">{portfolioUrl && <a className={buttonClass} href={portfolioUrl} target="_blank" rel="noopener noreferrer">Portfolio<ExternalLink className="h-3.5 w-3.5" /></a>}{socials.map(([label, url]) => <a key={label} className={`${buttonClass} capitalize`} href={publicExternalUrl(url)} target="_blank" rel="noopener noreferrer">{label}<ExternalLink className="h-3.5 w-3.5" /></a>)}</nav>}
       </aside>
       <div className="min-w-0 space-y-6">
-        {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className="grid grid-cols-1 gap-5 sm:grid-cols-2">{visibleProjects.map((item, index) => <article key={`${talent.id || talent.username || "talent"}:${offset + index}`} className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]">
-          {item.title && <h3 className="break-words p-4 font-semibold [overflow-wrap:anywhere]">{item.title}</h3>}
-          {item.imageUrl && <PublicTalentImage src={item.imageUrl} alt={item.title || "Portfolio image"} className="aspect-video w-full" />}
-          {(item.description || publicExternalUrl(item.projectUrl) || item.skills?.length > 0) && <div className="space-y-3 p-4">{item.description && <JobDescriptionText value={item.description} className={textClass} />}{publicExternalUrl(item.projectUrl) && <a href={publicExternalUrl(item.projectUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300">View project<ExternalLink className="h-4 w-4" /></a>}{item.skills?.length > 0 && <ul aria-label="Related project skills" className="flex min-w-0 flex-wrap gap-2">{item.skills.map(skill => <li key={skill} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300 [overflow-wrap:anywhere]">{skill}</li>)}</ul>}</div>}
-        </article>)}</div>
+        {projects.length === 0 && <section className={sectionClass} aria-label="Projects"><h2 className={headingClass}>Projects</h2><p className={textClass}>No projects to display yet.</p></section>}
+        {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className="grid grid-cols-1 gap-5 sm:grid-cols-2">{visibleProjects.map((item, index) =>
+          <ProjectCaseStudy key={`${talent.id || talent.username || "talent"}:${item.presentationKey}`} item={item} number={offset + index + 1} />)}</div>
           {pageCount > 1 && <nav aria-label="Portfolio project pages" className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
@@ -95,7 +174,7 @@ export default function PublicTalentContent({ talent }) {
               className={`${buttonClass} focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50`}>Next</button>
           </nav>}
         </section>}
-        {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><div className="aspect-video overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube-nocookie.com/embed/${video}`} title="Introduction video" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /></div></section>}
+        {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><PublicTalentVideo url={video} title="Introduction video" /></section>}
         {talent.cvs?.length > 0 && <section className={sectionClass} aria-label="CVs"><h2 className={headingClass}>CVs</h2><ul className="space-y-3">{talent.cvs.map(cv => <li key={cv.id}><Link to={cv.viewPath} className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>View CV: {cv.name} ({cv.format})</Link></li>)}</ul></section>}
         <History title="Experience" rows={talent.experience} owner="company" />
         <History title="Education" rows={talent.education} owner="academy" />
