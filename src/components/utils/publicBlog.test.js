@@ -92,3 +92,14 @@ test("detail route changes and cancellation cannot display old articles", async 
   const other = deferred(); const cancelled = createPublicBlogReader({ client: client(() => other.promise), baseUrl: "http://127.0.0.1:5193", onChange: state => states.push(state) });
   const pending = cancelled.load(id); cancelled.cancel(); other.resolve({ data: { success: true, post: detail() } }); assert.equal(await pending, undefined);
 });
+
+test("subsequent public reads omit a deleted database post and return missing detail while static URLs survive", async () => {
+  const feed = createPublicBlogFeed({client:client(async () => ({data:page([])})),baseUrl:"http://127.0.0.1:5193"});
+  await feed.loadNext(); assert.equal(feed.snapshot().posts.length,0);
+  assert.deepEqual(combinedBlogPosts(feed.snapshot().posts),blogPosts);
+  let calls=0;
+  const reader=createPublicBlogReader({client:client(async () => { calls++; throw {response:{status:404}}; }),baseUrl:"http://127.0.0.1:5193"});
+  assert.equal((await reader.load(id)).status,"missing");
+  for(let i=1;i<=9;i++) assert.equal((await reader.load(String(i))).status,"ready");
+  assert.equal(calls,1);
+});

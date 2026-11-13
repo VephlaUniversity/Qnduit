@@ -1,6 +1,6 @@
 import BlogPost from "../models/BlogPost.js";
 import { processBlogCover, blogCoverStorage } from "../services/blogCover.js";
-import { validateBlogInput, validateBlogUpdate, validBlogId, blogPagination, blogFailure, publicBlogDTO, adminBlogDTO } from "../utils/blogValidation.js";
+import { validateBlogInput, validateBlogUpdate, validateBlogDelete, validBlogId, blogPagination, blogFailure, publicBlogDTO, adminBlogDTO } from "../utils/blogValidation.js";
 
 // Injectable boundaries keep isolated tests away from production DB/storage.
 export function createBlogController({ Model = BlogPost, processCover = processBlogCover, storage = blogCoverStorage, now = () => new Date() } = {}) {
@@ -76,6 +76,20 @@ export function createBlogController({ Model = BlogPost, processCover = processB
       }
       // Retain the previous cover: another reader may still reference it.
       // Never destroy an existing cover or a cover from an uncertain DB write.
+    }),
+    remove: respond(async (req, res) => {
+      if (!validBlogId(req.params.id)) throw blogFailure(404, "Blog post not found.");
+      if (!req.is("application/json")) throw blogFailure(400, "Deletion requires a JSON body containing only revision.");
+      const revision = validateBlogDelete(req.body);
+      const version = revision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision };
+      const deleted = await Model.findOneAndDelete({ _id: req.params.id, ...version }).lean();
+      if (!deleted) {
+        if (!await Model.exists({ _id: req.params.id })) throw blogFailure(404, "Blog post not found.");
+        throw blogFailure(409, "This post changed. Reload the saved post before deleting again.");
+      }
+      // Covers and inline images may be shared. Retain all Cloudinary assets,
+      // including when a database acknowledgement is lost.
+      res.json({ success: true, id: String(deleted._id) });
     }),
     publish: respond(async (req, res) => {
       if (!validBlogId(req.params.id)) throw blogFailure(404, "Blog post not found.");

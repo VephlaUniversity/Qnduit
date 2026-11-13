@@ -213,6 +213,7 @@ ObjectId blog records. Admin Blog Management is `/admin-dashboard/blog`.
 | `GET /api/admin/blog/:id` | Fresh saved fields and revision, including Drafts. |
 | `POST /api/admin/blog` | Multipart creation; returns 201 with `{ success: true, post }`. |
 | `PATCH /api/admin/blog/:id` | Multipart edit; returns 200 with `{ success: true, post }`. |
+| `DELETE /api/admin/blog/:id` | JSON `{ "revision": <non-negative integer> }` only; permanently deletes a database post and returns 200 `{ success: true, id }`. Active Admin required. |
 | `PATCH /api/admin/blog/:id/publish` | Empty body or `{}`; atomically publishes a Draft. Repeating preserves the publication timestamp. |
 
 Lists return `{ success: true, data: [...], pagination: { page, limit, total,
@@ -262,7 +263,7 @@ responses are conservatively treated as uncertain too.
 Errors use `{success:false,message,errors?}`: validation 400, auth 401/403,
 not-found 404, revision conflict 409, oversize cover 413, provider failure 502,
 unconfirmed/unavailable operation 503. Admin responses use private/no-store;
-public responses use no-store. No delete, unpublish or scheduling API is included.
+public responses use no-store. Deletion returns 404 for missing/already-deleted posts and 409 for a stale revision; legacy missing revisions match zero. Cloudinary covers and inline images are retained, and static articles 1–9 are unaffected. Admin deletion loads fresh details before confirmation; conflicts or uncertain outcomes require a read-only refresh and fresh confirmation, with no automatic retry. Confirmed deletion refreshes the list/count and reconciles an emptied final page. Already-loaded public pages may retain content until refetched; subsequent API detail requests return 404. No unpublish or scheduling API is included.
 
 The `blogposts` model disables automatic collection/index provisioning. Review
 `{status:1,publishedAt:-1,_id:-1}` and `{createdAt:-1,_id:-1}` before rollout;

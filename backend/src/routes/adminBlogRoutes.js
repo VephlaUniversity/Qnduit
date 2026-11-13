@@ -9,6 +9,7 @@ router.use(protect, authorize("admin"));
 router.get("/", blogController.listAdmin);
 router.post("/", blogCoverUpload, blogController.create);
 router.get("/:id", blogController.adminDetail);
+router.delete("/:id", blogController.remove);
 router.patch("/:id", blogCoverUpload, blogController.update);
 router.patch("/:id/publish", blogController.publish);
 export default router;
