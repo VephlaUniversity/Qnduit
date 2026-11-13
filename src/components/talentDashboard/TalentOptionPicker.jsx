@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { TALENT_OPTION_GROUPS, matchesTalentOption } from "../data/talentOptions";
 
-export default function TalentOptionPicker({ label, value, onChange, kind }) {
+export default function TalentOptionPicker({ label, value, onChange, kind, suggestions, maxSelections = Infinity, maxLength }) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [panelPlacement, setPanelPlacement] = useState({ side: "bottom", maxHeight: 320 });
@@ -54,12 +54,14 @@ export default function TalentOptionPicker({ label, value, onChange, kind }) {
 
   const updateSelection = option => {
     const current = selectedValues.current;
+    if (!current.includes(option) && (current.length >= maxSelections || option.length > (maxLength || Infinity))) return;
     const next = current.includes(option)
       ? current.filter(item => item !== option) : [...current, option];
     selectedValues.current = next;
     onChange(next);
   };
-  const groups = TALENT_OPTION_GROUPS.map(group => ({
+  const optionGroups = suggestions ? [{ label: "Suggestions", skills: suggestions }] : TALENT_OPTION_GROUPS;
+  const groups = optionGroups.map(group => ({
     label: group.label,
     options: (kind === "categories"
       ? [{ value: group.label }, ...group.roles]
@@ -67,7 +69,7 @@ export default function TalentOptionPicker({ label, value, onChange, kind }) {
       .filter(option => matchesTalentOption(option, query)),
   })).filter(group => group.options.length);
   const customValue = query.trim().replace(/\s+/g, " ");
-  const existingOption = TALENT_OPTION_GROUPS.flatMap(group => kind === "categories"
+  const existingOption = optionGroups.flatMap(group => kind === "categories"
     ? [{ value: group.label }, ...group.roles]
     : group.skills.map(skill => ({ value: skill })))
     .find(option => [option.value, ...(option.aliases || [])]
@@ -84,7 +86,7 @@ export default function TalentOptionPicker({ label, value, onChange, kind }) {
       <legend className="text-sm text-gray-400 mb-2">{label}</legend>
       <div className="relative">
         <input ref={inputRef} aria-label={`Search ${label.toLowerCase()}`} value={query}
-          aria-expanded={isOpen} aria-controls={optionsId} autoComplete="off"
+          aria-expanded={isOpen} aria-controls={optionsId} autoComplete="off" maxLength={maxLength}
           onFocus={() => setIsOpen(true)}
           onChange={event => { setQuery(event.target.value); setIsOpen(true); }}
           onKeyDown={event => {
@@ -110,6 +112,7 @@ export default function TalentOptionPicker({ label, value, onChange, kind }) {
             {group.options.map(option => <label key={option.value}
               className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm text-white focus-within:ring-2 focus-within:ring-blue-500 ${value.includes(option.value) ? "border-blue-500/40 bg-blue-600/20" : "border-transparent hover:bg-white/5"}`}>
               <input type="checkbox" checked={value.includes(option.value)}
+                disabled={!value.includes(option.value) && value.length >= maxSelections}
                 onChange={() => updateSelection(option.value)} className="h-4 w-4 shrink-0 accent-blue-600" />
               <span className="min-w-0 break-words">{option.value}
                 {option.aliases?.length > 0 && <span className="text-gray-400"> ({option.aliases.join(", ")})</span>}
@@ -118,8 +121,9 @@ export default function TalentOptionPicker({ label, value, onChange, kind }) {
           </div>)}
           {!groups.length && <p className="text-sm text-gray-400">No suggestions match your search.</p>}
           {customValue && !customAlreadySelected && !existingOption && <button type="button"
+            disabled={value.length >= maxSelections || customValue.length > (maxLength || Infinity)}
             onClick={() => { updateSelection(customValue); setQuery(""); inputRef.current?.focus({ preventScroll: true }); }}
-            className="min-h-11 text-blue-400 text-sm break-words [overflow-wrap:anywhere] focus-visible:outline-2">
+            className="min-h-11 text-blue-400 text-sm break-words [overflow-wrap:anywhere] focus-visible:outline-2 disabled:opacity-50">
             Add “{customValue}”
           </button>}
         </div>}

@@ -1,7 +1,8 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { env } from "node:process";
 import mongoose from "mongoose";
-import { portfolioMetadata } from "./portfolioMetadata.js";
+import { normalizePortfolioCaseStudy, PORTFOLIO_METADATA_FIELDS } from "./portfolioMetadata.js";
+import { preparePortfolioProject } from "./portfolioGallery.js";
 
 const { EJSON } = mongoose.mongo.BSON;
 export const draftHash = value => createHash("sha256").update(EJSON.stringify(value, { relaxed: false })).digest("hex");
@@ -14,6 +15,8 @@ const fail = message => Object.assign(new Error(message), { statusCode: 400 });
 export function talentDraft(rows = [], owner, revision) {
   const ids = rows.map(row => row?.portfolioItemId || (row?._id ? String(row._id) : ""));
   return rows.map((row, index) => ({
+    ...Object.fromEntries(PORTFOLIO_METADATA_FIELDS.filter(key => !["title", "description", "projectUrl", "skills"].includes(key))
+      .map(key => [key, normalizePortfolioCaseStudy(row)[key]])),
     ref: reference(owner, revision, index),
     id: ids[index] && ids.indexOf(ids[index]) === ids.lastIndexOf(ids[index]) ? ids[index] : reference(owner, revision, index),
     title: text(row?.title), imageUrl: typeof row === "string" ? row : text(row?.imageUrl),
@@ -22,7 +25,7 @@ export function talentDraft(rows = [], owner, revision) {
   }));
 }
 
-export function prepareTalentDraft(value, rows, owner, revision) {
+export function prepareTalentDraft(value, rows, owner, revision, uploads) {
   let supplied;
   try { supplied = typeof value === "string" ? JSON.parse(value) : value; }
   catch { throw fail("Invalid Talent project details."); }
@@ -31,7 +34,7 @@ export function prepareTalentDraft(value, rows, owner, revision) {
   for (const item of supplied) {
     if (!item || typeof item !== "object" || Array.isArray(item) || typeof item.ref !== "string"
       || byRef.has(item.ref) || !known.some(row => row.ref === item.ref)
-      || Object.keys(item).some(key => !["ref", "remove", "title", "description", "projectUrl", "skills"].includes(key))
+      || Object.keys(item).some(key => !["ref", "remove", ...PORTFOLIO_METADATA_FIELDS].includes(key))
       || (item.remove !== undefined && typeof item.remove !== "boolean")) throw fail("Invalid owner or source reference for a Talent project.");
     byRef.set(item.ref, item);
   }
@@ -45,8 +48,6 @@ export function prepareTalentDraft(value, rows, owner, revision) {
     if (!row.portfolioItemId) row.portfolioItemId = randomUUID();
     const duplicates = rows.filter(other => other?.portfolioItemId === row.portfolioItemId);
     if (duplicates.length > 1) throw fail("Duplicate stored project identities need review. No data was changed.");
-    let metadata;
-    try { metadata = portfolioMetadata(item); } catch (error) { throw fail(error.message); }
-    return [{ ...row, ...metadata }];
+    return [preparePortfolioProject(item, row, uploads).project];
   });
 }

@@ -1,4 +1,5 @@
-import { queuePortfolioFiles, takePortfolioFiles } from "../utils/portfolioSelection.js";
+import { changePortfolioField, portfolioEditorDraft, portfolioEditorMetadata, portfolioEditorProject, portfolioProjectAllowance, portfolioSaveFailure, queuePortfolioFiles, takePortfolioFiles } from "../utils/portfolioSelection.js";
+import { validatePortfolioFieldSize } from "../../../backend/src/utils/portfolioMetadata.js";
 import SavedChoiceSelect from "./SavedChoiceSelect";
 import EducationExtractionReview from "./EducationExtractionReview";
 import { appendCvDraft } from "../utils/educationDraft";
@@ -28,7 +29,6 @@ import { API_BASE_URL } from "../utils/api";
 import { cvExtension, nameWithExtension } from "../utils/cvFile";
 import PortfolioItemFields from "./PortfolioItemFields";
 import TalentPortfolioProjects from "./TalentPortfolioProjects";
-import { portfolioMetadata } from "../../../backend/src/utils/portfolioMetadata.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 let localId = 0;
@@ -183,20 +183,19 @@ const TalentResumeEditor = ({ extractionOwner }) => {
   const displayedCv = newCvFiles[0] || (existingCv.length === 1 ? existingCv[0] : existingCv.find((_, index) => cvChoices[index]?.ref === retainedCv));
   const [existingPortfolio, setExistingPortfolio] = useState([]);
   const [newPortfolio, setNewPortfolio] = useState([]);
-  const pendingPortfolio = useRef([]);
+  const pendingPortfolio = useRef(new Map());
   const [pendingPortfolioCount, setPendingPortfolioCount] = useState(0);
   useEffect(() => () => {
-    pendingPortfolio.current = [];
+    pendingPortfolio.current.clear();
   }, []);
   const [portfolioErrors, setPortfolioErrors] = useState({});
   const [talentProjects, setTalentProjects] = useState([]);
   const savedProjectCount = useRef(0);
   const talentProjectCount = talentProjects.filter(item => !item.removed).length;
   const projectCount = talentProjectCount + existingPortfolio.length + newPortfolio.length;
-  const projectCeiling = entitlementReady
-    ? Math.max(portfolioLimit, savedProjectCount.current)
-    : savedProjectCount.current;
-  const portfolioRoom = Math.max(0, projectCeiling - projectCount);
+  const { ceiling: projectCeiling, room: portfolioRoom } = portfolioProjectAllowance({
+    ready: entitlementReady, paid: paidPortfolio, savedCount: savedProjectCount.current, projectCount,
+  });
   const [portfolioRevision, setPortfolioRevision] = useState("");
   const [awaitingReceipt, setAwaitingReceipt] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -216,14 +215,23 @@ const TalentResumeEditor = ({ extractionOwner }) => {
   const [expandedEducation, setExpandedEducation] = useState(new Set());
   const [expandedExperience, setExpandedExperience] = useState(new Set());
 
-  // Free the preview URLs when leaving the page.
-  const previewsRef = useRef([]);
-  previewsRef.current = newPortfolio;
-  useEffect(
-    () => () =>
-      previewsRef.current.forEach((item) => URL.revokeObjectURL(item.preview)),
-    [],
-  );
+  // Allocate previews once outside state updaters. Reconcile removals and revoke
+  // every remaining URL when this owner's editor unmounts.
+  const previewsRef = useRef(new Map());
+  const projectState = useRef({});
+  projectState.current = { talent: talentProjects, existing: existingPortfolio, new: newPortfolio };
+  useEffect(() => {
+    const active = new Set([...talentProjects, ...existingPortfolio, ...newPortfolio]
+      .flatMap(project => (project.images || []).map(image => image.preview)).filter(Boolean));
+    for (const [key, url] of previewsRef.current) if (!active.has(url)) {
+      URL.revokeObjectURL(url);
+      previewsRef.current.delete(key);
+    }
+  }, [talentProjects, existingPortfolio, newPortfolio]);
+  useEffect(() => {
+    const previews = previewsRef.current;
+    return () => { for (const url of previews.values()) URL.revokeObjectURL(url); previews.clear(); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,7 +248,7 @@ const TalentResumeEditor = ({ extractionOwner }) => {
 
         const resume = data.resume || {};
         savedProjectCount.current = (data.talentProjects || []).length + (resume.portfolioImages || []).length;
-        setTalentProjects(data.talentProjects || []);
+        setTalentProjects((data.talentProjects || []).map(portfolioEditorProject));
         setPortfolioRevision(data.portfolioRevision || "");
         educationSources.current = resume.education || [];
         const edu = educationSources.current.map((item, index) => ({
@@ -272,7 +280,7 @@ const TalentResumeEditor = ({ extractionOwner }) => {
         setExistingCv(resume.cvFiles || []);
         setCvChoices(data.cvChoices || []);
         setRetainedCv(resume.cvFiles?.length === 1 ? data.cvChoices?.[0]?.ref : null);
-        setExistingPortfolio(resume.portfolioImages || []);
+        setExistingPortfolio((resume.portfolioImages || []).map(portfolioEditorProject));
       } catch (err) {
         if (cancelled) return;
         if (err?.response?.status === 404) {
@@ -332,59 +340,64 @@ const TalentResumeEditor = ({ extractionOwner }) => {
     setNewCvFiles([file]); setCvAction("replace"); extraction.current?.select([file]);
   };
 
-  const handlePortfolioUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = ""; // Cancellation is harmless; removed files can be selected again.
-    if (!files.length || !isCurrentOwner()) return;
-    const problems = queuePortfolioFiles(
-      pendingPortfolio.current, files, newPortfolio.map(item => item.file),
-    );
-    setPendingPortfolioCount(pendingPortfolio.current.length);
-    if (problems.length) toast({
-      title: "Some images were not added",
-      description: problems.join(" "),
-      variant: "destructive",
-    });
+  const queueGalleryImages = (source, id, files) => {
+    if (!files.length || !isCurrentOwner() || saving || awaitingReceipt) return;
+    const key = `${source}:${id}`;
+    const entry = pendingPortfolio.current.get(key) || { source, id, files: [] };
+    const project = projectState.current[source]?.find(item => (source === "talent" ? item.id : item._id) === id);
+    const problems = queuePortfolioFiles(entry.files, files, (project?.images || []).filter(image => image.file).map(image => image.file));
+    if (entry.files.length) pendingPortfolio.current.set(key, entry);
+    setPendingPortfolioCount([...pendingPortfolio.current.values()].reduce((total, row) => total + row.files.length, 0));
+    if (problems.length) toast({ title: "Some images were not added", description: problems.join(" "), variant: "destructive" });
+  };
+
+  const addProject = () => {
+    if (!isCurrentOwner() || !entitlementReady || !portfolioRoom || saving || awaitingReceipt) return;
+    setNewPortfolio(previous => [...previous, { ...portfolioEditorProject({ _id: nextId(), title: "", images: [] }), _new: true }]);
+  };
+
+  const handlePortfolioUpload = event => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (files.length) queueGalleryImages("create", nextId(), files);
   };
 
   useEffect(() => {
-    if (!pendingPortfolioCount) return;
-    const { files, rejected } = takePortfolioFiles(pendingPortfolio.current, {
-      ready: entitlementReady && !saving && !awaitingReceipt,
-      currentOwner: isCurrentOwner(),
-      room: portfolioRoom,
-    });
-    // Draining the ref before updating state also prevents StrictMode replay.
-    if (pendingPortfolio.current.length) return;
-    setPendingPortfolioCount(0);
-    if (files.length) {
-      const accepted = files.map(file => ({
-        _id: nextId(),
-        file,
-        preview: URL.createObjectURL(file),
-        title: "",
-        description: "",
-        projectUrl: "",
-        skills: [],
-      }));
-      setNewPortfolio(previous => [...previous, ...accepted]);
+    if (!pendingPortfolioCount || saving || awaitingReceipt || loading) return;
+    if (!isCurrentOwner()) { pendingPortfolio.current.clear(); setPendingPortfolioCount(0); return; }
+    let room = portfolioRoom;
+    for (const [key, entry] of pendingPortfolio.current) {
+      const creating = entry.source === "create";
+      if (creating && !entitlementReady) continue;
+      const project = creating ? null : projectState.current[entry.source]?.find(item => (entry.source === "talent" ? item.id : item._id) === entry.id);
+      if (!creating && (!project || project.removed)) { pendingPortfolio.current.delete(key); continue; }
+      const { files, rejected } = takePortfolioFiles(entry.files, {
+        ready: true, currentOwner: true,
+        room: creating ? room > 0 ? 6 : 0 : Math.max(0, 6 - project.images.length),
+      });
+      // Drain before state updates to prevent StrictMode replay or duplicate URLs.
+      pendingPortfolio.current.delete(key);
+      const images = files.map(file => {
+        const image = { _editorKey: nextId(), file, preview: URL.createObjectURL(file), alt: "", caption: "", comparisonLabel: "" };
+        previewsRef.current.set(image._editorKey, image.preview);
+        return image;
+      });
+      if (creating && images.length) {
+        room--;
+        setNewPortfolio(previous => [...previous, { ...portfolioEditorProject({ _id: entry.id, title: "", images: [] }), _new: true, images }]);
+      } else if (images.length) {
+        const setter = entry.source === "talent" ? setTalentProjects : entry.source === "new" ? setNewPortfolio : setExistingPortfolio;
+        setter(previous => previous.map(item => (entry.source === "talent" ? item.id : item._id) === entry.id
+          ? changePortfolioField(item, "images", [...item.images, ...images]) : item));
+      }
+      if (rejected) toast({ title: "Some images were not added", description: creating && !images.length
+        ? "Your project allowance has been reached. Gallery images in existing projects do not use extra project slots."
+        : "A project can contain up to six images, including its cover.", variant: "destructive" });
     }
-    if (rejected) toast({
-      title: "Some images were not added",
-      description: "Your portfolio project allowance has been reached.",
-      variant: "destructive",
-    });
-  }, [
-    pendingPortfolioCount, entitlementReady, saving, awaitingReceipt,
-    isCurrentOwner, portfolioRoom, toast,
-  ]);
+    setPendingPortfolioCount([...pendingPortfolio.current.values()].reduce((total, row) => total + row.files.length, 0));
+  }, [pendingPortfolioCount, entitlementReady, saving, awaitingReceipt, loading, isCurrentOwner, portfolioRoom, toast]);
 
-  const removeNewPortfolio = (id) => {
-    setNewPortfolio((prev) => {
-      URL.revokeObjectURL(prev.find(item => item._id === id)?.preview);
-      return prev.filter(item => item._id !== id);
-    });
-  };
+  const removeNewPortfolio = id => setNewPortfolio(previous => previous.filter(item => item._id !== id));
 
   const addEducation = () => {
     const item = blankEducation();
@@ -423,12 +436,12 @@ const TalentResumeEditor = ({ extractionOwner }) => {
 
   const updatePortfolio = (id, field, value, isNew) => {
     const setter = isNew ? setNewPortfolio : setExistingPortfolio;
-    setter(previous => previous.map(item => item._id === id ? { ...item, [field]: value } : item));
+    setter(previous => previous.map(item => item._id === id ? changePortfolioField(item, field, value) : item));
     setPortfolioErrors(previous => ({ ...previous, [id]: "" }));
   };
 
   const updateTalentProject = (id, field, value) => {
-    setTalentProjects(previous => previous.map(item => item.id === id ? { ...item, [field]: value } : item));
+    setTalentProjects(previous => previous.map(item => item.id === id ? changePortfolioField(item, field, value) : item));
     setPortfolioErrors(previous => ({ ...previous, [`talent:${id}`]: "" }));
   };
   const removeTalentProject = id => setTalentProjects(previous => previous.map(item =>
@@ -452,7 +465,7 @@ const TalentResumeEditor = ({ extractionOwner }) => {
   };
 
   const handleSave = async () => {
-    if (!isCurrentOwner()) return;
+    if (!isCurrentOwner() || pendingSave.current) return;
     if (saveAttempt.current) {
       const controller = new AbortController(); pendingSave.current = controller;
       setSaving(true);
@@ -462,12 +475,12 @@ const TalentResumeEditor = ({ extractionOwner }) => {
         });
         finishSave(data);
       } catch (error) {
-        if (error.response?.data?.saveState === "failed") finishSave(error.response.data);
+        if (portfolioSaveFailure(error)) finishSave(portfolioSaveFailure(error));
         else setSaveMessage("Save status could not be confirmed. Your draft and files are retained. Check the save status again.");
-      } finally { setSaving(false); }
+      } finally { pendingSave.current = null; setSaving(false); }
       return;
     }
-    if (pendingPortfolio.current.length) return;
+    if (pendingPortfolio.current.size) return;
     if (projectCount > projectCeiling) {
       toast({ title: "Check your portfolio count", description: entitlementReady
         ? `Your allowance is ${portfolioLimit} projects. Remove a project or undo a new upload before saving. Your saved projects and draft are retained.`
@@ -475,17 +488,14 @@ const TalentResumeEditor = ({ extractionOwner }) => {
       return;
     }
     const errors = {};
-    const metadata = new Map();
     for (const item of [...existingPortfolio, ...newPortfolio]) {
       try {
-        const details = portfolioMetadata(item);
-        if (item.file && !details.title) throw new Error("Enter a project title.");
-        metadata.set(item._id, details);
+        portfolioEditorMetadata(item);
       }
       catch (error) { errors[item._id] = error.message; }
     }
     for (const item of talentProjects.filter(row => !row.removed)) {
-      try { portfolioMetadata(item); }
+      try { portfolioEditorMetadata(item); }
       catch (error) { errors[`talent:${item.id}`] = error.message; }
     }
     setPortfolioErrors(errors);
@@ -502,16 +512,11 @@ const TalentResumeEditor = ({ extractionOwner }) => {
       const requestId = crypto.randomUUID();
       formData.append("saveRequestId", requestId);
       formData.append("portfolioRevision", portfolioRevision);
-      formData.append("talentItems", JSON.stringify(talentProjects.map(item => item.removed
-        ? { ref: item.ref, remove: true } : { ref: item.ref, ...portfolioMetadata(item) })));
-
-      newCvFiles.forEach((file) => formData.append("cvFiles", file));
-      const uploadReference = item => `${item._id}.${item.file.type === "image/png" ? "png" : "jpg"}`;
-      newPortfolio.forEach(item => formData.append("portfolioImages", item.file, uploadReference(item)));
-      formData.append("portfolioItems", JSON.stringify([
-        ...existingPortfolio.map(item => ({ id: item._id, ...metadata.get(item._id) })),
-        ...newPortfolio.map(item => ({ upload: uploadReference(item), ...metadata.get(item._id) })),
-      ]));
+      const draft = portfolioEditorDraft({ talentProjects, existingPortfolio, newPortfolio, cvFiles: newCvFiles });
+      formData.append("talentItems", JSON.stringify(draft.talentItems));
+      formData.append("portfolioItems", JSON.stringify(draft.portfolioItems));
+      newCvFiles.forEach(file => formData.append("cvFiles", file));
+      for (const [reference, file] of draft.uploads) formData.append("portfolioImages", file, reference);
 
       formData.append("cvSelection", JSON.stringify({ action: cvAction, ref: retainedCv }));
       // Compatibility list; the owner-scoped explicit selection is authoritative.
@@ -527,6 +532,9 @@ const TalentResumeEditor = ({ extractionOwner }) => {
         }
       }
 
+      // Include CV selections and other edited Resume sections in the same
+      // per-field preflight, before assigning an attempt or making a request.
+      for (const [field, value] of formData) if (typeof value === "string") validatePortfolioFieldSize(value, field);
       saveAttempt.current = requestId;
       const controller = new AbortController(); pendingSave.current = controller;
       const { data } = await axios.put(`${API_BASE_URL}/api/resume`, formData, {
@@ -546,12 +554,13 @@ const TalentResumeEditor = ({ extractionOwner }) => {
         finishSave({ ...error.response.data, saveState: "failed", message });
         toast({ title: "Portfolio allowance reached", description: message, variant: "destructive" });
         entitlement.refresh();
-      } else if (error.response?.data?.saveState === "failed") finishSave(error.response.data);
+      } else if (portfolioSaveFailure(error)) finishSave(portfolioSaveFailure(error));
       else if (saveAttempt.current) {
         setAwaitingReceipt(true);
         setSaveMessage("Save status could not be confirmed. Your draft and files are retained. Check the save status again.");
-      } else setSaveMessage(friendlyError(error, "Unable to save. Your draft is retained."));
+      } else setSaveMessage(error.response ? friendlyError(error, "Unable to save. Your draft is retained.") : error.message || "Unable to save. Your draft is retained.");
     } finally {
+      pendingSave.current = null;
       setSaving(false);
     }
   };
@@ -710,7 +719,7 @@ const TalentResumeEditor = ({ extractionOwner }) => {
               className="min-h-11 rounded-lg border border-blue-600 px-4 py-2 text-blue-400 disabled:opacity-50">Check allowance</button>}
           </div>}
           {entitlementReady && !paidPortfolio && <p className="mb-4 break-words text-sm leading-relaxed text-blue-300">
-            Upgrade to customise your portfolio, add unlimited projects, and remove Qnduit branding with other amazing features.
+            Upgrade for up to 20 projects and removal of Qnduit branding with other paid features.
           </p>}
           <p id="portfolio-project-guidance" className="mb-4 break-words text-sm text-gray-400">
             {entitlementReady && savedProjectCount.current > portfolioLimit
@@ -722,48 +731,37 @@ const TalentResumeEditor = ({ extractionOwner }) => {
             {entitlementReady ? "Preparing selected images..." : "Checking your portfolio allowance. Your selected images are retained."}
           </p>}
           <TalentPortfolioProjects projects={talentProjects} errors={portfolioErrors}
-            onChange={updateTalentProject} onRemove={removeTalentProject} />
+            onChange={updateTalentProject} onRemove={removeTalentProject}
+            onAddImages={(id, files) => queueGalleryImages("talent", id, files)} />
           {existingPortfolio.length + newPortfolio.length > 0 && (
             <div className="grid min-w-0 grid-cols-1 gap-6 mb-4 md:grid-cols-2">
               {[...existingPortfolio, ...newPortfolio].map((item, index) => (
                 <article key={item._id} aria-label={`Portfolio project ${index + 1}`} className="min-w-0 space-y-4 rounded-lg border border-white/10 p-4">
-                  <div className="relative group w-40 max-w-full">
-                    <div className="h-32 bg-[#2A2A2E] rounded-lg overflow-hidden border border-white/10">
-                      <img src={item.preview || item.url} alt={`Portfolio ${index + 1}`} className="w-full h-full object-cover" />
-                    </div>
-                    <button type="button" aria-label={`Remove portfolio image ${index + 1}`}
-                      onClick={() => item.file ? removeNewPortfolio(item._id) : setExistingPortfolio(previous => previous.filter(row => row._id !== item._id))}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 transition-opacity">
-                      <X className="w-3 h-3 text-white" />
-                    </button>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <h3 className="min-w-0 break-words font-semibold text-white">{item.title || `Project ${index + 1}`}{item._new ? " · New" : ""}</h3>
+                    <button type="button" aria-label={`Remove project ${index + 1}`}
+                      onClick={() => item._new ? removeNewPortfolio(item._id) : setExistingPortfolio(previous => previous.filter(row => row._id !== item._id))}
+                      className="min-h-11 rounded-lg border border-white/15 px-3 py-2 text-sm text-red-300 focus-visible:outline-2">Remove project</button>
                   </div>
                   <PortfolioItemFields item={item} error={portfolioErrors[item._id]}
-                    onChange={(field, value) => updatePortfolio(item._id, field, value, Boolean(item.file))} />
+                    onChange={(field, value) => updatePortfolio(item._id, field, value, Boolean(item._new))}
+                    onAddImages={files => queueGalleryImages(item._new ? "new" : "existing", item._id, files)} />
                 </article>
               ))}
             </div>
           )}
-          <input
-            ref={portfolioInputRef}
-            type="file"
-            accept="image/png,image/jpeg"
-            multiple
-            disabled={saving || awaitingReceipt}
-            onChange={handlePortfolioUpload}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => portfolioInputRef.current?.click()}
-            disabled={!entitlementReady || portfolioRoom === 0 || awaitingReceipt}
-            aria-describedby="portfolio-project-count portfolio-project-guidance"
-            className="min-h-11 max-w-full px-6 py-2.5 bg-transparent border border-blue-600 hover:bg-blue-600/10 text-blue-500 rounded-lg transition-colors disabled:opacity-50"
-          >
-            Add portfolio images
-          </button>
-          <p className="mt-1 text-sm text-gray-400">
-            PNG/JPG · 5 MB per image
-          </p>
+          <input ref={portfolioInputRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" multiple
+            disabled={saving || awaitingReceipt} onChange={handlePortfolioUpload} className="hidden" />
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={addProject} disabled={!entitlementReady || portfolioRoom === 0 || awaitingReceipt}
+              aria-describedby="portfolio-project-count portfolio-project-guidance"
+              className="min-h-11 max-w-full rounded-lg border border-blue-600 px-5 py-2.5 text-blue-400 focus-visible:outline-2 disabled:opacity-50">Add project</button>
+            <button type="button" onClick={() => portfolioInputRef.current?.click()}
+              disabled={entitlementReady && portfolioRoom === 0 || awaitingReceipt}
+              aria-describedby="portfolio-project-count portfolio-project-guidance"
+              className="min-h-11 max-w-full rounded-lg border border-blue-600 px-5 py-2.5 text-blue-400 focus-visible:outline-2 disabled:opacity-50">Create project with images</button>
+          </div>
+          <p className="mt-2 text-sm text-gray-400">Each project can include six images and uses one project slot. Up to 20 new images and 30 MiB of files per save, including your CV.</p>
         </fieldset>
 
         {/* Education */}

@@ -729,16 +729,16 @@ export const getPublicTalentProfile = async (req, res, next) => {
       .select(PUBLIC_RESUME_FIELDS)
       .lean();
 
+    const projectOccurrences = new Map();
     const publicTalent = publicTalentProfileDto(talent, resume, {
       paidPortfolio: publication.subscriptionStatus?.eligibility?.talentPublicProfile === true,
-    });
-
-    console.log("[Public Portfolio Check]", {
-      talentId: String(talent._id),
-      resumeFound: Boolean(resume),
-      portfolioImageCount: resume?.portfolioImages?.length ?? 0,
-      galleryImageCount: publicTalent.gallery.length,
-      gallery: publicTalent.gallery,
+      projectKey: (source, row) => {
+        const identity = row?.portfolioItemId || row?._id || (typeof row === "string" ? row : row?.imageUrl || row?.url || "");
+        const seed = JSON.stringify([String(talent._id), source, String(identity)]);
+        const occurrence = projectOccurrences.get(seed) || 0;
+        projectOccurrences.set(seed, occurrence + 1);
+        return createHash("sha256").update(`${seed}:${occurrence}`).digest("hex");
+      },
     });
 
     return res.status(200).json({

@@ -10,8 +10,39 @@ import { editorRevision, talentDraft } from "../utils/talentPortfolioDraft.js";
 import { selectSingleCv, cvReference } from "../utils/singleCv.js";
 import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
 import { enforcePortfolioLimit } from "../services/portfolioPolicy.js";
+import { Buffer } from "node:buffer";
+import { materializePortfolioProject, MAX_PORTFOLIO_REQUEST_BYTES, uploadPortfolioAsset, validatePortfolioImageBytes } from "../utils/portfolioGallery.js";
+import { normalizePortfolioCaseStudy } from "../utils/portfolioCaseStudy.js";
+import { MAX_PORTFOLIO_FIELD_BYTES } from "../utils/portfolioMetadata.js";
 
-const storage = multer.memoryStorage();
+// Bound the entire multipart file payload while streaming, before memoryStorage
+// could allocate every permitted file. Keep the existing 20-image/one-CV count.
+const uploadBytes = Symbol("resumeUploadBytes");
+const storage = {
+  _handleFile(req, file, callback) {
+    let chunks = [], size = 0, finished = false;
+    const done = (error, result) => {
+      if (finished) return;
+      finished = true;
+      chunks = [];
+      callback(error, result);
+    };
+    file.stream.on("data", chunk => {
+      if (finished) return;
+      size += chunk.length;
+      req[uploadBytes] = (req[uploadBytes] || 0) + chunk.length;
+      const limit = file.fieldname === "portfolioImages" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (size > limit || req[uploadBytes] > MAX_PORTFOLIO_REQUEST_BYTES) {
+        done(Object.assign(new Error("Uploads exceed the per-file limit or combined 30 MiB request limit."), { statusCode: 413 }));
+      } else chunks.push(chunk);
+    });
+    file.stream.once("error", done);
+    file.stream.once("end", () => {
+      if (!finished) done(null, { buffer: Buffer.concat(chunks), size });
+    });
+  },
+  _removeFile(req, file, callback) { delete file.buffer; callback(null); },
+};
 
 // Keeps the sign-up upload and the Resume page in sync.
 export const addCvToResume = async (
@@ -60,7 +91,7 @@ const removeFromCloudinary = async (items, resourceType) => {
 
 const resumeUpload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024, files: 21 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 21, fields: 16, parts: 38, fieldSize: MAX_PORTFOLIO_FIELD_BYTES },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
 
@@ -71,7 +102,7 @@ const resumeUpload = multer({
     }
 
     if (file.fieldname === "portfolioImages") {
-      if (![".png", ".jpg", ".jpeg"].includes(ext)) {
+      if (![".png", ".jpg", ".jpeg"].includes(ext) || !["image/png", "image/jpeg", "image/jpg"].includes(file.mimetype)) {
         return cb(new Error("Only images allowed"));
       }
     }
@@ -83,8 +114,20 @@ const resumeUpload = multer({
   { name: "portfolioImages", maxCount: 20 },
 ]);
 export const uploadResumeFiles = (req, res, next) => resumeUpload(req, res, error => {
-  if (error) return next(Object.assign(new Error(error.code === "LIMIT_FILE_SIZE" ? "Choose files of 10 MiB or smaller."
-    : error.field === "cvFiles" ? "Choose one CV. Replace the active CV explicitly." : "The selected files could not be accepted."), { statusCode: 400 }));
+  if (error) {
+    // This middleware precedes both save controllers: no receipt, upload to the
+    // provider, or transaction can exist for this rejected request.
+    const metadataTooLarge = error.code === "LIMIT_FIELD_VALUE";
+    const message = metadataTooLarge
+      ? "Each metadata field must be smaller than 1 MiB. Save fewer project changes at once. Your draft and images are retained."
+      : error.statusCode === 413 ? error.message
+        : error.code === "LIMIT_FILE_SIZE" ? "Choose files of 10 MiB or smaller."
+          : error.field === "cvFiles" ? "Choose one CV. Replace the active CV explicitly." : "The selected files could not be accepted.";
+    return next(Object.assign(new Error(message), {
+      statusCode: metadataTooLarge || error.statusCode === 413 ? 413 : 400,
+      code: "PORTFOLIO_MULTIPART_REJECTED", saveState: "failed",
+    }));
+  }
   next();
 });
 
@@ -126,7 +169,7 @@ export const saveResume = async (req, res, next) => {
     const revision = submittedRevision ?? editorRevision(talent, stored);
     if (revision !== editorRevision(talent, stored)) {
       throw Object.assign(
-        new Error("Saved data changed in another session. Your draft is retained; reload before retrying."),
+        new Error("This profile was updated elsewhere. Your draft is safe. Review changes before retrying."),
         { statusCode: 409 },
       );
     }
@@ -146,6 +189,7 @@ export const saveResume = async (req, res, next) => {
       talentProjects: talent.portfolio,
       resumeProjects: portfolio.items,
     });
+    await validatePortfolioImageBytes(newImages);
     const parsed = {};
     for (const field of ["education", "experience", "skills"]) {
       if (req.body[field] !== undefined) {
@@ -200,6 +244,7 @@ export const saveResume = async (req, res, next) => {
           },
         );
 
+        stream.on("error", reject);
         stream.end(file.buffer);
       });
 
@@ -220,33 +265,15 @@ export const saveResume = async (req, res, next) => {
 
     const uploadedByReference = new Map();
     for (const file of newImages) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "qnduit/resumes/portfolio",
-            resource_type: "image",
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(result);
-            }
-          },
-        );
-
-        stream.end(file.buffer);
-      });
-
-      const image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-      uploadedImages.push(image);
+      const image = await uploadPortfolioAsset(file, {
+        owner: talentId, folder: "qnduit/resumes/portfolio",
+      }, asset => uploadedImages.push(asset));
       uploadedByReference.set(file.originalname, image);
     }
 
     const finalPortfolio = portfolio.items.map(item => ({
-      ...(item.previous || uploadedByReference.get(item.file.originalname)),
+      ...materializePortfolioProject(item.project, portfolio.context, uploadedByReference, "url", item.file?.originalname),
       _id: item.previous?._id || new mongoose.Types.ObjectId(),
-      ...item.metadata,
     }));
     resume.portfolioImages = finalPortfolio;
     await resume.validate();
@@ -276,7 +303,7 @@ export const saveResume = async (req, res, next) => {
         }
         if (editorRevision(currentTalent, currentResume) !== revision) {
           throw Object.assign(
-            new Error("Saved data changed in another session. Your draft is retained; reload before retrying."),
+            new Error("This profile was updated elsewhere. Your draft is safe. Review changes before retrying."),
             { statusCode: 409 },
           );
         }
@@ -357,7 +384,7 @@ export const saveResume = async (req, res, next) => {
     res.json({
       success: true,
       message: "Resume saved successfully",
-      resume,
+      resume: { ...resume.toObject(), portfolioImages: normalizePortfolioImages(finalPortfolio, talentId).map(normalizePortfolioCaseStudy) },
     });
   } catch (error) {
     // A post-save housekeeping error must never remove assets now referenced in DB.
@@ -414,7 +441,7 @@ export const getResume = async (req, res, next) => {
     res.set("Cache-Control", "private, no-store");
     res.json({
       success: true,
-      resume: { ...(record || {}), portfolioImages: normalizePortfolioImages(record?.portfolioImages, talentId) },
+      resume: { ...(record || {}), portfolioImages: normalizePortfolioImages(record?.portfolioImages, talentId).map(normalizePortfolioCaseStudy) },
       cvChoices: (record?.cvFiles || []).map((file, index) => ({ ref: cvReference(talentId, file, index), index })),
       portfolioRevision: revision,
       talentProjects: talentDraft(talent?.portfolio || [], talentId, revision),

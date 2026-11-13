@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { portfolioCaseStudyFields } from "./portfolioCaseStudyFields.js";
 
 const talentSchema = new mongoose.Schema(
   {
@@ -168,6 +169,7 @@ const talentSchema = new mongoose.Schema(
 
     portfolio: [
       {
+        ...portfolioCaseStudyFields(),
         title: String,
         description: String,
         imageUrl: String,

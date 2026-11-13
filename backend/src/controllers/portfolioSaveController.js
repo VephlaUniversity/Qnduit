@@ -1,7 +1,5 @@
 import { prepareEducation } from "../utils/talentFieldChoices.js";
 import mongoose from "mongoose";
-import { randomUUID } from "node:crypto";
-import path from "node:path";
 import Talent from "../models/Talent.js";
 import Resume from "../models/Resume.js";
 import PortfolioSave from "../models/PortfolioSave.js";
@@ -11,6 +9,7 @@ import { draftHash, editorRevision, prepareTalentDraft } from "../utils/talentPo
 import { selectSingleCv } from "../utils/singleCv.js";
 import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
 import { enforcePortfolioLimit } from "../services/portfolioPolicy.js";
+import { finishPortfolioUploads, materializePortfolioProject, portfolioUploads, uploadPortfolioAsset, validatePortfolioImageBytes } from "../utils/portfolioGallery.js";
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const receiptId = (owner, id) => draftHash([String(owner), id]);
@@ -57,15 +56,18 @@ export async function savePortfolioPage(req, res) {
     const stored = await Resume.collection.findOne({ talent: owner });
     if (await Resume.collection.countDocuments({ talent: owner }, { limit: 2 }) > 1) throw fail("Multiple saved Resume records need review. No data was changed.", 409);
     if (!talent) throw fail("Talent not found.", 404);
-    if (editorRevision(talent, stored) !== body.portfolioRevision) throw fail("Saved data changed in another session. Your draft is retained; compare it with the current saved version before retrying.", 409);
-    const talentRows = prepareTalentDraft(body.talentItems, talent.portfolio || [], owner, body.portfolioRevision);
+    if (editorRevision(talent, stored) !== body.portfolioRevision) throw fail("This profile was updated elsewhere. Your draft is safe. Review changes before retrying.", 409);
     const images = req.files?.portfolioImages || [], cvFiles = req.files?.cvFiles || [];
-    const plan = preparePortfolio(body, normalizePortfolioImages(stored?.portfolioImages, owner), images);
+    const uploads = portfolioUploads(images);
+    let talentRows = prepareTalentDraft(body.talentItems, talent.portfolio || [], owner, body.portfolioRevision, uploads);
+    const plan = preparePortfolio(body, normalizePortfolioImages(stored?.portfolioImages, owner), images, uploads);
+    finishPortfolioUploads(uploads);
     await enforcePortfolioLimit({
       owner, talent, resume: stored,
       talentProjects: talentRows, resumeProjects: plan.items,
     });
     const keptCv = selectSingleCv(owner, stored?.cvFiles || [], cvFiles, body);
+    await validatePortfolioImageBytes(images);
     if (cvFiles.some(file => !file.buffer?.length || file.size > 10 * 1024 * 1024 || !/\.(pdf|docx?)$/i.test(file.originalname))) throw fail("Choose a non-empty PDF, DOC or DOCX up to 10 MiB.");
     const patch = {};
     for (const key of ["education", "experience", "skills"]) if (body[key] !== undefined) {
@@ -79,7 +81,8 @@ export async function savePortfolioPage(req, res) {
     if (body.videoUrl !== undefined) { if (typeof body.videoUrl !== "string") throw fail("Invalid video URL."); patch.introVideo = { url: body.videoUrl, public_id: "" }; }
     // Validate before provider work; persistence below merges raw records, retaining custom fields.
     await new Resume({ ...(stored || {}), ...patch, talent: owner,
-      portfolioImages: plan.items.filter(item => item.previous).map(item => ({ ...item.previous, ...item.metadata })), cvFiles: keptCv }).validate();
+      portfolioImages: plan.items.map(item => item.project), cvFiles: keptCv }).validate();
+    for (const project of new Talent({ portfolio: talentRows }).portfolio) await project.validate();
     try { await PortfolioSave.create({ _id: receiptId(owner, id), talent: owner, digest, state: "pending" }); claimed = true; }
     catch (error) {
       if (error.code !== 11000) throw error;
@@ -87,18 +90,10 @@ export async function savePortfolioPage(req, res) {
       if (competing?.digest !== digest) throw fail("This save reference belongs to a different draft.", 409);
       return respond(res, competing?.state || "pending", id);
     }
-    const upload = async (file, resourceType, folder) => {
-      const result = await new Promise((resolve, reject) => {
-        const extension = path.extname(file.originalname).toLowerCase();
-        const stream = cloudinary.uploader.upload_stream({ resource_type: resourceType, folder, overwrite: false,
-          public_id: `${owner}-${randomUUID()}${resourceType === "raw" ? extension : ""}` },
-        (error, value) => error ? reject(error) : resolve(value));
-        stream.end(file.buffer);
-      });
-      const asset = { url: result.secure_url, public_id: result.public_id, resourceType };
-      uploaded.push(asset);
-      return { _id: new mongoose.Types.ObjectId(), url: asset.url, public_id: asset.public_id };
-    };
+    const upload = async (file, resourceType, folder) => ({
+      ...await uploadPortfolioAsset(file, { owner, resourceType, folder }, asset => uploaded.push(asset)),
+      _id: new mongoose.Types.ObjectId(),
+    });
     const addedCv = [];
     for (const file of cvFiles) addedCv.push({ ...await upload(file, "raw", "qnduit/resumes/cv"), name: file.originalname,
       type: /\.pdf$/i.test(file.originalname) ? "PDF" : "Doc" });
@@ -106,7 +101,13 @@ export async function savePortfolioPage(req, res) {
     for (const file of images) addedImages.set(file.originalname, await upload(file, "image", "qnduit/resumes/portfolio"));
     patch.cvFiles = [...keptCv, ...addedCv];
     patch.cvArchive = [...(stored?.cvArchive || []), ...(stored?.cvFiles || []).filter(file => !keptCv.includes(file))];
-    patch.portfolioImages = plan.items.map(item => ({ ...(item.previous || addedImages.get(item.file.originalname)), ...item.metadata }));
+    talentRows = talentRows.map(project => materializePortfolioProject(project, uploads, addedImages, "imageUrl"));
+    patch.portfolioImages = plan.items.map(item => ({
+      ...materializePortfolioProject(item.project, uploads, addedImages, "url", item.file?.originalname),
+      _id: item.previous?._id || new mongoose.Types.ObjectId(),
+    }));
+    await new Resume({ ...(stored || {}), ...patch, talent: owner }).validate();
+    for (const project of new Talent({ portfolio: talentRows }).portfolio) await project.validate();
     const resumeId = stored?._id || new mongoose.Types.ObjectId();
     session = await mongoose.startSession();
     await session.withTransaction(async () => {
@@ -115,7 +116,7 @@ export async function savePortfolioPage(req, res) {
       const currentResume = await Resume.collection.findOne({ talent: owner }, { session });
       if (await Resume.collection.countDocuments({ talent: owner }, { session, limit: 2 }) > 1) throw fail("Multiple saved Resume records need review. No data was changed.", 409);
       if (!currentTalent) throw fail("Talent not found. Your draft is retained.", 404);
-      if (editorRevision(currentTalent, currentResume) !== body.portfolioRevision) throw fail("Saved data changed in another session. Your draft is retained; compare it with the current saved version before retrying.", 409);
+      if (editorRevision(currentTalent, currentResume) !== body.portfolioRevision) throw fail("This profile was updated elsewhere. Your draft is safe. Review changes before retrying.", 409);
       await enforcePortfolioLimit({
         owner, talent: currentTalent, resume: currentResume,
         talentProjects: talentRows, resumeProjects: patch.portfolioImages, session,
