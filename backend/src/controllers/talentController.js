@@ -1,8 +1,8 @@
+import { publicAnalyticsPolicy, analyticsProjectKey } from "../utils/portfolioAnalytics.js";
 import { avatarProcessor, avatarError, allocateTalentAvatar, uploadTalentAvatar, cleanupTalentAvatar, persistTalentAvatar } from "../services/talentAvatar.js";
 export { talentUpload } from "../middleware/talentAvatarUpload.js";
 import { GENDER_OPTIONS, savedChoiceError } from "../utils/talentFieldChoices.js";
 import { findPublishedPortfolio } from "../services/publicTalentAccess.js";
-import { savedPublicCvs, publicCvSummary } from "../services/publicTalentCv.js";
 import { talentLocationPatch } from "../utils/talentLocation.js";
 import { OWNER_TALENT_FIELDS, ownerTalentProfile } from "../utils/ownerTalentProfile.js";
 import { withVerificationBadge } from "../services/verificationBadge.js";
@@ -731,6 +731,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
 
     const projectOccurrences = new Map();
     const publicTalent = publicTalentProfileDto(talent, resume, {
+      analyticsKey: analyticsProjectKey,
       paidPortfolio: publication.subscriptionStatus?.eligibility?.talentPublicProfile === true,
       projectKey: (source, row) => {
         const identity = row?.portfolioItemId || row?._id || (typeof row === "string" ? row : row?.imageUrl || row?.url || "");
@@ -745,10 +746,10 @@ export const getPublicTalentProfile = async (req, res, next) => {
       success: true,
       talent: {
         ...publicTalent,
+        analyticsPolicy: publicAnalyticsPolicy(),
         requiresQnduitBranding: publication.publicPortfolio.requiresQnduitBranding,
-        // Use the unchanged paid publication gate; free reads never load CV records.
-        cvs: publication.publicProfile.status === "published"
-          ? (await savedPublicCvs(talent._id, talent.username)).map(publicCvSummary) : [],
+        // Retain the public DTO shape without exposing CV metadata or file links.
+        cvs: [],
       },
     });
   } catch (error) {

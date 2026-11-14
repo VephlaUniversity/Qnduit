@@ -1,6 +1,7 @@
-import { useId, useState } from "react";
+import { createPortfolioTracker } from "../utils/portfolioAnalytics";
+import { useEffect, useId, useMemo, useState } from "react";
 import PublicTalentPresentation from "./PublicTalentPresentation";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { MapPin, Briefcase, ExternalLink } from "lucide-react";
 import SkillBars from "./SkillBars";
 import { PublicTalentGallery, PublicTalentImage, PublicTalentVideo } from "./PublicTalentMedia";
@@ -32,7 +33,8 @@ function History({ title, rows, owner }) {
 }
 // Shared project presentation stays with the existing portfolio renderer. Native
 // details supplies keyboard expansion and avoids an additional modal/route.
-function ProjectCaseStudy({ item, number }) {
+function ProjectCaseStudy({ item, number, track }) {
+  const trackLink = () => { if (item.analyticsKey) track("project_link_click", { projectKey: item.analyticsKey }); };
   const title = item.title || `Project ${number}`;
   const images = Array.isArray(item.images) ? item.images : [];
   const tools = item.toolsUsed || [], skills = item.skillsDemonstrated || [];
@@ -68,10 +70,10 @@ function ProjectCaseStudy({ item, number }) {
       {item.role && <p className={`line-clamp-2 ${textClass}`}><span className="font-medium text-white">Role: </span>{item.role}</p>}
       {chips(tools, "Selected project tools", true)}
       {chips(skills, "Selected demonstrated skills", true)}
-      {links[0] && <a href={links[0].url} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>
+      {links[0] && <a onClick={trackLink} href={links[0].url} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>
         <span className="min-w-0">{links[0].label}<span className="sr-only"> (opens in a new tab)</span></span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
       </a>}
-      {hasDetails && <details className="group min-w-0 border-t border-white/10 pt-2">
+      {hasDetails && <details className="group min-w-0 border-t border-white/10 pt-2" onToggle={event => { if (event.currentTarget.open && item.analyticsKey) track("project_view", { projectKey: item.analyticsKey }); }}>
         <summary className="min-h-11 cursor-pointer rounded py-3 text-sm font-medium text-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2">
           View case study<span className="sr-only">: {title}</span>
         </summary>
@@ -91,7 +93,7 @@ function ProjectCaseStudy({ item, number }) {
             <PublicTalentGallery images={images} title={title} />
           </section>}
           {links.length > 0 && <nav aria-label="Project links" className="space-y-2"><h4 className="font-semibold text-white">Project links</h4>
-            {links.map((link, index) => <a key={`${link.url}:${index}`} href={link.url} target="_blank" rel="noopener noreferrer"
+            {links.map((link, index) => <a key={`${link.url}:${index}`} onClick={trackLink} href={link.url} target="_blank" rel="noopener noreferrer"
               className={`${buttonClass} mr-2 max-w-full break-words [overflow-wrap:anywhere]`}>
               <span className="min-w-0">{link.label}<span className="sr-only"> (opens in a new tab)</span></span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
             </a>)}
@@ -101,7 +103,7 @@ function ProjectCaseStudy({ item, number }) {
             <h4 className="font-semibold text-white">Original project details</h4>
             {showLegacyDescription && <JobDescriptionText value={item.description} className={textClass} />}
             {chips(item.skills || [], "Related project skills")}
-            {legacyLink && !links.some(link => link.url === legacyLink) && <a href={legacyLink} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words`}>
+            {legacyLink && !links.some(link => link.url === legacyLink) && <a onClick={trackLink} href={legacyLink} target="_blank" rel="noopener noreferrer" className={`${buttonClass} max-w-full break-words`}>
               View original project<span className="sr-only"> (opens in a new tab)</span><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
             </a>}
           </section>}
@@ -112,6 +114,16 @@ function ProjectCaseStudy({ item, number }) {
 }
 
 export default function PublicTalentContent({ talent }) {
+  const { key: navigationKey } = useLocation();
+  const activityException = talent.analyticsPolicy?.activityException;
+  const browserException = talent.analyticsPolicy?.browserException;
+  const track = useMemo(() => createPortfolioTracker(talent.username, { activityException, browserException }, navigationKey), [talent.username, navigationKey, activityException, browserException]);
+  useEffect(() => {
+    const visit = () => track('portfolio_view');
+    visit(); document.addEventListener('visibilitychange', visit);
+    window.addEventListener('qnduit:privacy-changed', visit);
+    return () => { document.removeEventListener('visibilitychange', visit); window.removeEventListener('qnduit:privacy-changed', visit); };
+  }, [track]);
   const name = talent.fullName || "Talent", skills = talent.skills || [], tags = talent.tags || [];
   const levels = skills.filter(row => Number.isFinite(row.percent));
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
@@ -157,7 +169,7 @@ export default function PublicTalentContent({ talent }) {
       <div className="min-w-0 space-y-6">
         {projects.length === 0 && <section className={sectionClass} aria-label="Projects"><h2 className={headingClass}>Projects</h2><p className={textClass}>No projects to display yet.</p></section>}
         {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className="grid grid-cols-1 gap-5 sm:grid-cols-2">{visibleProjects.map((item, index) =>
-          <ProjectCaseStudy key={`${talent.id || talent.username || "talent"}:${item.presentationKey}`} item={item} number={offset + index + 1} />)}</div>
+          <ProjectCaseStudy key={`${talent.id || talent.username || "talent"}:${item.presentationKey}`} item={item} number={offset + index + 1} track={track} />)}</div>
           {pageCount > 1 && <nav aria-label="Portfolio project pages" className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
@@ -175,7 +187,6 @@ export default function PublicTalentContent({ talent }) {
           </nav>}
         </section>}
         {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><PublicTalentVideo url={video} title="Introduction video" /></section>}
-        {talent.cvs?.length > 0 && <section className={sectionClass} aria-label="CVs"><h2 className={headingClass}>CVs</h2><ul className="space-y-3">{talent.cvs.map(cv => <li key={cv.id}><Link to={cv.viewPath} className={`${buttonClass} max-w-full break-words [overflow-wrap:anywhere]`}>View CV: {cv.name} ({cv.format})</Link></li>)}</ul></section>}
         <History title="Experience" rows={talent.experience} owner="company" />
         <History title="Education" rows={talent.education} owner="academy" />
       </div>

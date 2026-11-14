@@ -1,3 +1,4 @@
+import { ingestPortfolioEvent, getPortfolioAnalytics } from "../controllers/portfolioAnalyticsController.js";
 import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
 import express from "express";
 import {
@@ -18,6 +19,9 @@ import {
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.get("/portfolio-analytics", protect, authorize("talent"), getPortfolioAnalytics);
+router.post("/public/:username/events", express.json({ limit: "2kb" }), ingestPortfolioEvent);
 
 router.post("/register", registerTalent);
 

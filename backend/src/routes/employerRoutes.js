@@ -1,11 +1,11 @@
-import { getEmployerMessagingAccess } from "../middleware/requireEmployerMessaging.js";
+import { recordSavedCandidateContact } from "../controllers/portfolioAnalyticsController.js";
+import { getEmployerMessagingAccess, requireEmployerMessaging } from "../middleware/requireEmployerMessaging.js";
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import {
   registerEmployer,
   verifyEmployerEmail,
   updateEmployerProfile,
-  selectEmployerPlan,
   getEmployerProfile,
   upload,
   addSavedCandidate,
@@ -62,6 +62,7 @@ router.get(
   getEmployerSubscription
 );
 
+router.post("/saved-candidates/:talentId/contact-click", protect, authorize("employer"), requireEmployerMessaging, recordSavedCandidateContact);
 router.post("/saved-candidates/:id", protect, authorize("employer"), addSavedCandidate);
 router.get("/saved-candidates", protect, authorize("employer"), getSavedCandidates);
 router.delete("/saved-candidates/:id", protect, authorize("employer"), removeSavedCandidate);

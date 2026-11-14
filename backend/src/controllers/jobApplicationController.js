@@ -176,19 +176,8 @@ export const getJobApplications = async (req, res) => {
     });
   }
 };
-// Resolve again at click time so a cached candidate card cannot download an
-// archived replacement or an old application attachment. Ownership stays private.
-export async function getApplicationCv(req, res, next) {
-  res.set("Cache-Control", "private, no-store");
-  try {
-    if (!/^[a-f\d]{24}$/i.test(req.params.applicationId)) return res.status(404).json({ message: "CV unavailable." });
-    const application = await JobApplication.findOne({ _id: req.params.applicationId, employerId: req.user._id, employerArchivedAt: null }).lean();
-    const cv = application?.applicantId ? await activeSavedCv(application.applicantId) : null;
-    const asset = publicCvAsset(cv?.url);
-    if (!asset) return res.status(404).json({ message: "CV unavailable. The Talent must select a saved CV." });
-    return res.json({ success: true, cv: { url: asset.url, name: cv.name || `CV.${asset.format.toLowerCase()}`, format: asset.format } });
-  } catch (error) { next(error); }
-}
+// Shared application-scoped CV ownership checks and download analytics.
+export { getApplicationCv } from "./employerCvController.js";
 
 // Employer Applications
 export const getEmployerApplications = async (req, res) => {

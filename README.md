@@ -487,3 +487,376 @@ Confirm collections and indexes exist before enabling dependent workflows. Recov
 | Optional features | Check the required indexes, storage and provider credentials for the feature being tested. A successful server start alone does not prove readiness. |
 
 ## Contributing
+
+### EN500N portfolio analytics
+
+Portfolio Analytics is at `/talent-dashboard/portfolio-analytics`. The existing
+active, evidence-backed Talent Public Listing entitlement gates all reporting.
+The free preview links to `/talent-dashboard/my-plan`, matching My Packages in
+the sidebar and reusing its current-plan display and existing payment flow.
+Collection supports published free and paid portfolios worldwide, with no country
+filter. No payment, publication or messaging entitlement has been broadened.
+
+Privacy integration is required; updating policy text alone does not grant
+permission. The portfolio-specific consent panel has been removed. There is no
+existing site-wide preference manager in this repository. New clients therefore
+send no analytics by default. They do not treat the retired
+`qnduit:analytics-consent` localStorage value as a current permission grant. An
+earlier explicit `denied` value remains an opt-out: the site-wide manager must
+migrate/clear that refusal only following a deliberate new user choice.
+Medi's policy updates must be coordinated with the first-party preference manager
+integration and the deployment's applicable lawful-basis assessment.
+
+The integration point is a synchronous, cached first-party API:
+
+```js
+window.qnduitPrivacy = {
+  getPortfolioAnalyticsDecision() {
+    return {
+      activity: true, // Approved collection of visits and engagement.
+      browser: true,  // Separate permission for persistent browser measurement.
+      basis: 'consent',
+      reference: 'privacy-manager-v1', // Bounded reference to actual consent evidence.
+    };
+  },
+};
+window.dispatchEvent(new Event('qnduit:privacy-changed'));
+```
+
+This example is an interface contract, not permission to install an unconditional
+grant. The real manager must validate scope, validity, withdrawal and the actual
+consent record. Return `{ denied: true }` or `{ activity: false }` to suppress all
+tracking. Set `browser: false` to prohibit persistent identification. A missing,
+throwing or unestablished decision never supplies consent. Dispatch the change
+event when a preference changes; an eligible visible portfolio then attempts its
+navigation-scoped visit. DNT/GPC override both consent and exception decisions.
+The manager owns withdrawal UI and cleanup of any retained browser identifier.
+
+A documented applicable exception can instead be enabled by the operator:
+
+- `PORTFOLIO_ANALYTICS_ACTIVITY_EXCEPTION_REF`: reference to an actual assessment
+  covering non-persistent activity collection.
+- `PORTFOLIO_ANALYTICS_BROWSER_EXCEPTION_REF`: reference to an actual assessment
+  covering both activity and persistent distinct-browser measurement.
+
+References use 1–120 ASCII letters, digits, dots, underscores, colons or hyphens.
+They are public policy references, not secrets or full legal documents. Keep the
+supporting assessment outside the repository and make it applicable to the
+intended worldwide deployment. Neither variable is set by this implementation.
+Do not set them merely because the project owner approved analytics. The public
+portfolio and authorized Employer CV DTOs expose these references; the server verifies exception-backed
+events against its matching configured reference. A manager can also return
+`basis: 'exception'` and the matching reference. A configured browser exception
+must not override an explicit `browser: false` preference.
+
+These browser decisions are client assertions, as with ordinary analytics consent
+integration, not cryptographic proof of consent or human activity. The integration
+must be trusted first-party code. Ingestion still validates input, publication,
+rate limits, privacy headers and membership independently.
+
+Two measurement modes share the event collection:
+
+- `activity`: in-memory navigation/event UUIDs only, no persistent browser ID,
+  no stored `visitor` field. Counts observed loads/interactions, never unique
+  browsers. No cookies, localStorage analytics identifiers, fingerprints or
+  IP-derived identity are used by this mode.
+- `browser`: only after a valid scoped decision or configured applicable exception,
+  reuse the existing random browser identifier with its 90-day expiry. Store only
+  a portfolio-scoped keyed HMAC derivative server-side. Distinct measured browsers
+  are deduplicated across the entire selected period, not by summing daily counts.
+
+New events include `version: 2` and a measurement mode. Historical consent-backed
+events without a version remain readable, retain their original deduplication
+keys, and appear as historical consented browser coverage. No backfill, deletion,
+identity conversion or migration is performed. The chart includes visits from
+both modes, but its browser series excludes activity-only visits. Missing browser
+coverage is not inferred or fabricated. Different devices, cleared storage and
+identifier expiry can split one person's activity across browser counts.
+
+Metrics: visible successful public portfolio loads; details opened once per
+project/navigation; project-link activations; historical contact activations; eligible
+CV fetches followed by initiating the browser save; and bounded referral categories.
+Missing referrers are labelled Direct / unknown. No raw IP, full referral URL,
+visitor account ID or fingerprint is stored in analytics. Owner account IDs scope
+records and are not visitor identity. Authenticated owners are excluded server-side.
+Failures are nonblocking, do not retry automatically, and can undercount activity.
+
+The newly introduced public Message Talent button is no longer displayed.
+Contact-click measurement remains an unresolved charter item pending an approved
+public contact action. Historical contact events remain compatible with ingestion
+and aggregation, but are not reported on the paid dashboard. Existing messaging
+routes, recipient validation, sign-in continuation and employer restrictions remain
+unchanged. CV attempts are not proof of completed downloads; previews and Open CV
+do not count.
+
+Operator setup (not performed automatically):
+
+1. Provide `PORTFOLIO_ANALYTICS_SECRET`, a dedicated random secret of at least
+   32 characters. Keep it stable; rotation splits browser identity coverage.
+2. Provide `PORTFOLIO_ANALYTICS_STARTED_AT` as the actual first enablement timestamp,
+   in UTC ISO format (`YYYY-MM-DDTHH:mm:ssZ` or with exactly three fractional digits).
+   Preserve the historical value across releases. Missing/invalid/future values
+   disable analytics. This is a global start date, not a portfolio's first visit.
+3. Explicitly supply the intended local `MONGO_URI`, then run
+   `node backend/scripts/provision-portfolio-analytics.js`. Never use production
+   for local checks. This creates only analytics collection/indexes. Request-time
+   readiness checks do not provision anything.
+
+`portfolioanalyticsevents` uses deterministic `_id` upserts for retry/navigation
+impression deduplication, an owner/time index and a 90-day TTL (`7776000` seconds).
+New impression keys do not depend on the measurement mode, preventing a scope
+change from creating a second navigation impression. Writes need no transactions.
+Summaries use 7/30/90 UTC calendar-day windows and a five-second aggregation deadline.
+TTL deletion is asynchronous; query windows independently exclude older records.
+
+Endpoints: `POST /api/talents/public/:username/events` and authenticated
+`GET /api/talents/portfolio-analytics?days=30`. Owner identity comes from the token,
+not an owner selector. Public visibility, entitlement-selected project membership
+and authenticated application-owned saved-CV access are revalidated. Contact events must
+resolve a published Talent. A separate 30/minute/IP ingestion budget avoids
+consuming the general API allowance; stores remain process-local. Validate proxy
+configuration and shared enforcement before multi-instance deployment.
+
+EN500M PR #80 remains unmerged. Later integration must preserve the analytics-key
+callback in the DTO and hooks on its richer details/project links. Legacy rows
+without stable saved IDs use source position, so reordering can change attribution.
+
+Local tests (exclude these new test files from the eventual PR):
+
+```
+node --test backend/tests/portfolioAnalytics.test.js
+node --test src/components/utils/portfolioAnalytics.test.js
+```
+
+The six unrelated untracked EN500M tests remain untouched; this baseline lacks
+their unmerged implementation. Controller tests stub persistence and do not prove
+actual MongoDB aggregation/concurrency/TTL, provider delivery or browser behavior.
+
+Manual review uses only isolated local services, synthetic fixtures and port 5174.
+Set `VITE_API_BASE_URL` explicitly; use the existing local same-origin proxy to
+port 5000 because backend CORS permits production origins by default. Never use
+port 5173, production credentials, live payments or Cloudinary operations.
+
+1. Free Talent: verify preview and My Packages navigation; summary API denies data.
+   Paid Talent: verify metrics/empty/errors, coverage, periods, keyboard and mobile.
+2. Without a privacy integration/exception, verify no events or identifier reads.
+   Use a local test preference-manager adapter: activity-only decisions must send
+   automatic visible visits without reading/writing analytics browser storage.
+   Browser-scoped permission should enable persistent measurement. Denial, DNT/GPC
+   and withdrawal suppress subsequent sends. Old portfolio consent alone must not
+   activate tracking. Test configured exception matching separately in isolation.
+3. Repeat/rerender/reopen project details; verify one impression per navigation.
+   Replay identical POSTs and confirm one event; reload produces a new visit while
+   the permitted browser remains the same. Activity-only visits never inflate
+   browser totals. Compare actual database and chart totals, including legacy rows.
+4. Confirm no new Message Talent button appears on public profiles, and no contact
+   metric or Message Talent-specific reporting appears on the paid dashboard.
+   Verify existing messaging and employer restrictions still work. Check Date Range
+   placement on mobile/desktop and keyboard access to About these metrics.
+5. Test hidden/inactive/unverified portfolios, foreign projects, removed/ineligible
+   CVs, bots and authenticated owner exclusion. Use local file stubs for successful
+   CV saves; previews and fetch failures must not count. Block ingestion and confirm
+   that links, content, messaging navigation and saves continue to work.
+6. Verify actual MongoDB unique upserts, indexes, TTL expiry and date-boundary
+   aggregation locally. Validate stored fields, coverage, rate limits and existing
+   dashboard behavior. No fixture mutation or index provisioning was done as part
+   of this implementation turn. Live provider/deployment integration remains deferred.
+
+
+EN500N paid UI cleanup: the newly added public Message Talent action has been
+removed. Existing messaging routes, sign-in continuation support and restrictions
+are unchanged. Contact event ingestion and historical aggregation remain compatible,
+but the paid dashboard no longer reports contact-click metrics. Contact engagement
+is an unresolved charter item pending an approved public contact action. The free
+preview marks it as not currently measured. The paid page retains concise,
+keyboard-accessible metric help with the true collection start date; the 90-day
+summary wording does not backfill unavailable activity.
+
+
+### Employer-only CV access and download analytics
+
+The legacy public CV APIs (`/api/talents/public/:username/cvs/:cvId` and `/file`)
+now return generic 404 responses for every caller, without database lookups,
+metadata, URLs or redirects. Public Talent DTOs no longer include CV records or
+links, the public renderer ignores any stale CV payload, and bookmarked
+`/:username/cv/:cvId` pages are inert unavailable pages with no CV fetch code.
+Public analytics ingestion rejects `cv_download`; historical events remain stored
+and included in their existing totals until their 90-day retention expires.
+
+Caller inspection found the functioning Employer workflow uses only
+`GET /api/applications/:applicationId/cv`, not those legacy public routes. Talent
+creation/upload/editing/preview through authenticated private Resume management
+also does not depend on the retired routes and is unchanged. The shared
+`publicCvAsset` validator remains available for existing legitimate callers.
+
+The Employer dashboard and Applicants page both reuse `RecentApplication.jsx`.
+Preview resolves the current selected CV through the existing application-owned
+GET, then fetches the file into the existing PDF viewer. Preview issues no receipt
+and records no analytics. Download Resume uses that same resolver with
+`purpose=download`, validates the fetched file, and initiates the browser save.
+Only then does it send a nonblocking completion notification to:
+
+```
+POST /api/applications/:applicationId/cv-download-events
+```
+
+Both endpoints preserve the existing Employer-job source, authentication, Employer
+role, application ownership and non-archived-application checks. No additional
+subscription, public-profile visibility or public-CV entitlement is required for
+Employer CV access. Existing general API rate limiting remains in effect. The
+original controller export is retained for existing imports; CV-specific behavior
+is shared by `employerCvController.js`.
+
+A ten-minute, HS256-signed receipt binds the requested application, authenticated
+Employer, server-derived applicant Talent, opaque CV version and unique download
+nonce. Receipts are supplied only on download intent and contain no asset URL.
+The completion endpoint rechecks application ownership/archive state and receipt
+binding. It attributes events using `application.applicantId`, never a posted
+Talent ID. Replaying a receipt uses the same atomic event `_id`. A CV replacement
+after fetching cannot relabel that initiated save as the replacement version:
+the signed original version is retained. An archived/removed application rejects
+completion even with a previously issued receipt. There are no new transactions,
+indexes or receipt collections.
+
+The existing analytics collection gains optional `channel: employer-application`
+and `cvVersion` fields. Employer completion events use activity-only measurement:
+no Employer visitor ID, browser identifier, application ID or file URL is stored
+in analytics. The source field is optional because a download has no referral
+classification; it is not fabricated as direct traffic. Existing visit/referral
+aggregation is unchanged. The paid Talent report's CV Download Attempts total
+already aggregates these owner-scoped events alongside historical CV events.
+
+Completion remains subject to the existing first-party privacy decision hook,
+DNT/GPC, prior explicit refusal and matching documented exceptions. Even if browser
+measurement is permitted, this notification never creates a browser identifier.
+Without the privacy integration or applicable exception it sends nothing. No
+worldwide exception is enabled by this change. Analytics configuration/readiness
+failure never blocks an authorized CV download. A receipt is a client completion
+signal, not proof of a completed saved file; the dashboard label remains CV
+Download Attempts. Download initiation is not transactional with telemetry, so
+closed tabs, failures and expired receipts can undercount. The endpoint does not
+pretend it can independently prove a browser's save action.
+
+**Remaining storage security blocker:** existing saved CVs use publicly delivered
+Cloudinary `raw/upload` URLs. QNDUIT no longer discloses them through public CV
+routes, but previously shared/cached provider URLs can remain accessible directly.
+Closing application routes cannot revoke provider assets. Complete file-level
+Employer-only enforcement requires an approved private/authenticated storage and
+legacy-asset migration plan, including compatibility for Talent's private editor
+and authorized Employer fetching. That cannot be silently changed while preserving
+the existing URL-based workflow. No Cloudinary operations or production access
+were performed. Do not describe the application-route fix as revoking existing
+public provider URLs.
+
+Local-only tests (exclude all new test files from the eventual PR):
+
+```
+node --test backend/tests/employerCvAnalytics.test.js backend/tests/portfolioAnalytics.test.js src/components/utils/portfolioAnalytics.test.js
+```
+
+Tests exercise authorized preview, receipt issuance without counting, successful
+save notifications, failed/invalid fetch exclusion, incorrect role/Employer,
+archived applications, public URL denial, duplicate-key races, receipt tampering,
+expiry, CV replacement attribution and the existing paid report aggregation.
+They stub persistence and file transport. Actual browser and MongoDB/provider
+integration remain manual: use a local file-transport stub and an existing
+application-linked Employer fixture, verify preview leaves totals unchanged,
+Download Resume increments once, and retries do not increment again. Verify the
+same tests for free/hidden Talent profiles without broadening Employer access.
+Inspect event owner/channel/version and the paid report. Check Talent private CV
+editing/upload/preview and existing dashboard regressions. All six unrelated
+EN500M tests remain untouched; their unmerged dependencies are still absent.
+Never use production services, live payments, Cloudinary or port 5173 for local
+verification. No fixture records were created or changed during implementation.
+
+The saved-candidates API also no longer returns its unused `resume.url` field.
+Saving an arbitrary Talent does not establish application ownership. Caller
+inspection confirmed Saved Candidates never used its `cvUrl` field for a preview
+or download; profile, messaging and saved-list behavior remain unchanged. CV
+file access therefore stays with the functioning application-owned flow.
+
+
+### Saved Candidates Contact Clicks (EN500N)
+
+The existing Employer Saved Candidates Send Message action now sends one
+nonblocking analytics notification per activation before preserving the existing
+messages navigation. No public profile button or messaging behavior was added.
+The metric means an eligible activation, not a message sent or delivered.
+
+Endpoint: `POST /api/employers/saved-candidates/:talentId/contact-click`.
+The route reuses `protect`, `authorize("employer")` and `requireEmployerMessaging`.
+The existing evidence-backed Silver/Platinum messaging rules are unchanged. The
+handler also validates the request/ID, confirms the target belongs to the
+requesting Employer's saved list, and verifies the Talent still exists. Missing
+membership returns 404; failed role/entitlement checks cannot reach recording.
+No public-publication requirement is added to this private dashboard action.
+
+The fixed request is `{ activationId, measurement: "activity", basis,
+policyReference }`. Permission comes from the existing first-party privacy hook or
+matching configured exception. Missing/refused permission, prior explicit decline,
+DNT/GPC and known bot signals suppress recording. It never creates or reads an
+analytics browser identifier. Existing saved-list responses expose only nonsecret
+policy references for the same hook; no site-wide privacy manager was implemented.
+
+Records reuse PortfolioAnalyticsEvent with `type: contact_click`,
+`channel: saved-candidates`, a random activation UUID, server timestamp, version 2
+and activity-only measurement. No Employer identity, visitor identity, message,
+contact details or referral source is stored. A keyed deterministic `_id` binds
+Talent plus activation ID, so retries use atomic `$setOnInsert` while separate
+activations remain countable. Existing indexes and 90-day TTL are unchanged; no
+new index provisioning is required. The existing 30/minute/IP analytics ingress
+budget covers this endpoint as well as public event ingestion.
+
+Paid owner reporting returns `savedCandidatesContactClicks`, counting only this
+channel within the same 7/30/90-day range. The dashboard shows Saved Candidates
+Contact Clicks separately from public portfolio metrics and CV attempts. It does
+not use the generic historical contact total, and exposes no Employer identity.
+The free benefits preview describes the feature without returning analytics data.
+This supersedes earlier notes describing contact engagement as unresolved.
+
+Local test additions remain excluded from the PR:
+`backend/tests/savedCandidateContact.test.js` and additions to the existing local
+frontend analytics tests. Automated tests stub persistence; they do not claim
+live contact recording or provider/messaging delivery passed.
+
+### Completed local contact verification and deployment prerequisites
+
+Manual Tests 10A, 10B and 10C passed in the isolated synthetic environment:
+
+- **10C — messaging ineligible:** Send Message preserved existing navigation;
+  the contact notification returned 403 with `EMPLOYER_MESSAGING_DENIED` and
+  recorded no event. This ran before synthetic Silver eligibility was added.
+- **10A — authorized activation:** with evidence-backed synthetic Silver access,
+  a saved Talent and explicit activity-only permission, the notification returned
+  204 and the paid Talent dashboard displayed one Saved Candidates Contact Click.
+- **10B — privacy refusal:** navigation remained unchanged, no contact notification
+  was sent, and the persisted contact count remained one.
+
+Read-only database verification after 10B confirmed one `saved-candidates`
+contact event, four dedicated CV download attempts, all four original EN500M
+analytics event checksums unchanged, and nine analytics events in total. These
+are local synthetic results, not production or message-delivery verification.
+Credentials, adapters, fixture evidence and local tests remain outside the PR.
+Contact replay, separate activation, role, membership and privacy-signal cases
+are covered by local automated tests; browser-level replay, failure handling and
+mobile/tablet checks remain separate manual checks.
+
+Before deployment:
+
+- Integrate a real production privacy preference provider with the existing
+  `qnduitPrivacy` contract, including permission validity and withdrawal. Collection
+  stays off without permission or an actually documented applicable exception;
+  persistent browser measurement needs its own valid basis. Local adapters do not
+  establish production permission or complete unique-visitor coverage.
+- Use shared atomic rate-limit stores if deploying multiple backend instances;
+  the current default stores are per-process memory.
+- Perform live authorized Admin CV regression verification, preserving existing
+  Admin access. Local Employer tests do not establish this result.
+- Configure the target environment's existing analytics secret and accurate
+  tracking-start timestamp; provision and verify owner/time and 90-day TTL indexes
+  through the approved operational process. Do not regenerate an established secret
+  or start date, or include local provisioning scripts in the feature PR.
+
+Cloudinary raw CV direct-URL exposure remains a separate security follow-up for
+Medi. QNDUIT route authorization does not revoke public provider URLs or resolve
+provider-level CV privacy. No storage migration is included in EN500N.
