@@ -1,0 +1,6 @@
+/* Only an eligible fixed font ID installs this attribute and family variable.
+   Reset removes it, restoring all original theme families and mono accents. */
+[data-portfolio-font],
+[data-portfolio-font] :is(.font-mono, .font-sans, .font-serif, .font-jakarta) {
+  font-family: var(--portfolio-font);
+}

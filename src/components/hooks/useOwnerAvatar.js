@@ -4,13 +4,13 @@ import { useAuth } from "./useAuth";
 import { API_BASE_URL } from "../utils/api";
 
 const stores = new Map();
-const empty = { image: "", key: "" };
+const empty = { image: "", fullName: "", key: "" };
 const inactive = { get: () => empty, subscribe: () => () => {}, retain: () => () => {}, refresh() {} };
 function createStore(key, role, token, id) {
   const identity = `${role}:${id}`;
-  let snapshot = { image: "", key: identity }, refs = 0, request, invalidated = false;
+  let snapshot = { image: "", fullName: "", key: identity }, refs = 0, request, invalidated = false;
   const listeners = new Set();
-  const publish = image => { snapshot = { image, key: identity }; listeners.forEach(listener => listener()); };
+  const publish = (image, fullName = "") => { snapshot = { image, fullName, key: identity }; listeners.forEach(listener => listener()); };
   const invalidate = event => {
     if (event.key !== null && event.key !== "token" && event.key !== "user") return;
     if (event.key === "token" && event.newValue === token) return;
@@ -33,7 +33,10 @@ function createStore(key, role, token, id) {
         });
         if (controller.signal.aborted || !refs || localStorage.getItem("token") !== token) return;
         const image = role === "employer" ? data.profile?.logo : data.profile?.avatar;
-        publish(typeof image === "string" ? image : "");
+        // Reuse the dashboard's loaded profile; fullName is Talent's public
+        // display name. Never substitute private login/contact identity fields.
+        const fullName = role === "talent" && typeof data.profile?.fullName === "string" ? data.profile.fullName : "";
+        publish(typeof image === "string" ? image : "", fullName);
       } catch (error) {
         // A failed avatar refresh must not turn a successful profile save into a failure.
         if (!controller.signal.aborted && refs && error.response?.status === 401) publish("");

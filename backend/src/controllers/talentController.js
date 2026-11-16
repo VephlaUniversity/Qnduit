@@ -1,3 +1,4 @@
+import { resolvePortfolioBackground, resolvePortfolioColors, resolvePortfolioFont, resolvePortfolioTheme } from "../utils/portfolioAppearance.js";
 import { publicAnalyticsPolicy, analyticsProjectKey } from "../utils/portfolioAnalytics.js";
 import { avatarProcessor, avatarError, allocateTalentAvatar, uploadTalentAvatar, cleanupTalentAvatar, persistTalentAvatar } from "../services/talentAvatar.js";
 export { talentUpload } from "../middleware/talentAvatarUpload.js";
@@ -12,7 +13,7 @@ import { generateTalentUsername } from "../utils/generateTalentUsername.js";
 import { addCvToResume } from "./resumeController.js";
 import Resume from "../models/Resume.js";
 import { createHash } from "node:crypto";
-import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto, publicTalentCard } from "../utils/publicTalentProfile.js";
+import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, resolvePortfolioCover, publicTalentProfileDto, publicTalentCard } from "../utils/publicTalentProfile.js";
 import generateToken from "../utils/generateToken.js";
 import multer from "multer";
 import path from "path";
@@ -731,6 +732,11 @@ export const getPublicTalentProfile = async (req, res, next) => {
 
     const projectOccurrences = new Map();
     const publicTalent = publicTalentProfileDto(talent, resume, {
+      theme: resolvePortfolioTheme(talent.portfolioAppearance?.theme, publication.subscriptionStatus),
+      colors: resolvePortfolioColors(talent.portfolioAppearance, publication.subscriptionStatus),
+      font: resolvePortfolioFont(talent.portfolioAppearance, publication.subscriptionStatus),
+      backgroundColor: resolvePortfolioBackground(talent.portfolioAppearance, publication.subscriptionStatus),
+      cover: resolvePortfolioCover(talent.portfolioAppearance, publication.subscriptionStatus, talent._id),
       analyticsKey: analyticsProjectKey,
       paidPortfolio: publication.subscriptionStatus?.eligibility?.talentPublicProfile === true,
       projectKey: (source, row) => {
