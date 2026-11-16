@@ -1,3 +1,4 @@
+import { recordEmployerCvDownload } from "../utils/portfolioAnalytics";
 import React, { useState, useEffect, useRef } from "react";
 import { cvExtension } from "../utils/cvFile";
 import axios from "axios";
@@ -29,13 +30,13 @@ const formatAppliedDate = (value) => {
     : "Date unavailable";
 };
 
-async function currentCandidateCv(resumeDownloadPath, signal) {
+async function currentCandidateCv(resumeDownloadPath, signal, purpose) {
   if (!resumeDownloadPath) throw Error("CV unavailable");
   const { data } = await axios.get(`${API_BASE_URL}${resumeDownloadPath}`, {
-    signal, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    signal, params: purpose ? { purpose } : undefined, headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   if (!data?.success || !data.cv?.url) throw Error("CV unavailable");
-  return data.cv;
+  return { ...data.cv, analyticsPolicy: data.analyticsPolicy };
 }
 
 function ResumePreview({ applicant }) {
@@ -452,20 +453,24 @@ const RecentApplication = ({ pageSize = 20, onApplicationChange } = {}) => {
     }
     let blobUrl;
     try {
-      const active = await currentCandidateCv(applicant.resumeDownloadPath);
+      const token = localStorage.getItem("token");
+      const active = await currentCandidateCv(applicant.resumeDownloadPath, undefined, "download");
+      if (localStorage.getItem("token") !== token) return;
       const response = await fetch(active.url, { credentials: "omit" });
       if (!response.ok) throw new Error();
       const blob = await response.blob();
+      if (!blob.size) throw new Error("Empty CV file");
+      if (localStorage.getItem("token") !== token) return;
       blobUrl = URL.createObjectURL(blob);
-      const extension =
-        new URL(active.url, API_BASE_URL).pathname.match(/\.(pdf|docx?)$/i)?.[0] ||
-        (await cvExtension(blob));
+      const extension = await cvExtension(blob);
+      if (!extension || extension.slice(1).toUpperCase() !== active.format) throw new Error("Invalid CV file");
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = `${applicant.name.replace(/\s+/g, "_")}_CV${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
+      if (localStorage.getItem("token") === token) recordEmployerCvDownload(applicant.resumeDownloadPath, active.downloadReceipt, active.analyticsPolicy, token);
       // Allow the browser to consume the download before releasing its temporary URL.
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch {

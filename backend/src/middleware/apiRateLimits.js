@@ -21,10 +21,12 @@ export function createApiRateLimits({ authenticate = resolveAuthentication, stor
         windowMs: policy.windowMs, limit: policy.limit,
         message: policy.scope === "general-ip"
           ? "Too many requests. Please try again later."
-          : "Too many polling requests. Please wait before refreshing.",
+          : policy.scope === "analytics-ip" ? "Too many analytics requests. Please try again later."
+            : "Too many polling requests. Please wait before refreshing.",
       });
     },
   });
+  const analytics = make({ scope: "analytics-ip", windowMs: 60_000, limit: 30 });
   const general = make({ scope: "general-ip", windowMs: 900_000, limit: 100 });
   const ip = POLLING_BUDGETS.filter(policy => policy.scope === "poll-ip").map(make);
   const account = POLLING_BUDGETS.filter(policy => policy.scope === "poll-account").map(make);
@@ -37,6 +39,8 @@ export function createApiRateLimits({ authenticate = resolveAuthentication, stor
     return step(0)();
   };
   return (req, res, next) => {
+    if (req.method === "POST" && (/^\/api\/talents\/public\/[^/]+\/events\/?$/.test(`${req.baseUrl}${req.path}`)
+      || /^\/api\/employers\/saved-candidates\/[^/]+\/contact-click\/?$/.test(`${req.baseUrl}${req.path}`))) return analytics(req, res, next);
     const roles = pollingRoles(req.method, `${req.baseUrl}${req.path}`);
     if (!roles) return general(req, res, next);
     // Bound all polling ingress before JWT/account work, including invalid tokens.

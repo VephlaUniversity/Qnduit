@@ -1,3 +1,4 @@
+import { recordSavedCandidateContact } from "../utils/portfolioAnalytics";
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { Search, Eye, MessageSquare, Trash2 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -76,13 +77,12 @@ export const SavedCandidates = () => {
           role: typeof c.jobTitle === "string" ? c.jobTitle : "",
           location: c.location || "N/A",
           avatar: profileImageUrl(typeof c.avatar === "string" ? c.avatar : c.avatar?.url),
-          cvUrl: c.resume?.url,
           salary: c.offeredSalary != null && String(c.offeredSalary).trim() !== ""
             ? `$${String(c.offeredSalary).trim()}${typeof c.salaryType === "string" && c.salaryType.trim() ? `/${c.salaryType.trim()}` : ""}`
             : "Not specified",
         }));
 
-        if (active()) setResult({ scope, status: "ready", rows: formatted });
+        if (active()) setResult({ scope, status: "ready", rows: formatted, analyticsPolicy: res.data.analyticsPolicy });
       } catch (error) {
         if (active()) setResult({ scope, status: "error", rows: [], error: error.response?.status === 401
           ? "Session expired. Please sign in again." : "Unable to load saved candidates. Refresh to retry." });
@@ -98,6 +98,12 @@ export const SavedCandidates = () => {
   };
 
   const handleMessage = (candidate) => {
+    const request = session.current;
+    if (owner.startsWith("employer:") && current && status === "ready" && request?.scope === scope
+      && !request.controller.signal.aborted && localStorage.getItem("token") === token
+      && candidates.some(row => row.id === candidate.id)) {
+      recordSavedCandidateContact(candidate.id, result.analyticsPolicy, token);
+    }
     navigate(messageRecipientUrl(candidate.id));
   };
 

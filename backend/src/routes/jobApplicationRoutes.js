@@ -1,3 +1,4 @@
+import { recordEmployerCvDownload } from "../controllers/employerCvController.js";
 import { requireEmployerJobSource } from "../middleware/requireEmployerJobSource.js";
 import express from "express";
 import { requireJobSource } from "../middleware/requireJobSource.js";
@@ -19,6 +20,7 @@ const router = express.Router();
 // Feed source=all is a filter, separate from the legacy job locator middleware.
 router.get("/activity-feed", protect, authorize("talent"), getApplicationActivityFeed);
 router.use(requireJobSource);
+router.post("/:applicationId/cv-download-events", requireEmployerJobSource, protect, authorize("employer"), recordEmployerCvDownload);
 router.get("/:applicationId/cv", requireEmployerJobSource, protect, authorize("employer"), getApplicationCv);
 
 router.patch("/:applicationId/archive", requireEmployerJobSource, protect, authorize("employer"), archiveApplication);

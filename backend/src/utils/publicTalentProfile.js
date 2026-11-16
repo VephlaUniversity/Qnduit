@@ -125,7 +125,7 @@ export function publicPortfolioProjects(talent) {
   ].sort((a, b) => Number(b.featured === true) - Number(a.featured === true));
 }
 
-export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey } = {}) {
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
@@ -137,6 +137,7 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
     return {
       ...publicCaseStudy(row),
       key: `talent:${projectKey ? projectKey("talent", row, index) : index}`,
+      ...(analyticsKey ? { analyticsKey: analyticsKey(talent._id, "talent", row, index) } : {}),
       title: text(row?.title, 160), description: content(row?.description),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.imageUrl),
       projectUrl: publicExternalUrl(row?.projectUrl), ...(skills.length ? { skills } : {}),
@@ -147,6 +148,7 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
     return {
       ...publicCaseStudy(row),
       key: `resume:${projectKey ? projectKey("resume", row, index) : index}`,
+      ...(analyticsKey ? { analyticsKey: analyticsKey(talent._id, "resume", row, index) } : {}),
       title: text(row?.title, 160),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.url),
       ...(description ? { description } : {}), ...(projectUrl ? { projectUrl } : {}), ...(skills.length ? { skills } : {}),

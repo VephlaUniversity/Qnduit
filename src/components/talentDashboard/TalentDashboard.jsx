@@ -1,3 +1,4 @@
+import TalentPortfolioAnalytics from "./TalentPortfolioAnalytics";
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 
@@ -41,6 +42,7 @@ import ExploreJobs from "./ExploreJobs";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
+  { icon: LayoutDashboard, label: "Portfolio Analytics", path: "/talent-dashboard/portfolio-analytics" },
   { icon: User, label: "Profile", path: "/talent-dashboard/profile" },
   { icon: Search, label: "Explore Jobs", path: "/talent-dashboard/explore" },
   {
@@ -91,6 +93,7 @@ export const TalentDashboard = () => {
     <DashboardLayout menuItems={menuItems} userType="talent">
       <Routes>
         <Route index element={<TalentDashboardOverview />} />
+        <Route path="portfolio-analytics" element={<TalentPortfolioAnalytics />} />
         <Route path="users/:userType/:userId" element={<UserProfileView />} />
         <Route path="profile-views" element={<ProfileViewHistory />} />
         <Route path="profile" element={<TalentProfileOverview />} />
