@@ -7,6 +7,8 @@ import SkillBars from "./SkillBars";
 import { PublicTalentGallery, PublicTalentImage, PublicTalentVideo } from "./PublicTalentMedia";
 import JobDescriptionText from "../utils/JobDescriptionText";
 import { portfolioExternalUrl, publicExternalUrl, publicPortfolioProjects, publicVideoUrl } from "../../../backend/src/utils/publicTalentProfile.js";
+import { publicPortfolioStyles, publicPortfolioTheme } from "./publicPortfolioThemes";
+import { cn } from "../../lib/utils";
 import { portfolioOverview } from "../../../backend/src/utils/portfolioCaseStudy.js";
 
 const dateLabel = value => {
@@ -19,13 +21,11 @@ const dateLabel = value => {
   return "";
 };
 const period = row => [dateLabel(row.startDate), dateLabel(row.endDate)].filter(Boolean).join(" – ");
-const sectionClass = "rounded-2xl border border-white/5 bg-[#191D23] p-6 md:p-8";
-const headingClass = "mb-5 text-xl font-semibold text-white";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2";
-const textClass = "break-words text-sm leading-7 text-gray-300 [overflow-wrap:anywhere]";
-function History({ title, rows, owner }) {
+function History({ title, rows, owner, styles }) {
+  const { section: sectionClass, heading: headingClass, text: textClass } = styles;
   if (!rows?.length) return null;
-  return <section className={sectionClass} aria-label={title}><h2 className={headingClass}>{title}</h2><div className="space-y-7">{rows.map((row, index) => <article key={index} className="border-l-2 border-blue-600 pl-5">
+  return <section data-portfolio-surface={styles.surface} className={sectionClass} aria-label={title}><h2 className={headingClass}>{title}</h2><div className="space-y-7">{rows.map((row, index) => <article key={index} className="border-l-2 border-blue-600 pl-5">
     {period(row) && <p className="mb-2 text-xs text-gray-400">{period(row)}</p>}
     {row.title && <h3 className="break-words font-semibold text-white">{owner === "academy" && <span className="sr-only">Degree level: </span>}{row.title}</h3>}{row[owner] && <p className="mt-1 break-words text-sm text-blue-400">{owner === "academy" && <span className="sr-only">Institution: </span>}{row[owner]}</p>}
     {row.description && <JobDescriptionText value={row.description} className={`mt-3 ${textClass}`} />}
@@ -33,7 +33,8 @@ function History({ title, rows, owner }) {
 }
 // Shared project presentation stays with the existing portfolio renderer. Native
 // details supplies keyboard expansion and avoids an additional modal/route.
-function ProjectCaseStudy({ item, number, track }) {
+function ProjectCaseStudy({ item, number, track, styles }) {
+  const textClass = styles.text;
   const trackLink = () => { if (item.analyticsKey) track("project_link_click", { projectKey: item.analyticsKey }); };
   const title = item.title || `Project ${number}`;
   const images = Array.isArray(item.images) ? item.images : [];
@@ -41,7 +42,6 @@ function ProjectCaseStudy({ item, number, track }) {
   const links = (item.links || []).map(link => ({ label: link.label, url: portfolioExternalUrl(link.url) })).filter(link => link.label && link.url);
   const legacyLink = portfolioExternalUrl(item.projectUrl);
   const video = publicVideoUrl(item.video);
-  const comparison = images.some(image => image.comparisonLabel === "before") && images.some(image => image.comparisonLabel === "after");
   const cover = images[0];
   const overviewSource = ["canonical", "legacy", "none"].includes(item.overviewSource)
     ? item.overviewSource : portfolioOverview(item).source;
@@ -57,12 +57,12 @@ function ProjectCaseStudy({ item, number, track }) {
   </ul> : null;
   const hasDetails = item.overview || item.description || item.problemStatement || item.approach || item.results || item.role
     || tools.length || skills.length || item.skills?.length || images.length || links.length || legacyLink || video;
-  return <article className="min-w-0 self-start overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]" aria-label={title}>
+  return <article data-portfolio-surface="project" className={cn("min-w-0 self-start overflow-hidden rounded-xl border border-white/10 bg-[#0F1419]", styles.project)} aria-label={title}>
     <header className="space-y-2 p-4">
       {item.featured === true && <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">Featured project</p>}
-      <h3 className="break-words font-semibold [overflow-wrap:anywhere]">{title}</h3>
+      <h3 className={cn("break-words font-semibold [overflow-wrap:anywhere]", styles.projectTitle)}>{title}</h3>
     </header>
-    {(cover?.url || item.imageUrl) && <PublicTalentImage src={cover?.url || item.imageUrl} alt={cover?.alt || `${title} cover`} className="aspect-video w-full" />}
+    {(cover?.url || item.imageUrl) && <PublicTalentImage src={cover?.url || item.imageUrl} alt={cover?.alt || `${title} cover`} className={styles.cover} />}
     <div className="space-y-3 p-4">
       {overview ? overviewSource === "legacy"
         ? <JobDescriptionText value={overview} className={`line-clamp-3 ${textClass}`} />
@@ -85,11 +85,12 @@ function ProjectCaseStudy({ item, number, track }) {
           {narrative("Approach", item.approach)}
           {narrative("Results", item.results)}
           {narrative("Role", item.role)}
+          {(tools.length > 0 || skills.length > 0) && <div className={styles.technical}>
           {tools.length > 0 && <section className="space-y-2" aria-label="Tools used"><h4 className="font-semibold text-white">Tools used</h4>{chips(tools, "Project tools")}</section>}
           {skills.length > 0 && <section className="space-y-2" aria-label="Skills demonstrated"><h4 className="font-semibold text-white">Skills demonstrated</h4>{chips(skills, "Demonstrated project skills")}</section>}
+          </div>}
           {images.length > 0 && <section className="space-y-3" aria-label="Project gallery">
             <h4 className="font-semibold text-white">Project gallery</h4>
-            {comparison && <p className={textClass}>Before and after comparison</p>}
             <PublicTalentGallery images={images} title={title} />
           </section>}
           {links.length > 0 && <nav aria-label="Project links" className="space-y-2"><h4 className="font-semibold text-white">Project links</h4>
@@ -114,6 +115,9 @@ function ProjectCaseStudy({ item, number, track }) {
 }
 
 export default function PublicTalentContent({ talent }) {
+  const theme = publicPortfolioTheme(talent.theme);
+  const styles = publicPortfolioStyles(theme);
+  const { section: sectionClass, heading: headingClass, text: textClass } = styles;
   const { key: navigationKey } = useLocation();
   const activityException = talent.analyticsPolicy?.activityException;
   const browserException = talent.analyticsPolicy?.browserException;
@@ -143,33 +147,35 @@ export default function PublicTalentContent({ talent }) {
   const video = publicVideoUrl(talent.introVideo);
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
-  return <PublicTalentPresentation requiresQnduitBranding={talent.requiresQnduitBranding}>
+  return <PublicTalentPresentation requiresQnduitBranding={talent.requiresQnduitBranding} portfolioTheme={theme} portfolioColors={talent.colors} portfolioFont={talent.font} portfolioBackground={talent.backgroundColor} portfolioCover={talent.cover}>
 
     <div className="mb-6 flex justify-end">
       <Link
         to="/talent-signup"
-        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+        className="portfolio-primary-action inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
       >
         Create your own public profile on QNDUIT. It’s free
       </Link>
     </div>
 
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-      <aside className={`${sectionClass} min-w-0`} aria-label="Talent identity and skills">
+    <div className={styles.layout}>
+      <aside data-portfolio-surface={styles.surface} className={`${sectionClass} min-w-0 ${styles.identity}`} aria-label="Talent identity and skills">
+        <div className={styles.introduction}>
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-blue-400">Talent on QNDUIT</p><h1 className="break-words text-2xl font-bold [overflow-wrap:anywhere]">{name}</h1>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-blue-400">Talent on QNDUIT</p><h1 className={`break-words [overflow-wrap:anywhere] ${styles.name}`}>{name}</h1>
         {talent.jobTitle && <p className="mt-3 break-words text-base text-gray-300">{talent.jobTitle}</p>}
         {talent.location && <p className="mt-3 flex items-start gap-2 text-sm text-gray-400"><MapPin className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 break-words">{talent.location}</span></p>}
         {talent.experienceTime && <p className="mt-2 flex items-start gap-2 text-sm text-gray-400"><Briefcase className="mt-0.5 h-4 w-4 shrink-0" />{talent.experienceTime}</p>}
         {talent.qualification && <p className="mt-2 text-sm text-gray-400">{talent.qualification}</p>}
-        {talent.aboutMe && <section className="mt-8" aria-label="About"><h2 className={headingClass}>About</h2><JobDescriptionText value={talent.aboutMe} className={textClass} /></section>}
-        {(levels.length > 0 || labels.length > 0) && <section className="mt-8" aria-label="Skills"><h2 className={headingClass}>Skills</h2>{levels.length > 0 && <div className="[&_ul]:grid-cols-1"><SkillBars skills={levels} /></div>}{labels.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{labels.map(label => <span key={label} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300">{label}</span>)}</div>}</section>}
-        {(portfolioUrl || socials.length > 0) && <nav aria-label="Talent links" className="mt-8 flex flex-wrap gap-2">{portfolioUrl && <a className={buttonClass} href={portfolioUrl} target="_blank" rel="noopener noreferrer">Portfolio<ExternalLink className="h-3.5 w-3.5" /></a>}{socials.map(([label, url]) => <a key={label} className={`${buttonClass} capitalize`} href={publicExternalUrl(url)} target="_blank" rel="noopener noreferrer">{label}<ExternalLink className="h-3.5 w-3.5" /></a>)}</nav>}
+        </div>
+        {talent.aboutMe && <section className={styles.about} aria-label="About"><h2 className={headingClass}>About</h2><JobDescriptionText value={talent.aboutMe} className={textClass} /></section>}
+        {(levels.length > 0 || labels.length > 0) && <section className={styles.skills} aria-label="Skills"><h2 className={headingClass}>Skills</h2>{levels.length > 0 && <div className="[&_ul]:grid-cols-1"><SkillBars skills={levels} /></div>}{labels.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{labels.map(label => <span key={label} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300">{label}</span>)}</div>}</section>}
+        {(portfolioUrl || socials.length > 0) && <nav aria-label="Talent links" className={`${styles.links} flex flex-wrap gap-2`}>{portfolioUrl && <a className={buttonClass} href={portfolioUrl} target="_blank" rel="noopener noreferrer">Portfolio<ExternalLink className="h-3.5 w-3.5" /></a>}{socials.map(([label, url]) => <a key={label} className={`${buttonClass} capitalize`} href={publicExternalUrl(url)} target="_blank" rel="noopener noreferrer">{label}<ExternalLink className="h-3.5 w-3.5" /></a>)}</nav>}
       </aside>
-      <div className="min-w-0 space-y-6">
-        {projects.length === 0 && <section className={sectionClass} aria-label="Projects"><h2 className={headingClass}>Projects</h2><p className={textClass}>No projects to display yet.</p></section>}
-        {projects.length > 0 && <section className={sectionClass} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className="grid grid-cols-1 gap-5 sm:grid-cols-2">{visibleProjects.map((item, index) =>
-          <ProjectCaseStudy key={`${talent.id || talent.username || "talent"}:${item.presentationKey}`} item={item} number={offset + index + 1} track={track} />)}</div>
+      <div className={styles.content}>
+        {projects.length === 0 && <section data-portfolio-surface={styles.surface} className={`${sectionClass} ${styles.projects}`} aria-label="Projects"><h2 className={headingClass}>Projects</h2><p className={textClass}>No projects to display yet.</p></section>}
+        {projects.length > 0 && <section data-portfolio-surface={styles.surface} className={`${sectionClass} ${styles.projects}`} aria-label="Projects and gallery"><h2 className={headingClass}>Projects &amp; gallery</h2><div id={projectGridId} className={styles.projectGrid}>{visibleProjects.map((item, index) =>
+          <ProjectCaseStudy key={`${talent.id || talent.username || "talent"}:${item.presentationKey}`} item={item} number={offset + index + 1} track={track} styles={styles} />)}</div>
           {pageCount > 1 && <nav aria-label="Portfolio project pages" className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
@@ -186,9 +192,9 @@ export default function PublicTalentContent({ talent }) {
               className={`${buttonClass} focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50`}>Next</button>
           </nav>}
         </section>}
-        {video && <section className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><PublicTalentVideo url={video} title="Introduction video" /></section>}
-        <History title="Experience" rows={talent.experience} owner="company" />
-        <History title="Education" rows={talent.education} owner="academy" />
+        {video && <section data-portfolio-surface={styles.surface} className={sectionClass} aria-label="Introduction video"><h2 className={headingClass}>Introduction video</h2><PublicTalentVideo url={video} title="Introduction video" /></section>}
+        <History title="Experience" rows={talent.experience} owner="company" styles={styles} />
+        <History title="Education" rows={talent.education} owner="academy" styles={styles} />
       </div>
     </div>
   </PublicTalentPresentation>;

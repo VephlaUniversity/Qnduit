@@ -1,0 +1,24 @@
+/* Applied only to public portfolio content with effective colour overrides. */
+[data-portfolio-colors] .bg-blue-600 {
+  background-color: var(--portfolio-primary);
+}
+[data-portfolio-colors] .border-blue-600 {
+  border-color: var(--portfolio-primary);
+}
+[data-portfolio-colors] :is(.text-blue-200, .text-blue-300, .text-blue-400) {
+  color: var(--portfolio-secondary-ink);
+}
+[data-portfolio-colors] .portfolio-primary-action {
+  color: var(--portfolio-primary-ink);
+  border: 1px solid var(--color-gray-400, #9ca3af);
+}
+[data-portfolio-colors] .portfolio-primary-action:hover {
+  text-decoration: underline;
+}
+[data-portfolio-colors] [role="progressbar"] .bg-blue-600 {
+  box-shadow: inset 0 0 0 1px var(--color-gray-400, #9ca3af);
+}
+[data-portfolio-colors] :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--portfolio-focus, var(--color-white, #ffffff));
+  outline-offset: 3px;
+}

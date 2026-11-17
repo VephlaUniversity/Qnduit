@@ -1,5 +1,8 @@
 import { ingestPortfolioEvent, getPortfolioAnalytics } from "../controllers/portfolioAnalyticsController.js";
 import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
+import { getPortfolioAppearance, putPortfolioAppearance } from "../controllers/portfolioAppearanceController.js";
+import { requirePaidCoverOwner, putPortfolioCover, deletePortfolioCover } from "../controllers/portfolioCoverController.js";
+import { portfolioCoverUpload } from "../middleware/portfolioCoverUpload.js";
 import express from "express";
 import {
   registerTalent,
@@ -19,6 +22,11 @@ import {
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.get("/portfolio-appearance", protect, authorize("talent"), getPortfolioAppearance);
+router.put("/portfolio-appearance", protect, authorize("talent"), putPortfolioAppearance);
+router.put("/portfolio-appearance/cover", protect, authorize("talent"), requirePaidCoverOwner, portfolioCoverUpload, putPortfolioCover);
+router.delete("/portfolio-appearance/cover", protect, authorize("talent"), requirePaidCoverOwner, deletePortfolioCover);
 
 router.get("/portfolio-analytics", protect, authorize("talent"), getPortfolioAnalytics);
 router.post("/public/:username/events", express.json({ limit: "2kb" }), ingestPortfolioEvent);

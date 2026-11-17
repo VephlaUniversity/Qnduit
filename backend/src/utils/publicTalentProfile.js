@@ -1,7 +1,9 @@
 import { talentLocation } from "./talentLocation.js";
+import { hasPortfolioAppearanceAccess, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "./portfolioAppearance.js";
+import { ownedPortfolioCover } from "../config/portfolioCover.js";
 import { normalizePortfolioCaseStudy, portfolioOverview } from "./portfolioCaseStudy.js";
 // Pure, explicit public DTO mapping. Never serialize Talent/Resume documents.
-export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience";
+export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover";
 export const PUBLIC_RESUME_FIELDS = "talent aboutMe portfolioImages education experience skills introVideo";
 const text = (value, limit = 20000) => typeof value === "string" ? value.trim().slice(0, limit) : "";
 const list = value => Array.isArray(value) ? value : [];
@@ -53,6 +55,15 @@ export function publicImageUrl(value) {
   }
   return safe;
 }
+export function portfolioCoverImage(cover) {
+  const url = publicImageUrl(cover?.url);
+  return url && [cover?.width, cover?.height].every(value => Number.isInteger(value) && value > 0 && value <= 2400)
+    ? { url, width: cover.width, height: cover.height } : null;
+}
+export const publicPortfolioCover = (cover, owner) => ownedPortfolioCover(cover, owner) ? portfolioCoverImage(cover) : null;
+export const resolvePortfolioCover = (appearance, status, owner) =>
+  hasPortfolioAppearanceAccess(status) ? publicPortfolioCover(appearance?.cover, owner) : null;
+
 export function publicVideoUrl(value) {
   const safe = publicExternalUrl(value);
   if (!safe) return "";
@@ -125,7 +136,7 @@ export function publicPortfolioProjects(talent) {
   ].sort((a, b) => Number(b.featured === true) - Number(a.featured === true));
 }
 
-export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey } = {}) {
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey, theme = "default", colors, font = null, backgroundColor, cover = null } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
@@ -173,6 +184,14 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
     .map(key => [key, publicExternalUrl(talent.socialNetworks?.[key])]).filter(([, value]) => value));
   return {
     id: card.id, username: card.username, fullName: card.name, jobTitle: card.jobTitle, location: card.location,
+    theme: isPortfolioTheme(theme) ? theme : "default",
+    font: isPortfolioFont(font) ? font : null,
+    backgroundColor: normalizePortfolioColor(backgroundColor) || portfolioThemeBackground(theme),
+    cover: portfolioCoverImage(cover),
+    colors: {
+      primary: normalizePortfolioColor(colors?.primary) || portfolioThemeColors(theme).primary,
+      secondary: normalizePortfolioColor(colors?.secondary) || portfolioThemeColors(theme).secondary,
+    },
     experienceTime: card.experienceTime, qualification: text(talent.qualification, 160), avatar: card.avatar,
     aboutMe: content(talent.aboutMe) || content(resume?.aboutMe), categories: strings(talent.categories), tags: strings(talent.tags),
     // Preserve Talent's current video field, including an explicit empty value.

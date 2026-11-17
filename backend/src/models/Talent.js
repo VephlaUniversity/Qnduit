@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import { portfolioCaseStudyFields } from "./portfolioCaseStudyFields.js";
+import { PORTFOLIO_FONTS, PORTFOLIO_THEMES } from "../utils/portfolioAppearance.js";
 
 const talentSchema = new mongoose.Schema(
   {
@@ -155,6 +156,26 @@ const talentSchema = new mongoose.Schema(
     portfolioUrl: {
       type: String,
       trim: true,
+    },
+
+    portfolioAppearance: {
+      type: new mongoose.Schema({
+        theme: { type: String, enum: PORTFOLIO_THEMES.map(theme => theme.id) },
+        primaryColor: { type: String, match: /^#[0-9a-f]{6}$/ },
+        secondaryColor: { type: String, match: /^#[0-9a-f]{6}$/ },
+        backgroundColor: { type: String, match: /^#[0-9a-f]{6}$/ },
+        cover: {
+          type: new mongoose.Schema({
+            url: { type: String, required: true, maxlength: 2048 },
+            public_id: { type: String, required: true },
+            width: { type: Number, required: true, min: 1, max: 2400 },
+            height: { type: Number, required: true, min: 1, max: 2400 },
+          }, { _id: false }), default: undefined,
+        },
+        coverVersion: { type: Number, min: 0 },
+        font: { type: String, enum: PORTFOLIO_FONTS.map(font => font.id) },
+      }, { _id: false }),
+      default: undefined,
     },
 
     experience: [

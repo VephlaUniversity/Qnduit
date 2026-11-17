@@ -1,0 +1,41 @@
+/* Solid page overrides only. Existing card/project surfaces keep their colours
+   and reset the inherited foreground context for nested case-study content. */
+[data-portfolio-background] {
+  background-color: var(--portfolio-page-background);
+  color: var(--portfolio-ink);
+}
+[data-portfolio-background] :is([data-portfolio-surface="card"], [data-portfolio-surface="project"]) {
+  --portfolio-ink: #ffffff;
+  --portfolio-muted: #d1d5db;
+  --portfolio-border: rgb(255 255 255 / 15%);
+  --portfolio-focus: #ffffff;
+  --portfolio-track: rgb(255 255 255 / 10%);
+  --portfolio-chip-background: rgb(43 127 255 / 10%);
+  --portfolio-secondary-ink: var(--portfolio-dark-secondary-ink);
+  color: var(--portfolio-ink);
+}
+[data-portfolio-background] :is(.text-white, .text-gray-100) {
+  color: var(--portfolio-ink);
+}
+[data-portfolio-background] :is(.text-gray-300, .text-gray-400) {
+  color: var(--portfolio-muted);
+}
+[data-portfolio-background] :is([class~="border-white/10"], [class~="border-white/5"]) {
+  border-color: var(--portfolio-border);
+}
+[data-portfolio-background] [class~="bg-white/10"] {
+  background-color: var(--portfolio-track);
+}
+[data-portfolio-background] [class~="bg-blue-500/10"] {
+  background-color: var(--portfolio-chip-background);
+}
+[data-portfolio-background] a:not(.portfolio-primary-action) {
+  color: var(--portfolio-secondary-ink);
+}
+[data-portfolio-background] .portfolio-primary-action {
+  color: var(--portfolio-primary-ink);
+}
+[data-portfolio-background] :is(a, button, summary, [tabindex]):focus-visible {
+  /* Do not animate the outline through a low-contrast intermediate colour. */
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+}

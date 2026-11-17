@@ -58,7 +58,6 @@ export function PublicTalentGallery({ images, title }) {
       }} className="relative flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain rounded-lg focus-visible:outline-2 focus-visible:outline-blue-400">
       {images.map((image, index) => <figure key={image._id || `${image.url}:${index}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${images.length}`}
         className="w-full min-w-0 shrink-0 snap-start space-y-2">
-        {["before", "after"].includes(image.comparisonLabel) && <p className="text-sm font-medium capitalize text-blue-300">{image.comparisonLabel}</p>}
         <PublicTalentImage src={image.url} alt={image.alt || `${title}, image ${index + 1}`} contain className="aspect-video w-full rounded-lg border border-white/10" />
         {image.caption && <figcaption className="whitespace-pre-line break-words text-sm leading-7 text-gray-300 [overflow-wrap:anywhere]">{image.caption}</figcaption>}
       </figure>)}
