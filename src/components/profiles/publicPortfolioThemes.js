@@ -61,4 +61,11 @@ const themes = {
 };
 
 export const publicPortfolioTheme = value => isPortfolioTheme(value) ? value : "default";
-export const publicPortfolioStyles = value => ({ ...defaults, ...themes[publicPortfolioTheme(value)] });
+// Reset order reuses the newly-upgraded arrangement without replacing the
+// selected theme's typography, surfaces, project mode or content styling.
+const standardArrangement = Object.fromEntries(
+  ["layout", "identity", "introduction", "about", "skills", "links", "content", "projects"].map(key => [key, defaults[key]]),
+);
+export const publicPortfolioStyles = (value, standardGrouping = false) => ({
+  ...defaults, ...themes[publicPortfolioTheme(value)], ...(standardGrouping ? standardArrangement : {}),
+});

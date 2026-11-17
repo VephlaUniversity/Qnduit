@@ -1,9 +1,9 @@
 import { publicPortfolioCover } from "../utils/publicTalentProfile.js";
 import Talent from "../models/Talent.js";
 import { resolveSubscriptionStatus } from "../services/subscriptionStatus.js";
-import { hasPortfolioAppearanceAccess, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor } from "../utils/portfolioAppearance.js";
+import { hasPortfolioAppearanceAccess, isPortfolioLayout, resolvePortfolioLayout, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor } from "../utils/portfolioAppearance.js";
 
-const appearanceFields = "portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.coverVersion";
+const appearanceFields = "portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.coverVersion portfolioAppearance.layout";
 
 export function createPortfolioAppearanceHandlers({ model = Talent, subscription = resolveSubscriptionStatus } = {}) {
   const ownerAccess = (req, res) => {
@@ -17,6 +17,9 @@ export function createPortfolioAppearanceHandlers({ model = Talent, subscription
     const theme = talent.portfolioAppearance?.theme;
     return res.json({ success: true, portfolioAppearance: {
       theme: isPortfolioTheme(theme) ? theme : null,
+      layout: resolvePortfolioLayout(talent.portfolioAppearance?.layout),
+      usesStandardSectionGrouping: isPortfolioLayout(talent.portfolioAppearance?.layout) && Object.hasOwn(talent.portfolioAppearance.layout, "sectionOrder") && talent.portfolioAppearance.layout.sectionOrder.length === 0,
+      hasCustomSectionOrder: isPortfolioLayout(talent.portfolioAppearance?.layout) && Boolean(talent.portfolioAppearance.layout.sectionOrder?.length),
       cover: publicPortfolioCover(talent.portfolioAppearance?.cover, talent._id),
       coverVersion: talent.portfolioAppearance?.coverVersion ?? 0,
       primaryColor: normalizePortfolioColor(talent.portfolioAppearance?.primaryColor),
@@ -35,11 +38,16 @@ export function createPortfolioAppearanceHandlers({ model = Talent, subscription
     if (!ownerAccess(req, res)) return;
     const body = req.body;
     if (!body || typeof body !== "object" || Array.isArray(body) || !Object.keys(body).length
-      || Object.keys(body).some(key => !["theme", "primaryColor", "secondaryColor", "font", "backgroundColor"].includes(key))
+      || Object.keys(body).some(key => !["theme", "primaryColor", "secondaryColor", "font", "backgroundColor", "layout"].includes(key))
       || Object.hasOwn(body, "theme") && !isPortfolioTheme(body.theme)) {
       return res.status(400).json({ success: false, message: "Choose supported appearance settings." });
     }
+    if (Object.hasOwn(body, "layout") && !isPortfolioLayout(body.layout)) {
+      return res.status(400).json({ success: false, message: "Choose supported portfolio layout settings." });
+    }
     const update = {}, set = {}, unset = {};
+    // Layout is one optional setting; replace only this object, never appearance.
+    if (Object.hasOwn(body, "layout")) set["portfolioAppearance.layout"] = body.layout;
     if (Object.hasOwn(body, "theme")) set["portfolioAppearance.theme"] = body.theme;
     if (Object.hasOwn(body, "font")) {
       if (body.font === null) unset["portfolioAppearance.font"] = "";

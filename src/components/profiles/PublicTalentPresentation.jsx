@@ -1,3 +1,4 @@
+import { Footer } from "../Footer";
 import { PublicTalentImage } from "./PublicTalentMedia";
 import { portfolioCoverImage } from "../../../backend/src/utils/publicTalentProfile.js";
 import { PORTFOLIO_FONTS } from "../../../backend/src/utils/portfolioAppearance.js";
@@ -9,7 +10,7 @@ import { publicPortfolioStyles, publicPortfolioTheme } from "./publicPortfolioTh
 
 // Shared only by public Talent profile, portfolio and CV presentations.
 // Only portfolio content supplies the boolean. Other shared surfaces retain
-// their existing footer without receiving the free-portfolio watermark.
+// their existing footer. Free portfolios reuse the shared site Footer.
 export default function PublicTalentPresentation({
   children, requiresQnduitBranding, centerContent = false, portfolioTheme, portfolioColors, portfolioFont, portfolioBackground, portfolioCover,
 }) {
@@ -25,9 +26,10 @@ export default function PublicTalentPresentation({
         <PublicTalentImage key={cover.url} src={cover.url} alt="Portfolio cover" className="h-36 w-full sm:h-56 lg:h-72" />
       </header>}
       {centerContent ? <div className="flex flex-1 flex-col items-center justify-center text-center">{children}</div> : children}
-      {requiresQnduitBranding !== false && <footer className={`mt-10 border-t border-white/10 py-8 text-center${centerContent ? " shrink-0" : ""}`}>
-        <a href="https://qnduit.com" className="mb-8 inline-flex min-h-11 items-center text-sm font-medium text-gray-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4">{requiresQnduitBranding === true ? "Built with Qnduit" : "Powered by qnduit.com"}</a>
+      {requiresQnduitBranding !== true && requiresQnduitBranding !== false && <footer className={`mt-10 border-t border-white/10 py-8 text-center${centerContent ? " shrink-0" : ""}`}>
+        <a href="https://qnduit.com" className="mb-8 inline-flex min-h-11 items-center text-sm font-medium text-gray-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4">Powered by qnduit.com</a>
       </footer>}
     </div>
+    {requiresQnduitBranding === true && <div className="mt-8 md:mt-12"><Footer /></div>}
   </main>;
 }
