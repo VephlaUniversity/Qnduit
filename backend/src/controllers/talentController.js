@@ -732,6 +732,7 @@ export const getPublicTalentProfile = async (req, res, next) => {
 
     const projectOccurrences = new Map();
     const publicTalent = publicTalentProfileDto(talent, resume, {
+      subscriptionStatus: publication.subscriptionStatus,
       theme: resolvePortfolioTheme(talent.portfolioAppearance?.theme, publication.subscriptionStatus),
       colors: resolvePortfolioColors(talent.portfolioAppearance, publication.subscriptionStatus),
       font: resolvePortfolioFont(talent.portfolioAppearance, publication.subscriptionStatus),

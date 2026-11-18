@@ -60,3 +60,69 @@ export function resolvePortfolioColors(appearance, status) {
 export const resolvePortfolioBackground = (appearance, status) =>
   hasPortfolioAppearanceAccess(status) && normalizePortfolioColor(appearance?.backgroundColor)
   || portfolioThemeBackground(resolvePortfolioTheme(appearance?.theme, status));
+
+// Layout is optional and independent of theme, colour, font and cover settings.
+// This order follows the existing public content flow; fixed page chrome is excluded.
+export const PORTFOLIO_SECTIONS = Object.freeze([
+  { id: "about", label: "About" },
+  { id: "skills", label: "Skills" },
+  { id: "links", label: "Links" },
+  { id: "projects", label: "Projects" },
+  { id: "introVideo", label: "Introduction Video" },
+  { id: "experience", label: "Experience" },
+  { id: "education", label: "Education" },
+].map(Object.freeze));
+
+export const PORTFOLIO_PROJECT_LAYOUTS = Object.freeze([
+  { id: "grid", label: "Grid" },
+  { id: "list", label: "List" },
+  { id: "featured", label: "Featured" },
+].map(Object.freeze));
+
+export const isPortfolioSection = value => typeof value === "string"
+  && PORTFOLIO_SECTIONS.some(section => section.id === value);
+export const isPortfolioProjectLayout = value => typeof value === "string"
+  && PORTFOLIO_PROJECT_LAYOUTS.some(layout => layout.id === value);
+
+const isSectionList = value => Array.isArray(value)
+  && value.length <= PORTFOLIO_SECTIONS.length
+  && Array.from(value).every(isPortfolioSection)
+  && new Set(value).size === value.length;
+
+// Strict submitted input: omitted properties are allowed; explicit null/undefined
+// values and unknown keys are not. An empty object means all defaults.
+export function isPortfolioLayout(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  return Reflect.ownKeys(value).every(key => {
+    if (key === "sectionOrder" || key === "hiddenSections") return isSectionList(value[key]);
+    if (key === "projectLayout") return isPortfolioProjectLayout(value[key]);
+    return false;
+  });
+}
+
+// Pure stored-data resolution. Invalid objects fall back as a whole; no repair
+// writes or mutations. null is an output sentinel: retain the theme's project grid.
+export function resolvePortfolioLayout(savedLayout) {
+  const layout = isPortfolioLayout(savedLayout) ? savedLayout : {};
+  const ordered = layout.sectionOrder || [];
+  return {
+    sectionOrder: [...ordered, ...PORTFOLIO_SECTIONS.map(section => section.id).filter(id => !ordered.includes(id))],
+    hiddenSections: [...(layout.hiddenSections || [])],
+    projectLayout: layout.projectLayout ?? null,
+  };
+}
+
+// Public layout keeps absence of a saved order distinct from a completed order.
+// Visibility-only settings must retain each theme's existing section grouping.
+export function resolvePublicPortfolioLayout(savedLayout, status) {
+  const saved = hasPortfolioAppearanceAccess(status) && isPortfolioLayout(savedLayout) ? savedLayout : {};
+  const resolved = resolvePortfolioLayout(saved);
+  return {
+    ...resolved,
+    // An explicit empty order requests the standard newly-upgraded grouping;
+    // an absent order continues to preserve legacy theme-specific grouping.
+    standardGrouping: Object.hasOwn(saved, "sectionOrder") && saved.sectionOrder.length === 0,
+    sectionOrder: saved.sectionOrder?.length ? resolved.sectionOrder : null,
+  };
+}

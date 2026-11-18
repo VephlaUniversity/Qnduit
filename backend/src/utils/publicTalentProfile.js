@@ -1,9 +1,9 @@
 import { talentLocation } from "./talentLocation.js";
-import { hasPortfolioAppearanceAccess, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "./portfolioAppearance.js";
+import { hasPortfolioAppearanceAccess, resolvePublicPortfolioLayout, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "./portfolioAppearance.js";
 import { ownedPortfolioCover } from "../config/portfolioCover.js";
 import { normalizePortfolioCaseStudy, portfolioOverview } from "./portfolioCaseStudy.js";
 // Pure, explicit public DTO mapping. Never serialize Talent/Resume documents.
-export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover";
+export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.layout";
 export const PUBLIC_RESUME_FIELDS = "talent aboutMe portfolioImages education experience skills introVideo";
 const text = (value, limit = 20000) => typeof value === "string" ? value.trim().slice(0, limit) : "";
 const list = value => Array.isArray(value) ? value : [];
@@ -136,7 +136,7 @@ export function publicPortfolioProjects(talent) {
   ].sort((a, b) => Number(b.featured === true) - Number(a.featured === true));
 }
 
-export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey, theme = "default", colors, font = null, backgroundColor, cover = null } = {}) {
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey, theme = "default", colors, font = null, backgroundColor, cover = null, subscriptionStatus } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
@@ -184,6 +184,7 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
     .map(key => [key, publicExternalUrl(talent.socialNetworks?.[key])]).filter(([, value]) => value));
   return {
     id: card.id, username: card.username, fullName: card.name, jobTitle: card.jobTitle, location: card.location,
+    layout: resolvePublicPortfolioLayout(talent.portfolioAppearance?.layout, subscriptionStatus),
     theme: isPortfolioTheme(theme) ? theme : "default",
     font: isPortfolioFont(font) ? font : null,
     backgroundColor: normalizePortfolioColor(backgroundColor) || portfolioThemeBackground(theme),

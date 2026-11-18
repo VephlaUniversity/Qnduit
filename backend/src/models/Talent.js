@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import { portfolioCaseStudyFields } from "./portfolioCaseStudyFields.js";
-import { PORTFOLIO_FONTS, PORTFOLIO_THEMES } from "../utils/portfolioAppearance.js";
+import { PORTFOLIO_FONTS, PORTFOLIO_THEMES, isPortfolioLayout } from "../utils/portfolioAppearance.js";
 
 const talentSchema = new mongoose.Schema(
   {
@@ -172,6 +172,8 @@ const talentSchema = new mongoose.Schema(
             height: { type: Number, required: true, min: 1, max: 2400 },
           }, { _id: false }), default: undefined,
         },
+        // Validate the complete optional object before any schema casting or key stripping.
+        layout: { type: mongoose.Schema.Types.Mixed, default: undefined, validate: isPortfolioLayout },
         coverVersion: { type: Number, min: 0 },
         font: { type: String, enum: PORTFOLIO_FONTS.map(font => font.id) },
       }, { _id: false }),

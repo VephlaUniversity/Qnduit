@@ -1,3 +1,4 @@
+import { getPortfolioPreview } from "../controllers/portfolioPreviewController.js";
 import { ingestPortfolioEvent, getPortfolioAnalytics } from "../controllers/portfolioAnalyticsController.js";
 import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
 import { getPortfolioAppearance, putPortfolioAppearance } from "../controllers/portfolioAppearanceController.js";
@@ -23,6 +24,7 @@ import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.get("/portfolio-appearance/preview", protect, authorize("talent"), getPortfolioPreview);
 router.get("/portfolio-appearance", protect, authorize("talent"), getPortfolioAppearance);
 router.put("/portfolio-appearance", protect, authorize("talent"), putPortfolioAppearance);
 router.put("/portfolio-appearance/cover", protect, authorize("talent"), requirePaidCoverOwner, portfolioCoverUpload, putPortfolioCover);

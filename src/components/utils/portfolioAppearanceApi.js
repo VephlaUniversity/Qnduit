@@ -1,3 +1,4 @@
+import { portfolioLayoutFromResponse } from "./portfolioLayoutDraft.js";
 import axios from "axios";
 import { API_BASE_URL } from "./api.js";
 import { portfolioCoverImage } from "../../../backend/src/utils/publicTalentProfile.js";
@@ -21,7 +22,7 @@ export async function portfolioAppearanceRequest(token, { signal, ...patch } = {
     || ["primaryColor", "secondaryColor", "backgroundColor"].some(field => saved[field] != null && !normalizePortfolioColor(saved[field]))) {
     throw new Error("The saved appearance could not be confirmed.");
   }
-  return { cover: portfolioCoverImage(saved.cover), coverVersion: saved.coverVersion ?? 0, theme: saved.theme, primaryColor: normalizePortfolioColor(saved.primaryColor), secondaryColor: normalizePortfolioColor(saved.secondaryColor), backgroundColor: normalizePortfolioColor(saved.backgroundColor), font: saved.font ?? null };
+  return { layout: portfolioLayoutFromResponse(saved.layout, saved.hasCustomSectionOrder, saved.usesStandardSectionGrouping), cover: portfolioCoverImage(saved.cover), coverVersion: saved.coverVersion ?? 0, theme: saved.theme, primaryColor: normalizePortfolioColor(saved.primaryColor), secondaryColor: normalizePortfolioColor(saved.secondaryColor), backgroundColor: normalizePortfolioColor(saved.backgroundColor), font: saved.font ?? null };
 }
 
 export async function portfolioCoverRequest(token, { file, remove = false, version, signal }) {
