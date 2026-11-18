@@ -28,6 +28,9 @@ import supportRoutes from "./routes/supportRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import talentCustomDomainRoutes from "./routes/talentCustomDomainRoutes.js";
+import { createCustomDomainCorsOrigin } from "./middleware/customDomainCors.js";
+
 import {
   handleFlutterwaveWebhook,
 } from "./controllers/flutterwaveWebhookController.js";
@@ -41,16 +44,50 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+const allowedOrigins = new Set(
+  (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map(origin => origin.trim().replace(/\/$/, "").toLowerCase())
+    .filter(Boolean)
+);
+
+const customDomainCorsOrigin = createCustomDomainCorsOrigin();
+
 app.use(
   cors({
-    origin: [
-      "https://qnduit.com",
-      "https://www.qnduit.com",
-    ],
+    origin: (origin, callback) => {
+      // Requests without an Origin header are not browser CORS requests.
+      if (!origin) {
+        return callback(null, false);
+      }
+
+      let normalizedOrigin;
+
+      try {
+        normalizedOrigin = new URL(origin).origin.toLowerCase();
+      } catch {
+        return callback(null, false);
+      }
+
+      if (allowedOrigins.has(normalizedOrigin)) {
+        return callback(null, origin);
+      }
+
+      // Check whether this is an active, connected talent domain.
+      return customDomainCorsOrigin(origin, callback);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "If-Match"],
-    exposedHeaders: ["Retry-After", "RateLimit-Policy", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "RateLimit-Scope", "Date"],
+    exposedHeaders: [
+      "Retry-After",
+      "RateLimit-Policy",
+      "RateLimit-Limit",
+      "RateLimit-Remaining",
+      "RateLimit-Reset",
+      "RateLimit-Scope",
+      "Date",
+    ],
   })
 );
 
@@ -87,6 +124,8 @@ app.use("/api/support", supportRoutes);
 app.use("/api/profiles", profileRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/talents/custom-domain", talentCustomDomainRoutes);
+
 
 // Error Handler
 app.use(errorHandler);
