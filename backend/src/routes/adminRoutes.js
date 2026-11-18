@@ -4,6 +4,7 @@ import { previewDowngrade, requestDowngrade } from "../controllers/subscriptionD
 import { previewAdminEmployerPlanRequest, submitAdminEmployerPlanRequest } from "../controllers/adminEmployerPlanRequestController.js";
 import { previewCancellation, cancelActiveSubscription } from "../controllers/subscriptionCancellationController.js";
 import { previewInvoice, emailInvoice } from "../controllers/subscriptionInvoiceController.js";
+import { createAdminDiscountCode, getAdminDiscountCode, listAdminDiscountCodes, updateAdminDiscountCode } from "../controllers/adminDiscountCodeController.js";
 
 import {
   getAdminDashboard,
@@ -39,6 +40,7 @@ const router = express.Router();
 
 // Include authorization/validation failures in the detail cache policy too.
 router.use((req, res, next) => {
+  if (/^\/discount-codes(?:\/|$)/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   if (/^\/subscriptions\/[^/]+\/[^/]+\/(invoice-email|cancel|downgrade|plan-request)\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   if (req.method === "GET" && /^\/(talents|employers)\/[^/]+\/?$/i.test(req.path)) res.set("Cache-Control", "private, no-store");
   next();
@@ -46,6 +48,10 @@ router.use((req, res, next) => {
 
 router.use(protect);
 router.use(authorize("admin"));
+router.get("/discount-codes", listAdminDiscountCodes);
+router.post("/discount-codes", createAdminDiscountCode);
+router.get("/discount-codes/:code", getAdminDiscountCode);
+router.patch("/discount-codes/:code", updateAdminDiscountCode);
 router.use("/jobs", requireEmployerJobSource);
 router.get("/subscriptions/employer/:accountId/plan-request", previewAdminEmployerPlanRequest);
 router.post("/subscriptions/employer/:accountId/plan-request", submitAdminEmployerPlanRequest);

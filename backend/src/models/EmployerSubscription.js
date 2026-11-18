@@ -12,10 +12,12 @@ const employerSubscriptionSchema = new mongoose.Schema(
 
     provider: {
       type: String,
-      enum: ["flutterwave"],
+      enum: ["flutterwave", "no_charge"],
       default: "flutterwave",
       required: true,
     },
+
+    grantAttemptId: String,
 
     plan: {
       type: String,

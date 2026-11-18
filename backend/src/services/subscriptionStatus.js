@@ -1,3 +1,4 @@
+import { DiscountCheckoutAttempt } from "../models/DiscountCheckoutAttempt.js";
 import Talent from "../models/Talent.js";
 import Employer from "../models/Employer.js";
 import TalentSubscription from "../models/TalentSubscription.js";
@@ -36,7 +37,7 @@ export async function loadSubscriptionEvidence({ accountId, role, session = null
   const account = await adapter.account.findById(accountId).select(invoice
     ? "_id accountStatus selectedPlan paymentStatus email firstName lastName fullName companyName displayName"
     : "_id accountStatus selectedPlan paymentStatus").session(session).lean();
-  const subscriptionFields = "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId accessPlan accessPlanHistory accessPlanGeneration";
+  const subscriptionFields = "plan status provider currentPeriodStart currentPeriodEnd cancelAtPeriodEnd canceledAt endedAt lastTxRef lastTransactionId grantAttemptId accessPlan accessPlanHistory accessPlanGeneration";
   let subscription, ambiguousSubscription = false;
   if (invoice) {
     // Do not choose a plausible invoice if historical/migrated records violate
@@ -58,6 +59,13 @@ export async function loadSubscriptionEvidence({ accountId, role, session = null
       payment = matches[0] || null; ambiguousPayment = matches.length > 1;
     } else payment = await adapter.payment.findOne(filter).select("_id").session(session).lean();
   }
+  const grant = !invoice && subscription?.provider === "no_charge" && !subscription.lastTxRef &&
+    !subscription.lastTransactionId && typeof subscription.grantAttemptId === "string" ?
+    await DiscountCheckoutAttempt.exists({
+      _id: subscription.grantAttemptId, account: accountId, role, plan: subscription.plan,
+      status: "redeemed", payableMinor: 0, "noChargeGrant.subscription": subscription._id,
+      "noChargeGrant.startsAt": subscription.currentPeriodStart, "noChargeGrant.endsAt": subscription.currentPeriodEnd,
+    }).session(session) : null;
   let restrictionValid = false;
   if (role === "employer" && hasRestriction(subscription) && payment) {
     const change = typeof subscription.accessPlanHistory === "string"
@@ -80,11 +88,11 @@ export async function loadSubscriptionEvidence({ accountId, role, session = null
       ["employer", "admin"].includes(change.actorRole) && change.requestedBy &&
       (change.actorRole !== "employer" || String(change.requestedBy) === String(accountId)));
   }
-  return { account, subscription, payment, ambiguousPayment, ambiguousSubscription, restrictionValid };
+  return { account, subscription, payment, ambiguousPayment, ambiguousSubscription, restrictionValid, grant };
 }
 
 // Pure evaluation shared with invoice validation; its public DTO is unchanged.
-export function subscriptionStatusFromEvidence({ account, subscription, payment, restrictionValid = false }, { role, now = new Date() }) {
+export function subscriptionStatusFromEvidence({ account, subscription, payment, grant, restrictionValid = false }, { role, now = new Date() }) {
   const adapter = Object.hasOwn(adapters, role) ? adapters[role] : null;
   const time = dateValue(now);
   if (!adapter || time === null) throw new TypeError("A supported role and valid time are required.");
@@ -108,7 +116,8 @@ export function subscriptionStatusFromEvidence({ account, subscription, payment,
   } else if (subscription.endedAt || subscription.canceledAt && !subscription.cancelAtPeriodEnd) {
     status = "inconsistent"; reason = "conflicting_cancellation_metadata";
   } else if (role === "employer" && hasRestriction(subscription) && !restrictionValid) { status = "inconsistent"; reason = "invalid_access_restriction"; }
-  else if (!payment) { status = "unpaid"; reason = "successful_payment_not_linked"; }
+  else if (subscription.provider === "no_charge" && grant) { status = "active"; reason = "confirmed_no_charge_subscription"; }
+  else if (!payment || subscription.provider === "no_charge") { status = "unpaid"; reason = "successful_payment_not_linked"; }
   else { status = "active"; reason = "confirmed_subscription"; }
   const paidEligible = status === "active";
   const effectivePlan = paidEligible ? role === "employer" && hasRestriction(subscription) ? subscription.accessPlan : plan : "free";

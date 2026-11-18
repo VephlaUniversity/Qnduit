@@ -8,12 +8,14 @@ export const ListToolbar = ({
   search,
   onSearchChange,
   placeholder = "Search",
+  searchLabel,
   sortOptions,
   sortValue,
   onSortChange,
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const sortButton = useRef(null);
 
   useEffect(() => {
     const close = (e) => {
@@ -35,13 +37,23 @@ export const ListToolbar = ({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={placeholder}
+          aria-label={searchLabel}
           className="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full"
         />
       </div>
 
       {sortOptions && sortOptions.length > 0 && (
-        <div className="relative sm:w-48" ref={ref}>
+        <div className="relative sm:w-48" ref={ref} onKeyDown={event => {
+          if (event.key === "Escape" && open) {
+            event.preventDefault();
+            setOpen(false);
+            sortButton.current?.focus();
+          }
+        }}>
           <button
+            ref={sortButton}
+            type="button"
+            aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
             className="w-full flex items-center justify-between gap-2 bg-[#0E0E10] border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-300 hover:border-white/25 transition-colors"
           >
@@ -63,6 +75,7 @@ export const ListToolbar = ({
                   onClick={() => {
                     onSortChange(opt.value);
                     setOpen(false);
+                    sortButton.current?.focus();
                   }}
                   className={`w-full text-left px-4 py-2.5 transition-colors ${
                     sortValue === opt.value

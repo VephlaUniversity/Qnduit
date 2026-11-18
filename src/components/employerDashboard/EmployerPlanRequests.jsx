@@ -1,12 +1,20 @@
+import { useNavigate } from "react-router-dom";
 import { useRef, useState } from "react";
 import { EmployerPlans } from "../EmployerPlans";
 import { validCheckoutUrl } from "../utils/employerPlanRequest";
+import CheckoutDiscount from "../subscriptions/CheckoutDiscount";
+import { useCheckoutDiscount } from "../hooks/useCheckoutDiscount";
 import { useEmployerPlanRequest } from "../hooks/useEmployerPlanRequest";
 import { employerPlanName } from "../utils/employerSubscription";
 import { employerSubscriptionDate } from "../utils/employerSubscriptionDate";
+import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 
+const upgradeButton = "h-11 w-full px-4 focus-visible:ring-blue-400 sm:w-auto";
+const upgradeOutline = `${upgradeButton} border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white`;
+
 export default function EmployerPlanRequests({ currentPlan, onApplied }) {
+  const navigate = useNavigate();
   const { result, refresh, send, upgrade } = useEmployerPlanRequest();
   const [selection, setSelection] = useState(null);
   const trigger = useRef(null), goBack = useRef(null), refreshButton = useRef(null);
@@ -15,10 +23,29 @@ export default function EmployerPlanRequests({ currentPlan, onApplied }) {
   const disabled = result.status !== "ready" || stale;
   const toPlan = uncertain ? result.toPlan : selection, latest = result.data?.latestAction;
   const isUpgrade = ["free", "bronze", "silver", "platinum"].indexOf(toPlan) > ["free", "bronze", "silver", "platinum"].indexOf(currentPlan);
+  const ActionButton = isUpgrade ? Button : "button";
   const pendingUpgrade = result.data?.upgradeRequest?.status === "awaiting_payment" ? result.data.upgradeRequest : null;
   const higherPlans = pendingUpgrade ? [] : result.data?.upgradePlans || [];
   const choosePlan = plan => { if (!disabled && (result.data?.allowedPlans?.includes(plan) || higherPlans.includes(plan))) { trigger.current = document.activeElement; setSelection(plan); } };
-  const submit = () => isUpgrade ? upgrade(toPlan) : send(toPlan, () => { setSelection(null); onApplied?.(); });
+  const previewToken = result.data?.upgradePreviewToken;
+  const discount = useCheckoutDiscount({
+    role: "employer", plan: toPlan, previewToken,
+    enabled: Boolean(isUpgrade && toPlan && previewToken && !stale && !pendingUpgrade && result.status === "ready"),
+  });
+  const handoff = Boolean(discount.firstEmployerOffer && discount.quote?.payableMinor > 0);
+  const submit = () => {
+    if (isUpgrade) {
+      if (handoff && result.status === "ready" && !stale) {
+        navigate(`/payment?plan=${encodeURIComponent(toPlan)}&userType=employer`, {
+          state: { firstEmployerPurchase: true, code: discount.quote.code, plan: toPlan },
+        });
+        return;
+      }
+      if (discount.available && !discount.canPay()) return;
+      return upgrade(toPlan);
+    }
+    return send(toPlan, () => { setSelection(null); onApplied?.(); });
+  };
   return <section aria-label="Subscription plan changes" className="space-y-6 text-white">
     <div className="space-y-2 text-sm [overflow-wrap:anywhere]">
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-gray-400">Upgrades require verified payment. Downgrades take effect immediately.</p>
@@ -46,11 +73,17 @@ export default function EmployerPlanRequests({ currentPlan, onApplied }) {
         onCloseAutoFocus={event => { event.preventDefault(); (trigger.current?.isConnected && !trigger.current.disabled ? trigger.current : refreshButton.current)?.focus(); }}>
         <DialogHeader><DialogTitle>{isUpgrade ? "Upgrade through checkout?" : "Downgrade now?"}</DialogTitle><DialogDescription>{isUpgrade ? "Your current access stays unchanged until your payment is verified." : "Your access changes immediately. This does not issue a refund or change provider billing."}</DialogDescription></DialogHeader>
         <p className="text-lg font-semibold">{employerPlanName(currentPlan)} → {employerPlanName(toPlan)}</p><p className="text-sm text-gray-400">{isUpgrade ? "Effective after verified payment" : "Effective immediately"}</p>
+        {isUpgrade && <CheckoutDiscount discount={discount} upgrade={!handoff} allowHandoff={handoff} disabled={sending} />}
         {result.message && <p role="status">{result.message}</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button ref={goBack} type="button" disabled={sending || uncertain} onClick={() => setSelection(null)} className="min-h-11 w-full rounded border border-white/20 px-4 py-2 disabled:opacity-50 sm:w-auto">Go back</button>
-          {["error", "unconfirmed"].includes(result.status) && <button type="button" onClick={refresh} className="min-h-11 w-full rounded border px-4 py-2 sm:w-auto">Refresh confirmation</button>}
-          <button type="button" disabled={sending || !["ready", "unconfirmed", "retry"].includes(result.status) || stale} onClick={submit} className="min-h-11 w-full rounded bg-blue-600 px-4 py-2 disabled:opacity-50 sm:w-auto">{sending ? isUpgrade ? "Opening checkout…" : "Applying…" : uncertain ? "Retry same action" : isUpgrade ? "Continue to checkout" : "Downgrade now"}</button>
+          <ActionButton ref={goBack} type="button" disabled={sending || uncertain} onClick={() => setSelection(null)}
+            variant={isUpgrade ? "outline" : undefined}
+            className={isUpgrade ? upgradeOutline : "min-h-11 w-full rounded border border-white/20 px-4 py-2 disabled:opacity-50 sm:w-auto"}>{isUpgrade ? "Back" : "Go back"}</ActionButton>
+          {["error", "unconfirmed"].includes(result.status) && <ActionButton type="button" onClick={refresh} variant={isUpgrade ? "outline" : undefined}
+            className={isUpgrade ? upgradeOutline : "min-h-11 w-full rounded border px-4 py-2 sm:w-auto"}>{isUpgrade ? "Refresh" : "Refresh confirmation"}</ActionButton>}
+          <ActionButton type="button" disabled={sending || !["ready", "unconfirmed", "retry"].includes(result.status) || stale ||
+            (discount.paymentBlocked && !handoff) || (discount.available && discount.price.status !== "ready")} onClick={submit}
+            className={isUpgrade ? `${upgradeButton} bg-blue-600 text-white hover:bg-blue-700` : "min-h-11 w-full rounded bg-blue-600 px-4 py-2 disabled:opacity-50 sm:w-auto"}>{sending ? isUpgrade ? "Opening checkout…" : "Applying…" : uncertain ? "Retry same action" : isUpgrade ? "Continue" : "Downgrade now"}</ActionButton>
         </div>
       </DialogContent>
     </Dialog>

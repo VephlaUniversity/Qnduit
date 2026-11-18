@@ -7,8 +7,20 @@ import { employerRequestActivation, employerPlanRequestDto } from "./employerPla
 import { EMPLOYER_PLAN_ORDER, PLAN_REQUEST_ID, employerPlanAction, employerPlanRequestKey, planRequestHash } from "../utils/employerPlanRequest.js";
 
 export const UPGRADE_POLICY = "payment-upgrade-v1";
+export const UPGRADE_AUDIENCE = "employer-payment-upgrade";
 const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
 const eligible = status => ["active", "unpaid", "expired", "cancelled"].includes(status.status) && !["successful_payment_not_linked", "subscription_pending"].includes(status.reason);
+
+export async function checkNewEmployerUpgrade({ accountId, plan, selected, state, session = null }) {
+  const evidence = await loadSubscriptionEvidence({ role: "employer", accountId, session });
+  const status = subscriptionStatusFromEvidence(evidence, { role: "employer" });
+  const activationFingerprint = employerRequestActivation(evidence.subscription, state, accountId);
+  if (selected.accountId !== accountId || selected.fromPlan !== status.effectivePlan || selected.activationFingerprint !== activationFingerprint || selected.executionPolicy !== UPGRADE_POLICY) throw fail(409, "SUBSCRIPTION_SELECTION_STALE", "Your current plan changed. Refresh before checkout.");
+  if (!eligible(status)) throw fail(409, "SUBSCRIPTION_EVIDENCE_UNAVAILABLE", "Your current subscription evidence needs review before checkout.");
+  if (employerPlanAction(status.effectivePlan, plan) !== "upgrade") throw fail(400, "SUBSCRIPTION_PLAN_CHANGE_INVALID", "Select an eligible higher plan.");
+  if (await History.exists({ role: "employer", account: accountId, executionPolicy: UPGRADE_POLICY, generation: state?.generation || 0, activationFingerprint, fromPlan: status.effectivePlan, status: "awaiting_payment" }).session(session)) throw fail(409, "SUBSCRIPTION_CHANGE_PENDING", "An upgrade checkout already exists. Refresh to resume it.");
+  return { evidence, status, activationFingerprint };
+}
 
 export async function employerUpgradeOptions(accountId, context) {
   const history = await History.findOne({ role: "employer", account: accountId, executionPolicy: UPGRADE_POLICY,
@@ -42,12 +54,12 @@ export async function initiateEmployerUpgrade({ authenticatedUser, plan, request
       const stale = prior.generation !== (state.generation || 0) || String(state.pendingPayment || "") !== String(payment._id) || prior.fromPlan !== current.effectivePlan || prior.activationFingerprint !== employerRequestActivation(evidence.subscription, state, accountId);
       return { created: false, request: prior, payment, stale };
     }
-    const evidence = await loadSubscriptionEvidence({ role: "employer", accountId, session }), status = subscriptionStatusFromEvidence(evidence, { role: "employer" });
-    const activationFingerprint = employerRequestActivation(evidence.subscription, state, accountId);
-    if (selected.accountId !== accountId || selected.fromPlan !== status.effectivePlan || selected.activationFingerprint !== activationFingerprint || selected.executionPolicy !== UPGRADE_POLICY) throw fail(409, "SUBSCRIPTION_SELECTION_STALE", "Your current plan changed. Refresh before checkout.");
-    if (!eligible(status)) throw fail(409, "SUBSCRIPTION_EVIDENCE_UNAVAILABLE", "Your current subscription evidence needs review before checkout.");
-    if (employerPlanAction(status.effectivePlan, plan) !== "upgrade") throw fail(400, "SUBSCRIPTION_PLAN_CHANGE_INVALID", "Select an eligible higher plan.");
-    if (await History.exists({ role: "employer", account: accountId, executionPolicy: UPGRADE_POLICY, generation: state.generation || 0, activationFingerprint, fromPlan: status.effectivePlan, status: "awaiting_payment" }).session(session)) throw fail(409, "SUBSCRIPTION_CHANGE_PENDING", "An upgrade checkout already exists. Refresh to resume it.");
+    const { evidence, status, activationFingerprint } = await checkNewEmployerUpgrade({ accountId, plan, selected, state, session });
+    if (state.pendingPayment && await Payment.exists({
+      _id: state.pendingPayment, status: "pending", "metadata.discountCheckoutAttemptId": { $exists: true },
+    }).session(session)) {
+      throw fail(409, "SUBSCRIPTION_DISCOUNT_CHECKOUT_PENDING", "Resume your existing discounted checkout before starting another payment.");
+    }
     const now = new Date(), paymentId = new Payment()._id, txRef = `QND-EMP-UP-${accountId}-${crypto.randomUUID()}`;
     const [payment] = await Payment.create([{ _id: paymentId, employer: accountId, plan, provider: "flutterwave", txRef, amount: price.amount, currency: price.currency, type: "subscription", status: "pending", activationGeneration: state.generation || 0,
       metadata: { employerId: accountId, plan, paymentPlanId: price.paymentPlanId, upgradeRequest: id, checkoutState: "initializing" } }], { session });

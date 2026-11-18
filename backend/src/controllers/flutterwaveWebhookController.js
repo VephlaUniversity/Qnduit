@@ -13,7 +13,7 @@ export const handleFlutterwaveWebhook = async (req, res) => {
     if (event === "charge.completed" && data?.id) {
       const response = await flutterwave.get(`/transactions/${encodeURIComponent(data.id)}/verify`);
       const transaction = response.data?.data;
-      if (!transaction?.tx_ref) return res.json({ received: true });
+      if (!transaction?.tx_ref || String(transaction.id) !== String(data.id)) return res.json({ received: true });
       // Only a stored explicit checkout establishes ownership. Renewal events
       // without a known reference require reconciliation, never an email match.
       const matches = [];

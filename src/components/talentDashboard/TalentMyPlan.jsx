@@ -3,7 +3,7 @@ import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { browserSessions } from "../utils/requestSafety";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { planFromUrl } from "../utils/planChoice";
 import UserSubscriptionCancellation from "../subscriptions/UserSubscriptionCancellation";
 
 export const TalentMyPlan = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const urlPlan = planFromUrl(`?${searchParams.toString()}`);
   const [selectedPlan, setSelectedPlan] = useState(
@@ -27,7 +28,6 @@ export const TalentMyPlan = () => {
     subscription, subscriptionStatus, pendingDowngrade, publicPortfolio,
     loading, error: loadError, refresh,
   } = entitlement;
-  const [processing, setProcessing] = useState(false);
 
   const { user } = useAuth();
   const actor = user?.userType === "talent" ? `talent:${user.id || user._id}` : null;
@@ -85,7 +85,7 @@ export const TalentMyPlan = () => {
     }
   };
 
-  const handlePlanAction = async (planType) => {
+  const handlePlanAction = (planType) => {
     if (loading || loadError) return;
     if (planType === "free") {
       toast.info(
@@ -101,32 +101,12 @@ export const TalentMyPlan = () => {
       return;
     }
 
-    const token = localStorage.getItem("token");
     if (!token) {
       toast.error("Your session has expired. Please sign in again.");
       return;
     }
 
-    try {
-      setProcessing(true);
-      const res = await axios.post(
-        `${API_BASE_URL}/api/payments/create-checkout`,
-        { plan: planType },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      if (res.data?.checkoutUrl) {
-        window.location.href = res.data.checkoutUrl;
-        return;
-      }
-      throw new Error("no checkout link");
-    } catch (err) {
-      toast.error(
-        friendlyError(err, "We couldn't start your payment. Please try again."),
-      );
-    } finally {
-      setProcessing(false);
-    }
+    if (planType === "public") navigate("/payment?plan=public&userType=talent");
   };
 
   const live = hasTalentPublicAccess(entitlement);
@@ -186,7 +166,7 @@ export const TalentMyPlan = () => {
               <button
                 type="button"
                 onClick={handlePortfolioSetup}
-                disabled={settingUp || loading || processing}
+                disabled={settingUp || loading}
                 aria-busy={settingUp} className="inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-blue-400 hover:bg-blue-600/10 focus-visible:outline-2 focus-visible:outline-offset-4 disabled:opacity-50">
                 {settingUp && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
                 {settingUp ? "Setting up portfolio..." : "Set up free portfolio"}
@@ -210,15 +190,6 @@ export const TalentMyPlan = () => {
             publicCtaText={live ? "Active ✓" : "List My Profile Here →"}
           />
         </>
-      )}
-
-      {processing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#111827] text-white px-6 py-4 rounded-lg flex items-center gap-2">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            Taking you to payment...
-          </div>
-        </div>
       )}
     </div>
   );

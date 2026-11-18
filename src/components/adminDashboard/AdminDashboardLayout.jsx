@@ -9,6 +9,7 @@ import {
   Briefcase,
   FileText,
   ClipboardCheck,
+  Tag,
   LifeBuoy,
   LogOut,
   Menu,
@@ -38,6 +39,11 @@ const menuItems = [
     icon: ClipboardCheck,
     label: "Subscription & Plans",
     path: "/admin-dashboard/subscription",
+  },
+  {
+    icon: Tag,
+    label: "Discount Codes",
+    path: "/admin-dashboard/discount-codes",
   },
   {
     icon: LifeBuoy,
