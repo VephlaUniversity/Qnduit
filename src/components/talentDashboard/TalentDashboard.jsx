@@ -18,7 +18,8 @@ import {
   LogOut,
   LifeBuoy,
   Package,
-  Search
+  Search,
+  Globe
 } from "lucide-react";
 import Meeting from "./TalentMeeting";
 import ChangePassword from "../employerDashboard/ChangePassword";
@@ -40,11 +41,17 @@ import ProfileViewHistory from "../profiles/ProfileViewHistory";
 import TalentPackages from "./TalentPackages";
 import TalentMyPlan from "./TalentMyPlan";
 import ExploreJobs from "./ExploreJobs";
+import TalentCustomDomain from "./TalentCustomDomain";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
   { icon: LayoutDashboard, label: "Portfolio Analytics", path: "/talent-dashboard/portfolio-analytics" },
   { icon: User, label: "Portfolio Appearance", path: "/talent-dashboard/portfolio-appearance" },
+  {
+    icon: Globe,
+    label: "Custom Domain",
+    path: "/talent-dashboard/custom-domain",
+  },
   { icon: User, label: "Profile", path: "/talent-dashboard/profile" },
   { icon: Search, label: "Explore Jobs", path: "/talent-dashboard/explore" },
   {
@@ -118,6 +125,7 @@ export const TalentDashboard = () => {
         <Route path="packages" element={<TalentPackages />} />
         <Route path="my-plan" element={<TalentMyPlan />} />
         <Route path="explore" element={<ExploreJobs />}/>
+        <Route path="custom-domain" element={<TalentCustomDomain />} />
       </Routes>
     </DashboardLayout>
   );
