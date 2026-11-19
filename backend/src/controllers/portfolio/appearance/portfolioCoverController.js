@@ -1,9 +1,9 @@
-import Talent from "../models/Talent.js";
-import { resolveSubscriptionStatus } from "../services/subscriptionStatus.js";
-import { hasPortfolioAppearanceAccess } from "../utils/portfolioAppearance.js";
-import { publicImageUrl } from "../utils/publicTalentProfile.js";
-import { ownedPortfolioCover } from "../config/portfolioCover.js";
-import { coverFailure, processPortfolioCover, portfolioCoverStorage } from "../services/portfolioCover.js";
+import Talent from "../../../models/Talent.js";
+import { resolveSubscriptionStatus } from "../../../services/subscriptionStatus.js";
+import { hasPortfolioAppearanceAccess } from "../../../utils/portfolioAppearance.js";
+import { publicImageUrl } from "../../../utils/publicTalentProfile.js";
+import { ownedPortfolioCover } from "../../../config/portfolioCover.js";
+import { coverFailure, processPortfolioCover, portfolioCoverStorage } from "../../../services/portfolioCover.js";
 
 const fields = "portfolioAppearance.cover portfolioAppearance.coverVersion";
 const versionOf = talent => talent?.portfolioAppearance?.coverVersion ?? 0;

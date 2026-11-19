@@ -1,13 +1,13 @@
 import { createHmac } from 'node:crypto';
-import Employer from '../models/Employer.js';
-import Talent from '../models/Talent.js';
-import Event, { assertAnalyticsReady } from '../models/PortfolioAnalyticsEvent.js';
-import Resume from '../models/Resume.js';
-import { findPublishedPortfolio } from '../services/publicTalentAccess.js';
-import { resolveSubscriptionStatus } from '../services/subscriptionStatus.js';
-import { resolveAuthentication } from '../middleware/authMiddleware.js';
-import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto } from '../utils/publicTalentProfile.js';
-import { analyticsConfiguration as configuration, validActivationId, permittedMeasurement, analyticsProjectKey, analyticsWindow, eventIdentity, paidAnalytics, summaryPipeline, validateEvent } from '../utils/portfolioAnalytics.js';
+import Employer from '../../models/Employer.js';
+import Talent from '../../models/Talent.js';
+import Event, { assertAnalyticsReady } from '../../models/PortfolioAnalyticsEvent.js';
+import Resume from '../../models/Resume.js';
+import { findPublishedPortfolio } from '../../services/publicTalentAccess.js';
+import { resolveSubscriptionStatus } from '../../services/subscriptionStatus.js';
+import { resolveAuthentication } from '../../middleware/authMiddleware.js';
+import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto } from '../../utils/publicTalentProfile.js';
+import { analyticsConfiguration as configuration, validActivationId, permittedMeasurement, analyticsProjectKey, analyticsWindow, eventIdentity, paidAnalytics, summaryPipeline, validateEvent } from '../../utils/portfolioAnalytics.js';
 
 async function publicProjects(published) {
   const resume = await Resume.findOne({ talent: published.talent._id }).select(PUBLIC_RESUME_FIELDS).lean();

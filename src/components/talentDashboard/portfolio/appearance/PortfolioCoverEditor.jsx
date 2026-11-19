@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "../ui/button";
-import { PublicTalentImage } from "../profiles/PublicTalentMedia";
-import { browserSessions } from "../utils/requestSafety";
-import { friendlyError } from "../utils/userMessage";
-import { portfolioAppearanceRequest, portfolioCoverRequest } from "../utils/portfolioAppearanceApi";
-import { PORTFOLIO_COVER_HELP, portfolioCoverFileError } from "../../../backend/src/config/portfolioCover.js";
+import { Button } from "../../../ui/button";
+import { PublicTalentImage } from "../../../profiles/PublicTalentMedia";
+import { browserSessions } from "../../../utils/requestSafety";
+import { friendlyError } from "../../../utils/userMessage";
+import { portfolioAppearanceRequest, portfolioCoverRequest } from "../../../utils/portfolioAppearanceApi";
+import { PORTFOLIO_COVER_HELP, portfolioCoverFileError } from "../../../../../backend/src/config/portfolioCover.js";
 
 export default function PortfolioCoverEditor({ actor, token, paid, config, onSaved }) {
   const [file, setFile] = useState(null);

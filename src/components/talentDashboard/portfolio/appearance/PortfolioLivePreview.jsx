@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
-import { API_BASE_URL } from "../utils/api";
-import { browserSessions } from "../utils/requestSafety";
-import { friendlyError } from "../utils/userMessage";
-import { portfolioPreviewDraft } from "../utils/portfolioPreview";
-import PublicTalentPortfolioView from "../profiles/PublicTalentPortfolioView";
+import { API_BASE_URL } from "../../../utils/api";
+import { browserSessions } from "../../../utils/requestSafety";
+import { friendlyError } from "../../../utils/userMessage";
+import { portfolioPreviewDraft } from "../../../utils/portfolioPreview";
+import PublicTalentPortfolioView from "../../../profiles/PublicTalentPortfolioView";
 
 const frameDocument = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[data-portfolio-theme], [data-portfolio-theme] * { transition: none !important; }</style></head><body style="margin:0"></body></html>';
 

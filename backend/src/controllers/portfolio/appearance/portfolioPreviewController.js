@@ -1,8 +1,8 @@
-import Talent from "../models/Talent.js";
-import Resume from "../models/Resume.js";
-import { resolveSubscriptionStatus } from "../services/subscriptionStatus.js";
-import { hasPortfolioAppearanceAccess, resolvePortfolioTheme, resolvePortfolioColors, resolvePortfolioFont, resolvePortfolioBackground } from "../utils/portfolioAppearance.js";
-import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto, resolvePortfolioCover } from "../utils/publicTalentProfile.js";
+import Talent from "../../../models/Talent.js";
+import Resume from "../../../models/Resume.js";
+import { resolveSubscriptionStatus } from "../../../services/subscriptionStatus.js";
+import { hasPortfolioAppearanceAccess, resolvePortfolioTheme, resolvePortfolioColors, resolvePortfolioFont, resolvePortfolioBackground } from "../../../utils/portfolioAppearance.js";
+import { PUBLIC_TALENT_FIELDS, PUBLIC_RESUME_FIELDS, publicTalentProfileDto, resolvePortfolioCover } from "../../../utils/publicTalentProfile.js";
 
 export function createPortfolioPreviewHandler({ talents = Talent, resumes = Resume, subscription = resolveSubscriptionStatus } = {}) {
   return async function getPortfolioPreview(req, res, next) {

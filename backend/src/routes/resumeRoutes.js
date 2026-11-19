@@ -1,9 +1,9 @@
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { saveResume, getResume, uploadResumeFiles } from "../controllers/resumeController.js";
-import { getTalentProjects } from "../controllers/talentPortfolioController.js";
+import { getTalentProjects } from "../controllers/portfolio/projects/talentPortfolioController.js";
 
-import { savePortfolioPage, getPortfolioSaveStatus } from "../controllers/portfolioSaveController.js";
+import { savePortfolioPage, getPortfolioSaveStatus } from "../controllers/portfolio/projects/portfolioSaveController.js";
 import { educationExtractionLimit, educationExtractionCapacity, extractEducationDraft } from "../controllers/educationExtractionController.js";
 
 const router = express.Router();

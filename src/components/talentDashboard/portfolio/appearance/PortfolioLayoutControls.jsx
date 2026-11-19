@@ -1,9 +1,9 @@
-import { usesStandardPortfolioArrangement } from "../utils/portfolioLayoutDraft";
+import { usesStandardPortfolioArrangement } from "../../../utils/portfolioLayoutDraft";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { GripVertical } from "lucide-react";
-import TalentSelect from "./TalentSelect";
-import { PORTFOLIO_SECTIONS, PORTFOLIO_PROJECT_LAYOUTS, resolvePortfolioLayout } from "../../../backend/src/utils/portfolioAppearance.js";
+import TalentSelect from "../../TalentSelect";
+import { PORTFOLIO_SECTIONS, PORTFOLIO_PROJECT_LAYOUTS, resolvePortfolioLayout } from "../../../../../backend/src/utils/portfolioAppearance.js";
 
 const actionClass = "min-h-11 rounded-lg border border-white/20 px-3 py-2 text-sm text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300 disabled:opacity-40";
 

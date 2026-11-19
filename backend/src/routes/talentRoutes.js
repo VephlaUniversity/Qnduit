@@ -1,8 +1,8 @@
-import { getPortfolioPreview } from "../controllers/portfolioPreviewController.js";
-import { ingestPortfolioEvent, getPortfolioAnalytics } from "../controllers/portfolioAnalyticsController.js";
+import { getPortfolioPreview } from "../controllers/portfolio/appearance/portfolioPreviewController.js";
+import { ingestPortfolioEvent, getPortfolioAnalytics } from "../controllers/portfolio/portfolioAnalyticsController.js";
 import { getPublicTalentCv } from "../controllers/publicTalentCvController.js";
-import { getPortfolioAppearance, putPortfolioAppearance } from "../controllers/portfolioAppearanceController.js";
-import { requirePaidCoverOwner, putPortfolioCover, deletePortfolioCover } from "../controllers/portfolioCoverController.js";
+import { getPortfolioAppearance, putPortfolioAppearance } from "../controllers/portfolio/appearance/portfolioAppearanceController.js";
+import { requirePaidCoverOwner, putPortfolioCover, deletePortfolioCover } from "../controllers/portfolio/appearance/portfolioCoverController.js";
 import { portfolioCoverUpload } from "../middleware/portfolioCoverUpload.js";
 import express from "express";
 import {

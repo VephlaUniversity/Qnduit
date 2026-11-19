@@ -1,7 +1,7 @@
-import { publicPortfolioCover } from "../utils/publicTalentProfile.js";
-import Talent from "../models/Talent.js";
-import { resolveSubscriptionStatus } from "../services/subscriptionStatus.js";
-import { hasPortfolioAppearanceAccess, isPortfolioLayout, resolvePortfolioLayout, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor } from "../utils/portfolioAppearance.js";
+import { publicPortfolioCover } from "../../../utils/publicTalentProfile.js";
+import Talent from "../../../models/Talent.js";
+import { resolveSubscriptionStatus } from "../../../services/subscriptionStatus.js";
+import { hasPortfolioAppearanceAccess, isPortfolioLayout, resolvePortfolioLayout, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor } from "../../../utils/portfolioAppearance.js";
 
 const appearanceFields = "portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.coverVersion portfolioAppearance.layout";
 

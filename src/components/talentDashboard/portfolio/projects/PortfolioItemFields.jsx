@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
-import TalentOptionPicker from "./TalentOptionPicker";
-import { PORTFOLIO_TEXT_LIMITS } from "../../../backend/src/utils/portfolioMetadata.js";
+import TalentOptionPicker from "../../TalentOptionPicker";
+import { PORTFOLIO_TEXT_LIMITS } from "../../../../../backend/src/utils/portfolioMetadata.js";
 
 const toolSuggestions = ["Figma", "Adobe Photoshop", "Adobe Illustrator", "VS Code", "Git", "GitHub", "React", "Excel", "Notion", "Blender", "AutoCAD"];
 const inputClass = "w-full min-w-0 rounded-lg border border-white/10 bg-[#1A1A1E] px-4 py-2 text-white focus:outline-none focus:border-blue-500";

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { LockKeyhole, ArrowRight, Eye, Users, FolderOpen, MousePointerClick, MessageSquare, FileDown, Globe, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { useTalentSubscription } from '../hooks/useTalentSubscription';
-import { hasTalentPublicAccess } from '../utils/talentEntitlements';
-import { useAuth } from '../hooks/useAuth';
-import { API_BASE_URL } from '../utils/api';
-import { browserSessions } from '../utils/requestSafety';
+import { useTalentSubscription } from '../../hooks/useTalentSubscription';
+import { hasTalentPublicAccess } from '../../utils/talentEntitlements';
+import { useAuth } from '../../hooks/useAuth';
+import { API_BASE_URL } from '../../utils/api';
+import { browserSessions } from '../../utils/requestSafety';
 const panel = 'rounded-xl border border-white/10 bg-[#191D23] p-5 md:p-6';
 const benefits = [
   { icon: Eye, title: 'Total portfolio visits', description: 'See how often visitors explore your public portfolio.' },

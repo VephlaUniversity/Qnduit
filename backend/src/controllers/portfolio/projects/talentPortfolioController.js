@@ -1,6 +1,6 @@
-import Talent from "../models/Talent.js";
-import Resume from "../models/Resume.js";
-import { editorRevision, talentDraft } from "../utils/talentPortfolioDraft.js";
+import Talent from "../../../models/Talent.js";
+import Resume from "../../../models/Resume.js";
+import { editorRevision, talentDraft } from "../../../utils/talentPortfolioDraft.js";
 
 // Compatibility read; all writes now go through the page-level transaction.
 export async function getTalentProjects(req, res, next) {
