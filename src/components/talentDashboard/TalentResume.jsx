@@ -27,8 +27,8 @@ import axios from "axios";
 import { friendlyError } from "../utils/userMessage";
 import { API_BASE_URL } from "../utils/api";
 import { cvExtension, nameWithExtension } from "../utils/cvFile";
-import PortfolioItemFields from "./PortfolioItemFields";
-import TalentPortfolioProjects from "./TalentPortfolioProjects";
+import PortfolioItemFields from "./portfolio/projects/PortfolioItemFields";
+import TalentPortfolioProjects from "./portfolio/projects/TalentPortfolioProjects";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 let localId = 0;

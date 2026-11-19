@@ -1,5 +1,5 @@
-import TalentPortfolioAnalytics from "./TalentPortfolioAnalytics";
-import TalentPortfolioAppearance from "./TalentPortfolioAppearance";
+import TalentPortfolioAnalytics from "./portfolio/TalentPortfolioAnalytics";
+import TalentPortfolioAppearance from "./portfolio/appearance/TalentPortfolioAppearance";
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 

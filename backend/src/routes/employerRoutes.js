@@ -1,4 +1,4 @@
-import { recordSavedCandidateContact } from "../controllers/portfolioAnalyticsController.js";
+import { recordSavedCandidateContact } from "../controllers/portfolio/portfolioAnalyticsController.js";
 import { getEmployerMessagingAccess, requireEmployerMessaging } from "../middleware/requireEmployerMessaging.js";
 import express from "express";
 import { protect, authorize } from "../middleware/authMiddleware.js";

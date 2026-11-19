@@ -1,24 +1,24 @@
 import PortfolioLayoutControls from "./PortfolioLayoutControls";
-import { samePortfolioLayout } from "../utils/portfolioLayoutDraft";
+import { samePortfolioLayout } from "../../../utils/portfolioLayoutDraft";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, Code2, LockKeyhole } from "lucide-react";
-import { Button } from "../ui/button";
-import TalentSelect from "./TalentSelect";
+import { Button } from "../../../ui/button";
+import TalentSelect from "../../TalentSelect";
 import PortfolioLivePreview from "./PortfolioLivePreview";
 import PortfolioCoverEditor from "./PortfolioCoverEditor";
-import { publicPortfolioStyles } from "../profiles/publicPortfolioThemes";
-import { cn } from "../../lib/utils";
-import { useAuth } from "../hooks/useAuth";
-import { useOwnerAvatar } from "../hooks/useOwnerAvatar";
-import { useTalentSubscription } from "../hooks/useTalentSubscription";
-import { hasTalentPublicAccess } from "../utils/talentEntitlements";
-import { browserSessions } from "../utils/requestSafety";
-import { friendlyError } from "../utils/userMessage";
-import { portfolioAppearanceDraft } from "../utils/portfolioPreview";
-import { portfolioAppearanceRequest } from "../utils/portfolioAppearanceApi";
-import { PORTFOLIO_FONTS, PORTFOLIO_THEMES, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "../../../backend/src/utils/portfolioAppearance.js";
+import { publicPortfolioStyles } from "../../../profiles/publicPortfolioThemes";
+import { cn } from "../../../../lib/utils";
+import { useAuth } from "../../../hooks/useAuth";
+import { useOwnerAvatar } from "../../../hooks/useOwnerAvatar";
+import { useTalentSubscription } from "../../../hooks/useTalentSubscription";
+import { hasTalentPublicAccess } from "../../../utils/talentEntitlements";
+import { browserSessions } from "../../../utils/requestSafety";
+import { friendlyError } from "../../../utils/userMessage";
+import { portfolioAppearanceDraft } from "../../../utils/portfolioPreview";
+import { portfolioAppearanceRequest } from "../../../utils/portfolioAppearanceApi";
+import { PORTFOLIO_FONTS, PORTFOLIO_THEMES, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "../../../../../backend/src/utils/portfolioAppearance.js";
 
 function AppearanceUpgradeCard() {
   return <div className="relative isolate max-w-3xl overflow-hidden rounded-2xl px-3 py-10 sm:px-8 sm:py-14">

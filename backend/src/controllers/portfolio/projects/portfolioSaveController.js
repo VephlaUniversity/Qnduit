@@ -1,15 +1,15 @@
-import { prepareEducation } from "../utils/talentFieldChoices.js";
+import { prepareEducation } from "../../../utils/talentFieldChoices.js";
 import mongoose from "mongoose";
-import Talent from "../models/Talent.js";
-import Resume from "../models/Resume.js";
-import PortfolioSave from "../models/PortfolioSave.js";
-import cloudinary from "../utils/cloudinary.js";
-import { normalizePortfolioImages, preparePortfolio } from "../utils/resumePortfolio.js";
-import { draftHash, editorRevision, prepareTalentDraft } from "../utils/talentPortfolioDraft.js";
-import { selectSingleCv } from "../utils/singleCv.js";
-import { validateCvImports, prepareCvEntries } from "../utils/cvImportProof.js";
-import { enforcePortfolioLimit } from "../services/portfolioPolicy.js";
-import { finishPortfolioUploads, materializePortfolioProject, portfolioUploads, uploadPortfolioAsset, validatePortfolioImageBytes } from "../utils/portfolioGallery.js";
+import Talent from "../../../models/Talent.js";
+import Resume from "../../../models/Resume.js";
+import PortfolioSave from "../../../models/PortfolioSave.js";
+import cloudinary from "../../../utils/cloudinary.js";
+import { normalizePortfolioImages, preparePortfolio } from "../../../utils/resumePortfolio.js";
+import { draftHash, editorRevision, prepareTalentDraft } from "../../../utils/talentPortfolioDraft.js";
+import { selectSingleCv } from "../../../utils/singleCv.js";
+import { validateCvImports, prepareCvEntries } from "../../../utils/cvImportProof.js";
+import { enforcePortfolioLimit } from "../../../services/portfolioPolicy.js";
+import { finishPortfolioUploads, materializePortfolioProject, portfolioUploads, uploadPortfolioAsset, validatePortfolioImageBytes } from "../../../utils/portfolioGallery.js";
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const receiptId = (owner, id) => draftHash([String(owner), id]);
