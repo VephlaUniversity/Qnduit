@@ -36,8 +36,8 @@ export function createTalentEntitlements({ owner, readOwner, fetchSubscription, 
   const header = (headers, key) => headers?.get?.(key)
     ?? Object.entries(headers || {}).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1];
   const schedule = () => {
-    clearRetry();
     if (!current() || !cycle) return;
+    clearRetry();
     if (hasTalentPublicAccess(snapshot, now()) || terminal.has(snapshot.subscriptionStatus?.status)
       || cycle.attempts >= 7 || now() >= cycle.until) { finishCycle(); return; }
     const delay = Math.max([2000, 3000, 5000, 10000, 15000, 20000][Math.max(0, cycle.attempts - 1)],
