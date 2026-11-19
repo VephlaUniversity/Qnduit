@@ -1,6 +1,6 @@
 import { hasTalentPublicAccess } from "../utils/talentEntitlements";
-import { useState, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { motion as Motion } from "framer-motion";
 import axios from "axios";
@@ -8,6 +8,9 @@ import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
 import { useTalentSubscription, talentPaymentToken } from "../hooks/useTalentSubscription";
 import { usePlanAction } from "../hooks/usePlanAction";
+import { formatCheckoutUsd, useCheckoutDiscount } from "../hooks/useCheckoutDiscount";
+import { useDiscountPayment } from "../hooks/useDiscountPayment";
+import CheckoutDiscount from "../subscriptions/CheckoutDiscount";
 
 const paymentToken = userType => userType === "talent"
   ? talentPaymentToken() : localStorage.getItem("token");
@@ -17,49 +20,43 @@ export const Payment = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { plan, planName, price, userType } = useMemo(() => {
-    const params = searchParams;
-
-    const selectedPlan = params.get("plan") || "";
-    const selectedUserType = params.get("userType") || "employer";
-
-    const plans = {
-      public: { name: "Public", price: 1.99 },
-      bronze: { name: "Bronze", price: 6.99 },
-      silver: { name: "Silver", price: 8.99 },
-      platinum: { name: "Platinum", price: 12.99 },
-    };
-
-    const selected = plans[selectedPlan];
-
-    return {
-      plan: selectedPlan,
-      planName: selected?.name || "",
-      price: selected?.price ?? null,
-      userType: selectedUserType,
-    };
-  }, [searchParams]);
+  const plan = searchParams.get("plan") || "";
+  const userType = searchParams.get("userType") || "employer";
+  const validPlan = userType === "talent" ? plan === "public"
+    : userType === "employer" && ["bronze", "silver", "platinum"].includes(plan);
+  const planName = validPlan ? plan[0].toUpperCase() + plan.slice(1) : "";
 
   const navigate = useNavigate();
   const subscriptionState = useTalentSubscription(userType === "talent");
   const currentPlan = hasTalentPublicAccess(subscriptionState);
+  const { state: handoff } = useLocation();
+  const firstEmployerPurchase = userType === "employer" && handoff?.firstEmployerPurchase === true && handoff.plan === plan;
+  const discount = useCheckoutDiscount({ role: userType, plan, enabled: validPlan && !currentPlan,
+    firstEmployerPurchase, initialCode: firstEmployerPurchase ? handoff.code : undefined });
+  const blockedHandoff = firstEmployerPurchase && Boolean(discount.code) && !discount.quote;
+  const fullPrice = discount.price.amount;
+  const payment = useDiscountPayment(discount.owner, plan, firstEmployerPurchase);
+  const anotherPlan = payment.entry && payment.entry.plan !== plan;
+  const zero = discount.quote?.payableMinor === 0;
+  const confirm = payment.phase === "confirm" && payment.attempt?.payableMinor >= 0;
+  const grant = payment.attempt?.grant;
+  const noCharge = zero || payment.attempt?.payableMinor === 0;
+  const periodDate = value => new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value));
+  const redeemed = payment.phase === "redeemed";
+  const blockedByTalentSubscription = userType === "talent" && (currentPlan || subscriptionState.loading || subscriptionState.error);
+  const checkoutLabel = payment.busy ? "Checking checkout…"
+    : payment.phase === "ready" ? "Resume checkout"
+      : confirm ? payment.attempt.payableMinor === 0 ? "Confirm no-charge activation"
+        : `Confirm and continue — ${formatCheckoutUsd(payment.attempt.payableMinor)}`
+        : payment.phase === "retry_reserve" ? "Retry same reservation" : "Check checkout status";
 
   const validate = () => {
-    if (!plan || price === null) {
+    if (!validPlan) {
       return "Please select a valid subscription plan.";
     }
 
-    if (
-      (userType !== "talent" && userType !== "employer") ||
-      (userType === "talent" && plan !== "public") ||
-      (userType === "employer" &&
-        !["bronze", "silver", "platinum"].includes(plan))
-    ) {
-      return "The selected plan is invalid for this account type.";
-    }
-
-    if (!paymentToken(userType)) {
-      return "Your session has expired. Please log in again.";
+    if (!discount.available) {
+      return `Sign in with your ${userType === "talent" ? "Talent" : "Employer"} account to continue.`;
     }
 
     return "";
@@ -80,6 +77,12 @@ export const Payment = () => {
       return;
     }
 
+    if (payment.blocksPayment() || blockedHandoff) return;
+    if (discount.quote) {
+      await payment.start(discount.quote);
+      return;
+    }
+    if (!discount.canPay()) return;
     setError("");
     setLoading(true);
 
@@ -162,15 +165,12 @@ export const Payment = () => {
 
               <div className="flex justify-between">
                 <span className="text-gray-700">Billing</span>
-                <span className="text-gray-900 font-semibold">Monthly</span>
+                <span className="text-gray-900 font-semibold">{noCharge ? "One month" : "Monthly"}</span>
               </div>
             </div>
 
-            <div className="flex justify-between mt-8">
-              <span className="text-lg font-bold text-gray-900">Total</span>
-              <span className="text-2xl font-bold text-gray-900">
-                {price === null ? "—" : `$${price.toFixed(2)}`}
-              </span>
+            <div className="mt-8 text-gray-900">
+              <CheckoutDiscount discount={discount} disabled={loading || pending} payment={{ ...payment, plan }} />
             </div>
 
             <div className="mt-8 p-4 bg-blue-50 rounded-lg">
@@ -198,8 +198,9 @@ export const Payment = () => {
             </h2>
 
             <p className="text-sm text-gray-600 mb-6">
-              Continue to Flutterwave to complete your payment securely.
-              Your account details will be retrieved by our backend.
+              {noCharge
+                ? "This discount covers one subscription period. No payment or recurring billing is required."
+                : "Continue to Flutterwave to complete your payment securely. Your account details will be retrieved by our backend."}
             </p>
 
             {userType === "talent" && subscriptionState.error && <p role="alert" className="text-red-600 mb-4">{subscriptionState.error} <button type="button" onClick={subscriptionState.refresh}>Try again</button></p>}
@@ -212,20 +213,43 @@ export const Payment = () => {
               </div>
             )}
 
-            <Motion.button
+            {payment.message && <p role="status" className="mb-3 text-sm text-gray-800">{payment.message}</p>}
+            {payment.locked && !redeemed && <p role="status" className="mb-3 text-sm text-gray-800">
+              {anotherPlan ? "You have a saved discounted checkout for another plan."
+                : confirm ? "Review the saved total above and confirm before continuing."
+                  : payment.phase === "ready" ? "Your saved checkout link is ready to resume."
+                      : "Use this saved attempt to check or resume checkout. A new payment won’t start automatically."}
+            </p>}
+            {payment.locked && (anotherPlan && !redeemed ? <Link
+              className="font-semibold text-blue-700 underline"
+              to={`/payment?userType=${encodeURIComponent(userType)}&plan=${encodeURIComponent(payment.entry.plan)}`}>
+              Open saved checkout
+            </Link> : redeemed ? <div className="space-y-2 text-sm">
+              <p role="status">{grant ? "No-charge subscription activated." : "Payment confirmed."}</p>
+              {grant && <p>{periodDate(grant.startsAt)} – {periodDate(grant.endsAt)} (UTC). No recurring billing.</p>}
+              <Link className="font-semibold text-blue-700 underline" to={userType === "talent" ? "/talent-dashboard/my-plan" : "/dashboard/packages"}>View My Plan</Link>
+              <button type="button" onClick={payment.dismissConfirmed} disabled={payment.busy} className="ml-4 underline">Close saved checkout</button>
+            </div> : <Motion.button type="button"
+              disabled={payment.busy || ((confirm || payment.phase === "ready") && Boolean(blockedByTalentSubscription))}
+              onClick={payment.phase === "ready" ? payment.resume : payment.action}
+              className="min-h-11 w-full rounded-lg bg-gray-900 px-3 font-semibold text-white disabled:opacity-60">
+              {checkoutLabel}
+            </Motion.button>)}
+            {!payment.locked && <Motion.button
               type="button"
               onClick={() => submit(plan, "payNow")}
-              disabled={loading || pending || (userType === "talent" && subscriptionState.loading)}
-              aria-busy={loading || pending}
+              disabled={loading || pending || payment.busy || discount.pending || blockedHandoff ||
+                (discount.available && discount.price.status !== "ready") || (userType === "talent" && subscriptionState.loading)}
+              aria-busy={loading || pending || payment.busy}
               className="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               whileTap={{ scale: loading ? 1 : 0.98 }}
             >
-              {userType === "talent" && currentPlan ? "View My Plan" : loading
-                ? "Connecting to Flutterwave..."
-                : price === null
-                  ? "Select a Valid Plan"
-                  : `Continue to Payment — $${price.toFixed(2)}`}
-            </Motion.button>
+              {userType === "talent" && currentPlan ? "View My Plan" : loading ? "Connecting to Flutterwave..."
+                : zero ? "Activate subscription — $0.00"
+                  : discount.quote ? `Continue to Payment — ${formatCheckoutUsd(discount.quote.payableMinor)}`
+                    : !validPlan ? "Select a Valid Plan"
+                      : fullPrice == null ? "Continue to Payment" : `Continue to Payment — ${formatCheckoutUsd(fullPrice)}`}
+            </Motion.button>}
 
             <p className="text-xs text-gray-500 text-center mt-6">
               Secure payment powered by{" "}

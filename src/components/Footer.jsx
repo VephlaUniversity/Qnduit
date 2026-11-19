@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "./hooks/useAuth";
 import { HashLink } from "react-router-hash-link";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -14,7 +14,7 @@ const staggerContainer = {
   animate: { transition: { staggerChildren: 0.1 } },
 };
 
-export const Footer = () => {
+export const Footer = ({ showPortfolioAttribution = false }) => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const user = (() => {
@@ -42,7 +42,7 @@ export const Footer = () => {
     <footer className="bg-black pt-16 pb-0">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         {/* Main Grid */}
-        <motion.div
+        <Motion.div
           className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-12"
           variants={staggerContainer}
           initial="initial"
@@ -50,7 +50,7 @@ export const Footer = () => {
           viewport={{ once: true, amount: 0.1 }}
         >
           {/* Company Info */}
-          <motion.div
+          <Motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="lg:col-span-1"
@@ -100,10 +100,10 @@ export const Footer = () => {
                 </svg>
               </div>
             </div>
-          </motion.div>
+          </Motion.div>
 
           {/* For Employers */}
-          <motion.div
+          <Motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -146,10 +146,10 @@ export const Footer = () => {
                 </HashLink>
               </li>
             </ul>
-          </motion.div>
+          </Motion.div>
 
           {/* For Talent */}
-          <motion.div
+          <Motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -189,10 +189,10 @@ export const Footer = () => {
                 </Link>
               </li>
             </ul>
-          </motion.div>
+          </Motion.div>
 
           {/* About Qnduit */}
-          <motion.div
+          <Motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -225,10 +225,10 @@ export const Footer = () => {
                 </Link>
               </li>
             </ul>
-          </motion.div>
+          </Motion.div>
 
           {/* Community */}
-          <motion.div
+          <Motion.div
             variants={fadeUp}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -256,11 +256,11 @@ export const Footer = () => {
                 </Link>
               </li>
             </ul>
-          </motion.div>
-        </motion.div>
+          </Motion.div>
+        </Motion.div>
 
         {/* Footer Bottom */}
-        <motion.div
+        <Motion.div
           className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -269,6 +269,7 @@ export const Footer = () => {
         >
           <div className="text-sm text-gray-300 mb-4 md:mb-0">
             © {new Date().getFullYear()} Qnduit
+            {showPortfolioAttribution && <span className="block sm:ml-3 sm:inline">Powered by Qnduit</span>}
           </div>
           <div className="flex space-x-8 text-sm text-gray-300">
             <Link
@@ -284,10 +285,10 @@ export const Footer = () => {
               Privacy Policy
             </Link>
           </div>
-        </motion.div>
+        </Motion.div>
 
         {/* Large QNDUIT text */}
-        <motion.div
+        <Motion.div
           className="mt-10 md:mt-16 overflow-hidden"
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -321,7 +322,7 @@ export const Footer = () => {
               QNDUIT
             </text>
           </svg>
-        </motion.div>
+        </Motion.div>
       </div>
     </footer>
   );

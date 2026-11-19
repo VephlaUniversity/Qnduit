@@ -1,3 +1,4 @@
+import { requireNewSubscriptionWithoutBilling } from "./noChargeEligibility.js";
 import mongoose from "mongoose";
 import process from "node:process";
 import { createHash } from "node:crypto";
@@ -13,6 +14,9 @@ import EmployerPayment from "../models/EmployerPayment.js";
 import { SubscriptionLifecycle as Lifecycle, SubscriptionCancellation as Cancellation, SubscriptionCharge as Charge, SubscriptionDowngrade as Downgrade } from "../models/SubscriptionLifecycle.js";
 import { planRequestHash, employerPlanAction } from "../utils/employerPlanRequest.js";
 import { generateTalentUsername } from "../utils/generateTalentUsername.js";
+import { DiscountCheckoutAttempt } from "../models/DiscountCheckoutAttempt.js";
+import { calculateDiscount } from "../utils/calculateDiscount.js";
+import { discountedChargeOutcome, redeemHeldDiscount, redeemVerifiedDiscount } from "./discountRedemption.js";
 
 const adapters = {
   talent: { Account: Talent, Subscription: TalentSubscription, Payment: TalentPayment, plans: ["public"] },
@@ -40,7 +44,7 @@ const fingerprint = (subscription, state) => createHash("sha256").update(JSON.st
   lastTxRef: subscription.lastTxRef, lastTransactionId: subscription.lastTransactionId, updatedAt: subscription.updatedAt,
 })).digest("hex");
 
-async function serialized(role, accountId, work) {
+async function serialized(role, accountId, work, { allowMissingAccount = false } = {}) {
   const adapter = target(role, accountId), id = key(role, accountId);
   // Creating an empty guard does not change paid access. _id is always unique.
   try { await Lifecycle.updateOne({ _id: id }, { $setOnInsert: { generation: 0, version: 0 } }, { upsert: true }); }
@@ -50,7 +54,7 @@ async function serialized(role, accountId, work) {
     return await session.withTransaction(async () => {
       const state = await Lifecycle.findByIdAndUpdate(id, { $inc: { version: 1 } }, { new: true, session }).lean();
       const account = await adapter.Account.findById(accountId).session(session);
-      if (!account) throw failure(404, "SUBSCRIPTION_ACCOUNT_MISSING", "Account not found.");
+      if (!account && !allowMissingAccount) throw failure(404, "SUBSCRIPTION_ACCOUNT_MISSING", "Account not found.");
       return work({ ...adapter, session, state, account });
     }, { readConcern: { level: "snapshot" }, writeConcern: { w: "majority" }, readPreference: "primary" });
   } catch (error) {
@@ -74,6 +78,11 @@ export async function initiateSubscriptionCheckout({ role, accountId, plan, txRe
     if (!plans.includes(plan)) throw failure(400, "SUBSCRIPTION_PLAN_INVALID", "Invalid subscription plan.");
     const current = await Subscription.findOne({ [role]: accountId, status: { $in: role === "talent" ? ["active", "past_due"] : ["active"] } }).session(session);
     if (current) throw failure(409, "SUBSCRIPTION_ALREADY_ACTIVE", "You already have an active subscription.");
+    if (state.pendingPayment && await Payment.exists({
+      _id: state.pendingPayment, status: "pending", "metadata.discountCheckoutAttemptId": { $exists: true },
+    }).session(session)) {
+      throw failure(409, "SUBSCRIPTION_DISCOUNT_CHECKOUT_PENDING", "Resume your existing discounted checkout before starting another payment.");
+    }
     if (!Number.isSafeInteger(paymentPlanId) || paymentPlanId <= 0 || !Number.isFinite(amount) || amount <= 0 || !/^[A-Z]{3}$/.test(currency)) throw failure(503, "SUBSCRIPTION_CHECKOUT_CONFIGURATION", "Payment configuration is unavailable.");
     const nextGeneration = generation(state) + 1;
     const [payment] = await Payment.create([{ [role]: accountId, provider: "flutterwave", txRef, amount, currency, plan,
@@ -95,14 +104,20 @@ export async function selectUnpaidSubscription({ role, accountId, plan }) {
   });
 }
 
-async function retainCharge(transaction, ownership = {}, session = null) {
+async function retainCharge(transaction, ownership = {}, session = null, bindUnlinked = false) {
   const amount = Number(transaction?.amount);
   if (!transaction?.id || transaction.status !== "successful" || typeof transaction.tx_ref !== "string" || !transaction.tx_ref
     || !Number.isFinite(amount) || amount <= 0 || !/^[A-Z]{3}$/.test(transaction.currency || "")) throw failure(400, "SUBSCRIPTION_PAYMENT_VERIFICATION_FAILED", "Payment verification failed.");
   const id = `flutterwave:${transaction.id}`;
   const prior = await Charge.findById(id).session(session).lean();
   if (prior && (prior.txRef !== transaction.tx_ref || prior.amount !== amount || prior.currency !== transaction.currency
-    || prior.payment && ownership.payment && String(prior.payment) !== String(ownership.payment))) throw failure(409, "SUBSCRIPTION_PAYMENT_CONFLICT", "Payment evidence conflicts with an existing transaction.");
+    || prior.payment && ownership.payment && String(prior.payment) !== String(ownership.payment)
+    || prior.role && ownership.role && prior.role !== ownership.role
+    || prior.account && ownership.account && String(prior.account) !== String(ownership.account))) throw failure(409, "SUBSCRIPTION_PAYMENT_CONFLICT", "Payment evidence conflicts with an existing transaction.");
+  if (bindUnlinked && prior && !prior.payment) {
+    await Charge.updateOne({ _id: id }, { $set: ownership }, { session });
+    return;
+  }
   await Charge.updateOne({ _id: id }, { $setOnInsert: { transactionId: String(transaction.id), txRef: transaction.tx_ref,
     amount, currency: transaction.currency, flwRef: transaction.flw_ref, ...ownership } }, { upsert: true, session });
 }
@@ -110,26 +125,37 @@ export const recordUnlinkedSubscriptionCharge = transaction => retainCharge(tran
 
 export async function activateVerifiedSubscription({ role, paymentId, transaction }) {
   const { Payment } = adapterForRole(role);
-  const owner = await Payment.findById(paymentId).select(role).lean();
+  const owner = await Payment.findById(paymentId).select(`${role} metadata.discountCheckoutAttemptId`).lean();
   if (!owner) throw failure(404, "SUBSCRIPTION_PAYMENT_MISSING", "Payment not found.");
-  const result = await serialized(role, owner[role], async ({ Account, Subscription, Payment, account, state, session }) => {
+  const accountId = owner[role];
+  const result = await serialized(role, accountId, async ({ Account, Subscription, Payment, account, state, session }) => {
     const payment = await Payment.findById(paymentId).session(session);
     const amount = Number(transaction?.amount);
+    const discounted = Boolean(payment.metadata?.discountCheckoutAttemptId);
     if (!transaction?.id || transaction.status !== "successful" || transaction.tx_ref !== payment.txRef
-      || transaction.currency !== payment.currency || !Number.isFinite(payment.amount) || payment.amount <= 0 || !Number.isFinite(amount) || amount < payment.amount) {
+      || !Number.isFinite(amount) || amount <= 0 || !/^[A-Z]{3}$/.test(transaction.currency || "")
+      || (!discounted && (transaction.currency !== payment.currency || !Number.isFinite(payment.amount) || payment.amount <= 0 || amount < payment.amount))) {
       throw failure(400, "SUBSCRIPTION_PAYMENT_VERIFICATION_FAILED", "Payment verification failed.");
     }
-    await retainCharge(transaction, { role, account: account._id, payment: payment._id, outcome: "verified" }, session);
+    const ownership = { role, account: accountId, payment: payment._id };
+    let discountReason = discounted ? discountedChargeOutcome(payment, transaction) : null;
+    if (discounted && !discountReason && !["successful", "refunded"].includes(payment.status)) {
+      discountReason = await redeemVerifiedDiscount({ payment, transaction, role, accountId, session });
+    }
+    await retainCharge(transaction, { ...ownership, outcome: discountReason || "verified" }, session, discounted);
+    if (discountReason) {
+      return { recorded: true, activated: false, reason: discountReason };
+    }
     // A renewal may reuse the checkout reference but has a distinct transaction.
     // Preserve its evidence separately; it cannot overwrite the original payment.
     if (payment.transactionId && String(payment.transactionId) !== String(transaction.id)) {
       return { recorded: true, activated: false, reason: "renewal_requires_reconciliation" };
     }
-    const current = await Subscription.findOne({ [role]: account._id }).session(session);
+    const current = await Subscription.findOne({ [role]: accountId }).session(session);
     if (["successful", "refunded"].includes(payment.status)) {
       // Legacy successful records can be read/replayed but never grant access
       // afresh. No paidAt, period, references or account flags are rewritten.
-      return { recorded: true, activated: payment.status === "successful" && account.isVerified && linked(current, payment) &&
+      return { recorded: true, activated: payment.status === "successful" && Boolean(account?.isVerified) && linked(current, payment) &&
         subscriptionStatusFromEvidence(role === "employer" ? await loadSubscriptionEvidence({ role, accountId: account._id, session }) : { account, subscription: current, payment: linked(current, payment) ? payment : null }, { role }).paidEligible,
       reason: "already_recorded", replayed: true };
     }
@@ -140,7 +166,7 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     payment.flwRef = transaction.flw_ref;
     payment.metadata = { ...(payment.metadata || {}), flutterwaveStatus: transaction.status,
       paymentType: transaction.payment_type, chargedAmount: transaction.charged_amount };
-    const upgradeId = role === "employer" ? payment.metadata?.upgradeRequest : null;
+    const upgradeId = role === "employer" && !discounted ? payment.metadata?.upgradeRequest : null;
     const upgrade = upgradeId ? await Downgrade.findById(upgradeId).session(session) : null;
     let upgradeEvidence, upgradeStatus, sourceSelection;
     if (upgradeId) {
@@ -161,38 +187,24 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     else if (!adapters[role].plans.includes(payment.plan) || !Number.isSafeInteger(payment.metadata?.paymentPlanId) || payment.metadata.paymentPlanId <= 0) reason = "invalid_checkout_evidence";
     else if (payment.type !== "subscription") reason = "not_explicit_checkout";
     else if (payment.activationGeneration !== generation(state) || String(state.pendingPayment || "") !== String(payment._id)) reason = "superseded_checkout";
-    else if (account.accountStatus !== "active" || !account.isVerified) reason = "account_unavailable";
+    else if (account?.accountStatus !== "active" || !account.isVerified) reason = "account_unavailable";
     else if (current?.status === "active" && !validUpgrade) reason = "newer_or_existing_activation";
     payment.activationOutcome = reason || "activated";
     await payment.save({ session });
     if (reason) {
+      if (discounted) {
+        await Charge.updateOne({ _id: `flutterwave:${transaction.id}` }, { $set: { outcome: reason } }, { session });
+      }
       if (upgrade && upgrade.executionPolicy === "payment-upgrade-v1" && String(upgrade.account) === String(account._id) && String(upgrade.payment) === String(payment._id) && ["awaiting_payment", "failed"].includes(upgrade.status)) {
         upgrade.status = "superseded"; upgrade.outcome = "superseded"; upgrade.outcomeReason = reason; await upgrade.save({ session });
       }
       return { recorded: true, activated: false, reason };
     }
-    const end = new Date(now); end.setMonth(end.getMonth() + 1); // Preserve existing period semantics.
-    const subscription = await Subscription.findOneAndUpdate({ [role]: account._id }, { ...(role === "employer" ? { $unset: { accessPlan: "", accessPlanHistory: "", accessPlanGeneration: "" } } : {}), $set: {
-      [role]: account._id, provider: payment.provider, plan: payment.plan, status: "active",
-      currentPeriodStart: now, currentPeriodEnd: end, cancelAtPeriodEnd: false,
-      canceledAt: null, endedAt: null, lastTxRef: payment.txRef, lastTransactionId: payment.transactionId,
-      ...(role === "talent" ? { flutterwavePlanId: String(payment.metadata.paymentPlanId), flutterwaveCustomerEmail: account.email } : {}),
-    } }, { new: true, upsert: true, runValidators: true, session });
-    const tracking = { selectedPlan: payment.plan, paymentStatus: "active" };
-    if (role === "talent") {
-      tracking.publicProfileEnabled = true;
-      if (!account.username) {
-        const name =
-          account.fullName ||
-          `${account.firstName || ""} ${account.lastName || ""}`;
-
-        tracking.username = await generateTalentUsername(name, {
-          excludeId: account._id,
-          session,
-        });
-      }
-    } else { tracking.planExpiresAt = end; tracking.isTrial = false; }
-    await Account.updateOne({ _id: account._id }, { $set: tracking }, { session });
+    const subscription = await writeSubscriptionPeriod({
+      role, account, Account, Subscription, session, now, plan: payment.plan, provider: payment.provider,
+      billing: { lastTxRef: payment.txRef, lastTransactionId: payment.transactionId,
+        ...(role === "talent" ? { flutterwavePlanId: String(payment.metadata.paymentPlanId), flutterwaveCustomerEmail: account.email } : {}) },
+    });
     await Lifecycle.updateOne({ _id: state._id }, { $set: { activePayment: payment._id, pendingPayment: null,
       ...(validUpgrade ? { generation: generation(state) + 1 } : {}) } }, { session });
     if (validUpgrade) {
@@ -202,7 +214,7 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     }
     await recordSubscriptionConfirmation({ role, account, payment, subscription, session });
     return { recorded: true, activated: true, reason: "activated" };
-  });
+  }, { allowMissingAccount: Boolean(owner.metadata?.discountCheckoutAttemptId) });
   // withTransaction has committed before any provider call. Replays can recover
   // an existing pending event but never create emails for legacy activations.
   if (result.activated) {
@@ -210,6 +222,67 @@ export async function activateVerifiedSubscription({ role, paymentId, transactio
     catch { /* Email/database delivery failure cannot undo or fail activation. */ }
   }
   return result;
+}
+
+async function writeSubscriptionPeriod({ role, account, Account, Subscription, session, now, plan, provider, billing }) {
+  const end = new Date(now);
+  end.setMonth(end.getMonth() + 1);
+  const unset = role === "employer" ? { accessPlan: "", accessPlanHistory: "", accessPlanGeneration: "" } : {};
+  if (provider === "no_charge") {
+    Object.assign(unset, { lastTxRef: "", lastTransactionId: "" });
+    if (role === "talent") Object.assign(unset, { flutterwavePlanId: "", flutterwaveCustomerEmail: "", paymentPlanId: "" });
+  } else {
+    unset.grantAttemptId = "";
+  }
+  const subscription = await Subscription.findOneAndUpdate({ [role]: account._id }, { $unset: unset, $set: {
+    [role]: account._id, provider, plan, status: "active", currentPeriodStart: now, currentPeriodEnd: end,
+    cancelAtPeriodEnd: false, canceledAt: null, endedAt: null, ...billing,
+  } }, { new: true, upsert: true, runValidators: true, session });
+  const tracking = { selectedPlan: plan, paymentStatus: "active" };
+  if (role === "talent") {
+    tracking.publicProfileEnabled = true;
+    if (!account.username) {
+      const name = account.fullName || `${account.firstName || ""} ${account.lastName || ""}`;
+      tracking.username = await generateTalentUsername(name, { excludeId: account._id, session });
+    }
+  } else {
+    Object.assign(tracking, { planExpiresAt: end, isTrial: false });
+  }
+  await Account.updateOne({ _id: account._id }, { $set: tracking }, { session });
+  return subscription;
+}
+
+export async function activateNoChargeSubscription({ role, accountId, attemptId }) {
+  return serialized(role, accountId, async ({ Account, Subscription, account, state, session, plans }) => {
+    const attempt = await DiscountCheckoutAttempt.findOne({ _id: attemptId, role, account: accountId }).session(session).lean();
+    if (!attempt) throw failure(404, "DISCOUNT_ATTEMPT_NOT_FOUND", "Discount checkout attempt not found.");
+    if (attempt.status === "redeemed" && attempt.noChargeGrant) return { grant: attempt.noChargeGrant, replayed: true };
+    if (attempt.status !== "held" || attempt.initialization !== undefined || attempt.upgrade || attempt.noChargeGrant ||
+        attempt.redeemedAt || attempt.redemptionTransactionId || !plans.includes(attempt.plan) ||
+        attempt.currency !== "USD" || !Number.isSafeInteger(attempt.originalMinor) || attempt.originalMinor <= 0 ||
+        attempt.payableMinor !== 0 || attempt.discountMinor !== attempt.originalMinor) {
+      throw failure(409, "DISCOUNT_NO_CHARGE_INVALID", "This reservation cannot activate a no-charge subscription.");
+    }
+    const pricing = calculateDiscount(attempt.originalMinor, attempt.currency, attempt.terms);
+    if (pricing.payableMinor !== 0 || pricing.discountMinor !== attempt.discountMinor) {
+      throw failure(409, "DISCOUNT_NO_CHARGE_INVALID", "The saved discount cannot cover the subscription.");
+    }
+    if (account.accountStatus !== "active" || !account.isVerified) {
+      throw failure(403, "SUBSCRIPTION_CHECKOUT_DENIED", "An active account with confirmed email is required.");
+    }
+    await requireNewSubscriptionWithoutBilling({ role, accountId, account, state, session });
+    const now = new Date();
+    const subscription = await writeSubscriptionPeriod({
+      role, account, Account, Subscription, session, now, plan: attempt.plan,
+      provider: "no_charge", billing: { grantAttemptId: attemptId },
+    });
+    const grant = { subscription: subscription._id, startsAt: now, endsAt: subscription.currentPeriodEnd };
+    const reason = await redeemHeldDiscount({ attempt, role, accountId, session,
+      redemption: { noChargeGrant: grant, redeemedAt: now } });
+    if (reason) throw failure(409, "DISCOUNT_NO_CHARGE_ACCOUNTING", "The discount reservation could not be redeemed.");
+    await Lifecycle.updateOne({ _id: state._id }, { $set: { generation: generation(state) + 1 } }, { session });
+    return { grant, replayed: false };
+  });
 }
 
 export async function recordFailedSubscriptionPayment({ role, paymentId }) {
@@ -227,7 +300,9 @@ export async function recordFailedSubscriptionPayment({ role, paymentId }) {
       }
     });
   }
-  await adapter.Payment.updateOne({ _id: paymentId, status: { $nin: ["successful", "refunded"] } },
+  // A declined attempt on a discounted hosted session can still be retried
+  // at the provider. Leave it pending for the discount reconciliation flow.
+  await adapter.Payment.updateOne({ _id: paymentId, "metadata.discountCheckoutAttemptId": { $exists: false }, status: { $nin: ["successful", "refunded"] } },
     { $set: { status: "failed", failureReason: "Payment verification failed" } });
 }
 

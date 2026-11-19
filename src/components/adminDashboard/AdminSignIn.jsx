@@ -20,9 +20,13 @@ export const AdminSignIn = () => {
 
   useEffect(() => {
     if (isAdminAuthenticated) {
-      navigate("/admin-dashboard", { replace: true });
+      const from = location.state?.from;
+      const pathname = from?.pathname;
+      const adminDestination = typeof pathname === "string" &&
+        (pathname === "/admin-dashboard" || pathname.startsWith("/admin-dashboard/"));
+      navigate(adminDestination ? { pathname, search: from.search } : "/admin-dashboard", { replace: true });
     }
-  }, [isAdminAuthenticated, navigate]);
+  }, [isAdminAuthenticated, location.state, navigate]);
 
   const handleInputChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
@@ -48,8 +52,6 @@ export const AdminSignIn = () => {
     setErrors({});
     try {
       await adminSignIn(formData.email, formData.password);
-      const from = location.state?.from?.pathname || "/admin-dashboard";
-      navigate(from, { replace: true });
     } catch (err) {
       setErrors({
         submit: err.message || "Unable to sign in. Please try again.",

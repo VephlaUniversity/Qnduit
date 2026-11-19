@@ -64,6 +64,7 @@ const charge = new mongoose.Schema({
   payment: mongoose.Schema.Types.ObjectId,
   outcome: String,
 }, { timestamps: true });
+charge.index({ txRef: 1 });
 export const SubscriptionCharge = mongoose.model("SubscriptionCharge", charge);
 
 const v2History = function () { return this.requestVersion === 2; };

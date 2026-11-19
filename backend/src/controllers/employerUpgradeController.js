@@ -3,9 +3,9 @@ import process from "node:process";
 import Employer from "../models/Employer.js";
 import flutterwave from "../utils/flutterwave.js";
 import { EMPLOYER_PLANS } from "../config/employerPlans.js";
-import { UPGRADE_POLICY, initiateEmployerUpgrade, completeEmployerUpgradeCheckout } from "../services/employerUpgrade.js";
+import { UPGRADE_AUDIENCE, UPGRADE_POLICY, initiateEmployerUpgrade, completeEmployerUpgradeCheckout } from "../services/employerUpgrade.js";
 
-export const UPGRADE_AUDIENCE = "employer-payment-upgrade";
+export { UPGRADE_AUDIENCE };
 export async function createEmployerUpgradeCheckout(req, res, next) {
   res.set("Cache-Control", "private, no-store");
   try {

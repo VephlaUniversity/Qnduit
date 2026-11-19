@@ -1,4 +1,5 @@
 import { EMPLOYER_PLANS } from "../config/employerPlans.js";
+import { TALENT_PLANS } from "../config/talentPlans.js";
 import { createEmployerUpgradeCheckout } from "./employerUpgradeController.js";
 import { getEmployerPlan } from "../services/employerPlan.js";
 import process from "node:process";
@@ -19,20 +20,6 @@ const respondLifecycleError = (error, res, next) => {
     return res.status(error.status || 503).json({ success: false, code: error.code, message: error.message });
   }
   next(error);
-};
-
-// EMPLOYER PLANS
-
-// TALENT PLANS
-
-const TALENT_PLANS = {
-  public: {
-    amount: 1.99,
-    currency: "USD",
-    paymentPlanId: Number(
-      process.env.FLW_TALENT_PUBLIC_PLAN_ID
-    ),
-  },
 };
 
 // CREATE TALENT CHECKOUT
@@ -227,7 +214,7 @@ export const talentFlutterwaveCallback = async (
     }
 
     const response = await flutterwave.get(
-      `/transactions/${transaction_id}/verify`
+      `/transactions/${encodeURIComponent(transaction_id)}/verify`
     );
 
     const transaction =
@@ -237,9 +224,9 @@ export const talentFlutterwaveCallback = async (
       !transaction ||
       transaction.status !== "successful" ||
       transaction.tx_ref !== payment.txRef ||
-      transaction.currency !== payment.currency ||
-      Number(transaction.amount) <
-        Number(payment.amount)
+      (payment.metadata?.discountCheckoutAttemptId
+        ? String(transaction.id) !== String(transaction_id)
+        : (transaction.currency !== payment.currency || Number(transaction.amount) < Number(payment.amount)))
     ) {
       await recordFailedSubscriptionPayment({ role: "talent", paymentId: payment._id });
 
@@ -454,7 +441,7 @@ export const employerFlutterwaveCallback = async (
 
     // Always verify with Flutterwave
     const response = await flutterwave.get(
-      `/transactions/${transaction_id}/verify`
+      `/transactions/${encodeURIComponent(transaction_id)}/verify`
     );
 
     const transaction = response.data?.data;
@@ -463,8 +450,9 @@ export const employerFlutterwaveCallback = async (
       !transaction ||
       transaction.status !== "successful" ||
       transaction.tx_ref !== payment.txRef ||
-      transaction.currency !== payment.currency ||
-      Number(transaction.amount) < Number(payment.amount)
+      (payment.metadata?.discountCheckoutAttemptId
+        ? String(transaction.id) !== String(transaction_id)
+        : (transaction.currency !== payment.currency || Number(transaction.amount) < Number(payment.amount)))
     ) {
       await recordFailedSubscriptionPayment({ role: "employer", paymentId: payment._id });
 

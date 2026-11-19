@@ -39,3 +39,42 @@
   /* Do not animate the outline through a low-contrast intermediate colour. */
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 }
+
+html:has([data-portfolio-branding="free"]) {
+  scroll-padding-top: calc(var(--portfolio-brand-bar-height, 45px) + 8px);
+}
+
+[data-portfolio-branding="free"] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-portfolio-branding="free"]::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: url("/images/portfolio-watermark.svg") center top / 280px 176px repeat;
+  opacity: 0.085;
+}
+
+[data-portfolio-branding="free"] > div > footer {
+  position: relative;
+  z-index: 2;
+}
+
+.portfolio-brand-bar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid #354765;
+  background: #151f30;
+}
+
+@media (min-width: 640px) {
+  [data-portfolio-branding="free"]::before {
+    background-size: 400px 252px;
+  }
+}

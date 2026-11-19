@@ -9,7 +9,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 
 import { ForTalents } from "./components/pages/ForTalents";
 import { ForEmployers } from "./components/pages/ForEmployers";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { PrincinPage } from "./components/pages/PrincinPage";
 import FeaturedSuccessStories from "./components/pages/FeaturedSuccessStories";
 
@@ -51,6 +51,7 @@ import BlogDetail from "./components/BlogDetails";
 import JobDetails from "./components/pages/JobDetails";
 import { TalentResultsWrapper } from "./components/employerDashboard/TalentResultWarapper";
 import AdminDashboardLayout from "./components/adminDashboard/AdminDashboardLayout";
+import ManageDiscountCodes from "./components/adminDashboard/ManageDiscountCodes";
 import AdminProtectedRoute from "./components/adminDashboard/AdminProtectedRoute";
 import AdminSignIn from "./components/adminDashboard/AdminSignIn";
 import AdminOverview from "./components/adminDashboard/AdminOverview";
@@ -434,6 +435,17 @@ const AppContent = () => {
           />
           <Route path="/admin-dashboard/admin-jobs" element={<AdminProtectedRoute><AdminDashboardLayout><ManageAdminJobs /></AdminDashboardLayout></AdminProtectedRoute>} />
           <Route path="/admin-dashboard/blog" element={<AdminProtectedRoute><AdminDashboardLayout><ManageBlogs /></AdminDashboardLayout></AdminProtectedRoute>} />
+          <Route
+            path="/admin-dashboard/discount-codes"
+            element={
+              <AdminProtectedRoute>
+                <AdminDashboardLayout>
+                  <ManageDiscountCodes />
+                </AdminDashboardLayout>
+              </AdminProtectedRoute>
+            }
+          />
+          <Route path="/admin-dashboard/discount-codes/create" element={<Navigate to="/admin-dashboard/discount-codes?create=1" replace />} />
           <Route
             path="/admin-dashboard/subscription"
             element={

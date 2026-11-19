@@ -12,23 +12,25 @@ const subscriptionSchema = new mongoose.Schema(
 
     provider: {
       type: String,
-      enum: ["flutterwave"],
+      enum: ["flutterwave", "no_charge"],
       default: "flutterwave",
       required: true,
     },
 
     flutterwavePlanId: {
       type: String,
-      required: true,
+      required() { return this.provider === "flutterwave"; },
       index: true,
     },
 
     flutterwaveCustomerEmail: {
       type: String,
-      required: true,
+      required() { return this.provider === "flutterwave"; },
       lowercase: true,
       trim: true,
     },
+
+    grantAttemptId: String,
 
     plan: {
       type: String,

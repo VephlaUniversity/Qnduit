@@ -23,7 +23,7 @@ export function subscriptionDateRows(subscription, status, pendingDowngrade) {
   if (status?.status === "expired") endLabel = "Subscription Ended";
   else if (status?.paidEligible === true && status.status === "active") {
     endLabel = pendingDowngrade ? "Current Period Ends"
-      : status.cancellation?.scheduled || subscription.cancelAtPeriodEnd ? "Subscription Ends" : "Subscription Renews";
+      : status.reason === "confirmed_no_charge_subscription" || status.cancellation?.scheduled || subscription.cancelAtPeriodEnd ? "Subscription Ends" : "Subscription Renews";
   }
   return [
     ["Subscription Starts", subscription.currentPeriodStart],
