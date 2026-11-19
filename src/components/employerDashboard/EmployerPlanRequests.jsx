@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 const upgradeButton = "h-11 w-full px-4 focus-visible:ring-blue-400 sm:w-auto";
 const upgradeOutline = `${upgradeButton} border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white`;
 
-export default function EmployerPlanRequests({ currentPlan, onApplied }) {
+export default function EmployerPlanRequests({ currentPlan, onApplied, cancellationRevision }) {
   const navigate = useNavigate();
-  const { result, refresh, send, upgrade } = useEmployerPlanRequest();
+  const { result, refresh, send, upgrade } = useEmployerPlanRequest(cancellationRevision);
   const [selection, setSelection] = useState(null);
   const trigger = useRef(null), goBack = useRef(null), refreshButton = useRef(null);
   const sending = result.status === "sending", uncertain = result.status === "unconfirmed";

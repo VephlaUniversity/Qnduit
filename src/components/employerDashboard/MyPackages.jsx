@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useEmployerSubscription } from "../hooks/useEmployerSubscription";
 import EmployerPlanRequests from "./EmployerPlanRequests";
 import { employerPlanName } from "../utils/employerSubscription";
@@ -7,6 +8,11 @@ import UserSubscriptionCancellation from "../subscriptions/UserSubscriptionCance
 
 export const MyPackages = () => {
   const { data, loading, error, refresh } = useEmployerSubscription();
+  const [cancellationRevision, setCancellationRevision] = useState(0);
+  const refreshAfterCancellation = () => {
+    refresh();
+    setCancellationRevision(revision => revision + 1);
+  };
   const status = data?.subscriptionStatus, subscription = data?.subscription;
   const currentPlan = status?.effectivePlan;
   const dateLabels = { "Subscription Starts": "Started", "Subscription Renews": "Renews", "Current Period Ends": "Period ends",
@@ -33,12 +39,13 @@ export const MyPackages = () => {
       </dl>
       {status.paidEligible && (
         <UserSubscriptionCancellation
-          onCancelled={refresh}
+          onCancelled={refreshAfterCancellation}
         />
       )}
       {status.cancellation.scheduled && status.paidEligible && <p>Cancellation is scheduled for the end of the paid period.</p>}
     </section>}
-    {data && !error && <EmployerPlanRequests key={data.accountId} currentPlan={currentPlan} onApplied={refresh} />}
+    {data && !error && <EmployerPlanRequests key={data.accountId} currentPlan={currentPlan} onApplied={refresh}
+      cancellationRevision={cancellationRevision} />}
   </div>;
 };
 export default MyPackages;

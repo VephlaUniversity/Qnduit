@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../utils/api";
 import { browserSessions } from "../utils/requestSafety";
 import { createEmployerPlanRequestSession } from "../utils/employerPlanRequest";
 
-export function useEmployerPlanRequest() {
+export function useEmployerPlanRequest(cancellationRevision = 0) {
   const { user } = useAuth();
   const actor = user?.userType === "employer" ? `employer:${user.id || user._id}` : "";
   const owner = browserSessions().find(row => row.actor === actor), ownerKey = owner ? `${actor}:${owner.token}` : "";
@@ -13,11 +13,12 @@ export function useEmployerPlanRequest() {
     readOwner: () => browserSessions().find(row => `${row.actor}:${row.token}` === ownerKey),
   }), [ownerKey]);
   const [result, setResult] = useState({ status: "loading" });
-  const update = value => setResult({ ...value, ownerKey });
+  const update = value => setResult({ ...value, ownerKey, cancellationRevision });
   useEffect(() => {
-    session.load(value => setResult({ ...value, ownerKey })).catch(() => {});
+    session.load(value => setResult({ ...value, ownerKey, cancellationRevision })).catch(() => {});
     return () => session.cancel();
-  }, [session, ownerKey]);
-  return { upgrade: toPlan => session.upgrade(toPlan, update, url => window.location.assign(url)).catch(() => {}), result: result.ownerKey === ownerKey ? result : { status: "loading" },
+  }, [session, ownerKey, cancellationRevision]);
+  return { upgrade: toPlan => session.upgrade(toPlan, update, url => window.location.assign(url)).catch(() => {}),
+    result: result.ownerKey === ownerKey && result.cancellationRevision === cancellationRevision ? result : { status: "loading" },
     refresh: () => session.load(update).catch(() => {}), send: (toPlan, saved) => session.send(toPlan, update, saved).catch(() => {}) };
 }
