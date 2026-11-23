@@ -2,7 +2,19 @@ import React, { useState, useMemo } from "react";
 import { Search, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEmployerJobs } from "../hooks/useEmployerJobs";
-import { formatJobDeadline } from "../utils/jobDeadline";
+import { formatJobDeadline, getJobStatus } from "../utils/jobDeadline";
+
+const jobStatusColor = {
+  Published: "text-green-500",
+  Expired: "text-red-400",
+  Draft: "text-yellow-400",
+  Closed: "text-gray-400",
+};
+
+function JobStatusBadge({ job }) {
+  const status = getJobStatus(job);
+  return <span className={`${jobStatusColor[status]} text-sm font-medium`}>{status}</span>;
+}
 
 const MyJob = () => {
   const navigate = useNavigate();
@@ -177,9 +189,7 @@ const MyJob = () => {
                       </p>
                     </td>
                     <td className="p-4">
-                      <span className="text-green-500 text-sm font-medium">
-                        {job.status}
-                      </span>
+                      <JobStatusBadge job={job} />
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">

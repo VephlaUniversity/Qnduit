@@ -17,6 +17,14 @@ export function jobDateKey(value) {
   return Number.isFinite(date.getTime()) ? lagosDateKey(date) : "";
 }
 
+export function getJobStatus(job, now = new Date()) {
+  if (job.status === "draft") return "Draft";
+  if (job.status === "closed") return "Closed";
+
+  const deadline = jobDateKey(job.deadlineDate);
+  return deadline && deadline < lagosDateKey(now) ? "Expired" : "Published";
+}
+
 export function deadlineError(value, saved = "", now = new Date()) {
   if (!value) return ""; // Existing optionality is retained.
   if (!isCalendarDate(value)) return "Choose a valid deadline date.";

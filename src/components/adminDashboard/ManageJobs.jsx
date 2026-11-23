@@ -14,7 +14,7 @@ import { PaginationBar } from "./PaginationBar";
 import { Modal } from "./Modal";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/api";
-import { jobDateKey, lagosDateKey } from "../utils/jobDeadline";
+import { getJobStatus } from "../utils/jobDeadline";
 
 import { formatAdminProfileDate } from "../utils/adminProfile";
 import { safeText } from "../utils/userMessage";
@@ -40,17 +40,6 @@ const deleteErrorMessage = (error) => {
   if (status === 404) return "This job is no longer available. Refresh the list.";
   if (status === 429) return safeText(error.response?.data?.message, "Too many requests. Please wait and try again.");
   return "Deletion could not be confirmed. Refresh the list before trying again.";
-};
-
-const getJobStatus = (job) => {
-  if (job.status === "draft") return "Draft";
-  if (job.status === "closed") return "Closed";
-
-  if (job.deadlineDate && jobDateKey(job.deadlineDate) && jobDateKey(job.deadlineDate) < lagosDateKey()) {
-    return "Expired";
-  }
-
-  return "Published";
 };
 
 const sortOptions = [
