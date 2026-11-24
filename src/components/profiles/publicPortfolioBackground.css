@@ -51,12 +51,13 @@ html:has([data-portfolio-branding="free"]) {
 
 [data-portfolio-branding="free"]::before {
   position: absolute;
-  z-index: 1;
-  inset: 0;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: min(100%, 100svh);
   content: "";
   pointer-events: none;
-  background: url("/images/portfolio-watermark.svg") center top / 280px 176px repeat;
-  opacity: 0.085;
+  background: url("/images/portfolio-watermark.svg") center / min(94%, 64rem) auto no-repeat;
+  opacity: 0.075;
 }
 
 [data-portfolio-branding="free"] > div > footer {
@@ -71,10 +72,4 @@ html:has([data-portfolio-branding="free"]) {
   padding-top: env(safe-area-inset-top);
   border-bottom: 1px solid #354765;
   background: #151f30;
-}
-
-@media (min-width: 640px) {
-  [data-portfolio-branding="free"]::before {
-    background-size: 400px 252px;
-  }
 }
