@@ -52,7 +52,8 @@ async function cloudflareRequest(path, options = {}) {
   return payload.result;
 }
 
-export async function createCloudflareHostname(hostname, talentId) {
+
+export async function createCloudflareHostname(hostname) {
   const { zoneId, cnameTarget } = getCloudflareConfig();
 
   const result = await cloudflareRequest(
@@ -70,10 +71,6 @@ export async function createCloudflareHostname(hostname, talentId) {
             tls_1_3: "on",
           },
         },
-        custom_metadata: {
-          application: "qnduit",
-          talentId: String(talentId),
-        },
       }),
     }
   );
@@ -88,6 +85,7 @@ export async function createCloudflareHostname(hostname, talentId) {
     cnameTarget,
   };
 }
+
 
 export async function getCloudflareHostname(hostnameId) {
   const { zoneId } = getCloudflareConfig();
