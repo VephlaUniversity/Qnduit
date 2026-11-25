@@ -9,6 +9,7 @@ import { portfolioExternalUrl, publicExternalUrl, publicPortfolioProjects, publi
 import { publicPortfolioStyles, publicPortfolioTheme } from "./publicPortfolioThemes";
 import { cn } from "../../lib/utils";
 import { portfolioOverview } from "../../../backend/src/utils/portfolioCaseStudy.js";
+import PublicTalentEnquiryForm from "./PublicTalentEnquiryForm";
 
 const dateLabel = value => {
   if (!value) return "";
@@ -148,6 +149,39 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
   const video = publicVideoUrl(talent.introVideo);
   const portfolioUrl = publicExternalUrl(talent.portfolioUrl);
   const socials = Object.entries(talent.socialNetworks || {}).filter(([, url]) => publicExternalUrl(url));
+
+  const engagement = talent.portfolioEngagement;
+
+  const isPaidEngagement =
+    Boolean(engagement && typeof engagement === "object");
+
+  const availability = Array.isArray(engagement?.availability)
+    ? engagement.availability.filter(
+        item =>
+          item &&
+          typeof item.value === "string" &&
+          typeof item.label === "string"
+      )
+    : [];
+
+  const contactFormEnabled =
+    engagement?.contactFormEnabled === true;
+
+  const primaryAction = engagement?.primaryAction;
+
+  const primaryActionUrl =
+    primaryAction?.type === "external"
+      ? portfolioExternalUrl(primaryAction.url)
+      : "";
+
+  const showPrimaryAction =
+    primaryAction?.label &&
+    (
+      primaryAction.type === "contact"
+        ? contactFormEnabled
+        : primaryAction.type === "external" && Boolean(primaryActionUrl)
+    );
+
   const sections = {
     about: talent.aboutMe && <section className={styles.about} aria-label="About"><h2 className={headingClass}>About</h2><JobDescriptionText value={talent.aboutMe} className={textClass} /></section>,
     skills: (levels.length > 0 || labels.length > 0) && <section className={styles.skills} aria-label="Skills"><h2 className={headingClass}>Skills</h2>{levels.length > 0 && <div className="[&_ul]:grid-cols-1"><SkillBars skills={levels} /></div>}{labels.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{labels.map(label => <span key={label} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300">{label}</span>)}</div>}</section>,
@@ -178,14 +212,39 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
   const renderSection = id => hiddenSections.has(id) ? null : sections[id];
   return <PublicTalentPresentation requiresQnduitBranding={talent.requiresQnduitBranding} portfolioTheme={theme} portfolioColors={talent.colors} portfolioFont={talent.font} portfolioBackground={talent.backgroundColor} portfolioCover={talent.cover}>
 
-    <div className="mb-6 flex justify-end">
-      <Link
-        to="/talent-signup"
-        className="portfolio-primary-action inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
-      >
-        Create your own public profile on QNDUIT. It’s free
-      </Link>
-    </div>
+    {!isPaidEngagement && (
+      <div className="mb-6 flex justify-end">
+        <Link
+          to="/talent-signup"
+          className="portfolio-primary-action inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+        >
+          Create your own public profile on QNDUIT. It’s free
+        </Link>
+      </div>
+    )}
+
+    {isPaidEngagement && showPrimaryAction && (
+      <div className="mb-6 flex justify-end">
+        {primaryAction.type === "contact" ? (
+          <a
+            href="#portfolio-contact-form"
+            className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
+          >
+            {primaryAction.label}
+          </a>
+        ) : (
+          <a
+            href={primaryActionUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
+          >
+            {primaryAction.label}
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
+      </div>
+    )}
 
     <div className={styles.layout}>
       <aside data-portfolio-surface={styles.surface} className={`${sectionClass} min-w-0 ${styles.identity}`} aria-label="Talent identity and skills">
@@ -193,6 +252,21 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-blue-400">Talent on QNDUIT</p><h1 className={`break-words [overflow-wrap:anywhere] ${styles.name}`}>{name}</h1>
         {talent.jobTitle && <p className="mt-3 break-words text-base text-gray-300">{talent.jobTitle}</p>}
+        {availability.length > 0 && (
+          <div
+            className="mt-4 flex flex-wrap gap-2"
+            aria-label="Professional availability"
+          >
+            {availability.map(item => (
+              <span
+                key={item.value}
+                className="inline-flex max-w-full items-center rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-300"
+              >
+                {item.label}
+              </span>
+            ))}
+          </div>
+        )}
         {talent.location && <p className="mt-3 flex items-start gap-2 text-sm text-gray-400"><MapPin className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 break-words">{talent.location}</span></p>}
         {talent.experienceTime && <p className="mt-2 flex items-start gap-2 text-sm text-gray-400"><Briefcase className="mt-0.5 h-4 w-4 shrink-0" />{talent.experienceTime}</p>}
         {talent.qualification && <p className="mt-2 text-sm text-gray-400">{talent.qualification}</p>}
@@ -205,5 +279,14 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
           : ["projects", "introVideo", "experience", "education"].map(id => <Fragment key={id}>{renderSection(id)}</Fragment>)}
       </div>
     </div>
+    {contactFormEnabled && (
+      <PublicTalentEnquiryForm
+        username={talent.username}
+        sectionClass={sectionClass}
+        headingClass={headingClass}
+        textClass={textClass}
+        surface={styles.surface}
+      />
+    )}
   </PublicTalentPresentation>;
 }

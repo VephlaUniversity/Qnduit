@@ -2,8 +2,11 @@ import { talentLocation } from "./talentLocation.js";
 import { hasPortfolioAppearanceAccess, resolvePublicPortfolioLayout, isPortfolioFont, isPortfolioTheme, normalizePortfolioColor, portfolioThemeBackground, portfolioThemeColors } from "./portfolioAppearance.js";
 import { ownedPortfolioCover } from "../config/portfolioCover.js";
 import { normalizePortfolioCaseStudy, portfolioOverview } from "./portfolioCaseStudy.js";
+import {
+  publicPortfolioEngagement,
+} from "./portfolioEngagement.js";
 // Pure, explicit public DTO mapping. Never serialize Talent/Resume documents.
-export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.layout";
+export const PUBLIC_TALENT_FIELDS = "username fullName firstName lastName jobTitle qualification experienceTime city country aboutMe categories tags avatar introVideo socialNetworks portfolioUrl portfolio experience portfolioAppearance.theme portfolioAppearance.primaryColor portfolioAppearance.secondaryColor portfolioAppearance.font portfolioAppearance.backgroundColor portfolioAppearance.cover portfolioAppearance.layout portfolioEngagement";
 export const PUBLIC_RESUME_FIELDS = "talent aboutMe portfolioImages education experience skills introVideo";
 const text = (value, limit = 20000) => typeof value === "string" ? value.trim().slice(0, limit) : "";
 const list = value => Array.isArray(value) ? value : [];
@@ -152,6 +155,14 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
       title: text(row?.title, 160), description: content(row?.description),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.imageUrl),
       projectUrl: publicExternalUrl(row?.projectUrl), ...(skills.length ? { skills } : {}),
+      ...(paidPortfolio === true
+        ? {
+            portfolioEngagement: publicPortfolioEngagement(
+              talent.portfolioEngagement,
+              true
+            ),
+          }
+        : {}),
     };
   });
   const galleryRows = list(resume?.portfolioImages).slice(0, 20).map((row, index) => {
