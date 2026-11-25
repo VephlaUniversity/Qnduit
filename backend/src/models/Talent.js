@@ -2,6 +2,62 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import { portfolioCaseStudyFields } from "./portfolioCaseStudyFields.js";
 import { PORTFOLIO_FONTS, PORTFOLIO_THEMES, isPortfolioLayout } from "../utils/portfolioAppearance.js";
+import {
+  PORTFOLIO_AVAILABILITY_VALUES,
+} from "../constants/portfolioEngagement.js";
+
+const portfolioPrimaryActionSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    label: {
+      type: String,
+      trim: true,
+      minlength: 2,
+      maxlength: 40,
+      default: "Contact Me",
+    },
+    type: {
+      type: String,
+      enum: ["contact", "external"],
+      default: "contact",
+    },
+    url: {
+      type: String,
+      trim: true,
+      maxlength: 2048,
+      default: "",
+    },
+  },
+  { _id: false }
+);
+
+const portfolioEngagementSchema = new mongoose.Schema(
+  {
+    contactFormEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    availability: {
+      type: [{
+        type: String,
+        enum: PORTFOLIO_AVAILABILITY_VALUES,
+      }],
+      default: [],
+      validate: {
+        validator: value => value.length <= PORTFOLIO_AVAILABILITY_VALUES.length,
+        message: "Too many availability options.",
+      },
+    },
+    primaryAction: {
+      type: portfolioPrimaryActionSchema,
+      default: () => ({}),
+    },
+  },
+  { _id: false }
+);
 
 const talentSchema = new mongoose.Schema(
   {
@@ -206,6 +262,10 @@ const talentSchema = new mongoose.Schema(
         },
       },
     ],
+    portfolioEngagement: {
+      type: portfolioEngagementSchema,
+      default: () => ({}),
+    },
   },
   { timestamps: true }
 );

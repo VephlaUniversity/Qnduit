@@ -20,6 +20,13 @@ import {
   searchTalentByEmail,
   uploadResume
 } from "../controllers/talentController.js";
+import {
+  getPortfolioEngagement,
+  updatePortfolioEngagement,
+  getTalentEnquiries,
+  updateTalentEnquiryStatus,
+  submitPublicTalentEnquiry,
+} from "../controllers/talentPortfolioEngagementController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -88,5 +95,41 @@ router.get("/public", listPublicTalents);
 router.get("/public/:username/cvs/:cvId", getPublicTalentCv);
 router.get("/public/:username/cvs/:cvId/file", getPublicTalentCv);
 router.get("/public/:username", getPublicTalentProfile);
+
+// Paid Talent portfolio engagement settings
+router.get(
+  "/portfolio-engagement",
+  protect,
+  authorize("talent"),
+  getPortfolioEngagement
+);
+
+router.put(
+  "/portfolio-engagement",
+  protect,
+  authorize("talent"),
+  updatePortfolioEngagement
+);
+
+// Paid Talent enquiry inbox
+router.get(
+  "/portfolio-enquiries",
+  protect,
+  authorize("talent"),
+  getTalentEnquiries
+);
+
+router.patch(
+  "/portfolio-enquiries/:id",
+  protect,
+  authorize("talent"),
+  updateTalentEnquiryStatus
+);
+
+// Public portfolio contact form
+router.post(
+  "/public/:username/enquiries",
+  submitPublicTalentEnquiry
+);
 
 export default router;
