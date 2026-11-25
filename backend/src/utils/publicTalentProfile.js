@@ -155,14 +155,6 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
       title: text(row?.title, 160), description: content(row?.description),
       imageUrl: publicImageUrl(typeof row === "string" ? row : row?.imageUrl),
       projectUrl: publicExternalUrl(row?.projectUrl), ...(skills.length ? { skills } : {}),
-      ...(paidPortfolio === true
-        ? {
-            portfolioEngagement: publicPortfolioEngagement(
-              talent.portfolioEngagement,
-              true
-            ),
-          }
-        : {}),
     };
   });
   const galleryRows = list(resume?.portfolioImages).slice(0, 20).map((row, index) => {
@@ -196,6 +188,14 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
   return {
     id: card.id, username: card.username, fullName: card.name, jobTitle: card.jobTitle, location: card.location,
     layout: resolvePublicPortfolioLayout(talent.portfolioAppearance?.layout, subscriptionStatus),
+    ...(paidPortfolio === true
+        ? {
+            portfolioEngagement: publicPortfolioEngagement(
+              talent.portfolioEngagement,
+              true
+            ),
+          }
+        : {}),
     theme: isPortfolioTheme(theme) ? theme : "default",
     font: isPortfolioFont(font) ? font : null,
     backgroundColor: normalizePortfolioColor(backgroundColor) || portfolioThemeBackground(theme),
