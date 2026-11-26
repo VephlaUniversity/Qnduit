@@ -19,7 +19,42 @@ export const defaultPortfolioEngagement = () => ({
     type: "contact",
     url: "",
   },
+  booking: {
+    enabled: false,
+    provider: "calendly",
+    label: "Book an Interview",
+    url: "",
+  },
 });
+
+function normalizeBookingUrl(value, provider) {
+  if (!value) return "";
+
+  if (typeof value !== "string") return "";
+
+  const url = portfolioExternalUrl(value.trim());
+
+  if (!url || !url.startsWith("https://")) return "";
+
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+
+    const allowedHosts = {
+      calendly: "calendly.com",
+      "cal.com": "cal.com",
+    };
+
+    const root = allowedHosts[provider];
+
+    if (!root || !(hostname === root || hostname.endsWith(`.${root}`))) {
+      return "";
+    }
+
+    return url;
+  } catch {
+    return "";
+  }
+}
 
 export function normalizePortfolioEngagement(input) {
   const fail = message => ({ error: message });
@@ -32,6 +67,7 @@ export function normalizePortfolioEngagement(input) {
     "contactFormEnabled",
     "availability",
     "primaryAction",
+    "booking",
   ];
 
   if (Object.keys(input).some(key => !allowedFields.includes(key))) {
@@ -121,19 +157,74 @@ export function normalizePortfolioEngagement(input) {
     }
   }
 
-  return {
-    value: {
-      contactFormEnabled,
-      availability: uniqueAvailability,
-      primaryAction: {
-        enabled: action.enabled,
-        label,
-        type: action.type,
-        url,
-      },
-    },
-  };
+    const booking = input.booking ?? defaultPortfolioEngagement().booking;
+
+    if (!booking || typeof booking !== "object" || Array.isArray(booking)) {
+        return fail("Invalid booking settings.");
+    }
+
+    const bookingFields = ["enabled", "provider", "label", "url"];
+
+    if (Object.keys(booking).some(key => !bookingFields.includes(key))) {
+        return fail("Unexpected booking field.");
+    }
+
+    if (typeof booking.enabled !== "boolean") {
+        return fail("Choose whether your booking button is enabled.");
+    }
+
+    if (!["calendly", "cal.com"].includes(booking.provider)) {
+        return fail("Select Calendly or Cal.com as your booking provider.");
+    }
+
+    const bookingLabel = typeof booking.label === "string"
+        ? booking.label.trim()
+        : "";
+
+    if (bookingLabel.length < 2 || bookingLabel.length > 40) {
+        return fail("Booking button text must contain between 2 and 40 characters.");
+    }
+
+    const rawBookingUrl = typeof booking.url === "string"
+        ? booking.url.trim()
+        : "";
+
+    let bookingUrl = "";
+
+    if (rawBookingUrl) {
+        bookingUrl = normalizeBookingUrl(rawBookingUrl, booking.provider);
+
+        if (!bookingUrl) {
+        return fail(
+            "Enter a valid HTTPS booking URL from your selected provider."
+        );
+        }
+    }
+
+    if (booking.enabled && !bookingUrl) {
+        return fail("Enter your booking URL before enabling the booking button.");
+    }
+
+    return {
+        value: {
+        contactFormEnabled,
+        availability: uniqueAvailability,
+        primaryAction: {
+            enabled: action.enabled,
+            label,
+            type: action.type,
+            url,
+        },
+        booking: {
+            enabled: booking.enabled,
+            provider: booking.provider,
+            label: bookingLabel,
+            url: bookingUrl,
+        },
+        },
+    };
 }
+
 
 export function publicPortfolioEngagement(settings, paidEligible) {
   if (paidEligible !== true) return undefined;
@@ -157,6 +248,13 @@ export function publicPortfolioEngagement(settings, paidEligible) {
           label: value.primaryAction.label,
           type: value.primaryAction.type,
           url: value.primaryAction.url,
+        }
+      : null,
+    booking: value.booking.enabled
+      ? {
+          provider: value.booking.provider,
+          label: value.booking.label,
+          url: value.booking.url,
         }
       : null,
   };

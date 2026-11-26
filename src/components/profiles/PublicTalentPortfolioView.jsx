@@ -1,7 +1,7 @@
 import { Fragment, useId, useState } from "react";
 import PublicTalentPresentation from "./PublicTalentPresentation";
 import { Link } from "react-router-dom";
-import { MapPin, Briefcase, ExternalLink } from "lucide-react";
+import { MapPin, Briefcase, ExternalLink, CalendarDays } from "lucide-react";
 import SkillBars from "./SkillBars";
 import { PublicTalentGallery, PublicTalentImage, PublicTalentVideo } from "./PublicTalentMedia";
 import JobDescriptionText from "../utils/JobDescriptionText";
@@ -22,6 +22,40 @@ const dateLabel = value => {
 };
 const period = row => [dateLabel(row.startDate), dateLabel(row.endDate)].filter(Boolean).join(" – ");
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-blue-400 transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2";
+function publicBookingDestination(booking) {
+  if (
+    !booking ||
+    booking.enabled !== true ||
+    !["calendly", "cal.com"].includes(booking.provider) ||
+    typeof booking.url !== "string"
+  ) {
+    return "";
+  }
+
+  const url = portfolioExternalUrl(booking.url);
+
+  if (!url || !url.startsWith("https://")) {
+    return "";
+  }
+
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+
+    const allowedHost =
+      booking.provider === "calendly"
+        ? "calendly.com"
+        : "cal.com";
+
+    return (
+      hostname === allowedHost ||
+      hostname.endsWith(`.${allowedHost}`)
+    )
+      ? url
+      : "";
+  } catch {
+    return "";
+  }
+}
 function History({ title, rows, owner, styles }) {
   const { section: sectionClass, heading: headingClass, text: textClass } = styles;
   if (!rows?.length) return null;
@@ -167,6 +201,19 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
   const contactFormEnabled =
     engagement?.contactFormEnabled === true;
 
+  const booking = engagement?.booking;
+
+  const bookingUrl = publicBookingDestination(booking);
+
+  const bookingLabel =
+    typeof booking?.label === "string" && booking.label.trim()
+      ? booking.label.trim()
+      : "Book an Interview";
+
+  const showBooking = Boolean(
+    booking?.enabled === true && bookingUrl
+  );
+
   const primaryAction = engagement?.primaryAction;
 
   const primaryActionUrl =
@@ -223,26 +270,43 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
       </div>
     )}
 
-    {isPaidEngagement && showPrimaryAction && (
-      <div className="mb-6 flex justify-end">
-        {primaryAction.type === "contact" ? (
+    {isPaidEngagement && (showPrimaryAction || showBooking) && (
+      <div className="mb-6 flex flex-wrap justify-end gap-3">
+
+        {showPrimaryAction && (
+          primaryAction.type === "contact" ? (
+            <a
+              href="#portfolio-contact-form"
+              className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
+            >
+              {primaryAction.label}
+            </a>
+          ) : (
+            <a
+              href={primaryActionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
+            >
+              {primaryAction.label}
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            </a>
+          )
+        )}
+
+        {showBooking && (
           <a
-            href="#portfolio-contact-form"
-            className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
-          >
-            {primaryAction.label}
-          </a>
-        ) : (
-          <a
-            href={primaryActionUrl}
+            href={bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="portfolio-primary-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-blue-500/50 bg-blue-500/10 px-5 py-3 text-sm font-semibold text-blue-300 transition-colors hover:bg-blue-500/20 focus-visible:outline-2 focus-visible:outline-offset-4"
           >
-            {primaryAction.label}
-            <ExternalLink className="h-4 w-4" />
+            {bookingLabel}
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
           </a>
         )}
+
       </div>
     )}
 
