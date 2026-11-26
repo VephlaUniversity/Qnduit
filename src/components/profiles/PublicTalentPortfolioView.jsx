@@ -25,7 +25,6 @@ const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 roun
 function publicBookingDestination(booking) {
   if (
     !booking ||
-    booking.enabled !== true ||
     !["calendly", "cal.com"].includes(booking.provider) ||
     typeof booking.url !== "string"
   ) {
@@ -56,6 +55,7 @@ function publicBookingDestination(booking) {
     return "";
   }
 }
+
 function History({ title, rows, owner, styles }) {
   const { section: sectionClass, heading: headingClass, text: textClass } = styles;
   if (!rows?.length) return null;
@@ -210,9 +210,7 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
       ? booking.label.trim()
       : "Book an Interview";
 
-  const showBooking = Boolean(
-    booking?.enabled === true && bookingUrl
-  );
+  const showBooking = Boolean(bookingUrl);
 
   const primaryAction = engagement?.primaryAction;
 
