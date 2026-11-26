@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
-import { useTalentSubscription } from "../hooks/useTalentSubscription";
-import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { browserSessions } from "../utils/requestSafety";
 import { API_BASE_URL } from "../utils/api";
 
@@ -50,13 +48,6 @@ const formatDate = value => {
 
 const TalentEnquiries = () => {
   const { user } = useAuth();
-  const entitlement = useTalentSubscription();
-
-  const {
-    loading: entitlementLoading,
-    error: entitlementError,
-    refresh: refreshEntitlement,
-  } = entitlement;
 
   const actor =
     user?.userType === "talent"
@@ -69,8 +60,6 @@ const TalentEnquiries = () => {
       )?.token
     : null;
 
-  const paid = hasTalentPublicAccess(entitlement);
-
   const [filter, setFilter] = useState("all");
   const [enquiries, setEnquiries] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -82,6 +71,7 @@ const TalentEnquiries = () => {
   const [updatingId, setUpdatingId] = useState("");
   const [error, setError] = useState("");
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const sessionIsCurrent = useCallback(
     () =>
@@ -96,7 +86,7 @@ const TalentEnquiries = () => {
 
   const loadEnquiries = useCallback(
     async (signal) => {
-      if (!token || !paid || !sessionIsCurrent()) return;
+      if (!token || !sessionIsCurrent()) return;
 
       const { data } = await axios.get(
         `${API_BASE_URL}/api/talents/portfolio-enquiries`,
@@ -135,13 +125,19 @@ const TalentEnquiries = () => {
       setNextCursor(data.pagination.nextCursor || null);
       setHasMore(data.pagination.hasMore === true);
     },
-    [token, paid, filter, sessionIsCurrent]
+    [token, filter, sessionIsCurrent]
   );
 
   useEffect(() => {
-    if (entitlementLoading) return;
+    if (!actor) {
+      setEnquiries([]);
+      setUnreadCount(0);
+      setLoading(false);
+      setError("Please sign in with your Talent account to view your enquiries.");
+      return;
+    }
 
-    if (entitlementError || !paid || !token) {
+    if (!token || !sessionIsCurrent()) {
       setEnquiries([]);
       setUnreadCount(0);
       setLoading(false);
@@ -157,12 +153,19 @@ const TalentEnquiries = () => {
 
       try {
         await loadEnquiries(controller.signal);
+        setAccessDenied(false);
       } catch (err) {
+        if (cancelled || err.code === "ERR_CANCELED") return;
+
         if (
-          !cancelled &&
-          err.code !== "ERR_CANCELED" &&
-          sessionIsCurrent()
+          err.response?.status === 403 &&
+          err.response?.data?.code === "PAID_SUBSCRIPTION_REQUIRED"
         ) {
+          setAccessDenied(true);
+          setEnquiries([]);
+          setUnreadCount(0);
+          setError("");
+        } else if (sessionIsCurrent()) {
           setError(
             getErrorMessage(
               err,
@@ -182,9 +185,7 @@ const TalentEnquiries = () => {
       controller.abort();
     };
   }, [
-    entitlementLoading,
-    entitlementError,
-    paid,
+    actor,
     token,
     filter,
     refreshVersion,
@@ -306,37 +307,34 @@ const TalentEnquiries = () => {
     }
   };
 
-  if (entitlementLoading || loading) {
-    return (
-      <div className="flex min-h-64 items-center justify-center gap-3 text-gray-400">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading your enquiries...
-      </div>
-    );
-  }
-
-  if (entitlementError) {
+  if (loading) {
     return (
       <div className="p-4 md:p-6 lg:p-8">
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
-          <p className="text-sm text-red-300">
-            {entitlementError}
-          </p>
+        <header className="mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 rounded-full bg-blue-600" />
+            <h1 className="text-2xl font-semibold text-white md:text-3xl">
+              Talent Enquiries
+            </h1>
+          </div>
 
-          <button
-            type="button"
-            onClick={refreshEntitlement}
-            className={`${button} mt-4`}
-          >
-            <RefreshCw className="h-4 w-4" />
-            Try again
-          </button>
+          <p className="mt-3 text-sm leading-6 text-gray-400">
+            Manage messages submitted through your public Qnduit portfolio.
+          </p>
+        </header>
+
+        <div
+          role="status"
+          className="flex items-center justify-center gap-3 py-16 text-gray-400"
+        >
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading your enquiries...
         </div>
       </div>
     );
   }
 
-  if (!paid) {
+  if (accessDenied) {
     return (
       <div className="p-4 md:p-6 lg:p-8">
         <div className="rounded-xl border border-white/5 bg-[#1A1A1E] p-6">
@@ -362,7 +360,7 @@ const TalentEnquiries = () => {
           <div className="h-8 w-1 rounded-full bg-blue-600" />
 
           <h1 className="text-2xl font-semibold text-white md:text-3xl">
-            Enquiries
+            Talent Enquiries
           </h1>
         </div>
 
@@ -380,7 +378,10 @@ const TalentEnquiries = () => {
 
           <button
             type="button"
-            onClick={() => setRefreshVersion(value => value + 1)}
+            onClick={() => {
+              setAccessDenied(false);
+              setRefreshVersion(value => value + 1);
+            }}
             className={button}
           >
             <RefreshCw className="h-4 w-4" />
