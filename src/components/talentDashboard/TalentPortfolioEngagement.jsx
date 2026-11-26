@@ -16,8 +16,6 @@ import {
 import { toast } from "sonner";
 
 import { useAuth } from "../hooks/useAuth";
-import { useTalentSubscription } from "../hooks/useTalentSubscription";
-import { hasTalentPublicAccess } from "../utils/talentEntitlements";
 import { browserSessions } from "../utils/requestSafety";
 import { API_BASE_URL } from "../utils/api";
 
@@ -89,14 +87,6 @@ const TalentPortfolioEngagement = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const entitlement = useTalentSubscription();
-
-  const {
-    loading: entitlementLoading,
-    error: entitlementError,
-    refresh,
-  } = entitlement;
-
   const actor =
     user?.userType === "talent"
       ? `talent:${user.id || user._id}`
@@ -108,20 +98,23 @@ const TalentPortfolioEngagement = () => {
         )?.token
     : null;
 
-  const paid = hasTalentPublicAccess(entitlement);
-
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [savedSettings, setSavedSettings] = useState(null);
-
+  const [accessDenied, setAccessDenied] = useState(false);
   useEffect(() => {
-    if (entitlementLoading) return;
-
-    if (entitlementError || !paid || !token) {
+    if (!actor) {
       setLoadingSettings(false);
+      setError("Please sign in with your Talent account to manage portfolio engagement.");
+      return;
+    }
+
+    if (!token) {
+      setLoadingSettings(false);
+      setError("Your session could not be verified. Please sign in again.");
       return;
     }
 
@@ -181,6 +174,7 @@ const TalentPortfolioEngagement = () => {
                 : "contact",
             url: data.settings.primaryAction?.url || "",
           },
+
           booking: {
             enabled: data.settings.booking?.enabled === true,
             provider:
@@ -193,10 +187,20 @@ const TalentPortfolioEngagement = () => {
           },
         };
 
+        setAccessDenied(false);
         setSettings(next);
         setSavedSettings(JSON.stringify(next));
+
       } catch (err) {
-        if (!cancelled && err.code !== "ERR_CANCELED") {
+        if (cancelled || err.code === "ERR_CANCELED") return;
+
+        if (
+          err.response?.status === 403 &&
+          err.response?.data?.code === "PAID_SUBSCRIPTION_REQUIRED"
+        ) {
+          setAccessDenied(true);
+          setError("");
+        } else {
           setError(
             getErrorMessage(
               err,
@@ -215,13 +219,7 @@ const TalentPortfolioEngagement = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [
-    actor,
-    token,
-    paid,
-    entitlementLoading,
-    entitlementError,
-  ]);
+  }, [actor, token]);
 
   const updateField = (field, value) => {
     setSettings(previous => ({
@@ -305,7 +303,7 @@ const TalentPortfolioEngagement = () => {
   const saveSettings = async event => {
     event.preventDefault();
 
-    if (!paid || !token || !dirty || saving) return;
+    if (accessDenied || !token || !dirty || saving) return;
 
     setSaving(true);
     setError("");
@@ -372,7 +370,13 @@ const TalentPortfolioEngagement = () => {
       setNotice("Your portfolio engagement settings have been saved.");
       toast.success("Portfolio settings saved.");
     } catch (err) {
-      if (sessionIsCurrent()) {
+      if (
+        err.response?.status === 403 &&
+        err.response?.data?.code === "PAID_SUBSCRIPTION_REQUIRED"
+      ) {
+        setAccessDenied(true);
+        setError("");
+      } else if (sessionIsCurrent()) {
         setError(
           getErrorMessage(
             err,
@@ -385,36 +389,36 @@ const TalentPortfolioEngagement = () => {
     }
   };
 
-  if (entitlementLoading || loadingSettings) {
+  if (loadingSettings) {
     return (
-      <div className="flex min-h-64 items-center justify-center gap-3 text-gray-400">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading portfolio engagement settings...
-      </div>
-    );
-  }
+      <div className="p-4 md:p-6 lg:p-8 text-white">
+        <header className="mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 rounded-full bg-blue-600" />
 
-  if (entitlementError) {
-    return (
-      <div className="p-4 md:p-6 lg:p-8">
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
-          <p className="text-sm text-red-300">
-            {entitlementError}
+            <h1 className="text-2xl font-semibold md:text-3xl">
+              Portfolio Engagement
+            </h1>
+          </div>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-400">
+            Manage how employers, recruiters and visitors interact
+            with your public portfolio.
           </p>
+        </header>
 
-          <button
-            type="button"
-            onClick={refresh}
-            className={`${secondaryButton} mt-4`}
-          >
-            Try again
-          </button>
+        <div
+          role="status"
+          className="flex items-center justify-center gap-3 py-16 text-gray-400"
+        >
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading portfolio engagement settings...
         </div>
       </div>
     );
   }
 
-  if (!paid) {
+  if (accessDenied) {
     return (
       <div className="p-4 md:p-6 lg:p-8">
         <header className="mb-8">
@@ -470,25 +474,6 @@ const TalentPortfolioEngagement = () => {
         </p>
       </header>
 
-      {error && (
-        <div
-          role="alert"
-          className="mb-5 flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300"
-        >
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {notice && (
-        <div
-          role="status"
-          className="mb-5 flex items-start gap-3 rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-sm text-green-300"
-        >
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          {notice}
-        </div>
-      )}
 
       <form onSubmit={saveSettings} className="space-y-6">
 
@@ -881,6 +866,26 @@ const TalentPortfolioEngagement = () => {
 
           </div>
         </Section>
+
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300"
+          >
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {notice && (
+          <div
+            role="status"
+            className="mb-5 flex items-start gap-3 rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-sm text-green-300"
+          >
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            {notice}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-gray-500">

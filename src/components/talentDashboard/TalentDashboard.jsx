@@ -21,7 +21,8 @@ import {
   Search,
   Globe,
   Settings2,
-  Inbox
+  Inbox,
+  BarChart3
 } from "lucide-react";
 import Meeting from "./TalentMeeting";
 import ChangePassword from "../employerDashboard/ChangePassword";
@@ -47,69 +48,140 @@ import TalentCustomDomain from "./TalentCustomDomain";
 import TalentPortfolioEngagement from "./TalentPortfolioEngagement";
 import TalentEnquiries from "./TalentEnquiries";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/talent-dashboard" },
-  { icon: LayoutDashboard, label: "Portfolio Analytics", path: "/talent-dashboard/portfolio-analytics" },
-  { icon: User, label: "Portfolio Appearance", path: "/talent-dashboard/portfolio-appearance" },
-  {
-    icon: Settings2,
-    label: "Portfolio Engagement",
-    path: "/talent-dashboard/portfolio-engagement",
-  },
-  {
-    icon: Inbox,
-    label: "Enquiries",
-    path: "/talent-dashboard/enquiries",
-  },
-  {
-    icon: Globe,
-    label: "Custom Domain",
-    path: "/talent-dashboard/custom-domain",
-  },
-  { icon: User, label: "Profile", path: "/talent-dashboard/profile" },
-  { icon: Search, label: "Explore Jobs", path: "/talent-dashboard/explore" },
-  {
-    icon: Users,
-    label: "Profile Views",
-    path: "/talent-dashboard/profile-views",
-  },
-  { icon: FileText, label: "Resumes", path: "/talent-dashboard/resumes" },
 
+const menuItems = [
   {
-    icon: Briefcase,
-    label: "My Applied",
-    path: "/talent-dashboard/my-applied",
-  },
-  { icon: Bookmark, label: "Saved Jobs", path: "/talent-dashboard/saved-jobs" },
-  {
-    icon: MessageSquare,
-    label: "Messages",
-    path: "/talent-dashboard/messages",
-  },
-  {
-    icon: Users,
-    label: "Following Employers",
-    path: "/talent-dashboard/following-employers",
+    group: "Overview",
+    items: [
+      {
+        icon: LayoutDashboard,
+        label: "Dashboard",
+        path: "/talent-dashboard",
+      },
+    ],
   },
   {
-    icon: Package,
-    label: "My Packages",
-    path: "/talent-dashboard/my-plan",
+    group: "My Portfolio",
+    items: [
+      {
+        icon: User,
+        label: "Profile",
+        path: "/talent-dashboard/profile",
+      },
+      {
+        icon: User,
+        label: "Portfolio Appearance",
+        path: "/talent-dashboard/portfolio-appearance",
+      },
+      {
+        icon: Settings2,
+        label: "Portfolio Engagement",
+        path: "/talent-dashboard/portfolio-engagement",
+      },
+      {
+        icon: Inbox,
+        label: "Talent Enquiries",
+        path: "/talent-dashboard/enquiries",
+      },
+      {
+        icon: BarChart3,
+        label: "Portfolio Analytics",
+        path: "/talent-dashboard/portfolio-analytics",
+      },
+      {
+        icon: Users,
+        label: "Profile Views",
+        path: "/talent-dashboard/profile-views",
+      },
+      {
+        icon: FileText,
+        label: "Resumes",
+        path: "/talent-dashboard/resumes",
+      },
+      {
+        icon: Globe,
+        label: "Custom Domain",
+        path: "/talent-dashboard/custom-domain",
+      },
+    ],
   },
-  { icon: Video, label: "Meeting", path: "/talent-dashboard/meeting" },
-  { icon: LifeBuoy, label: "Support", path: "/talent-dashboard/support" },
   {
-    icon: Lock,
-    label: "Change Passwords",
-    path: "/talent-dashboard/change-passwords",
+    group: "Find Opportunities",
+    items: [
+      {
+        icon: Search,
+        label: "Explore Jobs",
+        path: "/talent-dashboard/explore",
+      },
+      {
+        icon: Briefcase,
+        label: "My Applied",
+        path: "/talent-dashboard/my-applied",
+      },
+      {
+        icon: Bookmark,
+        label: "Saved Jobs",
+        path: "/talent-dashboard/saved-jobs",
+      },
+      {
+        icon: Users,
+        label: "Following Employers",
+        path: "/talent-dashboard/following-employers",
+      },
+    ],
   },
   {
-    icon: Trash2,
-    label: "Delete Profile",
-    path: "/talent-dashboard/delete-profile",
+    group: "Communication",
+    items: [
+      {
+        icon: MessageSquare,
+        label: "Messages",
+        path: "/talent-dashboard/messages",
+      },
+      {
+        icon: Video,
+        label: "Meetings",
+        path: "/talent-dashboard/meeting",
+      },
+    ],
   },
-  { icon: LogOut, label: "Log Out", path: "/signin" },
+  {
+    group: "Account & Billing",
+    items: [
+      {
+        icon: Package,
+        label: "My Packages",
+        path: "/talent-dashboard/my-plan",
+      },
+    ],
+  },
+  {
+    group: "Help & Settings",
+    items: [
+      {
+        icon: LifeBuoy,
+        label: "Support",
+        path: "/talent-dashboard/support",
+      },
+      {
+        icon: Lock,
+        label: "Change Password",
+        path: "/talent-dashboard/change-passwords",
+      },
+      {
+        icon: Trash2,
+        label: "Delete Profile",
+        path: "/talent-dashboard/delete-profile",
+      },
+      {
+        icon: LogOut,
+        label: "Log Out",
+        path: "/signin",
+      },
+    ],
+  },
 ];
+
 
 export const TalentDashboard = () => {
   return (

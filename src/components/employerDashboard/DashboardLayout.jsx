@@ -250,8 +250,76 @@ export const DashboardLayout = ({
     { icon: LogOut, label: "Log Out", path: "/signin" },
   ];
 
+    
   const handleLogout = async () => await signOut();
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
+  const renderSidebarItem = (item) => {
+    const Icon = item.icon;
+    const dashboardPath =
+      userType === "talent" ? "/talent-dashboard" : "/dashboard";
+
+    const isActive =
+      location.pathname === item.path ||
+      (item.path !== dashboardPath &&
+        location.pathname.startsWith(`${item.path}/`));
+
+    if (item.label === "Log Out") {
+      return (
+        <button
+          key={item.path}
+          onClick={() => {
+            setSidebarOpen(false);
+            handleLogout();
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <Icon className="w-5 h-5" />
+          <span className="text-sm font-medium">{item.label}</span>
+        </button>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        title={
+          item.path.endsWith("/messages")
+            ? messaging.error ||
+              (messaging.enabled === false
+                ? "Unread tracking is not enabled."
+                : undefined)
+            : undefined
+        }
+        onClick={() => setSidebarOpen(false)}
+        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+          isActive
+            ? "bg-blue-600/10 text-blue-500"
+            : "text-gray-400 hover:text-white hover:bg-white/5"
+        }`}
+      >
+        <Icon className="w-5 h-5" />
+
+        <span className="text-sm font-medium">{item.label}</span>
+
+        {item.path.endsWith("/messages") && messaging.total > 0 && (
+          <span
+            className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white"
+            title={messaging.error || "Unread messages"}
+            aria-label={`${messaging.total} unread messages`}
+          >
+            {messaging.total}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
+  const isGroupedMenu = defaultMenuItems.some(
+    (item) => Array.isArray(item.items)
+  );
+
 
   useEffect(() => {
     if (!sidebarOpen) return undefined;
@@ -490,58 +558,23 @@ export const DashboardLayout = ({
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           } lg:translate-x-0 w-64 overflow-y-auto dash-sidebar-scroll`}
         >
-          <nav className="p-4 space-y-1">
-            {defaultMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+          
+          <nav className="p-4 space-y-5">
+            {isGroupedMenu
+              ? defaultMenuItems.map((group) => (
+                  <section key={group.group}>
+                    <h2 className="px-4 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">
+                      {group.group}
+                    </h2>
 
-              if (item.label === "Log Out") {
-                return (
-                  <button
-                    key={item.path}
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </button>
-                );
-              }
-
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={
-                    item.path.endsWith("/messages")
-                      ? messaging.error ||
-                        (messaging.enabled === false
-                          ? "Unread tracking is not enabled."
-                          : undefined)
-                      : undefined
-                  }
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-blue-600/10 text-blue-500"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {item.path.endsWith("/messages") && messaging.total > 0 && (
-                    <span
-                      className="ml-auto rounded-full bg-red-500 px-1.5 text-xs text-white"
-                      title={messaging.error || "Unread messages"}
-                      aria-label={`${messaging.total} unread messages`}
-                    >
-                      {messaging.total}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
+                    <div className="space-y-1">
+                      {group.items.map(renderSidebarItem)}
+                    </div>
+                  </section>
+                ))
+              : defaultMenuItems.map(renderSidebarItem)}
           </nav>
+
         </aside>
 
         {sidebarOpen && (
