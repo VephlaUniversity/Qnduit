@@ -34,6 +34,34 @@ const portfolioPrimaryActionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const portfolioBookingSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    provider: {
+      type: String,
+      enum: ["calendly", "cal.com"],
+      default: "calendly",
+    },
+    label: {
+      type: String,
+      trim: true,
+      minlength: 2,
+      maxlength: 40,
+      default: "Book an Interview",
+    },
+    url: {
+      type: String,
+      trim: true,
+      maxlength: 2048,
+      default: "",
+    },
+  },
+  { _id: false }
+);
+
 const portfolioEngagementSchema = new mongoose.Schema(
   {
     contactFormEnabled: {
@@ -53,6 +81,10 @@ const portfolioEngagementSchema = new mongoose.Schema(
     },
     primaryAction: {
       type: portfolioPrimaryActionSchema,
+      default: () => ({}),
+    },
+    booking: {
+      type: portfolioBookingSchema,
       default: () => ({}),
     },
   },

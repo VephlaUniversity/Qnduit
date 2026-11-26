@@ -5,6 +5,7 @@ import axios from "axios";
 import {
   AlertCircle,
   Briefcase,
+  CalendarDays,
   CheckCircle2,
   ExternalLink,
   Loader2,
@@ -39,6 +40,12 @@ const DEFAULT_SETTINGS = {
     enabled: false,
     label: "Contact Me",
     type: "contact",
+    url: "",
+  },
+  booking: {
+    enabled: false,
+    provider: "calendly",
+    label: "Book an Interview",
     url: "",
   },
 };
@@ -174,6 +181,16 @@ const TalentPortfolioEngagement = () => {
                 : "contact",
             url: data.settings.primaryAction?.url || "",
           },
+          booking: {
+            enabled: data.settings.booking?.enabled === true,
+            provider:
+              data.settings.booking?.provider === "cal.com"
+                ? "cal.com"
+                : "calendly",
+            label:
+              data.settings.booking?.label || "Book an Interview",
+            url: data.settings.booking?.url || "",
+          },
         };
 
         setSettings(next);
@@ -222,6 +239,18 @@ const TalentPortfolioEngagement = () => {
         [field]: value,
       },
     }));
+    setNotice("");
+  };
+
+  const updateBooking = (field, value) => {
+    setSettings(previous => ({
+      ...previous,
+      booking: {
+        ...previous.booking,
+        [field]: value,
+      },
+    }));
+
     setNotice("");
   };
 
@@ -325,6 +354,16 @@ const TalentPortfolioEngagement = () => {
               ? "external"
               : "contact",
           url: data.settings.primaryAction?.url || "",
+        },
+        booking: {
+          enabled: data.settings.booking?.enabled === true,
+          provider:
+            data.settings.booking?.provider === "cal.com"
+              ? "cal.com"
+              : "calendly",
+          label:
+            data.settings.booking?.label || "Book an Interview",
+          url: data.settings.booking?.url || "",
         },
       };
 
@@ -697,6 +736,149 @@ const TalentPortfolioEngagement = () => {
                 </p>
               )}
             </div>
+          </div>
+        </Section>
+
+        <Section
+          icon={CalendarDays}
+          title="External Booking"
+          description="Allow employers and visitors to schedule an interview or meeting with you through Calendly or Cal.com."
+        >
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={settings.booking.enabled}
+              onChange={event =>
+                updateBooking("enabled", event.target.checked)
+              }
+              className="mt-1 h-4 w-4 accent-blue-600"
+            />
+
+            <span>
+              <span className="block text-sm font-medium text-white">
+                Enable booking button
+              </span>
+
+              <span className="mt-1 block text-sm text-gray-400">
+                Display a booking button on your public portfolio.
+              </span>
+            </span>
+          </label>
+
+          <div className="mt-6 space-y-5">
+
+            <div>
+              <label
+                htmlFor="booking-provider"
+                className="mb-2 block text-sm font-medium text-gray-300"
+              >
+                Booking provider
+              </label>
+
+              <select
+                id="booking-provider"
+                value={settings.booking.provider}
+                onChange={event =>
+                  updateBooking("provider", event.target.value)
+                }
+                className={control}
+              >
+                <option value="calendly">Calendly</option>
+                <option value="cal.com">Cal.com</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="booking-label"
+                className="mb-2 block text-sm font-medium text-gray-300"
+              >
+                Booking button text
+              </label>
+
+              <input
+                id="booking-label"
+                type="text"
+                value={settings.booking.label}
+                onChange={event =>
+                  updateBooking("label", event.target.value)
+                }
+                minLength={2}
+                maxLength={40}
+                placeholder="Book an Interview"
+                className={control}
+              />
+
+              <p className="mt-2 text-xs text-gray-500">
+                This text will appear on your public portfolio.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="booking-url"
+                className="mb-2 block text-sm font-medium text-gray-300"
+              >
+                Booking URL
+              </label>
+
+              <input
+                id="booking-url"
+                type="url"
+                inputMode="url"
+                autoComplete="url"
+                value={settings.booking.url}
+                onChange={event =>
+                  updateBooking("url", event.target.value)
+                }
+                maxLength={2048}
+                placeholder={
+                  settings.booking.provider === "cal.com"
+                    ? "https://cal.com/yourname/30min"
+                    : "https://calendly.com/yourname/interview"
+                }
+                className={control}
+              />
+
+              <p className="mt-2 text-xs leading-5 text-gray-500">
+                Paste your public scheduling link from the selected provider.
+                Only valid HTTPS links from Calendly or Cal.com are accepted.
+              </p>
+            </div>
+
+            {settings.booking.enabled && !settings.booking.url.trim() && (
+              <p className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 text-sm text-yellow-300">
+                Add your booking URL before saving this feature as enabled.
+              </p>
+            )}
+
+            <div className="rounded-lg border border-white/10 bg-[#202024] p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                Button preview
+              </p>
+
+              {settings.booking.enabled ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white opacity-90"
+                >
+                  {settings.booking.label || "Book an Interview"}
+                  <CalendarDays className="h-4 w-4" />
+                </button>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Enable booking to display its button on your public portfolio.
+                </p>
+              )}
+            </div>
+
+            <p className="text-xs leading-5 text-gray-500">
+              Visitors will complete their bookings through your selected
+              scheduling provider. QNDUIT does not manage your calendar,
+              available time slots or booking confirmations.
+            </p>
+
           </div>
         </Section>
 
