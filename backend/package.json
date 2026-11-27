@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
+    "start:bundle": "node dist/server.js",
     "dev": "nodemon src/server.js",
-    "build": "esbuild src/server.js --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",    
+    "build": "node scripts/check-package.js",
+    "build:bundle": "esbuild src/server.js --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
