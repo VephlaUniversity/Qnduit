@@ -27,6 +27,15 @@ import {
   updateTalentEnquiryStatus,
   submitPublicTalentEnquiry,
 } from "../controllers/talentPortfolioEngagementController.js";
+import {
+  getTalentPortfolioVersions,
+  getPortfolioVersionProjects,
+  createTalentPortfolioVersion,
+  updateTalentPortfolioVersion,
+  publishTalentPortfolioVersion,
+  unpublishTalentPortfolioVersion,
+  deleteTalentPortfolioVersion,
+} from "../controllers/talentPortfolioVersionController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -130,6 +139,57 @@ router.patch(
 router.post(
   "/public/:username/enquiries",
   submitPublicTalentEnquiry
+);
+
+// Paid Targeted Portfolio Versions
+
+router.get(
+  "/portfolio-versions",
+  protect,
+  authorize("talent"),
+  getTalentPortfolioVersions
+);
+
+router.get(
+  "/portfolio-versions/projects",
+  protect,
+  authorize("talent"),
+  getPortfolioVersionProjects
+);
+
+router.post(
+  "/portfolio-versions",
+  protect,
+  authorize("talent"),
+  createTalentPortfolioVersion
+);
+
+router.patch(
+  "/portfolio-versions/:id",
+  protect,
+  authorize("talent"),
+  updateTalentPortfolioVersion
+);
+
+router.post(
+  "/portfolio-versions/:id/publish",
+  protect,
+  authorize("talent"),
+  publishTalentPortfolioVersion
+);
+
+router.post(
+  "/portfolio-versions/:id/unpublish",
+  protect,
+  authorize("talent"),
+  unpublishTalentPortfolioVersion
+);
+
+router.delete(
+  "/portfolio-versions/:id",
+  protect,
+  authorize("talent"),
+  deleteTalentPortfolioVersion
 );
 
 export default router;
