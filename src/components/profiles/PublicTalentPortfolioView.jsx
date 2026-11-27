@@ -159,11 +159,29 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
   } : themeStyles;
   const hiddenSections = new Set(talent.layout?.hiddenSections || []);
   const { section: sectionClass, heading: headingClass, text: textClass } = styles;
-  const name = talent.fullName || "Talent", skills = talent.skills || [], tags = talent.tags || [];
+  const portfolioVersion = talent.portfolioVersion;
+
+  const name = talent.fullName || "Talent";
+  const displayedJobTitle =
+    portfolioVersion?.targetRole || talent.jobTitle;
+
+  const introduction =
+    portfolioVersion
+      ? portfolioVersion.introduction
+      : talent.aboutMe;
+
+  const skills = talent.skills || [];
+  const tags = talent.tags || [];
   const levels = skills.filter(row => Number.isFinite(row.percent));
   const rated = new Set(levels.map(row => row.title.toLowerCase()));
   const labels = [...new Set([...skills.filter(row => !Number.isFinite(row.percent)).map(row => row.title), ...tags])].filter(label => !rated.has(label.toLowerCase()));
-  const projects = publicPortfolioProjects(talent);
+  const allProjects = publicPortfolioProjects(talent);
+
+  const projects = Array.isArray(portfolioVersion?.projectKeys)
+    ? portfolioVersion.projectKeys
+        .map(key => allProjects.find(project => project.key === key))
+        .filter(Boolean)
+    : allProjects;
   const requestedProjectLayout = talent.layout?.projectLayout;
   const projectLayout = requestedProjectLayout === "featured" && !projects.some(item => item.featured === true)
     ? "grid" : ["grid", "list", "featured"].includes(requestedProjectLayout) ? requestedProjectLayout : null;
@@ -228,7 +246,20 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
     );
 
   const sections = {
-    about: talent.aboutMe && <section className={styles.about} aria-label="About"><h2 className={headingClass}>About</h2><JobDescriptionText value={talent.aboutMe} className={textClass} /></section>,
+    about: introduction && (
+      <section
+        className={styles.about}
+        aria-label={portfolioVersion ? "Introduction" : "About"}
+      >
+        <h2 className={headingClass}>
+          {portfolioVersion ? "Introduction" : "About"}
+        </h2>
+        <JobDescriptionText
+          value={introduction}
+          className={textClass}
+        />
+      </section>
+    ),
     skills: (levels.length > 0 || labels.length > 0) && <section className={styles.skills} aria-label="Skills"><h2 className={headingClass}>Skills</h2>{levels.length > 0 && <div className="[&_ul]:grid-cols-1"><SkillBars skills={levels} /></div>}{labels.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{labels.map(label => <span key={label} className="max-w-full break-words rounded-full bg-blue-500/10 px-3 py-1.5 text-xs text-blue-300">{label}</span>)}</div>}</section>,
     links: (portfolioUrl || socials.length > 0) && <nav aria-label="Talent links" className={`${styles.links} flex flex-wrap gap-2`}>{portfolioUrl && <a className={buttonClass} href={portfolioUrl} target="_blank" rel="noopener noreferrer">Portfolio<ExternalLink className="h-3.5 w-3.5" /></a>}{socials.map(([label, url]) => <a key={label} className={`${buttonClass} capitalize`} href={publicExternalUrl(url)} target="_blank" rel="noopener noreferrer">{label}<ExternalLink className="h-3.5 w-3.5" /></a>)}</nav>,
     projects: <>{projects.length === 0 && <section data-portfolio-surface={styles.surface} className={`${sectionClass} ${styles.projects}`} aria-label="Projects"><h2 className={headingClass}>Projects</h2><p className={textClass}>No projects to display yet.</p></section>}
@@ -312,8 +343,25 @@ export default function PublicTalentPortfolioView({ talent, onEvent }) {
       <aside data-portfolio-surface={styles.surface} className={`${sectionClass} min-w-0 ${styles.identity}`} aria-label="Talent identity and skills">
         <div className={styles.introduction}>
         <PublicTalentImage src={talent.avatar} alt={`${name} profile`} avatar className="mb-5 h-24 w-24 rounded-full border border-white/10" />
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-blue-400">Talent on QNDUIT</p><h1 className={`break-words [overflow-wrap:anywhere] ${styles.name}`}>{name}</h1>
-        {talent.jobTitle && <p className="mt-3 break-words text-base text-gray-300">{talent.jobTitle}</p>}
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-blue-400">
+          Talent on QNDUIT
+        </p>
+
+        {portfolioVersion?.title && (
+          <p className="mb-2 text-sm font-semibold text-blue-300">
+            {portfolioVersion.title}
+          </p>
+        )}
+
+        <h1 className={`break-words [overflow-wrap:anywhere] ${styles.name}`}>
+          {name}
+        </h1>
+
+        {displayedJobTitle && (
+          <p className="mt-3 break-words text-base text-gray-300">
+            {displayedJobTitle}
+          </p>
+        )}
         {availability.length > 0 && (
           <div
             className="mt-4 flex flex-wrap gap-2"

@@ -35,6 +35,7 @@ import {
   publishTalentPortfolioVersion,
   unpublishTalentPortfolioVersion,
   deleteTalentPortfolioVersion,
+  getPublicTalentPortfolioVersion,
 } from "../controllers/talentPortfolioVersionController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -190,6 +191,11 @@ router.delete(
   protect,
   authorize("talent"),
   deleteTalentPortfolioVersion
+);
+
+router.get(
+  "/public/:username/portfolio-versions/:slug",
+  getPublicTalentPortfolioVersion
 );
 
 export default router;

@@ -424,10 +424,16 @@ const TalentPortfolioEngagement = () => {
         <header className="mb-8">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 rounded-full bg-blue-600" />
-            <h1 className="text-2xl font-semibold text-white md:text-3xl">
+
+            <h1 className="text-2xl font-semibold md:text-3xl">
               Portfolio Engagement
             </h1>
           </div>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-400">
+            Manage how employers, recruiters and visitors interact
+            with your public portfolio.
+          </p>
         </header>
 
         <section className="rounded-xl border border-white/5 bg-[#1A1A1E] p-6 md:p-8">
@@ -565,7 +571,7 @@ const TalentPortfolioEngagement = () => {
         <Section
           icon={ExternalLink}
           title="Primary Portfolio Action"
-          description="Customise the main action visitors see instead of the free Qnduit registration button."
+          description="Customise the main action button your visitors see."
         >
           <label className="flex cursor-pointer items-start gap-3">
             <input

@@ -16,6 +16,27 @@ import {
   validatePortfolioVersionProjects,
 } from "../utils/talentPortfolioVersions.js";
 
+import {
+  PUBLIC_TALENT_FIELDS,
+  PUBLIC_RESUME_FIELDS,
+  publicTalentProfileDto,
+  resolvePortfolioCover,
+} from "../utils/publicTalentProfile.js";
+
+import { normalizePortfolioImages } from "../utils/resumePortfolio.js";
+
+import {
+  resolvePortfolioBackground,
+  resolvePortfolioColors,
+  resolvePortfolioFont,
+  resolvePortfolioTheme,
+} from "../utils/portfolioAppearance.js";
+
+import {
+  publicAnalyticsPolicy,
+  analyticsProjectKey,
+} from "../utils/portfolioAnalytics.js";
+
 const validId = value =>
   typeof value === "string" && /^[a-f\d]{24}$/i.test(value);
 
@@ -509,3 +530,181 @@ export const deleteTalentPortfolioVersion = async (req, res, next) => {
     next(error);
   }
 };
+
+// --------------------------------------------------
+// GET PORTFOLIO VERSION
+// --------------------------------------------------
+export const getPublicTalentPortfolioVersion = async (req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
+
+  try {
+    const { username, slug } = req.params;
+
+    if (
+      typeof username !== "string" ||
+      typeof slug !== "string" ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(slug)
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Portfolio version not found.",
+      });
+    }
+
+    const published = await findPublishedPortfolio(
+      username,
+      PUBLIC_TALENT_FIELDS
+    );
+
+    if (
+      !published ||
+      published.publication.subscriptionStatus?.eligibility
+        ?.talentPublicProfile !== true
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Portfolio version not found.",
+      });
+    }
+
+    const { talent, publication } = published;
+
+    const version = await TalentPortfolioVersion.findOne({
+      talent: talent._id,
+      slug: slug.toLowerCase(),
+      status: "published",
+    }).lean();
+
+    if (!version) {
+      return res.status(404).json({
+        success: false,
+        message: "Portfolio version not found.",
+      });
+    }
+
+    const resume = await Resume.findOne({
+      talent: talent._id,
+    })
+      .select(PUBLIC_RESUME_FIELDS)
+      .lean();
+
+    const talentRows = Array.isArray(talent.portfolio)
+      ? talent.portfolio
+      : [];
+
+    const resumeRows = normalizePortfolioImages(
+      resume?.portfolioImages || [],
+      talent._id
+    );
+
+    const selectedTalentRows = [];
+    const selectedResumeRows = [];
+    const publicProjectKeys = [];
+    const identityByRow = new WeakMap();
+
+    for (const reference of version.selectedProjects || []) {
+      const sourceRows = reference.source === "talent"
+        ? talentRows
+        : reference.source === "resume"
+          ? resumeRows
+          : [];
+
+      const matches = sourceRows.filter(row => {
+        if (!row || typeof row !== "object") return false;
+
+        if (reference.identityType === "portfolioItemId") {
+          return reference.source === "talent" &&
+            row.portfolioItemId === reference.projectId;
+        }
+
+        if (reference.identityType === "subdocumentId") {
+          return String(row._id || "") === reference.projectId;
+        }
+
+        return false;
+      });
+
+      if (matches.length !== 1) continue;
+
+      const row = matches[0];
+      const identity = `${reference.identityType}:${reference.projectId}`;
+
+      identityByRow.set(row, identity);
+
+      if (reference.source === "talent") {
+        selectedTalentRows.push(row);
+      } else {
+        selectedResumeRows.push(row);
+      }
+
+      publicProjectKeys.push(`${reference.source}:${identity}`);
+    }
+
+    const versionTalent = {
+      ...talent,
+      portfolio: selectedTalentRows,
+    };
+
+    const versionResume = {
+      ...(resume || {}),
+      portfolioImages: selectedResumeRows,
+    };
+
+    const subscriptionStatus = publication.subscriptionStatus;
+
+    const publicTalent = publicTalentProfileDto(
+      versionTalent,
+      versionResume,
+      {
+        subscriptionStatus,
+        theme: resolvePortfolioTheme(
+          talent.portfolioAppearance?.theme,
+          subscriptionStatus
+        ),
+        colors: resolvePortfolioColors(
+          talent.portfolioAppearance,
+          subscriptionStatus
+        ),
+        font: resolvePortfolioFont(
+          talent.portfolioAppearance,
+          subscriptionStatus
+        ),
+        backgroundColor: resolvePortfolioBackground(
+          talent.portfolioAppearance,
+          subscriptionStatus
+        ),
+        cover: resolvePortfolioCover(
+          talent.portfolioAppearance,
+          subscriptionStatus,
+          talent._id
+        ),
+        paidPortfolio: true,
+        preserveProjectRows: true,
+        analyticsKey: analyticsProjectKey,
+
+        projectKey: (source, row) =>
+          identityByRow.get(row) || `unavailable:${source}`,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      talent: {
+        ...publicTalent,
+        portfolioVersion: {
+          title: version.title,
+          targetRole: version.targetRole,
+          introduction: version.introduction,
+          projectKeys: publicProjectKeys,
+        },
+        analyticsPolicy: publicAnalyticsPolicy(),
+        requiresQnduitBranding:
+          publication.publicPortfolio.requiresQnduitBranding,
+        cvs: [],
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

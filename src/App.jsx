@@ -73,6 +73,7 @@ import ProfileViewHistory from "./components/profiles/ProfileViewHistory";
 import PublicTalentProfile from "./components/profiles/PublicTalentProfile";
 import TalentDirectory from "./components/pages/TalentDirectory";
 import ExternalApplicationLaunch from "./components/jobs/ExternalApplicationLaunch";
+import PublicTalentPortfolioVersion from "./components/profiles/PublicTalentPortfolioVersion";
 
 const AppContent = () => {
   const location = useLocation();
@@ -107,7 +108,9 @@ const AppContent = () => {
 
   const isPublicTalentProfile =
     (publicTalentProfileRegex.test(location.pathname) &&
-    !reservedRoutes.has(location.pathname)) || /^\/[^/]+\/cv\/[^/]+\/?$/.test(location.pathname);
+    !reservedRoutes.has(location.pathname)) ||
+    /^\/[^/]+\/cv\/[^/]+\/?$/.test(location.pathname) ||
+    /^\/portfolio\/[^/]+\/[^/]+\/?$/.test(location.pathname);
 
   const isAuthPage = location.pathname.startsWith("/external-apply/") ||
     [
@@ -186,6 +189,10 @@ const AppContent = () => {
           <Route path="/jobs" element={<JobManager />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
           <Route path="/external-apply/:source/:jobId" element={<ExternalApplicationLaunch key={location.key} />} />
+          <Route
+            path="/portfolio/:username/:slug"
+            element={<PublicTalentPortfolioVersion />}
+          />
           <Route path="/:username" element={<PublicTalentProfile />} />
           <Route path="/:username/cv/:cvId" element={<PublicTalentCv />} />
           {/* SignIn/SignUp */}

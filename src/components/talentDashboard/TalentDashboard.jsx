@@ -47,6 +47,7 @@ import ExploreJobs from "./ExploreJobs";
 import TalentCustomDomain from "./TalentCustomDomain";
 import TalentPortfolioEngagement from "./TalentPortfolioEngagement";
 import TalentEnquiries from "./TalentEnquiries";
+import TalentPortfolioVersions from "./TalentPortfolioVersions";
 
 
 const menuItems = [
@@ -102,6 +103,11 @@ const menuItems = [
         icon: Globe,
         label: "Custom Domain",
         path: "/talent-dashboard/custom-domain",
+      },
+      {
+        icon: Globe,
+        label: "Targeted Portfolio Versions",
+        path: "/talent-dashboard/portfolio-versions",
       },
     ],
   },
@@ -219,6 +225,10 @@ export const TalentDashboard = () => {
         <Route
           path="enquiries"
           element={<TalentEnquiries />}
+        />
+        <Route
+          path="portfolio-versions"
+          element={<TalentPortfolioVersions />}
         />
       </Routes>
     </DashboardLayout>

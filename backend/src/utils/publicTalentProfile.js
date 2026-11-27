@@ -139,7 +139,7 @@ export function publicPortfolioProjects(talent) {
   ].sort((a, b) => Number(b.featured === true) - Number(a.featured === true));
 }
 
-export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey, theme = "default", colors, font = null, backgroundColor, cover = null, subscriptionStatus } = {}) {
+export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, projectKey, analyticsKey, theme = "default", colors, font = null, backgroundColor, cover = null, subscriptionStatus, preserveProjectRows = false, } = {}) {
   const card = publicTalentCard(talent, resume);
   const experienceSource = resume && Object.hasOwn(resume, "experience") ? resume.experience : talent.experience;
   const history = (items, owner) => list(items).slice(0, 50).map(row => ({
@@ -178,7 +178,13 @@ export function publicTalentProfileDto(talent, resume, { paidPortfolio = false, 
     images.add(row.imageUrl);
     return true;
   };
-  const portfolio = portfolioRows.filter(retainProject), gallery = galleryRows.filter(retainProject);
+  const portfolio = preserveProjectRows
+    ? portfolioRows
+    : portfolioRows.filter(retainProject);
+
+  const gallery = preserveProjectRows
+    ? galleryRows
+    : galleryRows.filter(retainProject);
   // The caller supplies only the authoritative publication entitlement. Unknown
   // eligibility gets the free display allowance; stored arrays remain untouched.
   // Cap after deduplication, in the same Talent-first order as the public UI.
